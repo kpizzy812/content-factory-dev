@@ -1,0 +1,46 @@
+[
+  {
+    "username": "testuser_ig",
+    "followersCount": 25000,
+    "followsCount": 320,
+    "postsCount": 87,
+    "biography": "Bio Instagram пользователя",
+    "profilePicUrl": "https://example.com/ig-avatar.jpg",
+    "verified": false,
+    "latestPosts": [
+      {
+        "id": "ig_post_1",
+        "shortCode": "ABC123",
+        "url": "https://instagram.com/p/ABC123/",
+        "displayUrl": "https://example.com/ig-thumb-1.jpg",
+        "videoViewCount": 500,
+        "likesCount": 50,
+        "commentsCount": 5,
+        "timestamp": "2026-05-10T12:00:00.000Z",
+        "caption": "Caption первого поста"
+      },
+      {
+        "id": "ig_post_2",
+        "shortCode": "DEF456",
+        "url": "https://instagram.com/p/DEF456/",
+        "displayUrl": "https://example.com/ig-thumb-2.jpg",
+        "videoViewCount": 800,
+        "likesCount": 90,
+        "commentsCount": 10,
+        "timestamp": "2026-05-12T12:00:00.000Z",
+        "caption": "Caption второго поста"
+      },
+      {
+        "id": "ig_post_3",
+        "shortCode": "GHI789",
+        "url": "https://instagram.com/p/GHI789/",
+        "displayUrl": "https://example.com/ig-thumb-3.jpg",
+        "videoViewCount": 1200,
+        "likesCount": 150,
+        "commentsCount": 20,
+        "timestamp": "2026-05-15T12:00:00.000Z",
+        "caption": "Caption третьего поста"
+      }
+    ]
+  }
+]

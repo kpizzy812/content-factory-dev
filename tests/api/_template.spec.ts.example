@@ -1,0 +1,91 @@
+/**
+ * Шаблон API contract-теста для нового feature.
+ *
+ * Как пользоваться:
+ *   1. Скопировать как tests/api/{feature}-{aspect}.spec.ts
+ *      (например: tests/api/uploads-security.spec.ts).
+ *      Vitest подхватит файл автоматически (паттерн **\/*.{test,spec}.ts).
+ *      Расширение .ts.example у этого шаблона ИГНОРИРУЕТСЯ vitest'ом.
+ *   2. Заменить FEATURE / fixtures / shape под свой эндпоинт.
+ *   3. Минимум для нового эндпоинта (см. docs/architecture/testing.md):
+ *        - happy path (201/200 + правильный shape ответа);
+ *        - auth (без TEST_AUTH_BYPASS-заголовков → 401);
+ *        - validation (минимум один пример 400);
+ *      Если эндпоинт читает/пишет secret-поля — добавить *-security.spec.ts:
+ *        - не отдаёт plain секреты в list/detail;
+ *        - reveal-эндпоинт пишет SecretAccessLog;
+ *        - валидирует поле reason (если применимо).
+ *
+ * @vitest-environment node
+ */
+import { describe, it, expect } from "vitest"
+import { setup, $fetch } from "@nuxt/test-utils/e2e"
+import { createTestUser, authHeaders } from "../helpers/auth"
+// import { createTestApp, createTestProxy, createTestSocialAccount } from "../helpers/factories"
+import { nuxtTestEnv } from "../helpers/nuxt-env"
+// import { prisma } from "../../server/utils/prisma"
+
+await setup({ dev: true, server: true, browser: false, env: nuxtTestEnv })
+
+describe("FEATURE: краткое описание", () => {
+  describe("GET /api/{path}", () => {
+    it("возвращает ожидаемый shape", async () => {
+      const user = await createTestUser({ canAdmin: true })
+      const res = await $fetch<{ data: unknown }>("/api/{path}", {
+        headers: authHeaders(user.id),
+      })
+      expect(res).toBeTruthy()
+      expect(res.data).toBeDefined()
+    })
+
+    it("без auth → 401", async () => {
+      await expect($fetch("/api/{path}")).rejects.toMatchObject({ statusCode: 401 })
+    })
+
+    it("не утекает секреты (если применимо)", async () => {
+      const user = await createTestUser({ canAdmin: true })
+      const res = await $fetch<{ data: Record<string, unknown>[] }>("/api/{path}", {
+        headers: authHeaders(user.id),
+      })
+      // Никаких полей host / password / accessToken в ответе
+      for (const item of res.data ?? []) {
+        expect(item).not.toHaveProperty("password")
+        expect(item).not.toHaveProperty("accessToken")
+      }
+    })
+  })
+
+  describe("POST /api/{path}", () => {
+    it("создаёт сущность при валидном вводе", async () => {
+      const user = await createTestUser({ canAdmin: true })
+      const res = await $fetch<{ data: { id: number | string } }>("/api/{path}", {
+        method: "POST",
+        body: { /* ... */ },
+        headers: authHeaders(user.id),
+      })
+      expect(res.data.id).toBeDefined()
+    })
+
+    it("валидирует обязательные поля", async () => {
+      const user = await createTestUser({ canAdmin: true })
+      await expect(
+        $fetch("/api/{path}", {
+          method: "POST",
+          body: { /* missing required */ },
+          headers: authHeaders(user.id),
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 })
+    })
+
+    it("валидирует форматы полей (enum/range)", async () => {
+      const user = await createTestUser({ canAdmin: true })
+      await expect(
+        $fetch("/api/{path}", {
+          method: "POST",
+          body: { /* invalid format */ },
+          headers: authHeaders(user.id),
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 })
+    })
+  })
+})

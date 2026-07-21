@@ -1,0 +1,65 @@
+[
+  {
+    "id": "7300000000000000001",
+    "webVideoUrl": "https://www.tiktok.com/@testuser/video/7300000000000000001",
+    "text": "Первое тестовое видео #тест",
+    "playCount": 100,
+    "diggCount": 10,
+    "commentCount": 5,
+    "shareCount": 2,
+    "createTime": 1717200000,
+    "videoMeta": {
+      "coverUrl": "https://example.com/cover-1.jpg"
+    },
+    "authorMeta": {
+      "name": "testuser",
+      "fans": 15000,
+      "following": 250,
+      "heart": 9000000,
+      "videoCount": 120,
+      "signature": "Bio тестового пользователя",
+      "avatar": "https://example.com/avatar.jpg",
+      "verified": true
+    }
+  },
+  {
+    "id": "7300000000000000002",
+    "webVideoUrl": "https://www.tiktok.com/@testuser/video/7300000000000000002",
+    "text": "Второе видео",
+    "playCount": 200,
+    "diggCount": 20,
+    "commentCount": 10,
+    "shareCount": 4,
+    "createTime": 1717286400,
+    "videoMeta": {
+      "coverUrl": "https://example.com/cover-2.jpg"
+    },
+    "authorMeta": {
+      "name": "testuser",
+      "fans": 15000,
+      "following": 250,
+      "heart": 9000000,
+      "videoCount": 120
+    }
+  },
+  {
+    "id": "7300000000000000003",
+    "webVideoUrl": "https://www.tiktok.com/@testuser/video/7300000000000000003",
+    "text": "Третье видео",
+    "playCount": 300,
+    "diggCount": 30,
+    "commentCount": 15,
+    "shareCount": 6,
+    "createTime": 1717372800,
+    "videoMeta": {
+      "coverUrl": "https://example.com/cover-3.jpg"
+    },
+    "authorMeta": {
+      "name": "testuser",
+      "fans": 15000,
+      "following": 250,
+      "heart": 9000000,
+      "videoCount": 120
+    }
+  }
+]

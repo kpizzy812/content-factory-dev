@@ -1,0 +1,38 @@
+[
+  {
+    "channelName": "TestChannel",
+    "channel": {
+      "channelName": "TestChannel",
+      "subscriberCount": 120000,
+      "viewCount": 5500000,
+      "videoCount": 230,
+      "description": "Описание тестового YouTube-канала",
+      "thumbnailUrl": "https://example.com/yt-avatar.jpg",
+      "isVerified": true
+    },
+    "videos": [
+      {
+        "id": "yt_vid_1",
+        "videoId": "yt_vid_1",
+        "url": "https://youtube.com/watch?v=yt_vid_1",
+        "title": "Первое видео канала",
+        "viewCount": 1000,
+        "likeCount": 100,
+        "commentCount": 10,
+        "publishDate": "2026-05-01T10:00:00.000Z",
+        "thumbnailUrl": "https://example.com/yt-thumb-1.jpg"
+      },
+      {
+        "id": "yt_vid_2",
+        "videoId": "yt_vid_2",
+        "url": "https://youtube.com/watch?v=yt_vid_2",
+        "title": "Второе видео",
+        "viewCount": 2000,
+        "likeCount": 200,
+        "commentCount": 20,
+        "publishDate": "2026-05-05T10:00:00.000Z",
+        "thumbnailUrl": "https://example.com/yt-thumb-2.jpg"
+      }
+    ]
+  }
+]

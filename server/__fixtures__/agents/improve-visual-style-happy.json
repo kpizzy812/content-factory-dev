@@ -1,0 +1,10 @@
+{
+  "improvedPrompt": "cinematic warm-toned lifestyle scene, golden hour rim light, shallow depth of field on protagonist, soft skin tones, muted background, 35mm look, intimate and aspirational mood",
+  "colors": ["#FFD8A8", "#E8B485", "#2A1F1A", "#FFFFFF"],
+  "atmosphere": "intimate, optimistic, golden hour warmth",
+  "character": "молодой профессионал, casual look, открытая мимика, лёгкая улыбка",
+  "stylePrompt": "cinematic, warm-toned, shallow DOF, lifestyle aesthetic, 35mm vintage glow",
+  "lighting": "golden hour rim, soft natural fill, subtle window haze",
+  "cameraWork": "handheld medium shot, slow push-in to close-up",
+  "effects": ["soft grain", "warm colour grade", "natural lens flare"]
+}

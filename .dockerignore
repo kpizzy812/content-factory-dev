@@ -1,0 +1,64 @@
+# Nuxt dev/build outputs (rebuild внутри Docker)
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies (rebuild внутри Docker)
+node_modules
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Local env files (секреты не в образе!)
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# Storage (пользовательские файлы — volume mount)
+storage/uploads/
+storage/frames/
+
+# Tests / dev artifacts
+tests/
+playwright.config.ts
+vitest.config.ts
+tests/playwright-report/
+tests/test-results/
+tests/.cache/
+tests/visual/screenshots/
+coverage/
+.vitest-cache/
+.playwright-mcp-output/
+screens/
+
+# Editor / IDE
+.vscode
+.idea
+.fleet
+.DS_Store
+
+# Logs
+logs
+*.log
+
+# CI / docs
+.github
+docs/
+PROJECT_AUDIT.md
+PIPELINE_ANALYSIS.md
+README.md
+llms.txt
+skills-lock.json
+
+# Claude tooling (не нужно в проде)
+.claude/
+CLAUDE.md
+
+# Note: Dockerfile, .dockerignore и entrypoint.sh оставляем в build context —
+# Dockerfile/.dockerignore читает сам docker build, entrypoint.sh COPY-ится в образ.

@@ -1,0 +1,2471 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RolePreset {
+  admin
+  producer
+  operator
+  analyst
+  observer
+}
+
+model ZavodUser {
+  id               Int               @id @default(autoincrement())
+  externalId       Int               @unique
+  email            String            @unique
+  name             String?
+  surname          String?
+  rolePreset       RolePreset        @default(operator)
+  roleName         String?
+  rolePresetName   String?
+  canRead          Boolean           @default(true)
+  canWrite         Boolean           @default(false)
+  canCreate        Boolean           @default(false)
+  canDelete        Boolean           @default(false)
+  canApprove       Boolean           @default(false)
+  canRunAgent      Boolean           @default(false)
+  canApplyChanges  Boolean           @default(false)
+  canAdmin         Boolean           @default(false)
+  moduleAccess     String[]
+  appAssignments   UserAppAssignment[]
+  telegramChatId   String?
+  isActive         Boolean           @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  favoritePrompts  FavoritePrompt[]
+  secretAccessLogs SecretAccessLog[]
+  postingJobsCreated   PostingJob[] @relation("PostingJobCreatedBy")
+  postingJobsCancelled PostingJob[] @relation("PostingJobCancelledBy")
+  driveFiles           DriveFile[]  @relation("DriveFilesOwner")
+  proxyDeepCheckLogsInitiated ProxyDeepCheckLog[] @relation("ProxyDeepCheckLogInitiator")
+}
+
+model UserAppAssignment {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  appId       Int
+  appName     String
+  accessLevel String   @default("none")
+  accounts    String   @default("all")
+  geos        String   @default("all")
+  permissions String   @default("read")
+  syncedAt    DateTime @default(now())
+
+  user ZavodUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, appId])
+  @@index([userId])
+}
+
+enum TrendStatus {
+  new
+  reviewed
+  in_work
+  completed
+  dismissed
+}
+
+enum Platform {
+  tiktok
+  instagram
+  youtube
+}
+
+enum AccountStatus {
+  active
+  expired
+  revoked
+}
+
+enum ProxyType {
+  mobile
+  residential
+  datacenter
+}
+
+enum ProxyProtocol {
+  http
+  https
+  socks5
+}
+
+enum ProxyStatus {
+  unverified
+  healthy
+  degraded
+  dead
+  expired
+}
+
+enum WarmupStatus {
+  new
+  warming
+  ready
+  cold
+}
+
+enum WarmupSessionStatus {
+  planned
+  running
+  completed
+  partial
+  failed
+  cancelled
+  skipped
+}
+
+enum RegistrationSource {
+  self
+  purchased
+  transferred
+}
+
+enum SocialPostingMethod {
+  // Постинг через official API платформы (TikTok Business / YouTube Data / Instagram Graph).
+  // Требует OAuth токены, ограничен типом аккаунта (TikTok Business только верифицированным).
+  api
+  // Постинг через Indigo X browser + Playwright/CDP automation. Работает с любым типом
+  // аккаунта (private TikTok / personal Instagram), требует cookies snapshot + login flow.
+  // Анти-detect через Indigo fingerprint + proxy.
+  browser_automation
+}
+
+enum CycleStatus {
+  pending
+  running
+  completed
+  failed
+  stopped
+}
+
+enum AgentLogLevel {
+  info
+  warn
+  error
+}
+
+enum UploadStatus {
+  pending
+  uploading
+  published
+  failed
+  scheduled
+  canceled
+  blocked_by_env
+}
+
+enum PostStatus {
+  active
+  deleted
+  blocked
+}
+
+model App {
+  id          Int      @id @default(autoincrement())
+  externalId  Int?     @unique
+  name        String
+  description String?
+  keywords    String[]
+  geo         String?
+  language    String?
+
+  // --- Store URLs ---
+  appStoreUrl    String?
+  playStoreUrl   String?
+  storePlatforms String[] // ["ios", "android"]
+
+  // --- Public metadata (from store / manual) ---
+  productName        String? // публичное название в магазине
+  subtitle           String? // подзаголовок / short description
+  longDescription    String? // полное описание из store
+  developer          String? // разработчик / издатель
+  categories         String[] // категории
+  targetAudience     String? // целевая аудитория
+  pricingNotes       String? // модель монетизации, IAP, подписки
+  iconUrl            String? // URL иконки
+  screenshotUrls     String[] // URL скриншотов
+  heroImageUrl       String? // hero / feature graphic
+  referenceImageUrls String[] // пользовательские reference-картинки для пайплайна (storage/app-references/{id}/...)
+
+  // --- AI-enriched context (editable) ---
+  featureBullets        String[] // ключевые фичи / value propositions
+  asoKeywords           String[] // ASO-термины
+  onboardingSummary     String? // краткое описание онбординга / use-case
+  aiSummary             String? // AI-сводка для креативного использования
+  brandTone             String? // тон бренда
+  visualCues            String? // визуальные подсказки
+  forbiddenClaims       String[] // запрещённые утверждения
+  riskyClaims           String[] // рискованные утверждения
+  creativeAngles        Json? // рекомендованные креативные углы (structured)
+  transformationPromise String? // обещание трансформации продукта
+  corePain              String? // ключевая боль пользователя
+  coreOutcome           String? // ключевой результат
+  scenarioContext       Json? // scenario-ready AI context (structured)
+
+  // --- Enrichment status ---
+  enrichmentStatus String? // idle | pending | running | completed | failed | partial
+  lastEnrichedAt   DateTime?
+  enrichmentError  String?
+
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  trends               Trend[]
+  socialAccounts       SocialAccount[]
+  accountGroups        AccountGroup[]
+  cycles               ProductionCycle[]
+  ideas                Idea[]
+  trendwatcherProfiles TrendwatcherProfile[]
+  enrichmentLogs       AppEnrichmentLog[]
+  generationProfiles   ScenarioGenerationProfile[]
+  scenarioMemories     ScenarioMemory[]
+  favoritePrompts      FavoritePrompt[]
+  referenceImages      AppReferenceImage[]
+  warmupKeywordPools   WarmupKeywordPool[]
+  characters           Character[]
+  scenes               Scene[]
+}
+
+// --- Character Library (F1) — per-app reference-персонажи для консистентной генерации ---
+//
+// Персонаж = имя + описание + теги + 1-line visualPrompt-инжектор + набор референс-изображений
+// (лицо/тело/одежда/поза). Используется в SceneComposer-блоках type:'character' для
+// подстановки CharacterReferenceImage[] в pipeline видео-генерации (Wan/fal.ai image-to-video).
+// archived=true вместо hard-delete: сцены могут на персонажа ссылаться, soft-delete сохраняет
+// историю.
+
+model Character {
+  id              String                    @id @default(cuid())
+  appId           Int
+  app             App                       @relation(fields: [appId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  // Роль для UI / композитора: protagonist (главный) | support (второстепенный) | extra (фон/массовка).
+  role            String                    @default("protagonist")
+  // Короткий 1-line injection в финальный промпт сцены — например, "30y woman, blue jacket, short hair".
+  // Если null — composer fallback'ится на description (полное предложение).
+  visualPrompt    String?
+  tags            String[]
+  emotionDefault  String?
+  ageRange        String?
+  archived        Boolean                   @default(false)
+  createdById     Int?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  referenceImages CharacterReferenceImage[]
+
+  @@index([appId, archived])
+  @@index([appId, name])
+  @@index([tags], type: Gin)
+}
+
+// Референс-изображения персонажа. kind определяет назначение (face/body/outfit/pose/other),
+// composer выбирает релевантный kind в зависимости от ракурса сцены. sha1 (первые 16 hex) —
+// dedup-ключ на уровне characterId; повторная загрузка той же картинки не создаёт дубликат.
+// GCS path: `zavodcamp/apps/{appId}/characters/{characterId}/{sha1}.{ext}`.
+// AI-разметка через character-photo-analyzer (vision Anthropic): теги внешности +
+// расширенный visualDescription, который инжектится в video prompt для консистентного героя.
+model CharacterReferenceImage {
+  id                  String    @id @default(cuid())
+  characterId         String
+  character           Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  kind                String    @default("face")
+  fileUrl             String
+  storageKey          String?
+  storageProvider     String    @default("gcs")
+  sha1                String
+  mimeType            String?
+  bytes               Int?
+  width               Int?
+  height              Int?
+  order               Int       @default(0)
+  uploadedById        Int?
+  createdAt           DateTime  @default(now())
+  // AI vision analysis: ["young_adult", "short_hair", "blue_jacket", "smile"]
+  aiTags              String[]
+  // 1-2 предложения с описанием персонажа на фото
+  aiCaption           String?
+  // Расширенный визуальный prompt-инжектор для генерации видео (EN)
+  aiVisualDescription String?
+  aiAnalyzedAt        DateTime?
+  aiError             String?
+  aiAttempts          Int       @default(0)
+  // Метаданные генерации через fal.ai (NULL для ручной загрузки)
+  generationPrompt    String?
+  generationModel     String?
+  generationCostUsd   Decimal?  @db.Decimal(10, 6)
+
+  @@unique([characterId, sha1])
+  @@index([characterId, kind, order])
+  @@index([aiAnalyzedAt])
+}
+
+// Эталонные кадры сцены (по UX зеркалит AppReferenceImage + CharacterReferenceImage).
+// Загружаются прямо в композитор сцены — это "примеры кадра, как должно получиться",
+// AI пересобирает из них mood/lighting/camera-angle и инжектит в финальный prompt.
+// GCS path: `zavodcamp/apps/{appId}/scenes/{sceneId}/refs/{sha1}.{ext}`.
+model SceneReferenceImage {
+  id                  String    @id @default(cuid())
+  sceneId             String
+  scene               Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  // mood (атмосфера/палитра) | shot (композиция кадра) | environment (локация) | other
+  kind                String    @default("mood")
+  fileUrl             String
+  storageKey          String?
+  storageProvider     String    @default("gcs")
+  sha1                String
+  mimeType            String?
+  bytes               Int?
+  width               Int?
+  height              Int?
+  order               Int       @default(0)
+  uploadedById        Int?
+  createdAt           DateTime  @default(now())
+  aiTags              String[]
+  aiCaption           String?
+  // Расширенный визуальный prompt-инжектор (EN) — описание атмосферы/палитры/композиции,
+  // которое composeScene склеит в финальный промпт сцены.
+  aiVisualDescription String?
+  aiAnalyzedAt        DateTime?
+  aiError             String?
+  aiAttempts          Int       @default(0)
+  // Метаданные генерации через fal.ai (NULL для ручной загрузки)
+  generationPrompt    String?
+  generationModel     String?
+  generationCostUsd   Decimal?  @db.Decimal(10, 6)
+
+  @@unique([sceneId, sha1])
+  @@index([sceneId, kind, order])
+  @@index([aiAnalyzedAt])
+}
+
+// --- Scene Composer (F2) — блочный композитор сцены ---
+//
+// Scene = именованная сборка блоков (character/style/environment/action/app_context/app_screen)
+// из которых compileScenePrompt() собирает финальный prompt + список референс-изображений.
+// Уходит в существующий video-pipeline через shadow Scenario (trendId=null, sceneId=Scene.id).
+// status: draft (правится) | ready (готова к генерации) | generating (видео в pipeline) | done.
+model Scene {
+  id                  String     @id @default(cuid())
+  appId               Int
+  app                 App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?
+  // SceneBlock[] — см. shared/types/scene.ts. Массив сохраняется как JSONB для гибкости
+  // (добавление новых типов блоков без миграции). Валидация на API-уровне.
+  blocks              Json
+  // Скомпилированный текстовый промпт — обновляется при PUT /scenes/:id или POST /compile.
+  promptCompiled      String?
+  // Negative prompt (стиль, артефакты которых избегать) — отдельным полем, чтобы pipeline
+  // мог использовать его как fal.ai parameter `negative_prompt` без парсинга основного.
+  negativeCompiled    String?
+  tags                String[]
+  status              String     @default("draft")
+  // Если сцена ушла в генерацию — сюда пишется id созданного Scenario (shadow без trendId).
+  generatedScenarioId Int?
+  archived            Boolean    @default(false)
+  createdById         Int?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  scenarios           Scenario[]
+  referenceImages     SceneReferenceImage[]
+
+  @@index([appId, archived, updatedAt])
+  @@index([status])
+}
+
+model AppReferenceImage {
+  id              String    @id @default(cuid())
+  appId           Int
+  app             App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+  fileUrl         String // публичный URL картинки (/api/files/app-references/{appId}/{sha1}.{ext})
+  sha1            String // первые 16 hex SHA1 контента — стабильный dedup-ключ
+  mimeType        String? // image/png | image/jpeg | image/webp | image/gif
+  bytes           Int?
+  width           Int?
+  height          Int?
+  // GCS persistent storage. storageKey формата `zavodcamp/apps/{appId}/references/{sha1}.{ext}`.
+  // fileUrl остаётся для backward compat 2 недели.
+  storageKey      String?
+  storageProvider String    @default("gcs")
+  // --- AI-анализ скриншота (vision) ---
+  aiTags          String[] // controlled vocabulary + freeform: ["login_screen", "dashboard", ...]
+  aiCaption       String? // 1-2 предложения: что на скрине
+  aiHasUI         Boolean? // true если экран — это UI приложения, false — сторонний контекст
+  aiPrimaryAction String? // основной CTA / действие на экране
+  aiAnalyzedAt    DateTime?
+  aiError         String?
+  aiAttempts      Int       @default(0)
+  uploadedById    Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([appId, sha1])
+  @@index([appId])
+  @@index([aiAnalyzedAt])
+}
+
+model AppEnrichmentLog {
+  id           Int      @id @default(autoincrement())
+  appId        Int
+  app          App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  sourceUrl    String // URL, с которого забирали данные
+  platform     String // app_store | google_play
+  status       String // success | partial | failed
+  rawPayload   Json? // сырые данные со страницы
+  parsedData   Json? // структурированный результат парсинга
+  aiContext    Json? // AI-нормализованный контекст
+  errorMessage String?
+  createdAt    DateTime @default(now())
+}
+
+enum AnalysisStatus {
+  none
+  pending
+  running
+  completed
+  failed
+}
+
+model Trend {
+  id             Int            @id @default(autoincrement())
+  externalId     Int?           @unique
+  appId          Int?
+  app            App?           @relation(fields: [appId], references: [id])
+  platform       Platform
+  sourceUrl      String
+  title          String
+  description    String?
+  authorName     String?
+  thumbnailUrl   String?
+  videoUrl       String?
+  viewCount      Int            @default(0)
+  likeCount      Int            @default(0)
+  commentCount   Int            @default(0)
+  shareCount     Int            @default(0)
+  hashtags       String[]
+  language       String?
+  geo            String?
+  keyword        String?
+  publishedAt    DateTime?
+  status         TrendStatus    @default(new)
+  analysisStatus AnalysisStatus @default(none)
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+  importedAt     DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  // --- Pipeline tracking (nullable, for standalone/pipeline separation) ---
+  runId          Int?
+  run            WorkflowRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pipelineId     Int?
+  pipeline       Pipeline?      @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  insights       TrendInsight[]
+  brief          CreativeBrief?
+  scenarios      Scenario[]
+
+  @@index([isDeleted, status])
+  @@index([platform, isDeleted])
+  @@index([language])
+  @@index([geo])
+  @@index([runId])
+  @@index([pipelineId])
+}
+
+enum VideoStatus {
+  pending
+  configuring
+  generating_prompts
+  generating_images
+  generating_clips
+  generating_voiceover
+  generating_music
+  assembling
+  completed
+  failed
+  timeout
+  canceled
+  file_missing
+}
+
+enum VideoStepKey {
+  prompt_generation
+  image_generation
+  clip_generation
+  voiceover_generation
+  music_generation
+  lip_sync_generation
+  assembly
+}
+
+enum VideoStepStatus {
+  pending
+  queued
+  running
+  completed
+  failed
+  timeout
+  canceled
+  skipped
+}
+
+enum VideoFormat {
+  portrait
+  landscape
+}
+
+enum AssetType {
+  image
+  clip
+  music
+  voiceover
+  voiceover_mix
+  thumbnail
+  preview
+}
+
+enum ScenarioStatus {
+  draft
+  generating
+  generated
+  selected
+  rejected
+  needs_rework
+  archived
+}
+
+enum VariantStatus {
+  draft
+  accepted
+  rejected
+  needs_rework
+  superseded
+}
+
+enum ReviewActionType {
+  accept
+  reject
+  rework
+  regenerate
+  delete_scenario
+  delete_variant
+  copy
+  regenerate_block
+}
+
+model Scenario {
+  id                  Int                        @id @default(autoincrement())
+  // trendId стал nullable для поддержки scene-driven сценариев из SceneComposer (F2).
+  // Когда null — это shadow Scenario, созданный POST /api/scenes/:id/generate, и sceneId
+  // обязательно заполнен. Когда задан — классический trend-driven путь (CreativeBrief → Scenario).
+  trendId             Int?
+  trend               Trend?                     @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  briefId             Int?
+  appId               Int?
+  // sceneId — обратная ссылка на исходную Scene из SceneComposer. onDelete: SetNull
+  // сохраняет историю сгенерированных Scenario при удалении исходной сцены.
+  sceneId             String?
+  scene               Scene?                     @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  profileId           Int?
+  profile             ScenarioGenerationProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  status              ScenarioStatus             @default(draft)
+  selectedVariantId   Int?
+  generationStatus    String?
+  operatorNotes       String?
+  reworkRequest       String?
+  sourceBriefVersion  String?
+  sourcePromptVersion String?
+  isDeleted           Boolean                    @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  // --- Pipeline tracking (nullable, for standalone/pipeline separation) ---
+  runId               Int?
+  run                 WorkflowRun?               @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pipelineId          Int?
+  pipeline            Pipeline?                  @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  variants            ScenarioVariant[]
+  reviewActions       ScenarioReviewAction[]
+  videos              Video[]
+  feedbacks           ScenarioFeedback[]
+  criticReviews       CriticReview[]
+
+  @@index([trendId, isDeleted])
+  @@index([status, isDeleted])
+  @@index([runId])
+  @@index([pipelineId])
+  @@index([sceneId])
+}
+
+model ScenarioVariant {
+  id                    Int                     @id @default(autoincrement())
+  scenarioId            Int
+  scenario              Scenario                @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  variantIndex          Int
+  status                VariantStatus           @default(draft)
+  title                 String
+  hook                  String
+  body                  String
+  cta                   String
+  fullScript            String
+  visualStyleText       String
+  visualStyleStructured Json?
+  storyPlan             Json? // StoryPlan structured output
+  qualityScore          Float?
+  qualityScoreDetails   Json? // VariantQualityScore целиком
+  qualityCheckedAt      DateTime?
+  toneProfile           String?
+  rationale             String?
+  promptVersion         String?
+  agentVersion          String?
+  isDeleted             Boolean                 @default(false)
+  deletedAt             DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  blockRevisions        ScenarioBlockRevision[]
+  visualStyleRevisions  VisualStyleRevision[]
+  reviewActions         ScenarioReviewAction[]
+
+  @@index([scenarioId, status])
+}
+
+model ScenarioBlockRevision {
+  id        Int             @id @default(autoincrement())
+  variantId Int
+  variant   ScenarioVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  blockType String
+  oldValue  String
+  newValue  String
+  reason    String?
+  createdAt DateTime        @default(now())
+
+  @@index([variantId, blockType])
+}
+
+model VisualStyleRevision {
+  id             Int             @id @default(autoincrement())
+  variantId      Int
+  variant        ScenarioVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  colors         Json?
+  atmosphere     String?
+  character      String?
+  stylePrompt    String?
+  improvedPrompt String?
+  source         String?
+  createdAt      DateTime        @default(now())
+
+  @@index([variantId])
+}
+
+model ScenarioReviewAction {
+  id         Int              @id @default(autoincrement())
+  scenarioId Int
+  scenario   Scenario         @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  variantId  Int?
+  variant    ScenarioVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  actionType ReviewActionType
+  reason     String?
+  createdAt  DateTime         @default(now())
+
+  @@index([scenarioId, createdAt])
+}
+
+model Video {
+  id                       Int                   @id @default(autoincrement())
+  scenarioId               Int
+  scenario                 Scenario              @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  variantId                Int?
+  applicationId            Int?
+  status                   VideoStatus           @default(pending)
+  currentStep              String?
+  format                   VideoFormat           @default(portrait)
+  filePath                 String?
+  fileUrl                  String?
+  // GCS persistent storage (Saturn PaaS лишён persistent volume для ./storage,
+  // поэтому финальное видео живёт в bucket marketingcamp-creatives под префиксом
+  // zavodcamp/. filePath/fileUrl остаются ещё ~2 недели для backward compat —
+  // потом отдельная микро-миграция DROP COLUMN).
+  storageKey               String?
+  storageProvider          String                @default("gcs")
+  fileSizeBytes            BigInt?
+  fileSha256               String?
+  duration                 Int?
+  errorMessage             String?
+  // Output configuration
+  subtitlesEnabled         Boolean               @default(true)
+  subtitlesStyle           Json?
+  // Brand-safe preset субтитров: tiktok_classic | tiktok_bold_yellow | tiktok_boxed | minimal.
+  // null = применяется дефолт рендера (tiktok_classic).
+  subtitlePreset           String?
+  voiceoverPlan            Json? // VoiceoverPlan structured output
+  musicEnabled             Boolean               @default(true)
+  musicMood                String?
+  musicDuration            Int?
+  musicVolume              Float                 @default(0.3)
+  musicVolumeWithVoiceover Float                 @default(0.12)
+  clipDuration             Int                   @default(5)
+  imageCount               Int                   @default(3)
+  renderQuality            String                @default("medium")
+  targetPlatform           String?
+  // Voiceover / TTS configuration
+  voiceoverEnabled         Boolean               @default(false)
+  voiceoverProvider        String?
+  voiceoverModelId         String?
+  voiceoverVoiceId         String?
+  voiceoverLanguage        String                @default("en")
+  voiceoverPacing          String                @default("moderate")
+  voiceoverReconciliation  String                @default("extend_scene")
+  // Model selection (runtime uses these, not hardcodes)
+  imageModelId             String                @default("fal-ai/flux/dev")
+  videoModelId             String                @default("fal-ai/kling-video/v3/standard/text-to-video")
+  modelStrategy            String                @default("auto")
+  generateAudio            Boolean               @default(true)
+  // Lip-sync (premium feature, gated by quality preset)
+  lipSyncEnabled           Boolean               @default(false)
+  lipSyncModelId           String?
+  // Job safety
+  isLocked                 Boolean               @default(false)
+  lockedAt                 DateTime?
+  lockedReason             String?
+  startedAt                DateTime?
+  finishedAt               DateTime?
+  // Cost tracking
+  totalCostEstimate        Float?
+  totalCostActual          Float?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  // --- Pipeline tracking (nullable, for standalone/pipeline separation) ---
+  runId                    Int?
+  run                      WorkflowRun?          @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pipelineId               Int?
+  pipeline                 Pipeline?             @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  assets                   VideoAsset[]
+  uploads                  Upload[]
+  steps                    VideoGenerationStep[]
+  postingJobs              PostingJob[]
+  uniqueVariants           VideoUniqueVariant[]
+  captions                 Caption[]
+  // External creative source (Google Drive, future YouTube/etc.)
+  isExternalCreative       Boolean               @default(false)
+  externalSource           String?
+  externalSourceId         String?
+  driveFile                DriveFile?            @relation("DriveFileVideo")
+  driveFileId              String?
+  driveCredentialId        Int?
+  driveCredential          PipelineCredential?   @relation("VideoDriveCredential", fields: [driveCredentialId], references: [id], onDelete: SetNull)
+  // Marketing-grade frame analysis (Stage 2 of Video Analyzer modernization).
+  // analysisData — JSON snapshot VideoAnalysisFramePass (см. shared/types/video-analysis.ts).
+  // framePassVersion + framePassRunAt — TTL idempotency (default version 'frames-v1', TTL 30 дней).
+  // fitScore/fitRationale — насколько креатив подходит для App (audience+geo+platform).
+  analysisData             Json?
+  framePassVersion         String?
+  framePassRunAt           DateTime?
+  analysisDurationSec      Float?
+  fitScore                 Float?
+  fitRationale             String?
+  frames                   VideoFrame[]
+
+  @@index([scenarioId, status])
+  @@index([status])
+  @@index([runId])
+  @@index([pipelineId])
+  @@index([externalSource, externalSourceId])
+  @@index([framePassRunAt])
+  @@index([storageProvider])
+}
+
+/// Per-frame DB row для marketing-grade анализа видео.
+/// Создаётся в analyzeCreativeVideo после ffmpeg extraction.
+/// description/keyElements заполняются после AI batch (backfill из MarketingFrameAnalysis.frameDescriptions).
+model VideoFrame {
+  id              Int      @id @default(autoincrement())
+  videoId         Int
+  video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  sequence        Int
+  timestampSec    Float
+  filePath        String
+  width           Int?
+  height          Int?
+  isSceneBoundary Boolean  @default(false)
+  description     String?
+  keyElements     Json?
+  createdAt       DateTime @default(now())
+
+  @@unique([videoId, sequence])
+  @@index([videoId])
+}
+
+model VideoAsset {
+  id                       Int              @id @default(autoincrement())
+  videoId                  Int
+  video                    Video            @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  type                     AssetType
+  prompt                   String?
+  filePath                 String?
+  fileUrl                  String?
+  // order — стабильный sceneIndex для type=image|clip (порядок сцены).
+  // Для других типов (music, voiceover, voiceover_mix, thumbnail, preview) order=0.
+  order                    Int              @default(0)
+  duration                 Int?
+  // GCS persistent storage (см. Video.storageKey). storageKey null пока asset
+  // не загружен в bucket; после upload — `zavodcamp/videos/{videoId}/...`.
+  storageKey               String?
+  storageProvider          String           @default("gcs")
+  fileSizeBytes            BigInt?
+  fileSha256               String?
+  contentType              String?
+  createdAt                DateTime         @default(now())
+  favoritePromptsFromAsset FavoritePrompt[]
+
+  @@index([storageKey])
+  @@index([videoId, type, order])
+}
+
+model VideoGenerationStep {
+  id                   Int             @id @default(autoincrement())
+  videoId              Int
+  video                Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  stepKey              VideoStepKey
+  stepIndex            Int
+  status               VideoStepStatus @default(pending)
+  startedAt            DateTime?
+  finishedAt           DateTime?
+  inputSnapshot        Json?
+  outputSnapshot       Json?
+  artifacts            Json?
+  attemptCount         Int             @default(0)
+  maxAttempts          Int             @default(3)
+  estimatedCost        Float?
+  actualCost           Float?
+  logs                 Json?
+  errorMessage         String?
+  // fal.ai tracking
+  falRequestId         String?
+  falEndpoint          String?
+  falQueueStatus       String?
+  falLogsSnapshot      Json?
+  falSubmittedAt       DateTime?
+  falCompletedAt       DateTime?
+  falCanceledAt        DateTime?
+  falWebhookReceivedAt DateTime?
+  falResultUrl         String?
+  falErrorCode         String?
+  falAttemptGroupId    String?
+  // Sub-key для итеративной генерации (clip per scene). Reattach срабатывает только
+  // если subKey совпадает с сохранённым — иначе новый submit (без двойного списания
+  // и без подмены результата от другой сцены тем же step.id).
+  falSubKey            String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([videoId, stepKey])
+  @@index([falRequestId])
+  @@index([status])
+}
+
+model TrendInsight {
+  id         Int      @id @default(autoincrement())
+  trendId    Int      @unique
+  trend      Trend    @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  whyViral   String
+  patterns   String[]
+  hooks      String[]
+  audience   String?
+  confidence Float?
+  createdAt  DateTime @default(now())
+}
+
+model CreativeBrief {
+  id                    Int      @id @default(autoincrement())
+  trendId               Int      @unique
+  trend                 Trend    @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  hookAnalysis          Json
+  sceneStructure        Json
+  visualStyle           Json
+  viralityReasons       Json
+  frameAnalysisSettings Json?
+  summary               String
+  modelVersion          String
+  promptVersion         String
+  confidence            Float?
+  errorMessage          String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model SocialAccount {
+  id                  Int                  @id @default(autoincrement())
+  appId               Int
+  app                 App                  @relation(fields: [appId], references: [id])
+  platform            Platform
+  displayName         String
+  platformUserId      String?
+  platformHandle      String?
+  accessToken         String?
+  refreshToken        String?
+  expiresAt           DateTime?
+  status              AccountStatus        @default(active)
+  // Используется dispatch'ером группы для round-robin отбора (обновляется в executeUploadNode)
+  lastPostedAt        DateTime?
+  // --- Social Automation foundation (iteration 1) ---
+  // Шифрованные login-секреты (AES-256-GCM, формат iv:authTag:ciphertext)
+  loginEmail          String?
+  loginPassword       String?
+  recoveryEmail       String?
+  recoveryPhone       String?
+  twoFASecret         String?
+  // Operator-facing план / заметки (НЕ секрет, в plain)
+  notes               String?
+  // Метаданные аккаунта
+  birthDate           DateTime?
+  registrationSource  RegistrationSource?
+  // Привязка к прокси (один-ко-многим: один прокси может обслуживать несколько аккаунтов)
+  proxyId             String?
+  proxy               Proxy?               @relation(fields: [proxyId], references: [id], onDelete: SetNull)
+  // Указатель на device profile (DuoPlus / антидетект). Физическая колонка
+  // остаётся "indigoProfileId" (Этап 2: @@map/@map rename без DDL).
+  deviceProfileId     String?              @map("indigoProfileId")
+  // Метод постинга: api (через OAuth токены) или browser_automation (через Indigo+CDP).
+  // Default 'api' - обратная совместимость с existing accounts. Оператор явно переключает
+  // на browser_automation если у аккаунта нет API access (private TikTok etc).
+  postingMethod       SocialPostingMethod  @default(api)
+  // --- Part D: login-check status (заполняется POST /api/accounts/:id/check-login) ---
+  // null = login-check ещё не запускался. После запуска заполняется триплет:
+  //   loginCheckedAt = timestamp когда проверяли
+  //   loginCheckedStatus = true/false результат detect login на главной странице
+  //   loginCheckedUsername = опционально, если удалось вытащить из DOM @-handle
+  loginCheckedAt       DateTime?
+  loginCheckedStatus   Boolean?
+  loginCheckedUsername String?
+  // Прогрев аккаунта
+  warmupStatus        WarmupStatus         @default(new)
+  lastWarmupAt        DateTime?
+  totalPostsPublished Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  uploads             Upload[]
+  groups              AccountGroupMember[]
+  styleProfile        AccountStyleProfile?
+  deviceProfile       DeviceProfile?
+  postingJobs         PostingJob[]
+  warmupSessions      WarmupSession[]
+  deviceProfileLinks  DeviceProfileAccount[]
+  metricsSnapshots    AccountMetricsSnapshot[]
+  proxyDeepCheckLogs  ProxyDeepCheckLog[]
+
+  @@index([appId, status])
+  @@index([appId, platform, status])
+  @@index([proxyId])
+  @@index([warmupStatus])
+}
+
+// --- Apify Account Metrics (Часть C) ---
+//
+// Снимок метрик профиля соцсети, полученный через Apify profile-scrapers.
+// Идемпотентность 24h rolling — повторный fetch в течение суток возвращает
+// последний 'ok'-снимок без нового запроса к Apify (если не указан ?force=1).
+//
+// Денормализация appId сюда НЕ нужна: socialAccount.appId всегда достижим
+// одним join'ом, экономия одного поля важнее (snapshot копится много за месяцы).
+//
+// onDelete: Cascade — при удалении аккаунта снимки удаляются (бессмысленны без него).
+model AccountMetricsSnapshot {
+  id              String        @id @default(cuid())
+  socialAccountId Int
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  fetchedAt       DateTime      @default(now())
+
+  // Core metrics — BigInt для случаев когда счётчик может превысить 2.1B
+  // (например, YouTube channel views у крупных каналов)
+  followers       BigInt?
+  following       BigInt?
+  totalViews      BigInt?
+  totalLikes      BigInt?
+  totalComments   BigInt?
+  postsCount      Int? // Миллиарды постов на один аккаунт нереалистичны
+  avgViewsPer30d  BigInt?
+  engagementRate  Float? // 0..1 из выборки последних N постов
+
+  // Profile metadata (snapshot для истории — bio/avatar могут меняться)
+  bio        String?
+  avatarUrl  String?
+  isVerified Boolean?
+
+  // Observability
+  status       String  @default("ok") // 'ok' | 'error'
+  errorMessage String?
+  // { sampleSize: number, posts: NormalizedPost[], rawSample?: unknown }
+  rawData      Json?
+  // На будущее — привязка к pipeline run (когда появится metrics node)
+  agentRunId   Int?
+
+  @@unique([socialAccountId, fetchedAt])
+  @@index([socialAccountId, fetchedAt(sort: Desc)])
+  @@index([status])
+}
+
+// --- Прокси-инфраструктура (Social Automation iteration 1) ---
+
+model Proxy {
+  id                  String             @id @default(cuid())
+  label               String
+  provider            String? // 'iproyal' | 'proxyempire' | 'mobile_proxy_space' | 'other'
+  type                ProxyType
+  protocol            ProxyProtocol      @default(http)
+  // Зашифрованные credentials (AES-256-GCM)
+  host                String
+  port                Int
+  username            String?
+  password            String?
+  rotationUrl         String?
+  expectedCountry     String?
+  expectedCity        String?
+  ipv4Only            Boolean            @default(false)
+  status              ProxyStatus        @default(unverified)
+  lastCheckedAt       DateTime?
+  lastCheckResult     Json?
+  consecutiveFailures Int                @default(0)
+  // Дедупликация Telegram-алёртов: { [reason]: { lastAt: ISO-string, count: number } }
+  // reasons: 'leak' | 'consecutive_failures_3' | 'auth_failed' | 'expired'
+  alertHistory        Json?
+  monthlyTrafficGB    Float?
+  expiresAt           DateTime?
+  createdById         Int
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  socialAccounts      SocialAccount[]
+  healthChecks        ProxyHealthCheck[]
+  deepCheckLogs       ProxyDeepCheckLog[]
+  deviceProfiles      DeviceProfile[]
+
+  @@index([status])
+  @@index([type, status])
+  @@index([createdById])
+}
+
+/**
+ * Уровень C deep proxy check log.
+ *
+ * Уровень A/B (быстрый probe.ts через Node http-agent) сохраняется в ProxyHealthCheck.
+ * Уровень C (реальный Indigo browser + CDP + ifconfig.me inside Chromium) — здесь.
+ *
+ * Гибридная схема: денормализованные ключевые поля (detectedIp/isLeaking/outcome/
+ * proxyActuallyWorking/durationMs/recommendation) + fullResult JSON для drill-down.
+ * Это даёт быстрый list/index без JSON parsing, при этом не теряет полную структуру
+ * DeepProxyCheckResult.steps для отладки.
+ *
+ * Уровни A/B и C НЕ shared в одну таблицу потому что:
+ *   - A/B частые/дешёвые (>100/день), C редкие/дорогие (<50/неделю)
+ *   - shape steps/verdict сильно различается
+ *   - JOIN history per proxy естественнее с раздельными таблицами
+ *
+ * onDelete: Proxy=Cascade (логи бесполезны), SocialAccount/IndigoProfile/User=SetNull
+ * (лог сохраняется для аналитики прокси).
+ */
+model ProxyDeepCheckLog {
+  id                    String         @id @default(cuid())
+  proxyId               String
+  proxy                 Proxy          @relation(fields: [proxyId], references: [id], onDelete: Cascade)
+
+  /** Account c которого был запущен (null если прокси не привязан или account удалён). */
+  socialAccountId       Int?
+  socialAccount         SocialAccount? @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+
+  /** Device profile использованный для проверки. Физическая колонка остаётся "indigoProfileId". */
+  deviceProfileId       String?        @map("indigoProfileId")
+  deviceProfile         DeviceProfile? @relation(fields: [deviceProfileId], references: [id], onDelete: SetNull)
+
+  /** Кто инициировал. SetNull при deactivate user'а. */
+  initiatedById         Int?
+  initiatedBy           ZavodUser?     @relation("ProxyDeepCheckLogInitiator", fields: [initiatedById], references: [id], onDelete: SetNull)
+
+  /** 'manual' | 'scheduled' | 'account_check'. Резерв на будущее, в MVP только 'manual'. */
+  triggeredFrom         String         @default("manual")
+
+  /** 'ok' | 'leak' | 'error' | 'precondition_failed'. */
+  outcome               String
+
+  startedAt             DateTime       @default(now())
+  finishedAt            DateTime?
+  durationMs            Int?
+
+  /** Денормализованные ключевые поля (быстрый list view без JSON parsing). */
+  detectedIp            String?
+  detectedCountry       String?
+  detectedCity          String?
+  isLeaking             Boolean?
+  matchesProxyExpectation Boolean?
+  /** false если упал на любом шаге (profileStart/cdpConnect/pageLoad/ipExtraction/profileStop). */
+  proxyActuallyWorking  Boolean        @default(false)
+  /** Human-readable recommendation от verdict.recommendation. */
+  recommendation        String?
+
+  /** Полная структура DeepProxyCheckResult для drill-down. См. shared/types/deep-proxy-check.ts. */
+  fullResult            Json?
+
+  createdAt             DateTime       @default(now())
+
+  @@index([proxyId, createdAt(sort: Desc)])
+  @@index([socialAccountId, createdAt(sort: Desc)])
+  @@index([outcome, createdAt(sort: Desc)])
+}
+
+model ProxyHealthCheck {
+  id              String   @id @default(cuid())
+  proxyId         String
+  proxy           Proxy    @relation(fields: [proxyId], references: [id], onDelete: Cascade)
+  checkedAt       DateTime @default(now())
+  triggeredBy     String // 'manual' | 'scheduled' | 'pre_session'
+  tcpConnectOk    Boolean
+  httpProbeOk     Boolean
+  detectedIp      String?
+  detectedCountry String?
+  detectedCity    String?
+  latencyMs       Int?
+  isLeaking       Boolean?
+  errorCategory   String? // 'timeout' | 'connection_refused' | 'auth_failed' | 'leak' | 'unknown'
+  errorMessage    String?
+  rawProbeData    Json?
+
+  @@index([proxyId, checkedAt(sort: Desc)])
+}
+
+// --- Device profiles (Social Automation iteration 2 → Этап 2 DuoPlus-нейтрализация) ---
+// Зеркало профилей устройства (Indigo legacy → DuoPlus Android cloud phone).
+// socialAccountId связывает 1:1 с SocialAccount, proxyId — с Proxy.
+// config: opaque snapshot полной схемы провайдера для стабильности при расширении.
+// Этап 2: Prisma-модель переименована (DeviceProfile), физ. таблица остаётся
+// "IndigoProfile" через @@map — rename без DDL, ноль риска для данных.
+// enum IndigoSyncStatus НЕ переименован (Prisma @@map не работает на enum →
+// был бы ALTER TYPE на проде). TS-alias DeviceSyncStatus добавлен в shared/коде
+// на Этапе 5. Физический rename enum — Этап 3.
+
+enum IndigoSyncStatus {
+  synced // в нашей БД и в Indigo
+  local_only // создан у нас, ещё не запушен в Indigo
+  remote_only // существует в Indigo но не привязан в нашей БД
+  conflict // изменения в обоих местах
+  deleted_remote // удалён в Indigo
+  error
+  archived // soft-delete оператором, sync пропускает, не показывается в UI
+}
+
+model DeviceProfile {
+  id                   String           @id @default(cuid())
+  // External (provider side). NULL допустим для local_only до push в провайдер.
+  indigoId             String?          @unique
+  indigoFolderId       String?
+  // Linkage. socialAccountId — denormalized "primary account" указатель
+  // (после M.1 multi-account). Оставлен для backwards compat с 26 файлами
+  // сервера. Реальные привязки — через DeviceProfileAccount[].
+  socialAccountId      Int?             @unique
+  socialAccount        SocialAccount?   @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+  // Multi-account 1:N (Цикл M). isPrimary=true элемент = primary, его id
+  // зеркалится в socialAccountId выше через addAccount/removePrimary логику.
+  accounts             DeviceProfileAccount[]
+  proxyId              String?
+  proxy                Proxy?           @relation(fields: [proxyId], references: [id], onDelete: SetNull)
+  // Configuration snapshot
+  name                 String
+  platformType         String           @default("desktop") // 'desktop' | 'mobile_android' | 'mobile_ios'
+  os                   String? // 'Windows 10' | 'macOS' | 'Android 13'
+  userAgent            String?
+  screenResolution     String? // '1920x1080' | '390x844'
+  language             String? // 'en-US'
+  timezone             String? // 'America/New_York'
+  // Полная конфигурация Indigo (fingerprint/parameters/storage/...) — opaque snapshot
+  config               Json?
+  // Status
+  syncStatus           IndigoSyncStatus @default(local_only)
+  lastSyncedAt         DateTime?
+  lastSyncError        String?
+  // Sessions tracking
+  totalSessions        Int              @default(0)
+  lastSessionStartedAt DateTime?
+  lastSessionEndedAt   DateTime?
+  lastSessionPort      Int?
+  // Metadata
+  notes                String?
+  tags                 String[]         @default([])
+  createdById          Int?
+  proxyDeepCheckLogs   ProxyDeepCheckLog[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  // Физ. таблица остаётся "IndigoProfile" — rename без DDL (Этап 2).
+  @@map("IndigoProfile")
+  @@index([syncStatus])
+  @@index([socialAccountId])
+  @@index([proxyId])
+}
+
+// DeviceProfileAccount (Цикл M) — 1:1:1 связка между DeviceProfile, SocialAccount и Proxy.
+// @@unique([profileId]) — один профиль устройства = максимум один аккаунт (защита от
+// мульти-аккаунт конфигураций, ведущих к бану). isPrimary=true всегда (вырождается при 1:1),
+// дублируется в DeviceProfile.socialAccountId (denorm) для backwards compat.
+// addedAt/addedById — audit trail. Физ. таблица остаётся "IndigoProfileAccount" (@@map, без DDL).
+model DeviceProfileAccount {
+  id              String        @id @default(cuid())
+  profileId       String
+  profile         DeviceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  socialAccountId Int
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  isPrimary       Boolean       @default(true)
+  addedAt         DateTime      @default(now())
+  addedById       Int?
+
+  @@map("IndigoProfileAccount")
+  @@unique([profileId])
+  @@unique([profileId, socialAccountId])
+  @@index([socialAccountId])
+  @@index([profileId, isPrimary])
+}
+
+model AccountGroup {
+  id           Int                  @id @default(autoincrement())
+  appId        Int
+  app          App                  @relation(fields: [appId], references: [id])
+  name         String
+  styleMode    String               @default("independent") // independent | unified | base_with_overrides
+  stylePolicy  Json? // GroupStylePolicy
+  // Стратегия распределения публикаций по членам группы при upload-ноде
+  dispatchMode String               @default("round_robin") // round_robin | all | first_active
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  members      AccountGroupMember[]
+  cycles       ProductionCycle[]
+  uploads      Upload[]
+
+  @@index([appId])
+}
+
+// --- Account Style Profile ---
+
+model AccountStyleProfile {
+  id              Int                    @id @default(autoincrement())
+  socialAccountId Int                    @unique
+  socialAccount   SocialAccount          @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  version         Int                    @default(1)
+  data            Json // AccountStyleProfileData
+  status          String                 @default("not_set") // not_set | partial | complete
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  revisions       AccountStyleRevision[]
+
+  @@index([status])
+}
+
+model AccountStyleRevision {
+  id              Int                 @id @default(autoincrement())
+  profileId       Int
+  profile         AccountStyleProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  version         Int
+  changeType      String // manual | ai_suggestion | analytics_derived
+  changeSummary   String
+  changedSections String[]
+  previousData    Json // partial snapshot
+  newData         Json // partial snapshot
+  accepted        Boolean             @default(false)
+  appliedById     Int?
+  createdAt       DateTime            @default(now())
+
+  @@index([profileId, createdAt])
+}
+
+model AccountGroupMember {
+  id              Int           @id @default(autoincrement())
+  groupId         Int
+  group           AccountGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  socialAccountId Int
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, socialAccountId])
+}
+
+model Upload {
+  id              Int                   @id @default(autoincrement())
+  videoId         Int
+  video           Video                 @relation(fields: [videoId], references: [id])
+  socialAccountId Int
+  socialAccount   SocialAccount         @relation(fields: [socialAccountId], references: [id])
+  // Если Upload порождён выбором группы — здесь её id (для аналитики и трекинга стратегии)
+  accountGroupId  Int?
+  accountGroup    AccountGroup?         @relation(fields: [accountGroupId], references: [id], onDelete: SetNull)
+  // Снимок dispatchMode на момент создания Upload (round_robin | all | first_active)
+  dispatchMode    String?
+  applicationId   Int?
+  status          UploadStatus          @default(pending)
+  postStatus      PostStatus            @default(active)
+  publishMode     String                @default("immediate")
+  scheduledAt     DateTime?
+  platformPostId  String?
+  platformPostUrl String?
+  title           String
+  description     String?
+  hashtags        String[]
+  idempotencyKey  String                @unique
+  errorMessage    String?
+  blockedByEnv    Boolean               @default(false)
+  attemptCount    Int                   @default(0)
+  lastAttemptAt   DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  // --- Pipeline tracking (nullable, for standalone/pipeline separation) ---
+  runId           Int?
+  run             WorkflowRun?          @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pipelineId      Int?
+  pipeline        Pipeline?             @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  metrics         PostMetrics[]
+  references      Reference[]
+  attempts        SocialUploadAttempt[]
+  postingJob      PostingJob?
+
+  @@index([status])
+  @@index([videoId])
+  @@index([runId])
+  @@index([pipelineId])
+  @@index([accountGroupId])
+}
+
+model SocialUploadAttempt {
+  id               Int       @id @default(autoincrement())
+  uploadId         Int
+  upload           Upload    @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  attemptNumber    Int
+  status           String
+  requestSnapshot  Json?
+  responseSnapshot Json?
+  externalUploadId String?
+  externalPostId   String?
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+
+  @@index([uploadId, attemptNumber])
+}
+
+model PostMetrics {
+  id           Int      @id @default(autoincrement())
+  uploadId     Int
+  upload       Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  views        Int      @default(0)
+  likes        Int      @default(0)
+  comments     Int      @default(0)
+  shares       Int      @default(0)
+  watchThrough Float    @default(0)
+  ctr          Float    @default(0)
+  followerGain Int      @default(0)
+  collectedAt  DateTime @default(now())
+
+  @@index([uploadId, collectedAt])
+}
+
+model Reference {
+  id         Int      @id @default(autoincrement())
+  uploadId   Int
+  upload     Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  reason     String
+  aiAnalysis String?
+  addedAt    DateTime @default(now())
+
+  @@unique([uploadId])
+}
+
+model ProductionCycle {
+  id           Int           @id @default(autoincrement())
+  appId        Int
+  app          App           @relation(fields: [appId], references: [id])
+  groupId      Int?
+  accountGroup AccountGroup? @relation(fields: [groupId], references: [id])
+  status       CycleStatus   @default(pending)
+  startedById  Int
+  startedAt    DateTime      @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+  trendsFound  Int           @default(0)
+  scenariosGen Int           @default(0)
+  videosGen    Int           @default(0)
+  uploadsCount Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  logs         AgentLog[]
+}
+
+model AgentLog {
+  id        Int              @id @default(autoincrement())
+  cycleId   Int?
+  cycle     ProductionCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  module    String
+  level     AgentLogLevel    @default(info)
+  message   String
+  details   Json?
+  resolved  Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([module, createdAt])
+  @@index([level, createdAt])
+}
+
+// --- Audit-log расшифровки секретов (Social Automation iteration 1) ---
+// Append-only, не редактируется. Запись создаётся ДО расшифровки в readSecret().
+
+model SecretAccessLog {
+  id         String    @id @default(cuid())
+  userId     Int
+  user       ZavodUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType String // 'SocialAccount.password' | 'Proxy.password' | 'SocialAccount.twoFASecret' | etc.
+  entityId   String // string for cuid (Proxy) or stringified int (SocialAccount)
+  action     String // 'view' | 'use_in_session' | 'export'
+  clientIp   String?
+  userAgent  String?
+  reason     String?
+  createdAt  DateTime  @default(now())
+
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model TelegramChat {
+  id            Int      @id @default(autoincrement())
+  chatId        String   @unique
+  userId        Int?
+  chatType      String   @default("private") // private, group, supergroup, channel
+  title         String?
+  username      String?
+  alertsEnabled Boolean  @default(true)
+  isAuthorized  Boolean  @default(false)
+  routingTags   String[] // event types this chat subscribes to: cycle_started, upload_success, critical_error, idea_created
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deliveries    TelegramDelivery[]
+  commandAudits TelegramCommandAudit[]
+}
+
+enum TelegramDeliveryStatus {
+  pending
+  sent
+  failed
+}
+
+model TelegramMessageTemplate {
+  id              Int      @id @default(autoincrement())
+  key             String   @unique
+  title           String
+  category        String   @default("alert") // alert, notification, report, custom
+  messageBody     String
+  variablesSchema Json? // { "cycleName": "string", "errorMessage": "string" }
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deliveries TelegramDelivery[]
+}
+
+model TelegramDelivery {
+  id                Int                      @id @default(autoincrement())
+  templateId        Int?
+  template          TelegramMessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  eventType         String // cycle_started, upload_success, critical_error, test, custom, idea_created
+  relatedEntityType String? // cycle, upload, idea, scenario
+  relatedEntityId   Int?
+  targetChatId      String
+  chat              TelegramChat?            @relation(fields: [targetChatId], references: [chatId])
+  status            TelegramDeliveryStatus   @default(pending)
+  telegramMessageId Int? // Telegram's message_id for editing
+  errorMessage      String?
+  messageText       String? // snapshot of sent text
+  sentAt            DateTime?
+  createdAt         DateTime                 @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([targetChatId, createdAt])
+  @@index([status])
+}
+
+model TelegramCommandAudit {
+  id                Int           @id @default(autoincrement())
+  chatId            String
+  chat              TelegramChat? @relation(fields: [chatId], references: [chatId])
+  telegramUserId    String?
+  telegramUsername  String?
+  command           String
+  parsedArgs        String?
+  resultStatus      String        @default("success") // success, error, unauthorized, not_found
+  relatedEntityType String?
+  relatedEntityId   Int?
+  errorMessage      String?
+  createdAt         DateTime      @default(now())
+
+  @@index([chatId, createdAt])
+  @@index([command, createdAt])
+}
+
+model TelegramApiKey {
+  id         Int       @id @default(autoincrement())
+  key        String    @unique // tgk_... random token
+  label      String // human-readable purpose
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+}
+
+enum PipelineStatus {
+  active
+  inactive
+}
+
+enum RunStatus {
+  pending
+  running
+  success
+  failed
+  cancelled
+  no_data
+}
+
+enum StepStatus {
+  pending
+  running
+  success
+  partial
+  no_data
+  failed
+  skipped
+  cancelled
+  blocked
+  waiting
+}
+
+enum TriggerType {
+  manual
+  schedule
+  webhook
+}
+
+model PipelineTag {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  pipelines Pipeline[]
+}
+
+model Pipeline {
+  id                  Int               @id @default(autoincrement())
+  userId              Int
+  name                String
+  description         String?
+  markdownDescription String?
+  icon                String?
+  color               String?
+  tags                PipelineTag[]
+  status              PipelineStatus    @default(inactive)
+  graphData           Json              @default("{\"nodes\":[],\"edges\":[]}")
+  sharedWith          Int[]
+  webhookToken        String?           @unique
+  webhookSecret       String?
+  webhookEnabled      Boolean           @default(true)
+  activeVersionId     Int?
+  // Единый стиль субтитров для всего контейнера (один аккаунт = один visual brand).
+  // Генерируется один раз при первой генерации сценария, переиспользуется во всех
+  // последующих видео pipeline. SubtitleStyleProfile JSON, валидированный по
+  // контрасту/размеру через render.ts:clampForReadability.
+  subtitleStyle       Json?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  lastEditedAt        DateTime          @default(now())
+  runs                WorkflowRun[]
+  versions            PipelineVersion[]
+  schedule            PipelineSchedule?
+  webhookLogs         WebhookLog[]
+  // --- Back-refs for entities created within this pipeline (nullable FK on child) ---
+  scenarios           Scenario[]
+  trends              Trend[]
+  videos              Video[]
+  uploads             Upload[]
+  ideas               Idea[]
+  postingJobs         PostingJob[]
+}
+
+model WorkflowRun {
+  id                Int            @id @default(autoincrement())
+  pipelineId        Int
+  pipeline          Pipeline       @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  status            RunStatus      @default(pending)
+  triggerType       TriggerType    @default(manual)
+  triggeredBy       Int?
+  graphSnapshot     Json?
+  graphVersionId    Int?
+  retryOfRunId      Int?
+  replayOfRunId     Int?
+  parentRunId       Int?
+  cancelRequestedAt DateTime?
+  cancelRequestedBy Int?
+  errorMessage      String?
+  errorCategory     String?
+  startedAt         DateTime       @default(now())
+  finishedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  steps             WorkflowStep[]
+  // --- Back-refs for entities created within this run (nullable FK on child) ---
+  scenarios         Scenario[]
+  trends            Trend[]
+  videos            Video[]
+  uploads           Upload[]
+  ideas             Idea[]
+  postingJobs       PostingJob[]
+
+  @@index([pipelineId, createdAt])
+  @@index([status])
+  @@index([parentRunId])
+}
+
+model WorkflowStep {
+  id            Int         @id @default(autoincrement())
+  runId         Int
+  run           WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  nodeId        String
+  nodeName      String
+  nodeType      String
+  status        StepStatus  @default(pending)
+  input         Json?
+  output        Json?
+  error         String?
+  errorCategory String?
+  logs          Json?
+  attemptCount  Int         @default(0)
+  retryPolicy   Json?
+  artifacts     Json?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  duration      Int?
+  createdAt     DateTime    @default(now())
+
+  @@index([runId, nodeId])
+}
+
+model PipelineVersion {
+  id          Int      @id @default(autoincrement())
+  pipelineId  Int
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  version     Int
+  graphData   Json
+  name        String?
+  description String?
+  createdById Int?
+  isDeployed  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([pipelineId, version])
+}
+
+enum IdeaSource {
+  manual
+  telegram
+  pipeline
+  marketingcamp
+}
+
+enum SyncStatus {
+  none
+  synced
+  pending_export
+  pending_import
+  conflict
+  error
+}
+
+enum SyncDirection {
+  local
+  imported
+  exported
+  bidirectional
+}
+
+enum IdeaStatus {
+  pending
+  processing
+  ready
+  in_work
+  completed
+  failed
+}
+
+enum IdeaActionType {
+  create
+  edit
+  delete
+  restore
+  reanalyze
+  send_to_scenario
+}
+
+model Idea {
+  id               Int                  @id @default(autoincrement())
+  appId            Int?
+  app              App?                 @relation(fields: [appId], references: [id])
+  source           IdeaSource           @default(manual)
+  sourceUrl        String?
+  platform         Platform?
+  transcription    String?
+  language         String?
+  title            String?
+  hook             String?
+  body             String?
+  cta              String?
+  visualStyle      String?
+  whyViral         String?
+  status           IdeaStatus           @default(pending)
+  analysisStatus   AnalysisStatus       @default(none)
+  operatorNotes    String?
+  tags             String[]
+  isDeleted        Boolean              @default(false)
+  deletedAt        DateTime?
+  sentToScenarioAt DateTime?
+  createdById      Int?
+  errorMessage     String?
+  // --- Reference fields ---
+  mediaType        String? // video | image | unknown
+  thumbnailUrl     String? // extracted or provided thumbnail
+  referenceStatus  String? // none | pending | running | completed | failed
+  analysisProgress String? // JSON ReferenceProgress, null когда не идёт анализ
+  // --- MarketingCamp sync fields ---
+  externalId       Int?                 @unique // ID креатива в MarketingCamp
+  syncStatus       SyncStatus           @default(none)
+  syncDirection    SyncDirection        @default(local)
+  lastSyncedAt     DateTime?
+  lastSyncError    String?
+  remoteSnapshot   Json? // raw payload snapshot с MarketingCamp
+  localDirty       Boolean              @default(false) // локальные изменения после sync
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  // --- Pipeline tracking (nullable, for standalone/pipeline separation) ---
+  runId            Int?
+  run              WorkflowRun?         @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pipelineId       Int?
+  pipeline         Pipeline?            @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  analysis         IdeaAnalysis?
+  operatorActions  IdeaOperatorAction[]
+
+  @@index([isDeleted, status])
+  @@index([sourceUrl])
+  @@index([externalId])
+  @@index([syncStatus])
+  @@index([runId])
+  @@index([pipelineId])
+}
+
+model IdeaAnalysis {
+  id                 Int      @id @default(autoincrement())
+  ideaId             Int      @unique
+  idea               Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  hookAnalysis       Json
+  sceneStructure     Json
+  visualStyle        Json
+  viralityReasons    Json
+  summary            String
+  modelVersion       String
+  promptVersion      String
+  confidence         Float?
+  // --- Reference analysis extension ---
+  referenceBreakdown Json? // ReferenceBreakdown: transcript, scenes, patterns, anti-copy
+  referenceVersion   String? // version of reference analyzer
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model IdeaOperatorAction {
+  id         Int            @id @default(autoincrement())
+  ideaId     Int
+  idea       Idea           @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  actionType IdeaActionType
+  reason     String?
+  actorId    Int?
+  createdAt  DateTime       @default(now())
+
+  @@index([ideaId, createdAt])
+}
+
+model TrendwatcherProfile {
+  id                  Int               @id @default(autoincrement())
+  appId               Int
+  app                 App               @relation(fields: [appId], references: [id])
+  name                String
+  actorId             String            @default("clockworks/tiktok-scraper")
+  keywords            String[]
+  platforms           Platform[]
+  language            String?
+  geo                 String?
+  viewCountMin        Int?
+  viewCountMax        Int?
+  maxItems            Int               @default(20)
+  enabled             Boolean           @default(true)
+  scheduleEnabled     Boolean           @default(false)
+  scheduleCron        String?
+  scheduleTimezone    String            @default("UTC")
+  scheduleNextRunAt   DateTime?
+  scheduleLastRunAt   DateTime?
+  lastRunId           Int?
+  lastSuccessfulRunAt DateTime?
+  validationStatus    String? // valid, token_missing, token_invalid_or_forbidden, actor_not_found, profile_invalid, paid_apis_disabled, network_error
+  validationSummary   String? // Human-readable summary of last validation
+  validatedAt         DateTime? // When the profile was last validated
+  isInline            Boolean           @default(false) // true = создан из pipeline inline mode, скрыт из standalone UI
+  sourceNodeId        String? // canvas id ноды pipeline, из которой создан inline профиль
+  sourcePipelineId    Int? // id pipeline, из которого создан inline профиль
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  runs                TrendwatcherRun[]
+
+  @@index([isInline])
+  @@index([appId, isInline])
+}
+
+enum TrendwatcherRunStatus {
+  pending
+  starting
+  running
+  importing
+  analyzing
+  completed
+  failed
+  canceled
+  partially_completed
+}
+
+enum TrendwatcherTriggerType {
+  manual
+  scheduled
+  pipeline
+}
+
+model TrendwatcherRun {
+  id                 Int                     @id @default(autoincrement())
+  profileId          Int
+  profile            TrendwatcherProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  status             TrendwatcherRunStatus   @default(pending)
+  triggerType        TrendwatcherTriggerType @default(manual)
+  externalRunId      String?
+  sourceType         String?
+  startedAt          DateTime                @default(now())
+  completedAt        DateTime?
+  canceledAt         DateTime?
+  failureReason      String?
+  errorCategory      String? // profile_validation_error, apify_start_failed, apify_run_failed, apify_timeout, dataset_empty, import_failed, import_partial_failure, canceled, watchdog_failed, unknown_external_error
+  errorStep          String? // init, starting, running, importing, canceled, unknown
+  errorSummary       String? // Human-readable short summary for operator
+  apifyStatus        String? // Raw Apify run status: SUCCEEDED, FAILED, ABORTED, TIMED-OUT, etc.
+  apifyStatusMessage String? // statusMessage from Apify run response
+  canRetry           Boolean                 @default(false)
+  needsProfileFix    Boolean                 @default(false)
+  datasetId          String?
+  foundCount         Int                     @default(0)
+  importedCount      Int                     @default(0)
+  analyzedCount      Int                     @default(0)
+  skippedCount       Int                     @default(0)
+  dedupSkipCount     Int                     @default(0)
+  viewCountSkipCount Int                     @default(0)
+  warningCount       Int                     @default(0)
+  initiatedBy        String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  logs               TrendwatcherRunLog[]
+
+  @@index([profileId, status])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model TrendwatcherRunLog {
+  id        Int             @id @default(autoincrement())
+  runId     Int
+  run       TrendwatcherRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  level     AgentLogLevel   @default(info)
+  message   String
+  step      String?
+  payload   Json?
+  createdAt DateTime        @default(now())
+
+  @@index([runId, createdAt])
+}
+
+model PipelineSchedule {
+  id             Int       @id @default(autoincrement())
+  pipelineId     Int       @unique
+  pipeline       Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  cronExpr       String
+  timezone       String    @default("UTC")
+  enabled        Boolean   @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  lastRunStatus  String?
+  missedRunCount Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model WebhookLog {
+  id         Int      @id @default(autoincrement())
+  pipelineId Int
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  runId      Int?
+  sourceIp   String?
+  userAgent  String?
+  payload    Json?
+  statusCode Int      @default(200)
+  errorMsg   String?
+  createdAt  DateTime @default(now())
+
+  @@index([pipelineId, createdAt])
+}
+
+enum CredentialType {
+  api_key
+  bearer_token
+  basic_auth
+  oauth2
+  custom
+}
+
+model PipelineCredential {
+  id             Int            @id @default(autoincrement())
+  userId         Int
+  name           String
+  type           CredentialType @default(api_key)
+  encryptedData  String
+  metadata       Json?
+  description    String?
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  lastTestedAt   DateTime?
+  lastTestStatus String?
+  revokedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  driveFiles     DriveFile[]
+  videoUploads   Video[]        @relation("VideoDriveCredential")
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+enum DriveSyncStatus {
+  detected
+  downloading
+  downloaded
+  imported_to_video
+  failed
+}
+
+model DriveFile {
+  id                  Int                @id @default(autoincrement())
+  userId              Int
+  user                ZavodUser          @relation("DriveFilesOwner", fields: [userId], references: [id], onDelete: Cascade)
+  credentialId        Int
+  credential          PipelineCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  driveFileId         String
+  name                String
+  mimeType            String
+  sizeBytes           BigInt?
+  driveCreatedAt      DateTime?
+  driveModifiedAt     DateTime?
+  driveUrl            String?
+  thumbnailUrl        String?
+  videoId             Int?               @unique
+  video               Video?             @relation("DriveFileVideo", fields: [videoId], references: [id], onDelete: SetNull)
+  syncStatus          DriveSyncStatus    @default(detected)
+  localPath           String?
+  lastSyncedAt        DateTime?
+  syncError           String?
+  hasGeneratedCaption Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+
+  @@unique([credentialId, driveFileId])
+  @@index([syncStatus])
+  @@index([hasGeneratedCaption])
+  @@index([userId])
+  @@index([videoId])
+}
+
+enum TaxonomyType {
+  strategy
+  hook_style
+  prompt_pattern
+  pipeline_category
+  kling_pattern
+}
+
+model TaxonomyItem {
+  id               Int          @id @default(autoincrement())
+  type             TaxonomyType
+  slug             String
+  name             String
+  shortDescription String
+  fullExplanation  String?
+  category         String?
+  tags             String[]
+  examples         String[]
+  useCases         String[]
+  isSystem         Boolean      @default(false)
+  isArchived       Boolean      @default(false)
+  createdById      Int?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([type, slug])
+  @@index([type, isArchived])
+  @@index([category])
+}
+
+/// AI Audit Trail — журнал всех AI-предложений и действий пользователя
+model AiAuditLog {
+  id             Int      @id @default(autoincrement())
+  /// Кто вызвал (userId). NULL для background pipeline calls (balance_v2 cost ledger).
+  userId         Int?
+  /// Тип операции: block_suggest | field_suggest | taxonomy_suggest | external_api_call
+  action         String
+  /// Тип ноды (для block/field suggest)
+  nodeType       String?
+  /// ID конвейера, в котором произведено действие
+  pipelineId     Int?
+  /// ID ноды на canvas (строковый, например "trendwatcher-1712345-1")
+  nodeCanvasId   String?
+  /// Какая модель была использована
+  model          String
+  /// Промт пользователя. NULL для не-suggest записей (external_api_call).
+  prompt         String?
+  /// Что AI предложил (JSON)
+  suggestions    Json?
+  /// Какие поля заблокированы (JSON)
+  blockedFields  Json?
+  /// Какие поля отклонены валидацией (JSON)
+  rejectedFields Json?
+  /// Что пользователь применил (JSON, заполняется при apply)
+  appliedFields  Json?
+  /// Статус: suggested | applied | partial | dismissed
+  status         String   @default("suggested")
+  /// Оценка стоимости вызова в USD (по pricing table). NULL для старых записей или мок-режима.
+  costUsd        Decimal? @db.Decimal(10, 6)
+  /// Денормализованный service tag (balance_v2): anthropic | fal.ai | mubert | ...
+  service        String?
+  /// Cross-link с pipeline-видео (balance_v2)
+  videoId        Int?
+  /// stepKey (TEXT, чтобы не зависеть от VideoStepKey enum)
+  stepKey        String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([pipelineId])
+  @@index([createdAt])
+  @@index([service, createdAt])
+  @@index([videoId])
+}
+
+/// Manual balance entries для AI/proxy/music сервисов.
+/// Админ обновляет вручную с dashboard сервиса — бот показывает по /balance.
+model ServiceBalanceEntry {
+  id        Int      @id @default(autoincrement())
+  /// Идентификатор сервиса: fal.ai | anthropic | indigo | nodemaven | mubert
+  service   String   @unique
+  amount    Decimal  @db.Decimal(10, 2)
+  currency  String   @default("USD")
+  /// Доп. данные (traffic_left_gb, days_remaining, и т.п.) — Json
+  metadata  Json?
+  /// Кто ввёл значение (userId)
+  enteredBy Int?
+  enteredAt DateTime @default(now()) @updatedAt
+  notes     String?
+
+  @@index([service])
+  @@index([enteredAt])
+}
+
+// --- Story-driven scenario models ---
+
+model ScenarioGenerationProfile {
+  id          Int        @id @default(autoincrement())
+  name        String
+  description String?
+  appId       Int?
+  app         App?       @relation(fields: [appId], references: [id], onDelete: SetNull)
+  isDefault   Boolean    @default(false)
+  settings    Json // ScenarioGenerationProfileData
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  scenarios   Scenario[]
+
+  @@index([appId])
+}
+
+model ScenarioFeedback {
+  id           Int       @id @default(autoincrement())
+  scenarioId   Int?
+  scenario     Scenario? @relation(fields: [scenarioId], references: [id], onDelete: SetNull)
+  videoId      Int?
+  uploadId     Int?
+  feedbackText String
+  sentiment    String? // positive | negative | neutral | mixed
+  derived      Json? // ScenarioFeedbackDerived
+  source       String    @default("operator") // operator | analytics | review
+  createdAt    DateTime  @default(now())
+
+  @@index([scenarioId])
+  @@index([videoId])
+  @@index([uploadId])
+}
+
+model ScenarioMemory {
+  id        Int      @id @default(autoincrement())
+  appId     Int?
+  app       App?     @relation(fields: [appId], references: [id], onDelete: SetNull)
+  scope     String   @default("global") // global | app | trend
+  scopeId   Int? // trendId if scope=trend
+  data      Json // OptimizationMemoryData
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([appId, scope, scopeId])
+  @@index([scope])
+}
+
+// --- Critic Review — журнал AI-критика, сравнивающего N вариантов сценария ---
+//
+// Один CriticReview = один проход критика (одна итерация). При rework-цикле
+// пишется несколько записей с возрастающим iteration. fullReport хранит
+// CriticOutput целиком (массив scores, bestVariant, reasoning) — для UI
+// детального отчёта без повторных AI-вызовов.
+model CriticReview {
+  id               Int      @id @default(autoincrement())
+  scenarioId       Int
+  scenario         Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  iteration        Int
+  variantsReviewed Int
+  bestVariantId    Int?
+  averageScore     Float
+  needsRework      Boolean
+  reachedThreshold Boolean
+  fullReport       Json
+  modelVersion     String
+  promptVersion    String
+  durationMs       Int
+  costEstimate     Float?
+  createdAt        DateTime @default(now())
+
+  // Атомарная защита от race condition: только 1 review per (scenarioId, iteration).
+  // Параллельные вызовы critic'а на одном scenarioId с одной iteration получат P2002 и gracefully break.
+  @@unique([scenarioId, iteration])
+  @@index([scenarioId, iteration])
+  @@index([scenarioId, createdAt])
+}
+
+// --- Favorite prompts — библиотека "лучших практик" на уровне per-scene промтов ---
+//
+// Маркетолог отмечает удачный VideoAsset.prompt звездой → фиксируется snapshot в promptText.
+// При генерации сценария story-architect получает до 5 таких промтов как ОРИЕНТИР (не копия).
+// appId=null — универсальный промт, виден всем приложениям.
+// sourceVideoAssetId с onDelete:SetNull — при удалении исходного ассета snapshot остаётся.
+model FavoritePrompt {
+  id                 Int         @id @default(autoincrement())
+  userId             Int
+  user               ZavodUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appId              Int?
+  app                App?        @relation(fields: [appId], references: [id], onDelete: SetNull)
+  promptText         String // immutable snapshot из VideoAsset.prompt
+  sourceVideoAssetId Int?
+  sourceVideoAsset   VideoAsset? @relation(fields: [sourceVideoAssetId], references: [id], onDelete: SetNull)
+  tags               String[]
+  notes              String?
+  isPublic           Boolean     @default(true)
+  usageCount         Int         @default(0)
+  lastUsedAt         DateTime?
+  // AI structural pattern analysis (KlingPromptPattern: camera/lighting/actionStructure/mood/motionIntensity)
+  // Кешируется фоновым агентом prompt-pattern-extractor; пересчитывается только при ручном rerun.
+  aiPatternAnalysis  Json?
+  aiAnalyzedAt       DateTime?
+  aiAnalysisError    String?
+  aiAnalysisAttempts Int         @default(0)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([appId])
+  @@index([isPublic, appId])
+  @@index([tags], type: Gin)
+}
+
+// --- Posting jobs state machine (Social Automation iteration 4 prep) ---
+// Independent от Upload: Upload = OAuth API uploads (existing), PostingJob =
+// автоматический постинг через Indigo+Playwright. Параллельные системы.
+
+enum PostingJobStatus {
+  scheduled
+  queued
+  preparing
+  uploading
+  published
+  failed
+  retry_queued
+  cancelled
+}
+
+enum PostingErrorCategory {
+  auth_failed
+  proxy_dead
+  network_error
+  platform_5xx
+  platform_validation
+  platform_rate_limit
+  content_rejected
+  account_locked
+  internal_error
+  unknown
+  // --- Part D: browser automation specific categories ---
+  // login_required        — checkPlatformLoginStatus вернул loggedIn=false.
+  //                         Не retryable — оператор должен залогиниться через Indigo X desktop.
+  // browser_connect_failed — puppeteer.connect упал (automation off / port не открыт).
+  //                          Не retryable — нужно фиксить Indigo profile настройки.
+  // selector_not_found    — DOM не найден ни одним из fallback селекторов.
+  //                          Не retryable — TikTok/YT обновили вёрстку, нужно обновить poster.
+  // upload_failed         — page.setInputFiles или processing indicator не дождались.
+  //                          Retryable 1 раз (timeout на стороне платформы).
+  login_required
+  browser_connect_failed
+  selector_not_found
+  upload_failed
+}
+
+model PostingJob {
+  id              String         @id @default(cuid())
+  videoId         Int
+  video           Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  socialAccountId Int
+  socialAccount   SocialAccount  @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  uploadId        Int?           @unique
+  upload          Upload?        @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  runId           Int?
+  run             WorkflowRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pipelineId      Int?
+  pipeline        Pipeline?      @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+
+  status         PostingJobStatus @default(queued)
+  scheduledAt    DateTime?
+  // sha256(`videoId:socialAccountId:scheduledAtISO|asap`).slice(0, 32)
+  idempotencyKey String           @unique
+  // Snapshot контента на момент создания job (title/description/hashtags/...).
+  // Не редактируется после создания — гарантирует идемпотентность retries.
+  contentSnapshot Json
+  platform       Platform
+
+  attemptCount Int       @default(0)
+  maxAttempts  Int       @default(3)
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  durationMs   Int?
+
+  // Результат публикации
+  platformPostId  String?
+  platformPostUrl String?
+  // Платформа выдала warning о modified content / API made changes
+  apiMadeWarning  Boolean @default(false)
+
+  // Ошибка последней попытки
+  lastError     String?
+  errorCategory PostingErrorCategory?
+  retryAt       DateTime?
+  // --- Part D: диагностика browser automation ---
+  // lastErrorPhase = одна из PostingPhase ("session_start" | "cdp_connect" | "login_check" | ...).
+  //                  Используется AccountDiagnosticPanel для понимания где упал runner.
+  // lastErrorScreenshotKey = storageKey скриншота с момента ошибки (zavodcamp/posting-errors/...).
+  //                          UI выдаёт через signed URL.
+  lastErrorPhase         String?
+  lastErrorScreenshotKey String?
+
+  // --- Phase-level FSM (PR1, аддитивно, nullable) ---
+  // Persisted runtime-состояние phase-level FSM YouTube-постинга:
+  // { fsmVersion, buildMarker, currentPhase, progress, draftVideoId,
+  //   phaseAttempts, classWindows, lastTransitionAt }.
+  // Форма: shared/types/youtube-posting-fsm.ts:YouTubePostingStateData.
+  // null / отсутствие fsmVersion = job НЕ управляется FSM (legacy-путь) — критично
+  // для backward-compat. На момент PR1 НИКТО не пишет в это поле (no-op foundation).
+  stateData Json?
+
+  createdById   Int?
+  createdBy     ZavodUser? @relation("PostingJobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  cancelledById Int?
+  cancelledBy   ZavodUser? @relation("PostingJobCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  cancelledAt   DateTime?
+  cancelReason  String?
+
+  logs PostingJobLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([status, retryAt])
+  @@index([socialAccountId, createdAt(sort: Desc)])
+  @@index([videoId])
+  @@index([runId, pipelineId])
+  @@index([retryAt])
+}
+
+model PostingJobLog {
+  id      String     @id @default(cuid())
+  jobId   String
+  job     PostingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  level   String // 'info' | 'warn' | 'error'
+  message String
+  data    Json?
+  createdAt DateTime @default(now())
+
+  @@index([jobId, createdAt(sort: Desc)])
+}
+
+// --- Account Warming Planner (Social Automation iteration 4 — Track E) ---
+// Детерминистические ежедневные сессии прогрева для социальных аккаунтов.
+// Plan генерируется по seedable RNG (seed = accountId:dayKey), Runner — не в этом треке.
+
+model WarmupSession {
+  id              String              @id @default(cuid())
+  socialAccountId Int
+  socialAccount   SocialAccount       @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  status          WarmupSessionStatus @default(planned)
+  scheduledAt     DateTime
+  // Формат YYYY-MM-DD UTC. Используется для дедупликации planned/running на дату.
+  dayKey          String
+  // Seed формата 'accId:YYYY-MM-DD' — гарантирует детерминированность плана.
+  seed            String
+  // Один из 'new' | 'warming' | 'mature' (классификация на момент генерации).
+  ageBucket       String
+  // WarmupPlan structured (см. shared/types/warmup.ts).
+  plan            Json
+  // WarmupExecutionLog[] (заполнит runner в итерации 4).
+  executedActions Json?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  errorMessage    String?
+  createdById     Int?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([socialAccountId, dayKey])
+  @@index([socialAccountId, scheduledAt])
+  @@index([status, scheduledAt])
+}
+
+model WarmupKeywordPool {
+  id          String    @id @default(cuid())
+  name        String
+  appId       Int?
+  app         App?      @relation(fields: [appId], references: [id], onDelete: SetNull)
+  // 'ru' | 'en' | null — null = универсальный.
+  language    String?
+  // 'general' | 'tech' | 'lifestyle' | 'fitness' | 'education' | 'music' | ...
+  category    String
+  // Опционально — привязка к платформе (если null, применяется ко всем).
+  platform    Platform?
+  keywords    String[]
+  hashtags    String[]  @default([])
+  isActive    Boolean   @default(true)
+  createdById Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([appId, isActive])
+  @@index([category])
+  @@index([platform])
+}
+
+// --- Content Uniqueness Pipeline (Track F) ---
+// Per-platform уникализированные варианты видео. Кеширование по paramsHash:
+// одинаковые параметры → один файл, повторный uniqify бесплатен.
+// Disclaimer: сервис меняет только file hash + base metadata, не обходит
+// perceptual hashing TikTok/Meta. Реальная защита от детектирования —
+// творческая (новый текст хук/CTA, монтажа и т.д.), а не техническая.
+
+model VideoUniqueVariant {
+  id          String   @id @default(cuid())
+  videoId     Int
+  video       Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  // Platform enum (tiktok | instagram | youtube). В API endpoint пока разрешаем
+  // только 'tiktok' и 'youtube', instagram → 400. Enum целиком оставляем для
+  // расширяемости без новой миграции.
+  platform    Platform
+  // Хэш сериализованных параметров uniqify (sha256 от JSON.stringify({crf, brightness, ...})).
+  // Сужаем до 16 hex для удобства имени файла.
+  paramsHash  String
+  // Полные параметры (UniqifyParams) — для отладки и UI «как уникализировано».
+  paramsJson  Json
+  // Относительный путь от storage/uploads, формат: `unique-variants/<videoId>/<platform>_<hash>.mp4`.
+  filePath    String
+  // Публичный URL: `/api/files/unique-variants/<videoId>/<platform>_<hash>.mp4`.
+  fileUrl     String
+  // SHA-256 содержимого готового файла. Главный sanity-check: должен отличаться от оригинала.
+  fileHash    String
+  durationSec Float
+  fileSize    Int
+  // GCS persistent storage: `zavodcamp/unique-variants/{videoId}/{platform}_{paramsHash}.mp4`.
+  // filePath/fileUrl остаются для backward compat.
+  storageKey  String?
+  createdAt   DateTime @default(now())
+
+  @@unique([videoId, platform, paramsHash])
+  @@index([videoId])
+}
+
+// --- Caption Generator (per-platform метаданные для публикации) ---
+// Создаётся CaptionGenerator-нодой pipeline'а или вручную через UI.
+// Один Caption на (videoId, platform). При approvedAt != null Upload
+// executor подменит placeholder title/description/hashtags на эти значения.
+//
+// fitsLimits — снимок прохождения validateCaption на момент создания/правки.
+// Если оператор отредактирует поля так, что лимит превышен — fitsLimits=false
+// и UI покажет предупреждение, approve будет заблокирован.
+
+model Caption {
+  id                 String   @id @default(cuid())
+  videoId            Int
+  video              Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  platform           Platform
+  title              String
+  description        String?
+  hashtags           String[]
+
+  // Validation snapshot (актуализируется при каждой правке)
+  charsTitle         Int
+  charsHashtagsTotal Int
+  fitsLimits         Boolean  @default(true)
+
+  // Generation context
+  modelVersion       String
+  promptVersion      String   @default("v1")
+  generationCost     Float?
+  generatedById      Int?     // user или null если pipeline
+
+  // Pipeline tracking (если caption создан в рамках pipeline)
+  runId              Int?
+  pipelineId         Int?
+
+  // Подтверждение оператором — Upload подменяет поля только при approvedAt != null
+  approvedAt         DateTime?
+  approvedById       Int?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([videoId, platform])
+  @@index([videoId])
+  @@index([runId, pipelineId])
+}

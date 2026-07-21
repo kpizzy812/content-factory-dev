@@ -1,0 +1,81 @@
+{
+  "title": "Утреннее открытие MockApp",
+  "hook": "MockApp за 5 минут собрал план дня — и я наконец-то выспался.",
+  "body": "Раньше утро = панические таски. Сейчас MockApp на телефоне группирует задачи, выстраивает таймлайн и даже напоминает выпить кофе. Один тап — и день на автопилоте.",
+  "cta": "Скачай MockApp и попробуй сам — первая неделя без подписки.",
+  "fullScript": "Сцена 1: Hook — герой просыпается, тянется к телефону, открывает MockApp.\nСцена 2: Body — приложение собирает задачи в timeline, герой улыбается.\nСцена 3: CTA — кадр с QR-кодом и слоганом «Скачай MockApp».",
+  "visualStyleText": "Тёплый утренний свет, лайфстайл-эстетика, мягкая глубина резкости, акценты на интерфейсе приложения",
+  "visualStyleStructured": null,
+  "toneProfile": "Спокойный, доверительный, без давления — друг рекомендует другу",
+  "storyArc": {
+    "template": "transformation",
+    "premise": "Утро в хаосе vs утро с MockApp",
+    "conflict": "Слишком много задач, негде структурировать",
+    "turningPoint": "Открытие MockApp и автокомпоновка дня",
+    "resolution": "День становится управляемым",
+    "emotionalJourney": ["overwhelm", "curiosity", "relief", "confidence"]
+  },
+  "protagonist": {
+    "type": "person",
+    "description": "Молодой профессионал 28 лет, casual look, открытая мимика",
+    "initialState": "уставший после ночи, перегруженный",
+    "finalState": "сфокусированный, бодрый",
+    "visualIdentifiers": ["short brown hair", "black t-shirt", "khaki joggers"]
+  },
+  "scenes": [
+    {
+      "order": 1,
+      "purpose": "hook: показать боль утреннего хаоса",
+      "setting": "спальня в лофте, рассветный свет через окно",
+      "action": "герой открывает глаза, ищет телефон рукой, разблокирует и видит лавину уведомлений",
+      "whatChanges": "из сна — в стресс",
+      "emotionalState": "overwhelm",
+      "appIntegrationBeat": null,
+      "visualPromptGuidance": "warm golden hour light from window, tight close-up of hand reaching for phone, shallow depth of field, lifestyle aesthetic",
+      "subtitleCopy": "когда утро уже на пределе",
+      "subtitlePlacement": { "position": "bottom", "alignment": "center", "avoidZones": [] },
+      "voiceoverLine": null,
+      "spokenLine": null,
+      "continuityNotes": "герой в чёрной футболке, та же по всем сценам",
+      "duration": "4s",
+      "cameraAngle": "close-up",
+      "props": ["phone", "blanket"]
+    },
+    {
+      "order": 2,
+      "purpose": "discovery: герой открывает MockApp",
+      "setting": "та же спальня, кадр на телефоне с UI MockApp",
+      "action": "тап на иконку MockApp, на экране автоматически собирается план дня в виде timeline",
+      "whatChanges": "хаос превращается в структурированный список задач",
+      "emotionalState": "curiosity",
+      "appIntegrationBeat": "герой впервые видит автокомпоновку MockApp",
+      "visualPromptGuidance": "phone screen close-up, MockApp UI with timeline cards, soft glow, cinematic colour grade",
+      "subtitleCopy": "MockApp собирает день за тебя",
+      "subtitlePlacement": { "position": "bottom", "alignment": "center", "avoidZones": [] },
+      "voiceoverLine": null,
+      "spokenLine": null,
+      "continuityNotes": "тот же интерьер, тот же герой",
+      "duration": "6s",
+      "cameraAngle": "over-the-shoulder, focus on screen",
+      "props": ["phone", "MockApp UI"]
+    }
+  ],
+  "appIntegrationStrategy": "Прямая демонстрация UI на 2-й сцене + CTA в конце",
+  "continuityBible": {
+    "protagonist": {
+      "type": "person",
+      "description": "Молодой профессионал 28 лет",
+      "initialState": "уставший",
+      "finalState": "сфокусированный",
+      "visualIdentifiers": ["short brown hair", "black t-shirt"]
+    },
+    "visualCode": {
+      "colorPalette": "warm golden + neutral",
+      "lightingConsistency": "natural morning light + ambient",
+      "environmentStyle": "minimalist loft"
+    },
+    "antiLoopRules": [],
+    "sceneTransitions": [],
+    "forbiddenElements": []
+  }
+}

@@ -1,0 +1,48 @@
+/**
+ * Шаблон для нового E2E feature-теста.
+ *
+ * Скопируй в `tests/e2e/<feature>.spec.ts` и адаптируй. Гарантии:
+ *   - cleanupDatabase() в beforeEach очищает БД (TRUNCATE CASCADE).
+ *   - login() ставит admin-сессию (cookie zavod-session) через test-bypass.
+ *   - disableAnimations() глушит CSS-анимации для стабильности ассертов.
+ *   - setupTestData() сидит фикстуры через реальные API endpoints.
+ *
+ * Прогон: `bun run test:e2e tests/e2e/<feature>.spec.ts`
+ * Тест автоматически прогоняется на 4 viewport-проектах
+ * (Desktop 1920, 1280, Tablet 768, Mobile 375).
+ *
+ * Если шаги специфичны для viewport — используй
+ *   test.skip(testInfo.project.use.viewport?.width >= 1280, "только mobile")
+ */
+import { test, expect } from "@playwright/test"
+import { cleanupDatabase, disableAnimations, login, waitForNetworkIdle } from "../helpers/playwright"
+// import { setupTestData } from "../helpers/e2e-setup"
+
+test.beforeEach(async ({ page }) => {
+  await cleanupDatabase(page)
+  await login(page)
+  await disableAnimations(page)
+})
+
+test.describe("<feature name>", () => {
+  test("основной happy-path", async ({ page }) => {
+    // const seeded = await setupTestData(page, { proxies: 1 })
+
+    await page.goto("/<feature-route>")
+    await waitForNetworkIdle(page)
+
+    // Базовая проверка: страница рендерится, заголовок виден
+    await expect(page.getByRole("heading", { name: /<feature title>/i })).toBeVisible()
+
+    // ... user actions
+
+    // ... assertions
+  })
+
+  test("edge case", async ({ page }) => {
+    await page.goto("/<feature-route>")
+    await waitForNetworkIdle(page)
+
+    // ...
+  })
+})

@@ -1,0 +1,36 @@
+{
+  "hookAnalysis": {
+    "duration": "1.8s",
+    "type": "visual_pattern_break",
+    "description": "Резкий контраст между статичной утренней сценой и внезапной анимацией интерфейса MockApp.",
+    "elements": ["close-up", "движение интерфейса", "звуковой акцент"]
+  },
+  "sceneStructure": {
+    "totalScenes": 4,
+    "averageSceneDuration": "4.5s",
+    "pacing": "medium",
+    "transitionStyle": "match-cut",
+    "structureDescription": "hook → discovery → transformation → CTA"
+  },
+  "visualStyle": {
+    "colorTone": "warm pastel mornings",
+    "lighting": "soft natural window light",
+    "cameraWork": "handheld close-ups + steady center frames",
+    "textOverlays": true,
+    "effects": ["soft fade", "match cut"],
+    "aesthetic": "minimal"
+  },
+  "viralityReasons": {
+    "primaryReason": "узнаваемая боль фрилансера + быстрая трансформация",
+    "factors": [
+      { "factor": "relatable hook", "description": "героиня попадает в типичную ситуацию у миллионов", "impact": "high" },
+      { "factor": "specific transformation", "description": "хаос → структура за 5 секунд", "impact": "high" },
+      { "factor": "subtle product placement", "description": "приложение появляется естественно", "impact": "medium" }
+    ],
+    "targetAudience": "фрилансеры и микропредприниматели 22-35 лет",
+    "replicability": 70,
+    "replicabilityNotes": "нужен реальный кейс трансформации, иначе будет фальшиво"
+  },
+  "summary": "Тренд завязан на яркой иллюстрации боли фрилансера и быстрой структурной трансформации с помощью приложения. Высокий потенциал виральности при условии аутентичности кейса.",
+  "confidence": 0.78
+}

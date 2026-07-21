@@ -1,0 +1,47 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs (только корневая директория /logs — иначе ловит app/pages/admin/logs/
+# и server/api/admin/logs/, и страница админки никогда не коммитится).
+/logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# Storage (generated files)
+storage/uploads/
+storage/frames/*
+!storage/frames/.gitkeep
+
+# Playwright MCP artifacts
+.playwright-mcp-output/
+screens/
+
+# Test artifacts
+tests/playwright-report/
+tests/test-results/
+tests/.cache/
+tests/visual/screenshots/
+coverage/
+.vitest-cache/
+
+# Harness: регенерируемый граф (./harness graph пересобирает; зеркалится в SQLite)
+graphify-out/
+graphify-cache/

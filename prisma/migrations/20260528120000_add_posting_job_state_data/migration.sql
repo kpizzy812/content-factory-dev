@@ -1,0 +1,11 @@
+-- PR1: Phase-level FSM foundation (no-op at runtime).
+-- ADD-only миграция: persisted состояние phase-level FSM YouTube-постинга.
+-- Форма JSON: shared/types/youtube-posting-fsm.ts:YouTubePostingStateData.
+--
+-- Намеренно БЕЗ новых значений enum PostingErrorCategory: FSM-классы
+-- (browser_state_error / auth_required / browser_lost / indigo_unstable /
+-- duplicate_risk / requires_human) хранятся внутри stateData JSON, а в
+-- persisted errorCategory пишется legacy-маппинг. Promotion в enum — поздний PR.
+--
+-- nullable, без DEFAULT, без backfill: существующие job → NULL = legacy-путь.
+ALTER TABLE "PostingJob" ADD COLUMN "stateData" JSONB;

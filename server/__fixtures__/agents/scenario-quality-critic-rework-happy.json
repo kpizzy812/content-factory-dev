@@ -1,0 +1,94 @@
+{
+  "scores": [
+    {
+      "variantIndex": 0,
+      "variantId": 101,
+      "scores": {
+        "hookStrength": 5,
+        "emotionalArc": 6,
+        "appIntegration": 5,
+        "visualClarity": 6,
+        "ctaPower": 5,
+        "viralPotential": 6
+      },
+      "totalScore": 55,
+      "strengths": [
+        "Понятная структура от проблемы к решению",
+        "Эмоциональный поворот в середине"
+      ],
+      "weaknesses": [
+        "Хук слишком общий, нет pattern-interrupt в первые 3 секунды",
+        "Имя приложения встречается только в CTA, бренд не закрепляется",
+        "Визуал описан абстрактно: нет props, lighting, camera angle"
+      ],
+      "reworkSuggestions": [
+        "Заменить хук на конкретный вопрос или контраст до/после в первой секунде",
+        "Упомянуть бренд в turning point сцены 2-3, а не только в финале",
+        "Добавить props и camera angle в каждую сцену для AI-генератора"
+      ],
+      "verdict": "rework"
+    },
+    {
+      "variantIndex": 1,
+      "variantId": 102,
+      "scores": {
+        "hookStrength": 6,
+        "emotionalArc": 7,
+        "appIntegration": 6,
+        "visualClarity": 7,
+        "ctaPower": 6,
+        "viralPotential": 7
+      },
+      "totalScore": 62,
+      "strengths": [
+        "Сильный эмоциональный финал",
+        "Идея свежая, не шаблонная"
+      ],
+      "weaknesses": [
+        "Хук затянут, теряет внимание после 4 секунды",
+        "CTA без явного глагола",
+        "Turning point слабо связан с core function приложения"
+      ],
+      "reworkSuggestions": [
+        "Сократить хук до 2 секунд, оставить только триггер",
+        "Переписать CTA с глаголом (try/get) и явной выгодой",
+        "Привязать turning point к конкретной функции приложения"
+      ],
+      "verdict": "rework"
+    },
+    {
+      "variantIndex": 2,
+      "variantId": 103,
+      "scores": {
+        "hookStrength": 4,
+        "emotionalArc": 5,
+        "appIntegration": 4,
+        "visualClarity": 6,
+        "ctaPower": 5,
+        "viralPotential": 5
+      },
+      "totalScore": 48,
+      "strengths": [
+        "Визуальная атмосфера задана"
+      ],
+      "weaknesses": [
+        "Хук с приветствия — провал retention",
+        "Имя приложения в кадре нет вообще",
+        "Эмоциональная дуга плоская, нет контраста",
+        "CTA общий, без бренда и глагола"
+      ],
+      "reworkSuggestions": [
+        "Полностью переписать хук с pattern-interrupt",
+        "Встроить имя приложения в сцены 2 и 3, не только CTA",
+        "Добавить эмоциональный контраст между началом и финалом",
+        "В CTA добавить глагол + имя приложения"
+      ],
+      "verdict": "reject"
+    }
+  ],
+  "bestVariantIndex": 1,
+  "bestVariantId": 102,
+  "averageScore": 55,
+  "needsRework": true,
+  "reasoning": "Все три варианта ниже порога 70/100. Variant 1 наиболее перспективный (62), но требует rework хука и CTA. Variant 0 (55) и Variant 2 (48) требуют существенных правок. Рекомендуется итерация rework с фокусом на хук и интеграцию бренда."
+}

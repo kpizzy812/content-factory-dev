@@ -1,0 +1,94 @@
+{
+  "summary": "Короткий мобильный креатив, в котором главная героиня показывает приложение MockApp как способ за пару секунд найти свободный слот в перегруженном расписании. История строится через узнаваемую боль (хаос в календаре) и быструю развязку (одно касание — слот найден). Тон — тёплый, юмористичный, в стиле UGC.",
+  "structure": {
+    "hook": {
+      "frameSeq": 0,
+      "description": "Крупный план перегруженного календаря с подписью «Мне опять нечего успеть» — мгновенно резонирует с целевой аудиторией.",
+      "evaluation": "strong"
+    },
+    "body": [
+      {
+        "frameSeq": 1,
+        "description": "Героиня смотрит в телефон, на экране видны накладывающиеся друг на друга встречи и красные пометки."
+      },
+      {
+        "frameSeq": 2,
+        "description": "Палец тапает по кнопке MockApp в нижнем углу экрана — момент перехода к продукту."
+      },
+      {
+        "frameSeq": 3,
+        "description": "Интерфейс MockApp подсвечивает свободный 60-минутный слот зелёным цветом, расписание выглядит чище."
+      },
+      {
+        "frameSeq": 4,
+        "description": "Героиня улыбается и наливает кофе — невербальный сигнал облегчения и контроля над днём."
+      }
+    ],
+    "cta": {
+      "frameSeq": 5,
+      "description": "Финальный кадр с логотипом MockApp и текстом «Попробуй бесплатно» — явный, мягкий призыв к действию.",
+      "present": true
+    }
+  },
+  "frameDescriptions": [
+    {
+      "sequence": 0,
+      "description": "Крупный план iPhone с приложением «Календарь», все слоты заняты, поверх — полупрозрачный мем-стикер с фразой «Мне опять нечего успеть».",
+      "onScreenText": "Мне опять нечего успеть",
+      "keyElements": ["close-up phone", "calendar overload", "ironic caption"]
+    },
+    {
+      "sequence": 1,
+      "description": "Героиня в светлом джемпере смотрит на экран телефона, в кадре отражение монитора с многочисленными зум-окнами.",
+      "onScreenText": null,
+      "keyElements": ["protagonist face", "phone reflection", "anxious mood"]
+    },
+    {
+      "sequence": 2,
+      "description": "Палец героини тапает по иконке MockApp — кадр снят сверху, акцент на жесте перехода в приложение.",
+      "onScreenText": null,
+      "keyElements": ["finger tap", "app icon", "transition moment"]
+    },
+    {
+      "sequence": 3,
+      "description": "Скриншот интерфейса MockApp: расписание перерисовано, зелёным выделен 60-минутный свободный слот, поверх — лёгкая иконка-чек.",
+      "onScreenText": "60 мин свободно",
+      "keyElements": ["app UI", "highlighted slot", "checkmark icon"]
+    },
+    {
+      "sequence": 4,
+      "description": "Героиня наливает кофе из френч-пресса в керамическую кружку, в окне виден дневной свет — тон расслабленный.",
+      "onScreenText": null,
+      "keyElements": ["coffee pour", "warm lighting", "relaxed posture"]
+    },
+    {
+      "sequence": 5,
+      "description": "Финальный кадр: на белом фоне крупный логотип MockApp и подпись «Попробуй бесплатно», под ней мини-иконка App Store.",
+      "onScreenText": "Попробуй бесплатно",
+      "keyElements": ["logo", "cta button", "app store badge"]
+    }
+  ],
+  "viralityFactors": [
+    "Узнаваемая боль с перегруженным календарём — высокий retention в первые 2 секунды.",
+    "Подпись на хуке в стиле мемов работает на share среди миллениалов.",
+    "Быстрая визуальная развязка (хаос → зелёный слот) хорошо смотрится на mute."
+  ],
+  "weaknesses": [
+    "Бренд MockApp появляется только на 3-м кадре — есть риск, что зритель не запомнит название.",
+    "CTA-плашка статичная, без анимации — легко проматывается на втором просмотре."
+  ],
+  "tags": [
+    { "category": "hook", "name": "relatable_pain" },
+    { "category": "format", "name": "ugc_style" },
+    { "category": "emotion", "name": "ironic_relief" },
+    { "category": "audience", "name": "millennial_office" },
+    { "category": "platform", "name": "tiktok_native" },
+    { "category": "style", "name": "warm_daylight" },
+    { "category": "cta", "name": "soft_app_store" },
+    { "category": "theme", "name": "time_management" }
+  ],
+  "audience": "Миллениалы 26–35, офисные/удалённые сотрудники, перегруженный календарь и культ продуктивности.",
+  "fitScore": 0.75,
+  "fitRationale": "Креатив попадает в боль аудитории и явно показывает продукт, но бренд называется поздно — fitScore ниже 0.85 именно из-за слабой бренд-памяти.",
+  "confidence": 0.78
+}

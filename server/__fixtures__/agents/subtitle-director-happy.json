@@ -1,0 +1,39 @@
+{
+  "subtitleStyle": {
+    "typography": {
+      "fontIntent": "bold sans-serif, high-readability for vertical mobile feeds",
+      "casing": "uppercase",
+      "maxLineLength": 32,
+      "wordsPerLine": 4,
+      "maxLines": 2
+    },
+    "visual": {
+      "primaryColor": "#FFFFFF",
+      "outlineColor": "#000000",
+      "shadowEnabled": true,
+      "backgroundColor": null
+    },
+    "animation": {
+      "entrance": "fade",
+      "exit": "fade",
+      "emphasis": "highlight"
+    },
+    "consistency": {
+      "maintainStyleAcrossScenes": true,
+      "sceneOverrideAllowed": true
+    }
+  },
+  "validatedScenes": [
+    {
+      "order": 1,
+      "purpose": "hook",
+      "setting": "квартира утром",
+      "action": "героиня шарит по столу в поисках планшета",
+      "subtitleCopy": "КОГДА ДЕДЛАЙН УЖЕ СЕГОДНЯ",
+      "subtitlePlacement": { "position": "bottom", "alignment": "center", "avoidZones": [] },
+      "cameraAngle": "close-up",
+      "duration": "4s",
+      "emotionalState": "frustration"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "scores": [
+    {
+      "variantIndex": 0,
+      "variantId": 101,
+      "scores": {
+        "hookStrength": 7,
+        "emotionalArc": 8,
+        "appIntegration": 7,
+        "visualClarity": 8,
+        "ctaPower": 7,
+        "viralPotential": 8
+      },
+      "totalScore": 75,
+      "strengths": [
+        "Сильный визуальный сетап в первых кадрах",
+        "Эмоциональная дуга frustration→relief работает на трансформацию",
+        "Имя бренда упомянуто в момент решения, а не только в CTA"
+      ],
+      "weaknesses": [
+        "Хук стартует с действия, но без pattern-interrupt — теряет внимание после 2 секунд",
+        "CTA без сильного глагола, ослабляет финал"
+      ],
+      "reworkSuggestions": [
+        "Добавить pattern-interrupt в первой секунде: вопрос или контраст",
+        "В CTA вписать сильный глагол (try/get) рядом с именем приложения"
+      ],
+      "verdict": "pass_with_notes"
+    },
+    {
+      "variantIndex": 1,
+      "variantId": 102,
+      "scores": {
+        "hookStrength": 9,
+        "emotionalArc": 8,
+        "appIntegration": 8,
+        "visualClarity": 9,
+        "ctaPower": 8,
+        "viralPotential": 9
+      },
+      "totalScore": 82,
+      "strengths": [
+        "Хук с pattern-interrupt — вопрос в первый кадр",
+        "Turning point точно маппится на core function приложения",
+        "Визуальный режиссёрский лист: props и lighting прописаны конкретно",
+        "CTA содержит глагол + бренд + причину действовать"
+      ],
+      "weaknesses": [
+        "Финальная сцена немного длинная, может ослабить retention на TikTok",
+        "Эмоциональная дуга сильная, но переход curiosity→wow можно усилить"
+      ],
+      "reworkSuggestions": [],
+      "verdict": "pass"
+    },
+    {
+      "variantIndex": 2,
+      "variantId": 103,
+      "scores": {
+        "hookStrength": 6,
+        "emotionalArc": 7,
+        "appIntegration": 6,
+        "visualClarity": 7,
+        "ctaPower": 7,
+        "viralPotential": 8
+      },
+      "totalScore": 68,
+      "strengths": [
+        "Идея фреш, не повторяет шаблоны TikTok",
+        "Эмоциональный финал работает на удержание"
+      ],
+      "weaknesses": [
+        "Хук слишком общий, без конкретики первой секунды",
+        "Имя приложения появляется поздно, бренд не закрепляется",
+        "Визуальная сцена 2 описана абстрактно, AI-генератор может галлюцинировать"
+      ],
+      "reworkSuggestions": [
+        "Переформулировать хук с конкретной болью аудитории",
+        "Перенести имя приложения в turning point, а не только в CTA",
+        "Уточнить props и camera angle в сцене 2"
+      ],
+      "verdict": "rework"
+    }
+  ],
+  "bestVariantIndex": 1,
+  "bestVariantId": 102,
+  "averageScore": 75,
+  "needsRework": false,
+  "reasoning": "Variant 1 побеждает: сильный pattern-interrupt в хуке, turning point естественно маппится на core function приложения, визуал прописан как режиссёрский лист, CTA содержит глагол+бренд+причину. Variant 0 крепкий, но хук без pattern-interrupt и слабый CTA. Variant 2 интересная идея, но имя приложения появляется поздно и сцена 2 абстрактна."
+}

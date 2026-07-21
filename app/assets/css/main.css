@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: bumblebee --default, coffee --prefersdark, halloween, luxury, caramellatte;
+}
+
+/* Force Tailwind v4 to generate DaisyUI semantic color utilities */
+@source inline("bg-primary bg-secondary bg-accent bg-neutral bg-info bg-success bg-warning bg-error bg-base-300 bg-primary/5 bg-secondary/5 bg-accent/5 bg-info/5 bg-success/5 bg-warning/5 bg-error/5 bg-primary/20 bg-secondary/20 bg-accent/20 bg-info/20 bg-success/20 bg-warning/20 bg-error/20 text-primary text-secondary text-accent text-neutral text-info text-success text-warning text-error text-primary-content text-secondary-content text-accent-content text-neutral-content text-info-content text-success-content text-warning-content text-error-content border-primary/30 border-secondary/30 border-accent/30 border-info/30 border-info/40 border-success/30 border-warning/30 border-error/30");
+
+/* Custom theme aliases: nightfly (based on halloween), caramelwork (based on caramellatte) */
+[data-theme="nightfly"] {
+  color-scheme: dark;
+  --color-base-100: oklch(21% 0.006 56.043);
+  --color-base-200: oklch(14% 0.004 49.25);
+  --color-base-300: oklch(0% 0 0);
+  --color-base-content: oklch(84.955% 0 0);
+  --color-primary: oklch(77.48% 0.204 60.62);
+  --color-primary-content: oklch(19.693% 0.004 196.779);
+  --color-secondary: oklch(45.98% 0.248 305.03);
+  --color-secondary-content: oklch(89.196% 0.049 305.03);
+  --color-accent: oklch(64.8% 0.223 136.073);
+  --color-accent-content: oklch(0% 0 0);
+  --color-neutral: oklch(24.371% 0.046 65.681);
+  --color-neutral-content: oklch(84.874% 0.009 65.681);
+  --color-info: oklch(54.615% 0.215 262.88);
+  --color-info-content: oklch(90.923% 0.043 262.88);
+  --color-success: oklch(62.705% 0.169 149.213);
+  --color-success-content: oklch(12.541% 0.033 149.213);
+  --color-warning: oklch(66.584% 0.157 58.318);
+  --color-warning-content: oklch(13.316% 0.031 58.318);
+  --color-error: oklch(65.72% 0.199 27.33);
+  --color-error-content: oklch(13.144% 0.039 27.33);
+  --radius-selector: 1rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+[data-theme="caramelwork"] {
+  color-scheme: light;
+  --color-base-100: oklch(98% 0.016 73.684);
+  --color-base-200: oklch(95% 0.038 75.164);
+  --color-base-300: oklch(90% 0.076 70.697);
+  --color-base-content: oklch(40% 0.123 38.172);
+  --color-primary: oklch(0% 0 0);
+  --color-primary-content: oklch(100% 0 0);
+  --color-secondary: oklch(22.45% 0.075 37.85);
+  --color-secondary-content: oklch(90% 0.076 70.697);
+  --color-accent: oklch(46.44% 0.111 37.85);
+  --color-accent-content: oklch(90% 0.076 70.697);
+  --color-neutral: oklch(55% 0.195 38.402);
+  --color-neutral-content: oklch(98% 0.016 73.684);
+  --color-info: oklch(42% 0.199 265.638);
+  --color-info-content: oklch(90% 0.076 70.697);
+  --color-success: oklch(43% 0.095 166.913);
+  --color-success-content: oklch(90% 0.076 70.697);
+  --color-warning: oklch(82% 0.189 84.429);
+  --color-warning-content: oklch(41% 0.112 45.904);
+  --color-error: oklch(70% 0.191 22.216);
+  --color-error-content: oklch(39% 0.141 25.723);
+  --radius-selector: 2rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 2px;
+  --depth: 1;
+  --noise: 1;
+}

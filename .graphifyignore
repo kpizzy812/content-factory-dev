@@ -1,0 +1,34 @@
+# Harness graph scope (base). The installer appends stack-specific build/vendor dirs.
+.harness/
+graphify-out/
+graphify-cache/
+.git/
+__pycache__/
+.venv/
+**/.venv/
+node_modules/
+dist/
+build/
+# .graphifyignore overrides .gitignore — exclude agent state + binaries explicitly.
+.claude/
+.hermes/
+config/hermes/state/
+*.pdf
+*.bib
+# Docs need an LLM backend for *semantic* extraction — keep the graph code-only &
+# key-free by default. To include docs/papers/images, set an API key (e.g.
+# ANTHROPIC_API_KEY) and delete the lines below, then re-run `.harness/harness graph`.
+*.md
+*.markdown
+*.txt
+*.rst
+LICENSE
+# harness-stack-dirs
+.next/
+.nuxt/
+.output/
+coverage/
+.turbo/
+
+# Сгенеренный Prisma-клиент - раздувает граф (8420 узлов) и дает неактуальные ссылки
+app/generated/

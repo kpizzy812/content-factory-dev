@@ -1,0 +1,13 @@
+{
+  "colorPalette": ["#F5EAD8", "#E48F4D", "#FFFFFF", "#1A1A1A", "#A6C9C0"],
+  "lighting": "soft diffused window light with warm highlights and gentle shadow falloff",
+  "mood": "уютный утренний покой, переходящий в собранность и движение",
+  "characterDescription": "молодая иллюстратор-фрилансер 27 лет с разноцветными прядями, в светлой футболке оверсайз",
+  "imagePromptSuffix": "natural light, shallow depth of field, soft pastel grading, cinematic vertical 9:16",
+  "sceneDescriptions": [
+    { "sceneNumber": 1, "description": "героиня у стола утром, разбросанные эскизы, первые лучи солнца", "duration": "4s", "cameraAngle": "close-up" },
+    { "sceneNumber": 2, "description": "телефон с открытым MockApp, отражение интерфейса в очках героини", "duration": "5s", "cameraAngle": "medium shot" },
+    { "sceneNumber": 3, "description": "героиня уверенно работает по плану, тайм-лапс наброска", "duration": "6s", "cameraAngle": "over-the-shoulder" },
+    { "sceneNumber": 4, "description": "финальный кадр с логотипом MockApp на пастельном фоне", "duration": "3s", "cameraAngle": "static center" }
+  ]
+}
