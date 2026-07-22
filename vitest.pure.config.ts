@@ -23,6 +23,7 @@ export default defineConfig({
       "tests/unit/content-strategy-agent.spec.ts",
       "tests/unit/scenario-marketing-validator-language.spec.ts",
       "tests/unit/scene-budget.spec.ts",
+      "tests/unit/dev-auth.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },

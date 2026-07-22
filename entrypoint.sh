@@ -67,14 +67,18 @@ fi
 : "${DATABASE_URL:?FATAL: DATABASE_URL не задан}"
 : "${NUXT_SESSION_PASSWORD:?FATAL: NUXT_SESSION_PASSWORD не задан}"
 : "${ENCRYPTION_KEY:?FATAL: ENCRYPTION_KEY не задан (требуется openssl rand -hex 32)}"
-: "${MARKETING_CAMP_URL:?FATAL: MARKETING_CAMP_URL не задан (URL родительской платформы для логина)}"
-: "${INTER_SERVICE_API_KEY:?FATAL: INTER_SERVICE_API_KEY не задан (X-Service-Key для validate-external)}"
-: "${ZAVOD_API_KEY:?FATAL: ZAVOD_API_KEY не задан (Bearer для двусторонних /api/zavod/*)}"
-
-# Diagnostic echo: видно в логах что env реально подхватились (без значений секретов).
-echo "  MARKETING_CAMP_URL:    $MARKETING_CAMP_URL"
-echo "  INTER_SERVICE_API_KEY: (set, length ${#INTER_SERVICE_API_KEY})"
-echo "  ZAVOD_API_KEY:         (set, length ${#ZAVOD_API_KEY})"
+if [ "${CONTENT_FACTORY_ENV:-production}" = "development" ] && [ "${DEV_AUTH_ENABLED:-false}" = "true" ]; then
+  : "${DEV_AUTH_EMAIL:?FATAL: DEV_AUTH_EMAIL is not set}"
+  : "${DEV_AUTH_PASSWORD:?FATAL: DEV_AUTH_PASSWORD is not set}"
+  echo "  auth: isolated ContentFactory development login"
+else
+  : "${MARKETING_CAMP_URL:?FATAL: MARKETING_CAMP_URL is not set}"
+  : "${INTER_SERVICE_API_KEY:?FATAL: INTER_SERVICE_API_KEY is not set}"
+  : "${ZAVOD_API_KEY:?FATAL: ZAVOD_API_KEY is not set}"
+  echo "  MARKETING_CAMP_URL:    $MARKETING_CAMP_URL"
+  echo "  INTER_SERVICE_API_KEY: (set, length ${#INTER_SERVICE_API_KEY})"
+  echo "  ZAVOD_API_KEY:         (set, length ${#ZAVOD_API_KEY})"
+fi
 
 # Длина ENCRYPTION_KEY должна быть ровно 64 hex-символа (32 байта для AES-256-GCM).
 # server/utils/crypto.ts падает с 500 если не подходит, но лучше упасть сразу.

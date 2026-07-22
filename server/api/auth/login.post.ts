@@ -1,3 +1,5 @@
+import { devExternalId, verifyDevAuth } from '../../utils/dev-auth'
+
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string }>(event)
 
@@ -24,6 +26,30 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  if (verifyDevAuth(email, body.password, process.env)) {
+    const now = new Date()
+    const devUser = await prisma.zavodUser.upsert({
+      where: { email },
+      create: {
+        externalId: devExternalId(email), email, name: 'ContentFactory', surname: 'Dev', rolePreset: 'admin',
+        canRead: true, canWrite: true, canCreate: true, canDelete: true, canApprove: true,
+        canRunAgent: true, canApplyChanges: true, canAdmin: true,
+        moduleAccess: ['trendwatcher', 'script-generator', 'video-generator', 'social-upload', 'analytics', 'pipeline'],
+        isActive: true, lastLoginAt: now,
+      },
+      update: {
+        rolePreset: 'admin', canRead: true, canWrite: true, canCreate: true, canDelete: true,
+        canApprove: true, canRunAgent: true, canApplyChanges: true, canAdmin: true,
+        isActive: true, lastLoginAt: now,
+      },
+    })
+    const sessionUser = {
+      id: devUser.id, externalId: devUser.externalId, email: devUser.email,
+      name: devUser.name, surname: devUser.surname, rolePreset: devUser.rolePreset,
+    }
+    await setUserSession(event, { user: sessionUser })
+    return { user: sessionUser }
+  }
   const result = await validateExternalUser(email, body.password)
 
   if (!result.valid) {
