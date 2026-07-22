@@ -282,6 +282,8 @@ export type CharacterWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Character"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
   referenceImages?: Prisma.CharacterReferenceImageListRelationFilter
+  sourceClips?: Prisma.PresenterSourceClipListRelationFilter
+  lipSyncVideos?: Prisma.VideoListRelationFilter
 }
 
 export type CharacterOrderByWithRelationInput = {
@@ -300,6 +302,8 @@ export type CharacterOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   app?: Prisma.AppOrderByWithRelationInput
   referenceImages?: Prisma.CharacterReferenceImageOrderByRelationAggregateInput
+  sourceClips?: Prisma.PresenterSourceClipOrderByRelationAggregateInput
+  lipSyncVideos?: Prisma.VideoOrderByRelationAggregateInput
 }
 
 export type CharacterWhereUniqueInput = Prisma.AtLeast<{
@@ -321,6 +325,8 @@ export type CharacterWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"Character"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
   referenceImages?: Prisma.CharacterReferenceImageListRelationFilter
+  sourceClips?: Prisma.PresenterSourceClipListRelationFilter
+  lipSyncVideos?: Prisma.VideoListRelationFilter
 }, "id">
 
 export type CharacterOrderByWithAggregationInput = {
@@ -378,6 +384,8 @@ export type CharacterCreateInput = {
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutCharactersInput
   referenceImages?: Prisma.CharacterReferenceImageCreateNestedManyWithoutCharacterInput
+  sourceClips?: Prisma.PresenterSourceClipCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoCreateNestedManyWithoutLipSyncCharacterInput
 }
 
 export type CharacterUncheckedCreateInput = {
@@ -395,6 +403,8 @@ export type CharacterUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   referenceImages?: Prisma.CharacterReferenceImageUncheckedCreateNestedManyWithoutCharacterInput
+  sourceClips?: Prisma.PresenterSourceClipUncheckedCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoUncheckedCreateNestedManyWithoutLipSyncCharacterInput
 }
 
 export type CharacterUpdateInput = {
@@ -412,6 +422,8 @@ export type CharacterUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutCharactersNestedInput
   referenceImages?: Prisma.CharacterReferenceImageUpdateManyWithoutCharacterNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUpdateManyWithoutLipSyncCharacterNestedInput
 }
 
 export type CharacterUncheckedUpdateInput = {
@@ -429,6 +441,8 @@ export type CharacterUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   referenceImages?: Prisma.CharacterReferenceImageUncheckedUpdateManyWithoutCharacterNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUncheckedUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUncheckedUpdateManyWithoutLipSyncCharacterNestedInput
 }
 
 export type CharacterCreateManyInput = {
@@ -549,6 +563,11 @@ export type CharacterScalarRelationFilter = {
   isNot?: Prisma.CharacterWhereInput
 }
 
+export type CharacterNullableScalarRelationFilter = {
+  is?: Prisma.CharacterWhereInput | null
+  isNot?: Prisma.CharacterWhereInput | null
+}
+
 export type CharacterCreateNestedManyWithoutAppInput = {
   create?: Prisma.XOR<Prisma.CharacterCreateWithoutAppInput, Prisma.CharacterUncheckedCreateWithoutAppInput> | Prisma.CharacterCreateWithoutAppInput[] | Prisma.CharacterUncheckedCreateWithoutAppInput[]
   connectOrCreate?: Prisma.CharacterCreateOrConnectWithoutAppInput | Prisma.CharacterCreateOrConnectWithoutAppInput[]
@@ -614,6 +633,36 @@ export type CharacterUpdateOneRequiredWithoutReferenceImagesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.CharacterUpdateToOneWithWhereWithoutReferenceImagesInput, Prisma.CharacterUpdateWithoutReferenceImagesInput>, Prisma.CharacterUncheckedUpdateWithoutReferenceImagesInput>
 }
 
+export type CharacterCreateNestedOneWithoutSourceClipsInput = {
+  create?: Prisma.XOR<Prisma.CharacterCreateWithoutSourceClipsInput, Prisma.CharacterUncheckedCreateWithoutSourceClipsInput>
+  connectOrCreate?: Prisma.CharacterCreateOrConnectWithoutSourceClipsInput
+  connect?: Prisma.CharacterWhereUniqueInput
+}
+
+export type CharacterUpdateOneRequiredWithoutSourceClipsNestedInput = {
+  create?: Prisma.XOR<Prisma.CharacterCreateWithoutSourceClipsInput, Prisma.CharacterUncheckedCreateWithoutSourceClipsInput>
+  connectOrCreate?: Prisma.CharacterCreateOrConnectWithoutSourceClipsInput
+  upsert?: Prisma.CharacterUpsertWithoutSourceClipsInput
+  connect?: Prisma.CharacterWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CharacterUpdateToOneWithWhereWithoutSourceClipsInput, Prisma.CharacterUpdateWithoutSourceClipsInput>, Prisma.CharacterUncheckedUpdateWithoutSourceClipsInput>
+}
+
+export type CharacterCreateNestedOneWithoutLipSyncVideosInput = {
+  create?: Prisma.XOR<Prisma.CharacterCreateWithoutLipSyncVideosInput, Prisma.CharacterUncheckedCreateWithoutLipSyncVideosInput>
+  connectOrCreate?: Prisma.CharacterCreateOrConnectWithoutLipSyncVideosInput
+  connect?: Prisma.CharacterWhereUniqueInput
+}
+
+export type CharacterUpdateOneWithoutLipSyncVideosNestedInput = {
+  create?: Prisma.XOR<Prisma.CharacterCreateWithoutLipSyncVideosInput, Prisma.CharacterUncheckedCreateWithoutLipSyncVideosInput>
+  connectOrCreate?: Prisma.CharacterCreateOrConnectWithoutLipSyncVideosInput
+  upsert?: Prisma.CharacterUpsertWithoutLipSyncVideosInput
+  disconnect?: Prisma.CharacterWhereInput | boolean
+  delete?: Prisma.CharacterWhereInput | boolean
+  connect?: Prisma.CharacterWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CharacterUpdateToOneWithWhereWithoutLipSyncVideosInput, Prisma.CharacterUpdateWithoutLipSyncVideosInput>, Prisma.CharacterUncheckedUpdateWithoutLipSyncVideosInput>
+}
+
 export type CharacterCreateWithoutAppInput = {
   id?: string
   name: string
@@ -628,6 +677,8 @@ export type CharacterCreateWithoutAppInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   referenceImages?: Prisma.CharacterReferenceImageCreateNestedManyWithoutCharacterInput
+  sourceClips?: Prisma.PresenterSourceClipCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoCreateNestedManyWithoutLipSyncCharacterInput
 }
 
 export type CharacterUncheckedCreateWithoutAppInput = {
@@ -644,6 +695,8 @@ export type CharacterUncheckedCreateWithoutAppInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   referenceImages?: Prisma.CharacterReferenceImageUncheckedCreateNestedManyWithoutCharacterInput
+  sourceClips?: Prisma.PresenterSourceClipUncheckedCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoUncheckedCreateNestedManyWithoutLipSyncCharacterInput
 }
 
 export type CharacterCreateOrConnectWithoutAppInput = {
@@ -705,6 +758,8 @@ export type CharacterCreateWithoutReferenceImagesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutCharactersInput
+  sourceClips?: Prisma.PresenterSourceClipCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoCreateNestedManyWithoutLipSyncCharacterInput
 }
 
 export type CharacterUncheckedCreateWithoutReferenceImagesInput = {
@@ -721,6 +776,8 @@ export type CharacterUncheckedCreateWithoutReferenceImagesInput = {
   createdById?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  sourceClips?: Prisma.PresenterSourceClipUncheckedCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoUncheckedCreateNestedManyWithoutLipSyncCharacterInput
 }
 
 export type CharacterCreateOrConnectWithoutReferenceImagesInput = {
@@ -753,6 +810,8 @@ export type CharacterUpdateWithoutReferenceImagesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutCharactersNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUpdateManyWithoutLipSyncCharacterNestedInput
 }
 
 export type CharacterUncheckedUpdateWithoutReferenceImagesInput = {
@@ -769,6 +828,184 @@ export type CharacterUncheckedUpdateWithoutReferenceImagesInput = {
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sourceClips?: Prisma.PresenterSourceClipUncheckedUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUncheckedUpdateManyWithoutLipSyncCharacterNestedInput
+}
+
+export type CharacterCreateWithoutSourceClipsInput = {
+  id?: string
+  name: string
+  description?: string | null
+  role?: string
+  visualPrompt?: string | null
+  tags?: Prisma.CharacterCreatetagsInput | string[]
+  emotionDefault?: string | null
+  ageRange?: string | null
+  archived?: boolean
+  createdById?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCharactersInput
+  referenceImages?: Prisma.CharacterReferenceImageCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoCreateNestedManyWithoutLipSyncCharacterInput
+}
+
+export type CharacterUncheckedCreateWithoutSourceClipsInput = {
+  id?: string
+  appId: number
+  name: string
+  description?: string | null
+  role?: string
+  visualPrompt?: string | null
+  tags?: Prisma.CharacterCreatetagsInput | string[]
+  emotionDefault?: string | null
+  ageRange?: string | null
+  archived?: boolean
+  createdById?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  referenceImages?: Prisma.CharacterReferenceImageUncheckedCreateNestedManyWithoutCharacterInput
+  lipSyncVideos?: Prisma.VideoUncheckedCreateNestedManyWithoutLipSyncCharacterInput
+}
+
+export type CharacterCreateOrConnectWithoutSourceClipsInput = {
+  where: Prisma.CharacterWhereUniqueInput
+  create: Prisma.XOR<Prisma.CharacterCreateWithoutSourceClipsInput, Prisma.CharacterUncheckedCreateWithoutSourceClipsInput>
+}
+
+export type CharacterUpsertWithoutSourceClipsInput = {
+  update: Prisma.XOR<Prisma.CharacterUpdateWithoutSourceClipsInput, Prisma.CharacterUncheckedUpdateWithoutSourceClipsInput>
+  create: Prisma.XOR<Prisma.CharacterCreateWithoutSourceClipsInput, Prisma.CharacterUncheckedCreateWithoutSourceClipsInput>
+  where?: Prisma.CharacterWhereInput
+}
+
+export type CharacterUpdateToOneWithWhereWithoutSourceClipsInput = {
+  where?: Prisma.CharacterWhereInput
+  data: Prisma.XOR<Prisma.CharacterUpdateWithoutSourceClipsInput, Prisma.CharacterUncheckedUpdateWithoutSourceClipsInput>
+}
+
+export type CharacterUpdateWithoutSourceClipsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.StringFieldUpdateOperationsInput | string
+  visualPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tags?: Prisma.CharacterUpdatetagsInput | string[]
+  emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCharactersNestedInput
+  referenceImages?: Prisma.CharacterReferenceImageUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUpdateManyWithoutLipSyncCharacterNestedInput
+}
+
+export type CharacterUncheckedUpdateWithoutSourceClipsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.StringFieldUpdateOperationsInput | string
+  visualPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tags?: Prisma.CharacterUpdatetagsInput | string[]
+  emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  referenceImages?: Prisma.CharacterReferenceImageUncheckedUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUncheckedUpdateManyWithoutLipSyncCharacterNestedInput
+}
+
+export type CharacterCreateWithoutLipSyncVideosInput = {
+  id?: string
+  name: string
+  description?: string | null
+  role?: string
+  visualPrompt?: string | null
+  tags?: Prisma.CharacterCreatetagsInput | string[]
+  emotionDefault?: string | null
+  ageRange?: string | null
+  archived?: boolean
+  createdById?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCharactersInput
+  referenceImages?: Prisma.CharacterReferenceImageCreateNestedManyWithoutCharacterInput
+  sourceClips?: Prisma.PresenterSourceClipCreateNestedManyWithoutCharacterInput
+}
+
+export type CharacterUncheckedCreateWithoutLipSyncVideosInput = {
+  id?: string
+  appId: number
+  name: string
+  description?: string | null
+  role?: string
+  visualPrompt?: string | null
+  tags?: Prisma.CharacterCreatetagsInput | string[]
+  emotionDefault?: string | null
+  ageRange?: string | null
+  archived?: boolean
+  createdById?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  referenceImages?: Prisma.CharacterReferenceImageUncheckedCreateNestedManyWithoutCharacterInput
+  sourceClips?: Prisma.PresenterSourceClipUncheckedCreateNestedManyWithoutCharacterInput
+}
+
+export type CharacterCreateOrConnectWithoutLipSyncVideosInput = {
+  where: Prisma.CharacterWhereUniqueInput
+  create: Prisma.XOR<Prisma.CharacterCreateWithoutLipSyncVideosInput, Prisma.CharacterUncheckedCreateWithoutLipSyncVideosInput>
+}
+
+export type CharacterUpsertWithoutLipSyncVideosInput = {
+  update: Prisma.XOR<Prisma.CharacterUpdateWithoutLipSyncVideosInput, Prisma.CharacterUncheckedUpdateWithoutLipSyncVideosInput>
+  create: Prisma.XOR<Prisma.CharacterCreateWithoutLipSyncVideosInput, Prisma.CharacterUncheckedCreateWithoutLipSyncVideosInput>
+  where?: Prisma.CharacterWhereInput
+}
+
+export type CharacterUpdateToOneWithWhereWithoutLipSyncVideosInput = {
+  where?: Prisma.CharacterWhereInput
+  data: Prisma.XOR<Prisma.CharacterUpdateWithoutLipSyncVideosInput, Prisma.CharacterUncheckedUpdateWithoutLipSyncVideosInput>
+}
+
+export type CharacterUpdateWithoutLipSyncVideosInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.StringFieldUpdateOperationsInput | string
+  visualPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tags?: Prisma.CharacterUpdatetagsInput | string[]
+  emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCharactersNestedInput
+  referenceImages?: Prisma.CharacterReferenceImageUpdateManyWithoutCharacterNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUpdateManyWithoutCharacterNestedInput
+}
+
+export type CharacterUncheckedUpdateWithoutLipSyncVideosInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.StringFieldUpdateOperationsInput | string
+  visualPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tags?: Prisma.CharacterUpdatetagsInput | string[]
+  emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  referenceImages?: Prisma.CharacterReferenceImageUncheckedUpdateManyWithoutCharacterNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUncheckedUpdateManyWithoutCharacterNestedInput
 }
 
 export type CharacterCreateManyAppInput = {
@@ -800,6 +1037,8 @@ export type CharacterUpdateWithoutAppInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   referenceImages?: Prisma.CharacterReferenceImageUpdateManyWithoutCharacterNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUpdateManyWithoutLipSyncCharacterNestedInput
 }
 
 export type CharacterUncheckedUpdateWithoutAppInput = {
@@ -816,6 +1055,8 @@ export type CharacterUncheckedUpdateWithoutAppInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   referenceImages?: Prisma.CharacterReferenceImageUncheckedUpdateManyWithoutCharacterNestedInput
+  sourceClips?: Prisma.PresenterSourceClipUncheckedUpdateManyWithoutCharacterNestedInput
+  lipSyncVideos?: Prisma.VideoUncheckedUpdateManyWithoutLipSyncCharacterNestedInput
 }
 
 export type CharacterUncheckedUpdateManyWithoutAppInput = {
@@ -840,10 +1081,14 @@ export type CharacterUncheckedUpdateManyWithoutAppInput = {
 
 export type CharacterCountOutputType = {
   referenceImages: number
+  sourceClips: number
+  lipSyncVideos: number
 }
 
 export type CharacterCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   referenceImages?: boolean | CharacterCountOutputTypeCountReferenceImagesArgs
+  sourceClips?: boolean | CharacterCountOutputTypeCountSourceClipsArgs
+  lipSyncVideos?: boolean | CharacterCountOutputTypeCountLipSyncVideosArgs
 }
 
 /**
@@ -863,6 +1108,20 @@ export type CharacterCountOutputTypeCountReferenceImagesArgs<ExtArgs extends run
   where?: Prisma.CharacterReferenceImageWhereInput
 }
 
+/**
+ * CharacterCountOutputType without action
+ */
+export type CharacterCountOutputTypeCountSourceClipsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PresenterSourceClipWhereInput
+}
+
+/**
+ * CharacterCountOutputType without action
+ */
+export type CharacterCountOutputTypeCountLipSyncVideosArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VideoWhereInput
+}
+
 
 export type CharacterSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -880,6 +1139,8 @@ export type CharacterSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   referenceImages?: boolean | Prisma.Character$referenceImagesArgs<ExtArgs>
+  sourceClips?: boolean | Prisma.Character$sourceClipsArgs<ExtArgs>
+  lipSyncVideos?: boolean | Prisma.Character$lipSyncVideosArgs<ExtArgs>
   _count?: boolean | Prisma.CharacterCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["character"]>
 
@@ -937,6 +1198,8 @@ export type CharacterOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs 
 export type CharacterInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   referenceImages?: boolean | Prisma.Character$referenceImagesArgs<ExtArgs>
+  sourceClips?: boolean | Prisma.Character$sourceClipsArgs<ExtArgs>
+  lipSyncVideos?: boolean | Prisma.Character$lipSyncVideosArgs<ExtArgs>
   _count?: boolean | Prisma.CharacterCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type CharacterIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -951,6 +1214,8 @@ export type $CharacterPayload<ExtArgs extends runtime.Types.Extensions.InternalA
   objects: {
     app: Prisma.$AppPayload<ExtArgs>
     referenceImages: Prisma.$CharacterReferenceImagePayload<ExtArgs>[]
+    sourceClips: Prisma.$PresenterSourceClipPayload<ExtArgs>[]
+    lipSyncVideos: Prisma.$VideoPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1362,6 +1627,8 @@ export interface Prisma__CharacterClient<T, Null = never, ExtArgs extends runtim
   readonly [Symbol.toStringTag]: "PrismaPromise"
   app<T extends Prisma.AppDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AppDefaultArgs<ExtArgs>>): Prisma.Prisma__AppClient<runtime.Types.Result.GetResult<Prisma.$AppPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   referenceImages<T extends Prisma.Character$referenceImagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Character$referenceImagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CharacterReferenceImagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  sourceClips<T extends Prisma.Character$sourceClipsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Character$sourceClipsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PresenterSourceClipPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  lipSyncVideos<T extends Prisma.Character$lipSyncVideosArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Character$lipSyncVideosArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VideoPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1826,6 +2093,54 @@ export type Character$referenceImagesArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.CharacterReferenceImageScalarFieldEnum | Prisma.CharacterReferenceImageScalarFieldEnum[]
+}
+
+/**
+ * Character.sourceClips
+ */
+export type Character$sourceClipsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PresenterSourceClip
+   */
+  select?: Prisma.PresenterSourceClipSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PresenterSourceClip
+   */
+  omit?: Prisma.PresenterSourceClipOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PresenterSourceClipInclude<ExtArgs> | null
+  where?: Prisma.PresenterSourceClipWhereInput
+  orderBy?: Prisma.PresenterSourceClipOrderByWithRelationInput | Prisma.PresenterSourceClipOrderByWithRelationInput[]
+  cursor?: Prisma.PresenterSourceClipWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PresenterSourceClipScalarFieldEnum | Prisma.PresenterSourceClipScalarFieldEnum[]
+}
+
+/**
+ * Character.lipSyncVideos
+ */
+export type Character$lipSyncVideosArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Video
+   */
+  select?: Prisma.VideoSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Video
+   */
+  omit?: Prisma.VideoOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.VideoInclude<ExtArgs> | null
+  where?: Prisma.VideoWhereInput
+  orderBy?: Prisma.VideoOrderByWithRelationInput | Prisma.VideoOrderByWithRelationInput[]
+  cursor?: Prisma.VideoWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.VideoScalarFieldEnum | Prisma.VideoScalarFieldEnum[]
 }
 
 /**

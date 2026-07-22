@@ -434,6 +434,7 @@ export type SocialAccountWhereInput = {
   warmupSessions?: Prisma.WarmupSessionListRelationFilter
   deviceProfileLinks?: Prisma.DeviceProfileAccountListRelationFilter
   metricsSnapshots?: Prisma.AccountMetricsSnapshotListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogListRelationFilter
 }
 
@@ -478,6 +479,7 @@ export type SocialAccountOrderByWithRelationInput = {
   warmupSessions?: Prisma.WarmupSessionOrderByRelationAggregateInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountOrderByRelationAggregateInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotOrderByRelationAggregateInput
+  factoryPublications?: Prisma.FactoryPublicationOrderByRelationAggregateInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogOrderByRelationAggregateInput
 }
 
@@ -525,6 +527,7 @@ export type SocialAccountWhereUniqueInput = Prisma.AtLeast<{
   warmupSessions?: Prisma.WarmupSessionListRelationFilter
   deviceProfileLinks?: Prisma.DeviceProfileAccountListRelationFilter
   metricsSnapshots?: Prisma.AccountMetricsSnapshotListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogListRelationFilter
 }, "id">
 
@@ -640,6 +643,7 @@ export type SocialAccountCreateInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -682,6 +686,7 @@ export type SocialAccountUncheckedCreateInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -723,6 +728,7 @@ export type SocialAccountUpdateInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -765,6 +771,7 @@ export type SocialAccountUncheckedUpdateInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -1197,6 +1204,20 @@ export type SocialAccountUpdateOneRequiredWithoutUploadsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.SocialAccountUpdateToOneWithWhereWithoutUploadsInput, Prisma.SocialAccountUpdateWithoutUploadsInput>, Prisma.SocialAccountUncheckedUpdateWithoutUploadsInput>
 }
 
+export type SocialAccountCreateNestedOneWithoutFactoryPublicationsInput = {
+  create?: Prisma.XOR<Prisma.SocialAccountCreateWithoutFactoryPublicationsInput, Prisma.SocialAccountUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.SocialAccountCreateOrConnectWithoutFactoryPublicationsInput
+  connect?: Prisma.SocialAccountWhereUniqueInput
+}
+
+export type SocialAccountUpdateOneRequiredWithoutFactoryPublicationsNestedInput = {
+  create?: Prisma.XOR<Prisma.SocialAccountCreateWithoutFactoryPublicationsInput, Prisma.SocialAccountUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.SocialAccountCreateOrConnectWithoutFactoryPublicationsInput
+  upsert?: Prisma.SocialAccountUpsertWithoutFactoryPublicationsInput
+  connect?: Prisma.SocialAccountWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SocialAccountUpdateToOneWithWhereWithoutFactoryPublicationsInput, Prisma.SocialAccountUpdateWithoutFactoryPublicationsInput>, Prisma.SocialAccountUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
 export type SocialAccountCreateNestedOneWithoutPostingJobsInput = {
   create?: Prisma.XOR<Prisma.SocialAccountCreateWithoutPostingJobsInput, Prisma.SocialAccountUncheckedCreateWithoutPostingJobsInput>
   connectOrCreate?: Prisma.SocialAccountCreateOrConnectWithoutPostingJobsInput
@@ -1262,6 +1283,7 @@ export type SocialAccountCreateWithoutAppInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1303,6 +1325,7 @@ export type SocialAccountUncheckedCreateWithoutAppInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1405,6 +1428,7 @@ export type SocialAccountCreateWithoutMetricsSnapshotsInput = {
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutSocialAccountInput
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1446,6 +1470,7 @@ export type SocialAccountUncheckedCreateWithoutMetricsSnapshotsInput = {
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutSocialAccountInput
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1502,6 +1527,7 @@ export type SocialAccountUpdateWithoutMetricsSnapshotsInput = {
   postingJobs?: Prisma.PostingJobUpdateManyWithoutSocialAccountNestedInput
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -1543,6 +1569,7 @@ export type SocialAccountUncheckedUpdateWithoutMetricsSnapshotsInput = {
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutSocialAccountNestedInput
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -1583,6 +1610,7 @@ export type SocialAccountCreateWithoutProxyInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1624,6 +1652,7 @@ export type SocialAccountUncheckedCreateWithoutProxyInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1691,6 +1720,7 @@ export type SocialAccountCreateWithoutProxyDeepCheckLogsInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
 }
 
 export type SocialAccountUncheckedCreateWithoutProxyDeepCheckLogsInput = {
@@ -1732,6 +1762,7 @@ export type SocialAccountUncheckedCreateWithoutProxyDeepCheckLogsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
 export type SocialAccountCreateOrConnectWithoutProxyDeepCheckLogsInput = {
@@ -1788,6 +1819,7 @@ export type SocialAccountUpdateWithoutProxyDeepCheckLogsInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
 }
 
 export type SocialAccountUncheckedUpdateWithoutProxyDeepCheckLogsInput = {
@@ -1829,6 +1861,7 @@ export type SocialAccountUncheckedUpdateWithoutProxyDeepCheckLogsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
 export type SocialAccountCreateWithoutDeviceProfileInput = {
@@ -1868,6 +1901,7 @@ export type SocialAccountCreateWithoutDeviceProfileInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1909,6 +1943,7 @@ export type SocialAccountUncheckedCreateWithoutDeviceProfileInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -1965,6 +2000,7 @@ export type SocialAccountUpdateWithoutDeviceProfileInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2006,6 +2042,7 @@ export type SocialAccountUncheckedUpdateWithoutDeviceProfileInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2046,6 +2083,7 @@ export type SocialAccountCreateWithoutDeviceProfileLinksInput = {
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutSocialAccountInput
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2087,6 +2125,7 @@ export type SocialAccountUncheckedCreateWithoutDeviceProfileLinksInput = {
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutSocialAccountInput
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2143,6 +2182,7 @@ export type SocialAccountUpdateWithoutDeviceProfileLinksInput = {
   postingJobs?: Prisma.PostingJobUpdateManyWithoutSocialAccountNestedInput
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2184,6 +2224,7 @@ export type SocialAccountUncheckedUpdateWithoutDeviceProfileLinksInput = {
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutSocialAccountNestedInput
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2224,6 +2265,7 @@ export type SocialAccountCreateWithoutStyleProfileInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2265,6 +2307,7 @@ export type SocialAccountUncheckedCreateWithoutStyleProfileInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2321,6 +2364,7 @@ export type SocialAccountUpdateWithoutStyleProfileInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2362,6 +2406,7 @@ export type SocialAccountUncheckedUpdateWithoutStyleProfileInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2402,6 +2447,7 @@ export type SocialAccountCreateWithoutGroupsInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2443,6 +2489,7 @@ export type SocialAccountUncheckedCreateWithoutGroupsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2499,6 +2546,7 @@ export type SocialAccountUpdateWithoutGroupsInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2540,6 +2588,7 @@ export type SocialAccountUncheckedUpdateWithoutGroupsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2580,6 +2629,7 @@ export type SocialAccountCreateWithoutUploadsInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2621,6 +2671,7 @@ export type SocialAccountUncheckedCreateWithoutUploadsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2677,6 +2728,7 @@ export type SocialAccountUpdateWithoutUploadsInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2711,6 +2763,189 @@ export type SocialAccountUncheckedUpdateWithoutUploadsInput = {
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  groups?: Prisma.AccountGroupMemberUncheckedUpdateManyWithoutSocialAccountNestedInput
+  styleProfile?: Prisma.AccountStyleProfileUncheckedUpdateOneWithoutSocialAccountNestedInput
+  deviceProfile?: Prisma.DeviceProfileUncheckedUpdateOneWithoutSocialAccountNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutSocialAccountNestedInput
+  warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
+  deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
+  metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
+  proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
+}
+
+export type SocialAccountCreateWithoutFactoryPublicationsInput = {
+  platform: $Enums.Platform
+  displayName: string
+  platformUserId?: string | null
+  platformHandle?: string | null
+  accessToken?: string | null
+  refreshToken?: string | null
+  expiresAt?: Date | string | null
+  status?: $Enums.AccountStatus
+  lastPostedAt?: Date | string | null
+  loginEmail?: string | null
+  loginPassword?: string | null
+  recoveryEmail?: string | null
+  recoveryPhone?: string | null
+  twoFASecret?: string | null
+  notes?: string | null
+  birthDate?: Date | string | null
+  registrationSource?: $Enums.RegistrationSource | null
+  deviceProfileId?: string | null
+  postingMethod?: $Enums.SocialPostingMethod
+  loginCheckedAt?: Date | string | null
+  loginCheckedStatus?: boolean | null
+  loginCheckedUsername?: string | null
+  warmupStatus?: $Enums.WarmupStatus
+  lastWarmupAt?: Date | string | null
+  totalPostsPublished?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
+  proxy?: Prisma.ProxyCreateNestedOneWithoutSocialAccountsInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutSocialAccountInput
+  groups?: Prisma.AccountGroupMemberCreateNestedManyWithoutSocialAccountInput
+  styleProfile?: Prisma.AccountStyleProfileCreateNestedOneWithoutSocialAccountInput
+  deviceProfile?: Prisma.DeviceProfileCreateNestedOneWithoutSocialAccountInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutSocialAccountInput
+  warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
+  deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
+  metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
+}
+
+export type SocialAccountUncheckedCreateWithoutFactoryPublicationsInput = {
+  id?: number
+  appId: number
+  platform: $Enums.Platform
+  displayName: string
+  platformUserId?: string | null
+  platformHandle?: string | null
+  accessToken?: string | null
+  refreshToken?: string | null
+  expiresAt?: Date | string | null
+  status?: $Enums.AccountStatus
+  lastPostedAt?: Date | string | null
+  loginEmail?: string | null
+  loginPassword?: string | null
+  recoveryEmail?: string | null
+  recoveryPhone?: string | null
+  twoFASecret?: string | null
+  notes?: string | null
+  birthDate?: Date | string | null
+  registrationSource?: $Enums.RegistrationSource | null
+  proxyId?: string | null
+  deviceProfileId?: string | null
+  postingMethod?: $Enums.SocialPostingMethod
+  loginCheckedAt?: Date | string | null
+  loginCheckedStatus?: boolean | null
+  loginCheckedUsername?: string | null
+  warmupStatus?: $Enums.WarmupStatus
+  lastWarmupAt?: Date | string | null
+  totalPostsPublished?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
+  groups?: Prisma.AccountGroupMemberUncheckedCreateNestedManyWithoutSocialAccountInput
+  styleProfile?: Prisma.AccountStyleProfileUncheckedCreateNestedOneWithoutSocialAccountInput
+  deviceProfile?: Prisma.DeviceProfileUncheckedCreateNestedOneWithoutSocialAccountInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutSocialAccountInput
+  warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
+  deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
+  metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
+}
+
+export type SocialAccountCreateOrConnectWithoutFactoryPublicationsInput = {
+  where: Prisma.SocialAccountWhereUniqueInput
+  create: Prisma.XOR<Prisma.SocialAccountCreateWithoutFactoryPublicationsInput, Prisma.SocialAccountUncheckedCreateWithoutFactoryPublicationsInput>
+}
+
+export type SocialAccountUpsertWithoutFactoryPublicationsInput = {
+  update: Prisma.XOR<Prisma.SocialAccountUpdateWithoutFactoryPublicationsInput, Prisma.SocialAccountUncheckedUpdateWithoutFactoryPublicationsInput>
+  create: Prisma.XOR<Prisma.SocialAccountCreateWithoutFactoryPublicationsInput, Prisma.SocialAccountUncheckedCreateWithoutFactoryPublicationsInput>
+  where?: Prisma.SocialAccountWhereInput
+}
+
+export type SocialAccountUpdateToOneWithWhereWithoutFactoryPublicationsInput = {
+  where?: Prisma.SocialAccountWhereInput
+  data: Prisma.XOR<Prisma.SocialAccountUpdateWithoutFactoryPublicationsInput, Prisma.SocialAccountUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type SocialAccountUpdateWithoutFactoryPublicationsInput = {
+  platform?: Prisma.EnumPlatformFieldUpdateOperationsInput | $Enums.Platform
+  displayName?: Prisma.StringFieldUpdateOperationsInput | string
+  platformUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformHandle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.EnumAccountStatusFieldUpdateOperationsInput | $Enums.AccountStatus
+  lastPostedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  loginPassword?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recoveryEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recoveryPhone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  twoFASecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  registrationSource?: Prisma.NullableEnumRegistrationSourceFieldUpdateOperationsInput | $Enums.RegistrationSource | null
+  deviceProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  postingMethod?: Prisma.EnumSocialPostingMethodFieldUpdateOperationsInput | $Enums.SocialPostingMethod
+  loginCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginCheckedStatus?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  loginCheckedUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
+  lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
+  proxy?: Prisma.ProxyUpdateOneWithoutSocialAccountsNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutSocialAccountNestedInput
+  groups?: Prisma.AccountGroupMemberUpdateManyWithoutSocialAccountNestedInput
+  styleProfile?: Prisma.AccountStyleProfileUpdateOneWithoutSocialAccountNestedInput
+  deviceProfile?: Prisma.DeviceProfileUpdateOneWithoutSocialAccountNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutSocialAccountNestedInput
+  warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
+  deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
+  metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
+}
+
+export type SocialAccountUncheckedUpdateWithoutFactoryPublicationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  platform?: Prisma.EnumPlatformFieldUpdateOperationsInput | $Enums.Platform
+  displayName?: Prisma.StringFieldUpdateOperationsInput | string
+  platformUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformHandle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accessToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.EnumAccountStatusFieldUpdateOperationsInput | $Enums.AccountStatus
+  lastPostedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  loginPassword?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recoveryEmail?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recoveryPhone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  twoFASecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  birthDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  registrationSource?: Prisma.NullableEnumRegistrationSourceFieldUpdateOperationsInput | $Enums.RegistrationSource | null
+  proxyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  postingMethod?: Prisma.EnumSocialPostingMethodFieldUpdateOperationsInput | $Enums.SocialPostingMethod
+  loginCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginCheckedStatus?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  loginCheckedUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
+  lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
   groups?: Prisma.AccountGroupMemberUncheckedUpdateManyWithoutSocialAccountNestedInput
   styleProfile?: Prisma.AccountStyleProfileUncheckedUpdateOneWithoutSocialAccountNestedInput
   deviceProfile?: Prisma.DeviceProfileUncheckedUpdateOneWithoutSocialAccountNestedInput
@@ -2758,6 +2993,7 @@ export type SocialAccountCreateWithoutPostingJobsInput = {
   warmupSessions?: Prisma.WarmupSessionCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2799,6 +3035,7 @@ export type SocialAccountUncheckedCreateWithoutPostingJobsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2855,6 +3092,7 @@ export type SocialAccountUpdateWithoutPostingJobsInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2896,6 +3134,7 @@ export type SocialAccountUncheckedUpdateWithoutPostingJobsInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -2936,6 +3175,7 @@ export type SocialAccountCreateWithoutWarmupSessionsInput = {
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -2977,6 +3217,7 @@ export type SocialAccountUncheckedCreateWithoutWarmupSessionsInput = {
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutSocialAccountInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedCreateNestedManyWithoutSocialAccountInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedCreateNestedManyWithoutSocialAccountInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutSocialAccountInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutSocialAccountInput
 }
 
@@ -3033,6 +3274,7 @@ export type SocialAccountUpdateWithoutWarmupSessionsInput = {
   postingJobs?: Prisma.PostingJobUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -3074,6 +3316,7 @@ export type SocialAccountUncheckedUpdateWithoutWarmupSessionsInput = {
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -3146,6 +3389,7 @@ export type SocialAccountUpdateWithoutAppInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -3187,6 +3431,7 @@ export type SocialAccountUncheckedUpdateWithoutAppInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -3291,6 +3536,7 @@ export type SocialAccountUpdateWithoutProxyInput = {
   warmupSessions?: Prisma.WarmupSessionUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -3332,6 +3578,7 @@ export type SocialAccountUncheckedUpdateWithoutProxyInput = {
   warmupSessions?: Prisma.WarmupSessionUncheckedUpdateManyWithoutSocialAccountNestedInput
   deviceProfileLinks?: Prisma.DeviceProfileAccountUncheckedUpdateManyWithoutSocialAccountNestedInput
   metricsSnapshots?: Prisma.AccountMetricsSnapshotUncheckedUpdateManyWithoutSocialAccountNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutSocialAccountNestedInput
   proxyDeepCheckLogs?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutSocialAccountNestedInput
 }
 
@@ -3379,6 +3626,7 @@ export type SocialAccountCountOutputType = {
   warmupSessions: number
   deviceProfileLinks: number
   metricsSnapshots: number
+  factoryPublications: number
   proxyDeepCheckLogs: number
 }
 
@@ -3389,6 +3637,7 @@ export type SocialAccountCountOutputTypeSelect<ExtArgs extends runtime.Types.Ext
   warmupSessions?: boolean | SocialAccountCountOutputTypeCountWarmupSessionsArgs
   deviceProfileLinks?: boolean | SocialAccountCountOutputTypeCountDeviceProfileLinksArgs
   metricsSnapshots?: boolean | SocialAccountCountOutputTypeCountMetricsSnapshotsArgs
+  factoryPublications?: boolean | SocialAccountCountOutputTypeCountFactoryPublicationsArgs
   proxyDeepCheckLogs?: boolean | SocialAccountCountOutputTypeCountProxyDeepCheckLogsArgs
 }
 
@@ -3447,6 +3696,13 @@ export type SocialAccountCountOutputTypeCountMetricsSnapshotsArgs<ExtArgs extend
 /**
  * SocialAccountCountOutputType without action
  */
+export type SocialAccountCountOutputTypeCountFactoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryPublicationWhereInput
+}
+
+/**
+ * SocialAccountCountOutputType without action
+ */
 export type SocialAccountCountOutputTypeCountProxyDeepCheckLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ProxyDeepCheckLogWhereInput
 }
@@ -3493,6 +3749,7 @@ export type SocialAccountSelect<ExtArgs extends runtime.Types.Extensions.Interna
   warmupSessions?: boolean | Prisma.SocialAccount$warmupSessionsArgs<ExtArgs>
   deviceProfileLinks?: boolean | Prisma.SocialAccount$deviceProfileLinksArgs<ExtArgs>
   metricsSnapshots?: boolean | Prisma.SocialAccount$metricsSnapshotsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.SocialAccount$factoryPublicationsArgs<ExtArgs>
   proxyDeepCheckLogs?: boolean | Prisma.SocialAccount$proxyDeepCheckLogsArgs<ExtArgs>
   _count?: boolean | Prisma.SocialAccountCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["socialAccount"]>
@@ -3612,6 +3869,7 @@ export type SocialAccountInclude<ExtArgs extends runtime.Types.Extensions.Intern
   warmupSessions?: boolean | Prisma.SocialAccount$warmupSessionsArgs<ExtArgs>
   deviceProfileLinks?: boolean | Prisma.SocialAccount$deviceProfileLinksArgs<ExtArgs>
   metricsSnapshots?: boolean | Prisma.SocialAccount$metricsSnapshotsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.SocialAccount$factoryPublicationsArgs<ExtArgs>
   proxyDeepCheckLogs?: boolean | Prisma.SocialAccount$proxyDeepCheckLogsArgs<ExtArgs>
   _count?: boolean | Prisma.SocialAccountCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -3637,6 +3895,7 @@ export type $SocialAccountPayload<ExtArgs extends runtime.Types.Extensions.Inter
     warmupSessions: Prisma.$WarmupSessionPayload<ExtArgs>[]
     deviceProfileLinks: Prisma.$DeviceProfileAccountPayload<ExtArgs>[]
     metricsSnapshots: Prisma.$AccountMetricsSnapshotPayload<ExtArgs>[]
+    factoryPublications: Prisma.$FactoryPublicationPayload<ExtArgs>[]
     proxyDeepCheckLogs: Prisma.$ProxyDeepCheckLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -4074,6 +4333,7 @@ export interface Prisma__SocialAccountClient<T, Null = never, ExtArgs extends ru
   warmupSessions<T extends Prisma.SocialAccount$warmupSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SocialAccount$warmupSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WarmupSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   deviceProfileLinks<T extends Prisma.SocialAccount$deviceProfileLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SocialAccount$deviceProfileLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeviceProfileAccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   metricsSnapshots<T extends Prisma.SocialAccount$metricsSnapshotsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SocialAccount$metricsSnapshotsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AccountMetricsSnapshotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryPublications<T extends Prisma.SocialAccount$factoryPublicationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SocialAccount$factoryPublicationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryPublicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   proxyDeepCheckLogs<T extends Prisma.SocialAccount$proxyDeepCheckLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SocialAccount$proxyDeepCheckLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProxyDeepCheckLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -4733,6 +4993,30 @@ export type SocialAccount$metricsSnapshotsArgs<ExtArgs extends runtime.Types.Ext
   take?: number
   skip?: number
   distinct?: Prisma.AccountMetricsSnapshotScalarFieldEnum | Prisma.AccountMetricsSnapshotScalarFieldEnum[]
+}
+
+/**
+ * SocialAccount.factoryPublications
+ */
+export type SocialAccount$factoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryPublication
+   */
+  select?: Prisma.FactoryPublicationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryPublication
+   */
+  omit?: Prisma.FactoryPublicationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryPublicationInclude<ExtArgs> | null
+  where?: Prisma.FactoryPublicationWhereInput
+  orderBy?: Prisma.FactoryPublicationOrderByWithRelationInput | Prisma.FactoryPublicationOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryPublicationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryPublicationScalarFieldEnum | Prisma.FactoryPublicationScalarFieldEnum[]
 }
 
 /**

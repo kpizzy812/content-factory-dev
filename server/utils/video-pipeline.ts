@@ -415,6 +415,7 @@ export async function runVideoPipeline(
       videoConfig: {
         lipSyncEnabled: video.lipSyncEnabled,
         lipSyncModelId: video.lipSyncModelId,
+        lipSyncCharacterId: video.lipSyncCharacterId,
         voiceoverModelId: effectiveTtsModelId,
         voiceoverVoiceId: video.voiceoverVoiceId,
         voiceoverLanguage: video.voiceoverLanguage,

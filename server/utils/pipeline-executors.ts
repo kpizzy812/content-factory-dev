@@ -22,6 +22,8 @@ import {
   validateInstagramSnapshot,
   InstagramSnapshotValidationError,
 } from './posting/instagram-snapshot-validator'
+import { readFactoryContext } from './content-factory-batch'
+import { linkFactoryPublication } from './factory-publication'
 
 // Re-export для backward compatibility (call-sites вне этого файла могут
 // импортировать detectUpstreamNoData/getUpstreamNoDataReason из './pipeline-executors').
@@ -371,8 +373,9 @@ export async function executeScenarioNode(
   input: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
-  const trends = (input.trends ?? []) as Array<{
+  const trendInputs = (input.trends ?? []) as Array<{
     id: number
+    hypothesisId?: string
     title: string
     description?: string | null
     platform: string
@@ -393,7 +396,36 @@ export async function executeScenarioNode(
       summary: string
     } | null
   }>
-
+  const hypotheses = (Array.isArray(input.hypotheses) ? input.hypotheses : []) as Array<{
+    id: string
+    title: string
+    angle: string
+    audience: string
+    problem: string
+    promise: string
+    hook: string
+    cta: string
+    evidence?: { rationale?: string } | null
+  }>
+  const factoryPlatform = readFactoryContext(input)?.assignments[0]?.platform ?? 'instagram'
+  const trends = trendInputs.length > 0
+    ? trendInputs
+    : hypotheses.map(hypothesis => ({
+        id: 0,
+        hypothesisId: hypothesis.id,
+        title: hypothesis.title,
+        description: `${hypothesis.angle}\nAudience: ${hypothesis.audience}\nProblem: ${hypothesis.problem}\nPromise: ${hypothesis.promise}\nCTA: ${hypothesis.cta}`,
+        platform: factoryPlatform,
+        hashtags: [] as string[],
+        viewCount: 0,
+        insights: [{
+          whyViral: hypothesis.evidence?.rationale ?? hypothesis.angle,
+          patterns: [hypothesis.angle],
+          hooks: [hypothesis.hook],
+          audience: hypothesis.audience,
+        }],
+        brief: null,
+      }))
   // ── Scene-driven ветка ──
   // Если upstream — character / scene_composer (без trends), вызываем
   // runScenarioGenerationForScene вместо trend-pipeline. Этот путь не зависит
@@ -538,7 +570,7 @@ export async function executeScenarioNode(
 
   // Resolve app from nested config or legacy flat field
   const appConfig = config.app as Record<string, unknown> | undefined
-  const appId = Number(appConfig?.appId) || Number(config.appId) || undefined
+  const appId = Number(appConfig?.appId) || Number(config.appId) || Number(input.appId) || undefined
   const variantsCount = Number(config.variantsCount) || 3
 
   // Pipeline-level subtitle style: один стиль на весь контейнер. При первой генерации
@@ -575,7 +607,7 @@ export async function executeScenarioNode(
 
   const profileSettings = storytelling?.enabled ? {
     storytellingMode: (storytelling.protagonistMode === 'auto' ? 'auto' : storytelling.sceneCountStrategy) as any,
-    sceneCountStrategy: (storytelling.sceneCountStrategy ?? 'auto') as 'auto' | 'minimal' | 'detailed' | 'cinematic',
+    sceneCountStrategy: (storytelling.sceneCountStrategy ?? 'auto') as 'auto' | 'minimal' | 'detailed' | 'cinematic' | 'longform',
     protagonistMode: (storytelling.protagonistMode ?? 'auto') as any,
     continuityStrictness: (storytelling.continuityStrictness ?? 'moderate') as any,
     sceneDiversity: storytelling.variationIntensity === 'high' ? 'high' as const
@@ -597,6 +629,7 @@ export async function executeScenarioNode(
     name: app.name,
     description: app.description,
     keywords: app.keywords as string[],
+    language: app.language,
     transformationPromise: (app as any).transformationPromise ?? null,
     corePain: (app as any).corePain ?? null,
     coreOutcome: (app as any).coreOutcome ?? null,
@@ -650,7 +683,7 @@ export async function executeScenarioNode(
     if (runId) {
       existingScenario = await prisma.scenario.findFirst({
         where: {
-          trendId: trend.id,
+          ...(trend.hypothesisId ? { hypothesisId: trend.hypothesisId } : { trendId: trend.id }),
           appId: app.id,
           runId,
           isDeleted: false,
@@ -661,7 +694,7 @@ export async function executeScenarioNode(
       // Legacy без runId: оставляем старый поиск по createdAt window
       existingScenario = await prisma.scenario.findFirst({
         where: {
-          trendId: trend.id,
+          ...(trend.hypothesisId ? { hypothesisId: trend.hypothesisId } : { trendId: trend.id }),
           appId: app.id,
           createdAt: { gte: runStartedAt },
           isDeleted: false,
@@ -732,7 +765,8 @@ export async function executeScenarioNode(
 
     const scenario = await prisma.scenario.create({
       data: {
-        trendId: trend.id,
+        trendId: trend.hypothesisId ? null : trend.id,
+        hypothesisId: trend.hypothesisId ?? null,
         appId: app.id,
         status: 'generated',
         generationStatus: 'completed',
@@ -811,6 +845,63 @@ export async function executeScenarioNode(
   }
 }
 
+async function resolvePipelineLipSyncCharacterId(
+  config: Record<string, unknown>,
+  input: Record<string, unknown>,
+  appId: number | null,
+): Promise<string | null> {
+  if (config.lipSyncEnabled !== true) return null
+
+  const requestedId = typeof config.lipSyncCharacterId === 'string' && config.lipSyncCharacterId
+    ? config.lipSyncCharacterId
+    : typeof input.characterId === 'string' && input.characterId
+      ? input.characterId
+      : null
+
+  if (requestedId) {
+    const character = await prisma.character.findUnique({
+      where: { id: requestedId },
+      select: {
+        id: true,
+        appId: true,
+        archived: true,
+        _count: { select: { sourceClips: { where: { isActive: true } } } },
+      },
+    })
+    if (!character || character.archived || (appId && character.appId !== appId)) {
+      throw new Error('Lip-sync presenter was not found in the scenario application')
+    }
+    if (character._count.sourceClips === 0) {
+      throw new Error('Selected presenter has no active source clips for lip-sync')
+    }
+    return character.id
+  }
+
+  if (appId) {
+    const protagonist = await prisma.character.findFirst({
+      where: {
+        appId,
+        archived: false,
+        role: 'protagonist',
+        sourceClips: { some: { isActive: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    const fallback = protagonist ? null : await prisma.character.findFirst({
+      where: { appId, archived: false, sourceClips: { some: { isActive: true } } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    const resolved = protagonist?.id ?? fallback?.id ?? null
+    if (resolved) return resolved
+  }
+
+  if (config.requireLipSyncCharacter === true) {
+    throw new Error('Lip-sync requires a presenter with active source clips')
+  }
+  return null
+}
 export async function executeVideoNode(
   config: Record<string, unknown>,
   input: Record<string, unknown>,
@@ -936,6 +1027,9 @@ export async function executeVideoNode(
       launchErrors.push(`Сценарий ${sc.id} не найден`)
       continue
     }
+    const scenarioLanguage = scenario.appId
+      ? (await prisma.app.findUnique({ where: { id: scenario.appId }, select: { language: true } }))?.language
+      : null
 
     if (scenario.variants.length === 0) {
       launchErrors.push(`У сценария ${sc.id} нет вариантов для генерации видео`)
@@ -996,6 +1090,17 @@ export async function executeVideoNode(
       : config.voiceoverEnabled === false
         ? false
         : storyHasVoiceoverLines
+    const resolvedLipSyncCharacterId = await resolvePipelineLipSyncCharacterId(config, input, scenario.appId)
+    const resolvedLipSyncModel = config.lipSyncEnabled === true
+      ? (typeof config.lipSyncModelId === 'string' ? getModel(config.lipSyncModelId) : getDefaultLipSyncModel())
+      : null
+    if (config.lipSyncEnabled === true && (
+      !resolvedLipSyncModel
+      || resolvedLipSyncModel.task !== 'lip_sync'
+      || !resolvedLipSyncModel.integrated
+    )) {
+      throw new Error(`Unknown or unavailable lip-sync model: ${String(config.lipSyncModelId || 'default')}`)
+    }
 
     // Validate models are integrated (defense in depth — pipeline also validates)
     const resolvedImageModelId = String(config.imageModelId || getDefaultImageModel().id)
@@ -1031,26 +1136,32 @@ export async function executeVideoNode(
     const video = await prisma.video.create({
       data: {
         scenarioId: sc.id,
+        variantId: acceptedVariant.id,
+        applicationId: scenario.appId,
         format: prismaFormat as never,
         imageModelId: resolvedImageModelId,
         videoModelId: resolvedVideoModelId,
+        modelStrategy: typeof config.modelStrategy === 'string' ? config.modelStrategy : 'auto',
         generateAudio: config.generateAudio !== false,
         clipDuration: syncedClipDuration,
         imageCount: syncedSceneCount,
         renderQuality: prismaQuality,
         musicEnabled: config.enableMusic !== false,
         musicMood: config.musicMood ? String(config.musicMood) : null,
+        musicVolume: typeof config.musicVolume === 'number' ? Math.max(0, Math.min(1, config.musicVolume)) : undefined,
+        musicVolumeWithVoiceover: typeof config.musicVolumeWithVoiceover === 'number' ? Math.max(0, Math.min(1, config.musicVolumeWithVoiceover)) : undefined,
         subtitlesEnabled: config.subtitlesEnabled !== false,
         subtitlePreset: typeof config.subtitlePreset === 'string' ? config.subtitlePreset : null,
         targetPlatform: config.targetPlatform ? String(config.targetPlatform) : null,
         voiceoverEnabled: resolvedVoiceoverEnabled,
         voiceoverModelId: typeof config.voiceoverModelId === 'string' ? config.voiceoverModelId : null,
         voiceoverVoiceId: typeof config.voiceoverVoiceId === 'string' ? config.voiceoverVoiceId : null,
-        voiceoverLanguage: typeof config.voiceoverLanguage === 'string' ? config.voiceoverLanguage : 'en',
+        voiceoverLanguage: typeof config.voiceoverLanguage === 'string' ? config.voiceoverLanguage : scenarioLanguage || 'en',
         voiceoverPacing: typeof config.voiceoverPacing === 'string' ? config.voiceoverPacing as never : 'moderate' as never,
         voiceoverReconciliation: typeof config.voiceoverReconciliation === 'string' ? config.voiceoverReconciliation as never : 'compress_audio' as never,
         lipSyncEnabled: config.lipSyncEnabled === true,
-        lipSyncModelId: typeof config.lipSyncModelId === 'string' ? config.lipSyncModelId : null,
+        lipSyncModelId: resolvedLipSyncModel?.id ?? null,
+        lipSyncCharacterId: resolvedLipSyncCharacterId,
         // --- Pipeline tracking: runId/pipelineId помогают фильтру «К юниту» ---
         ...(runId ? { runId } : {}),
         ...(pipelineIdForTracking ? { pipelineId: pipelineIdForTracking } : {}),
@@ -1196,7 +1307,7 @@ interface ResolvedTarget {
   accountIds: number[]
   groupId?: number
   dispatchMode?: UploadDispatchMode
-  source: 'account' | 'group'
+  source: 'account' | 'group' | 'factory'
 }
 
 /**
@@ -1317,6 +1428,53 @@ async function resolveUploadTarget(
   }
 }
 
+async function resolveFactoryUploadTarget(
+  input: Record<string, unknown>,
+  config: Record<string, unknown>,
+): Promise<{ target?: ResolvedTarget; reason?: string } | null> {
+  const factory = readFactoryContext(input)
+  if (!factory) return null
+
+  const configuredPlatforms = Array.isArray(config.uploadPlatforms)
+    ? new Set(config.uploadPlatforms.map(String))
+    : new Set<string>()
+  const assignments = factory.assignments.filter(assignment =>
+    configuredPlatforms.size === 0 || configuredPlatforms.has(assignment.platform),
+  )
+  if (assignments.length === 0) {
+    return { reason: 'Нет назначенных аккаунтов для выбранных площадок' }
+  }
+
+  const requestedIds = [...new Set(assignments.map(assignment => assignment.socialAccountId))]
+  const activeAccounts = await prisma.socialAccount.findMany({
+    where: {
+      id: { in: requestedIds },
+      status: 'active',
+      postingMethod: 'api',
+    },
+    select: { id: true, platform: true },
+  })
+  const activeById = new Map(activeAccounts.map(account => [account.id, account.platform]))
+  const validIds = assignments
+    .filter(assignment => activeById.get(assignment.socialAccountId) === assignment.platform)
+    .map(assignment => assignment.socialAccountId)
+  const uniqueValidIds = [...new Set(validIds)]
+
+  if (uniqueValidIds.length !== requestedIds.length) {
+    const missingIds = requestedIds.filter(id => !uniqueValidIds.includes(id))
+    return {
+      reason: 'Accounts #' + missingIds.join(', #') + ' are unavailable for official API publishing',
+    }
+  }
+
+  return {
+    target: {
+      accountIds: uniqueValidIds,
+      source: 'factory',
+    },
+  }
+}
+
 export async function executeUploadNode(
   config: Record<string, unknown>,
   input: Record<string, unknown>,
@@ -1324,7 +1482,9 @@ export async function executeUploadNode(
 ): Promise<Record<string, unknown>> {
   const videos = (input.videos ?? []) as Array<{ id: number }>
 
-  const { target, reason: resolveReason } = await resolveUploadTarget(config)
+  const factoryContext = readFactoryContext(input)
+  const factoryTarget = await resolveFactoryUploadTarget(input, config)
+  const { target, reason: resolveReason } = factoryTarget ?? await resolveUploadTarget(config)
 
   if (videos.length === 0 || !target) {
     const upstreamNoData = detectUpstreamNoData(input)
@@ -1528,6 +1688,15 @@ export async function executeUploadNode(
           ...(uploadPipelineId ? { pipelineId: uploadPipelineId } : {}),
         },
       })
+
+      if (factoryContext?.trackingToken && uploadRunId) {
+        await linkFactoryPublication({
+          runId: uploadRunId,
+          socialAccountId: accountId,
+          videoId: video.id,
+          uploadId: upload.id,
+        })
+      }
 
       // Round-robin tick: помечаем lastPostedAt сразу при создании Upload,
       // чтобы следующий запуск раунд-робина пошёл к другому аккаунту.

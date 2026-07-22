@@ -331,6 +331,7 @@ export type PipelineWhereInput = {
   uploads?: Prisma.UploadListRelationFilter
   ideas?: Prisma.IdeaListRelationFilter
   postingJobs?: Prisma.PostingJobListRelationFilter
+  productionCycles?: Prisma.ProductionCycleListRelationFilter
 }
 
 export type PipelineOrderByWithRelationInput = {
@@ -363,6 +364,7 @@ export type PipelineOrderByWithRelationInput = {
   uploads?: Prisma.UploadOrderByRelationAggregateInput
   ideas?: Prisma.IdeaOrderByRelationAggregateInput
   postingJobs?: Prisma.PostingJobOrderByRelationAggregateInput
+  productionCycles?: Prisma.ProductionCycleOrderByRelationAggregateInput
 }
 
 export type PipelineWhereUniqueInput = Prisma.AtLeast<{
@@ -398,6 +400,7 @@ export type PipelineWhereUniqueInput = Prisma.AtLeast<{
   uploads?: Prisma.UploadListRelationFilter
   ideas?: Prisma.IdeaListRelationFilter
   postingJobs?: Prisma.PostingJobListRelationFilter
+  productionCycles?: Prisma.ProductionCycleListRelationFilter
 }, "id" | "webhookToken">
 
 export type PipelineOrderByWithAggregationInput = {
@@ -479,6 +482,7 @@ export type PipelineCreateInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateInput = {
@@ -511,6 +515,7 @@ export type PipelineUncheckedCreateInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUpdateInput = {
@@ -542,6 +547,7 @@ export type PipelineUpdateInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateInput = {
@@ -574,6 +580,7 @@ export type PipelineUncheckedUpdateInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateManyInput = {
@@ -651,14 +658,6 @@ export type PipelineListRelationFilter = {
 
 export type PipelineOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
-}
-
-export type IntNullableListFilter<$PrismaModel = never> = {
-  equals?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel> | null
-  has?: number | Prisma.IntFieldRefInput<$PrismaModel> | null
-  hasEvery?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel>
-  hasSome?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel>
-  isEmpty?: boolean
 }
 
 export type PipelineCountOrderByAggregateInput = {
@@ -799,6 +798,22 @@ export type PipelineUpdateOneWithoutUploadsNestedInput = {
   delete?: Prisma.PipelineWhereInput | boolean
   connect?: Prisma.PipelineWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.PipelineUpdateToOneWithWhereWithoutUploadsInput, Prisma.PipelineUpdateWithoutUploadsInput>, Prisma.PipelineUncheckedUpdateWithoutUploadsInput>
+}
+
+export type PipelineCreateNestedOneWithoutProductionCyclesInput = {
+  create?: Prisma.XOR<Prisma.PipelineCreateWithoutProductionCyclesInput, Prisma.PipelineUncheckedCreateWithoutProductionCyclesInput>
+  connectOrCreate?: Prisma.PipelineCreateOrConnectWithoutProductionCyclesInput
+  connect?: Prisma.PipelineWhereUniqueInput
+}
+
+export type PipelineUpdateOneWithoutProductionCyclesNestedInput = {
+  create?: Prisma.XOR<Prisma.PipelineCreateWithoutProductionCyclesInput, Prisma.PipelineUncheckedCreateWithoutProductionCyclesInput>
+  connectOrCreate?: Prisma.PipelineCreateOrConnectWithoutProductionCyclesInput
+  upsert?: Prisma.PipelineUpsertWithoutProductionCyclesInput
+  disconnect?: Prisma.PipelineWhereInput | boolean
+  delete?: Prisma.PipelineWhereInput | boolean
+  connect?: Prisma.PipelineWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PipelineUpdateToOneWithWhereWithoutProductionCyclesInput, Prisma.PipelineUpdateWithoutProductionCyclesInput>, Prisma.PipelineUncheckedUpdateWithoutProductionCyclesInput>
 }
 
 export type PipelineCreateNestedManyWithoutTagsInput = {
@@ -968,6 +983,7 @@ export type PipelineCreateWithoutTrendsInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutTrendsInput = {
@@ -999,6 +1015,7 @@ export type PipelineUncheckedCreateWithoutTrendsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutTrendsInput = {
@@ -1045,6 +1062,7 @@ export type PipelineUpdateWithoutTrendsInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutTrendsInput = {
@@ -1076,6 +1094,7 @@ export type PipelineUncheckedUpdateWithoutTrendsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutScenariosInput = {
@@ -1106,6 +1125,7 @@ export type PipelineCreateWithoutScenariosInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutScenariosInput = {
@@ -1137,6 +1157,7 @@ export type PipelineUncheckedCreateWithoutScenariosInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutScenariosInput = {
@@ -1183,6 +1204,7 @@ export type PipelineUpdateWithoutScenariosInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutScenariosInput = {
@@ -1214,6 +1236,7 @@ export type PipelineUncheckedUpdateWithoutScenariosInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutVideosInput = {
@@ -1244,6 +1267,7 @@ export type PipelineCreateWithoutVideosInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutVideosInput = {
@@ -1275,6 +1299,7 @@ export type PipelineUncheckedCreateWithoutVideosInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutVideosInput = {
@@ -1321,6 +1346,7 @@ export type PipelineUpdateWithoutVideosInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutVideosInput = {
@@ -1352,6 +1378,7 @@ export type PipelineUncheckedUpdateWithoutVideosInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutUploadsInput = {
@@ -1382,6 +1409,7 @@ export type PipelineCreateWithoutUploadsInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutUploadsInput = {
@@ -1413,6 +1441,7 @@ export type PipelineUncheckedCreateWithoutUploadsInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutUploadsInput = {
@@ -1459,6 +1488,7 @@ export type PipelineUpdateWithoutUploadsInput = {
   videos?: Prisma.VideoUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutUploadsInput = {
@@ -1488,6 +1518,149 @@ export type PipelineUncheckedUpdateWithoutUploadsInput = {
   scenarios?: Prisma.ScenarioUncheckedUpdateManyWithoutPipelineNestedInput
   trends?: Prisma.TrendUncheckedUpdateManyWithoutPipelineNestedInput
   videos?: Prisma.VideoUncheckedUpdateManyWithoutPipelineNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
+}
+
+export type PipelineCreateWithoutProductionCyclesInput = {
+  userId: number
+  name: string
+  description?: string | null
+  markdownDescription?: string | null
+  icon?: string | null
+  color?: string | null
+  status?: $Enums.PipelineStatus
+  graphData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  sharedWith?: Prisma.PipelineCreatesharedWithInput | number[]
+  webhookToken?: string | null
+  webhookSecret?: string | null
+  webhookEnabled?: boolean
+  activeVersionId?: number | null
+  subtitleStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  lastEditedAt?: Date | string
+  tags?: Prisma.PipelineTagCreateNestedManyWithoutPipelinesInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutPipelineInput
+  versions?: Prisma.PipelineVersionCreateNestedManyWithoutPipelineInput
+  schedule?: Prisma.PipelineScheduleCreateNestedOneWithoutPipelineInput
+  webhookLogs?: Prisma.WebhookLogCreateNestedManyWithoutPipelineInput
+  scenarios?: Prisma.ScenarioCreateNestedManyWithoutPipelineInput
+  trends?: Prisma.TrendCreateNestedManyWithoutPipelineInput
+  videos?: Prisma.VideoCreateNestedManyWithoutPipelineInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+}
+
+export type PipelineUncheckedCreateWithoutProductionCyclesInput = {
+  id?: number
+  userId: number
+  name: string
+  description?: string | null
+  markdownDescription?: string | null
+  icon?: string | null
+  color?: string | null
+  status?: $Enums.PipelineStatus
+  graphData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  sharedWith?: Prisma.PipelineCreatesharedWithInput | number[]
+  webhookToken?: string | null
+  webhookSecret?: string | null
+  webhookEnabled?: boolean
+  activeVersionId?: number | null
+  subtitleStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  lastEditedAt?: Date | string
+  tags?: Prisma.PipelineTagUncheckedCreateNestedManyWithoutPipelinesInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutPipelineInput
+  versions?: Prisma.PipelineVersionUncheckedCreateNestedManyWithoutPipelineInput
+  schedule?: Prisma.PipelineScheduleUncheckedCreateNestedOneWithoutPipelineInput
+  webhookLogs?: Prisma.WebhookLogUncheckedCreateNestedManyWithoutPipelineInput
+  scenarios?: Prisma.ScenarioUncheckedCreateNestedManyWithoutPipelineInput
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutPipelineInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutPipelineInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+}
+
+export type PipelineCreateOrConnectWithoutProductionCyclesInput = {
+  where: Prisma.PipelineWhereUniqueInput
+  create: Prisma.XOR<Prisma.PipelineCreateWithoutProductionCyclesInput, Prisma.PipelineUncheckedCreateWithoutProductionCyclesInput>
+}
+
+export type PipelineUpsertWithoutProductionCyclesInput = {
+  update: Prisma.XOR<Prisma.PipelineUpdateWithoutProductionCyclesInput, Prisma.PipelineUncheckedUpdateWithoutProductionCyclesInput>
+  create: Prisma.XOR<Prisma.PipelineCreateWithoutProductionCyclesInput, Prisma.PipelineUncheckedCreateWithoutProductionCyclesInput>
+  where?: Prisma.PipelineWhereInput
+}
+
+export type PipelineUpdateToOneWithWhereWithoutProductionCyclesInput = {
+  where?: Prisma.PipelineWhereInput
+  data: Prisma.XOR<Prisma.PipelineUpdateWithoutProductionCyclesInput, Prisma.PipelineUncheckedUpdateWithoutProductionCyclesInput>
+}
+
+export type PipelineUpdateWithoutProductionCyclesInput = {
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  markdownDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumPipelineStatusFieldUpdateOperationsInput | $Enums.PipelineStatus
+  graphData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  sharedWith?: Prisma.PipelineUpdatesharedWithInput | number[]
+  webhookToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  activeVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  subtitleStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastEditedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tags?: Prisma.PipelineTagUpdateManyWithoutPipelinesNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutPipelineNestedInput
+  versions?: Prisma.PipelineVersionUpdateManyWithoutPipelineNestedInput
+  schedule?: Prisma.PipelineScheduleUpdateOneWithoutPipelineNestedInput
+  webhookLogs?: Prisma.WebhookLogUpdateManyWithoutPipelineNestedInput
+  scenarios?: Prisma.ScenarioUpdateManyWithoutPipelineNestedInput
+  trends?: Prisma.TrendUpdateManyWithoutPipelineNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutPipelineNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+}
+
+export type PipelineUncheckedUpdateWithoutProductionCyclesInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  markdownDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumPipelineStatusFieldUpdateOperationsInput | $Enums.PipelineStatus
+  graphData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  sharedWith?: Prisma.PipelineUpdatesharedWithInput | number[]
+  webhookToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  activeVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  subtitleStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastEditedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tags?: Prisma.PipelineTagUncheckedUpdateManyWithoutPipelinesNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutPipelineNestedInput
+  versions?: Prisma.PipelineVersionUncheckedUpdateManyWithoutPipelineNestedInput
+  schedule?: Prisma.PipelineScheduleUncheckedUpdateOneWithoutPipelineNestedInput
+  webhookLogs?: Prisma.WebhookLogUncheckedUpdateManyWithoutPipelineNestedInput
+  scenarios?: Prisma.ScenarioUncheckedUpdateManyWithoutPipelineNestedInput
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutPipelineNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutPipelineNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
 }
@@ -1520,6 +1693,7 @@ export type PipelineCreateWithoutTagsInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutTagsInput = {
@@ -1551,6 +1725,7 @@ export type PipelineUncheckedCreateWithoutTagsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutTagsInput = {
@@ -1626,6 +1801,7 @@ export type PipelineCreateWithoutRunsInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutRunsInput = {
@@ -1657,6 +1833,7 @@ export type PipelineUncheckedCreateWithoutRunsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutRunsInput = {
@@ -1703,6 +1880,7 @@ export type PipelineUpdateWithoutRunsInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutRunsInput = {
@@ -1734,6 +1912,7 @@ export type PipelineUncheckedUpdateWithoutRunsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutVersionsInput = {
@@ -1764,6 +1943,7 @@ export type PipelineCreateWithoutVersionsInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutVersionsInput = {
@@ -1795,6 +1975,7 @@ export type PipelineUncheckedCreateWithoutVersionsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutVersionsInput = {
@@ -1841,6 +2022,7 @@ export type PipelineUpdateWithoutVersionsInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutVersionsInput = {
@@ -1872,6 +2054,7 @@ export type PipelineUncheckedUpdateWithoutVersionsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutIdeasInput = {
@@ -1902,6 +2085,7 @@ export type PipelineCreateWithoutIdeasInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutPipelineInput
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutIdeasInput = {
@@ -1933,6 +2117,7 @@ export type PipelineUncheckedCreateWithoutIdeasInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutPipelineInput
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutIdeasInput = {
@@ -1979,6 +2164,7 @@ export type PipelineUpdateWithoutIdeasInput = {
   videos?: Prisma.VideoUpdateManyWithoutPipelineNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutIdeasInput = {
@@ -2010,6 +2196,7 @@ export type PipelineUncheckedUpdateWithoutIdeasInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutPipelineNestedInput
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutScheduleInput = {
@@ -2040,6 +2227,7 @@ export type PipelineCreateWithoutScheduleInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutScheduleInput = {
@@ -2071,6 +2259,7 @@ export type PipelineUncheckedCreateWithoutScheduleInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutScheduleInput = {
@@ -2117,6 +2306,7 @@ export type PipelineUpdateWithoutScheduleInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutScheduleInput = {
@@ -2148,6 +2338,7 @@ export type PipelineUncheckedUpdateWithoutScheduleInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutWebhookLogsInput = {
@@ -2178,6 +2369,7 @@ export type PipelineCreateWithoutWebhookLogsInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutWebhookLogsInput = {
@@ -2209,6 +2401,7 @@ export type PipelineUncheckedCreateWithoutWebhookLogsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutWebhookLogsInput = {
@@ -2255,6 +2448,7 @@ export type PipelineUpdateWithoutWebhookLogsInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutWebhookLogsInput = {
@@ -2286,6 +2480,7 @@ export type PipelineUncheckedUpdateWithoutWebhookLogsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineCreateWithoutPostingJobsInput = {
@@ -2316,6 +2511,7 @@ export type PipelineCreateWithoutPostingJobsInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutPipelineInput
   uploads?: Prisma.UploadCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineUncheckedCreateWithoutPostingJobsInput = {
@@ -2347,6 +2543,7 @@ export type PipelineUncheckedCreateWithoutPostingJobsInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutPipelineInput
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutPipelineInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutPipelineInput
+  productionCycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput
 }
 
 export type PipelineCreateOrConnectWithoutPostingJobsInput = {
@@ -2393,6 +2590,7 @@ export type PipelineUpdateWithoutPostingJobsInput = {
   videos?: Prisma.VideoUpdateManyWithoutPipelineNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutPostingJobsInput = {
@@ -2424,6 +2622,7 @@ export type PipelineUncheckedUpdateWithoutPostingJobsInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutPipelineNestedInput
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUpdateWithoutTagsInput = {
@@ -2454,6 +2653,7 @@ export type PipelineUpdateWithoutTagsInput = {
   uploads?: Prisma.UploadUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateWithoutTagsInput = {
@@ -2485,6 +2685,7 @@ export type PipelineUncheckedUpdateWithoutTagsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutPipelineNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutPipelineNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutPipelineNestedInput
+  productionCycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput
 }
 
 export type PipelineUncheckedUpdateManyWithoutTagsInput = {
@@ -2524,6 +2725,7 @@ export type PipelineCountOutputType = {
   uploads: number
   ideas: number
   postingJobs: number
+  productionCycles: number
 }
 
 export type PipelineCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2537,6 +2739,7 @@ export type PipelineCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensio
   uploads?: boolean | PipelineCountOutputTypeCountUploadsArgs
   ideas?: boolean | PipelineCountOutputTypeCountIdeasArgs
   postingJobs?: boolean | PipelineCountOutputTypeCountPostingJobsArgs
+  productionCycles?: boolean | PipelineCountOutputTypeCountProductionCyclesArgs
 }
 
 /**
@@ -2619,6 +2822,13 @@ export type PipelineCountOutputTypeCountPostingJobsArgs<ExtArgs extends runtime.
   where?: Prisma.PostingJobWhereInput
 }
 
+/**
+ * PipelineCountOutputType without action
+ */
+export type PipelineCountOutputTypeCountProductionCyclesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ProductionCycleWhereInput
+}
+
 
 export type PipelineSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2650,6 +2860,7 @@ export type PipelineSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   uploads?: boolean | Prisma.Pipeline$uploadsArgs<ExtArgs>
   ideas?: boolean | Prisma.Pipeline$ideasArgs<ExtArgs>
   postingJobs?: boolean | Prisma.Pipeline$postingJobsArgs<ExtArgs>
+  productionCycles?: boolean | Prisma.Pipeline$productionCyclesArgs<ExtArgs>
   _count?: boolean | Prisma.PipelineCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["pipeline"]>
 
@@ -2729,6 +2940,7 @@ export type PipelineInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   uploads?: boolean | Prisma.Pipeline$uploadsArgs<ExtArgs>
   ideas?: boolean | Prisma.Pipeline$ideasArgs<ExtArgs>
   postingJobs?: boolean | Prisma.Pipeline$postingJobsArgs<ExtArgs>
+  productionCycles?: boolean | Prisma.Pipeline$productionCyclesArgs<ExtArgs>
   _count?: boolean | Prisma.PipelineCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type PipelineIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -2748,6 +2960,7 @@ export type $PipelinePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     uploads: Prisma.$UploadPayload<ExtArgs>[]
     ideas: Prisma.$IdeaPayload<ExtArgs>[]
     postingJobs: Prisma.$PostingJobPayload<ExtArgs>[]
+    productionCycles: Prisma.$ProductionCyclePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -3173,6 +3386,7 @@ export interface Prisma__PipelineClient<T, Null = never, ExtArgs extends runtime
   uploads<T extends Prisma.Pipeline$uploadsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Pipeline$uploadsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UploadPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ideas<T extends Prisma.Pipeline$ideasArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Pipeline$ideasArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IdeaPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   postingJobs<T extends Prisma.Pipeline$postingJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Pipeline$postingJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PostingJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  productionCycles<T extends Prisma.Pipeline$productionCyclesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Pipeline$productionCyclesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProductionCyclePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3869,6 +4083,30 @@ export type Pipeline$postingJobsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.PostingJobScalarFieldEnum | Prisma.PostingJobScalarFieldEnum[]
+}
+
+/**
+ * Pipeline.productionCycles
+ */
+export type Pipeline$productionCyclesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ProductionCycle
+   */
+  select?: Prisma.ProductionCycleSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ProductionCycle
+   */
+  omit?: Prisma.ProductionCycleOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProductionCycleInclude<ExtArgs> | null
+  where?: Prisma.ProductionCycleWhereInput
+  orderBy?: Prisma.ProductionCycleOrderByWithRelationInput | Prisma.ProductionCycleOrderByWithRelationInput[]
+  cursor?: Prisma.ProductionCycleWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ProductionCycleScalarFieldEnum | Prisma.ProductionCycleScalarFieldEnum[]
 }
 
 /**

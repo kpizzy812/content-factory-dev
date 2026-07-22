@@ -462,6 +462,11 @@ export type AppWhereInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolListRelationFilter
   characters?: Prisma.CharacterListRelationFilter
   scenes?: Prisma.SceneListRelationFilter
+  leadMagnets?: Prisma.LeadMagnetListRelationFilter
+  contentFunnels?: Prisma.ContentFunnelListRelationFilter
+  contentHypotheses?: Prisma.ContentHypothesisListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
 }
 
 export type AppOrderByWithRelationInput = {
@@ -518,6 +523,11 @@ export type AppOrderByWithRelationInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolOrderByRelationAggregateInput
   characters?: Prisma.CharacterOrderByRelationAggregateInput
   scenes?: Prisma.SceneOrderByRelationAggregateInput
+  leadMagnets?: Prisma.LeadMagnetOrderByRelationAggregateInput
+  contentFunnels?: Prisma.ContentFunnelOrderByRelationAggregateInput
+  contentHypotheses?: Prisma.ContentHypothesisOrderByRelationAggregateInput
+  factoryPublications?: Prisma.FactoryPublicationOrderByRelationAggregateInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewOrderByRelationAggregateInput
 }
 
 export type AppWhereUniqueInput = Prisma.AtLeast<{
@@ -577,6 +587,11 @@ export type AppWhereUniqueInput = Prisma.AtLeast<{
   warmupKeywordPools?: Prisma.WarmupKeywordPoolListRelationFilter
   characters?: Prisma.CharacterListRelationFilter
   scenes?: Prisma.SceneListRelationFilter
+  leadMagnets?: Prisma.LeadMagnetListRelationFilter
+  contentFunnels?: Prisma.ContentFunnelListRelationFilter
+  contentHypotheses?: Prisma.ContentHypothesisListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
 }, "id" | "externalId">
 
 export type AppOrderByWithAggregationInput = {
@@ -724,6 +739,11 @@ export type AppCreateInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateInput = {
@@ -780,6 +800,11 @@ export type AppUncheckedCreateInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppUpdateInput = {
@@ -835,6 +860,11 @@ export type AppUpdateInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateInput = {
@@ -891,6 +921,11 @@ export type AppUncheckedUpdateInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateManyInput = {
@@ -1345,6 +1380,76 @@ export type AppUpdateOneRequiredWithoutCyclesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutCyclesInput, Prisma.AppUpdateWithoutCyclesInput>, Prisma.AppUncheckedUpdateWithoutCyclesInput>
 }
 
+export type AppCreateNestedOneWithoutLeadMagnetsInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutLeadMagnetsInput, Prisma.AppUncheckedCreateWithoutLeadMagnetsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutLeadMagnetsInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneRequiredWithoutLeadMagnetsNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutLeadMagnetsInput, Prisma.AppUncheckedCreateWithoutLeadMagnetsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutLeadMagnetsInput
+  upsert?: Prisma.AppUpsertWithoutLeadMagnetsInput
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutLeadMagnetsInput, Prisma.AppUpdateWithoutLeadMagnetsInput>, Prisma.AppUncheckedUpdateWithoutLeadMagnetsInput>
+}
+
+export type AppCreateNestedOneWithoutContentFunnelsInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutContentFunnelsInput, Prisma.AppUncheckedCreateWithoutContentFunnelsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutContentFunnelsInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneRequiredWithoutContentFunnelsNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutContentFunnelsInput, Prisma.AppUncheckedCreateWithoutContentFunnelsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutContentFunnelsInput
+  upsert?: Prisma.AppUpsertWithoutContentFunnelsInput
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutContentFunnelsInput, Prisma.AppUpdateWithoutContentFunnelsInput>, Prisma.AppUncheckedUpdateWithoutContentFunnelsInput>
+}
+
+export type AppCreateNestedOneWithoutContentHypothesesInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutContentHypothesesInput, Prisma.AppUncheckedCreateWithoutContentHypothesesInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutContentHypothesesInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneRequiredWithoutContentHypothesesNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutContentHypothesesInput, Prisma.AppUncheckedCreateWithoutContentHypothesesInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutContentHypothesesInput
+  upsert?: Prisma.AppUpsertWithoutContentHypothesesInput
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutContentHypothesesInput, Prisma.AppUpdateWithoutContentHypothesesInput>, Prisma.AppUncheckedUpdateWithoutContentHypothesesInput>
+}
+
+export type AppCreateNestedOneWithoutFactoryPublicationsInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutFactoryPublicationsInput, Prisma.AppUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutFactoryPublicationsInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutFactoryPublicationsInput, Prisma.AppUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutFactoryPublicationsInput
+  upsert?: Prisma.AppUpsertWithoutFactoryPublicationsInput
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutFactoryPublicationsInput, Prisma.AppUpdateWithoutFactoryPublicationsInput>, Prisma.AppUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type AppCreateNestedOneWithoutFactoryQaReviewsInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutFactoryQaReviewsInput, Prisma.AppUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutFactoryQaReviewsInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneRequiredWithoutFactoryQaReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutFactoryQaReviewsInput, Prisma.AppUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutFactoryQaReviewsInput
+  upsert?: Prisma.AppUpsertWithoutFactoryQaReviewsInput
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutFactoryQaReviewsInput, Prisma.AppUpdateWithoutFactoryQaReviewsInput>, Prisma.AppUncheckedUpdateWithoutFactoryQaReviewsInput>
+}
+
 export type AppCreateNestedOneWithoutIdeasInput = {
   create?: Prisma.XOR<Prisma.AppCreateWithoutIdeasInput, Prisma.AppUncheckedCreateWithoutIdeasInput>
   connectOrCreate?: Prisma.AppCreateOrConnectWithoutIdeasInput
@@ -1491,6 +1596,11 @@ export type AppCreateWithoutCharactersInput = {
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutCharactersInput = {
@@ -1546,6 +1656,11 @@ export type AppUncheckedCreateWithoutCharactersInput = {
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutCharactersInput = {
@@ -1616,6 +1731,11 @@ export type AppUpdateWithoutCharactersInput = {
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutCharactersInput = {
@@ -1671,6 +1791,11 @@ export type AppUncheckedUpdateWithoutCharactersInput = {
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutScenesInput = {
@@ -1725,6 +1850,11 @@ export type AppCreateWithoutScenesInput = {
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutScenesInput = {
@@ -1780,6 +1910,11 @@ export type AppUncheckedCreateWithoutScenesInput = {
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutScenesInput = {
@@ -1850,6 +1985,11 @@ export type AppUpdateWithoutScenesInput = {
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutScenesInput = {
@@ -1905,6 +2045,11 @@ export type AppUncheckedUpdateWithoutScenesInput = {
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutReferenceImagesInput = {
@@ -1959,6 +2104,11 @@ export type AppCreateWithoutReferenceImagesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutReferenceImagesInput = {
@@ -2014,6 +2164,11 @@ export type AppUncheckedCreateWithoutReferenceImagesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutReferenceImagesInput = {
@@ -2084,6 +2239,11 @@ export type AppUpdateWithoutReferenceImagesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutReferenceImagesInput = {
@@ -2139,6 +2299,11 @@ export type AppUncheckedUpdateWithoutReferenceImagesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutEnrichmentLogsInput = {
@@ -2193,6 +2358,11 @@ export type AppCreateWithoutEnrichmentLogsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutEnrichmentLogsInput = {
@@ -2248,6 +2418,11 @@ export type AppUncheckedCreateWithoutEnrichmentLogsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutEnrichmentLogsInput = {
@@ -2318,6 +2493,11 @@ export type AppUpdateWithoutEnrichmentLogsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutEnrichmentLogsInput = {
@@ -2373,6 +2553,11 @@ export type AppUncheckedUpdateWithoutEnrichmentLogsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutTrendsInput = {
@@ -2427,6 +2612,11 @@ export type AppCreateWithoutTrendsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutTrendsInput = {
@@ -2482,6 +2672,11 @@ export type AppUncheckedCreateWithoutTrendsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutTrendsInput = {
@@ -2552,6 +2747,11 @@ export type AppUpdateWithoutTrendsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutTrendsInput = {
@@ -2607,6 +2807,11 @@ export type AppUncheckedUpdateWithoutTrendsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutSocialAccountsInput = {
@@ -2661,6 +2866,11 @@ export type AppCreateWithoutSocialAccountsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutSocialAccountsInput = {
@@ -2716,6 +2926,11 @@ export type AppUncheckedCreateWithoutSocialAccountsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutSocialAccountsInput = {
@@ -2786,6 +3001,11 @@ export type AppUpdateWithoutSocialAccountsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutSocialAccountsInput = {
@@ -2841,6 +3061,11 @@ export type AppUncheckedUpdateWithoutSocialAccountsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutAccountGroupsInput = {
@@ -2895,6 +3120,11 @@ export type AppCreateWithoutAccountGroupsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutAccountGroupsInput = {
@@ -2950,6 +3180,11 @@ export type AppUncheckedCreateWithoutAccountGroupsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutAccountGroupsInput = {
@@ -3020,6 +3255,11 @@ export type AppUpdateWithoutAccountGroupsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutAccountGroupsInput = {
@@ -3075,6 +3315,11 @@ export type AppUncheckedUpdateWithoutAccountGroupsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutCyclesInput = {
@@ -3129,6 +3374,11 @@ export type AppCreateWithoutCyclesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutCyclesInput = {
@@ -3184,6 +3434,11 @@ export type AppUncheckedCreateWithoutCyclesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutCyclesInput = {
@@ -3254,6 +3509,11 @@ export type AppUpdateWithoutCyclesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutCyclesInput = {
@@ -3309,6 +3569,1281 @@ export type AppUncheckedUpdateWithoutCyclesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutLeadMagnetsInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutLeadMagnetsInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutLeadMagnetsInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutLeadMagnetsInput, Prisma.AppUncheckedCreateWithoutLeadMagnetsInput>
+}
+
+export type AppUpsertWithoutLeadMagnetsInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutLeadMagnetsInput, Prisma.AppUncheckedUpdateWithoutLeadMagnetsInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutLeadMagnetsInput, Prisma.AppUncheckedCreateWithoutLeadMagnetsInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutLeadMagnetsInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutLeadMagnetsInput, Prisma.AppUncheckedUpdateWithoutLeadMagnetsInput>
+}
+
+export type AppUpdateWithoutLeadMagnetsInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutLeadMagnetsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutContentFunnelsInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutContentFunnelsInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutContentFunnelsInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutContentFunnelsInput, Prisma.AppUncheckedCreateWithoutContentFunnelsInput>
+}
+
+export type AppUpsertWithoutContentFunnelsInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutContentFunnelsInput, Prisma.AppUncheckedUpdateWithoutContentFunnelsInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutContentFunnelsInput, Prisma.AppUncheckedCreateWithoutContentFunnelsInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutContentFunnelsInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutContentFunnelsInput, Prisma.AppUncheckedUpdateWithoutContentFunnelsInput>
+}
+
+export type AppUpdateWithoutContentFunnelsInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutContentFunnelsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutContentHypothesesInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutContentHypothesesInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutContentHypothesesInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutContentHypothesesInput, Prisma.AppUncheckedCreateWithoutContentHypothesesInput>
+}
+
+export type AppUpsertWithoutContentHypothesesInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutContentHypothesesInput, Prisma.AppUncheckedUpdateWithoutContentHypothesesInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutContentHypothesesInput, Prisma.AppUncheckedCreateWithoutContentHypothesesInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutContentHypothesesInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutContentHypothesesInput, Prisma.AppUncheckedUpdateWithoutContentHypothesesInput>
+}
+
+export type AppUpdateWithoutContentHypothesesInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutContentHypothesesInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutFactoryPublicationsInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutFactoryPublicationsInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutFactoryPublicationsInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutFactoryPublicationsInput, Prisma.AppUncheckedCreateWithoutFactoryPublicationsInput>
+}
+
+export type AppUpsertWithoutFactoryPublicationsInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutFactoryPublicationsInput, Prisma.AppUncheckedUpdateWithoutFactoryPublicationsInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutFactoryPublicationsInput, Prisma.AppUncheckedCreateWithoutFactoryPublicationsInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutFactoryPublicationsInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutFactoryPublicationsInput, Prisma.AppUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type AppUpdateWithoutFactoryPublicationsInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutFactoryPublicationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutFactoryQaReviewsInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutFactoryQaReviewsInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutFactoryQaReviewsInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutFactoryQaReviewsInput, Prisma.AppUncheckedCreateWithoutFactoryQaReviewsInput>
+}
+
+export type AppUpsertWithoutFactoryQaReviewsInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutFactoryQaReviewsInput, Prisma.AppUncheckedUpdateWithoutFactoryQaReviewsInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutFactoryQaReviewsInput, Prisma.AppUncheckedCreateWithoutFactoryQaReviewsInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutFactoryQaReviewsInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutFactoryQaReviewsInput, Prisma.AppUncheckedUpdateWithoutFactoryQaReviewsInput>
+}
+
+export type AppUpdateWithoutFactoryQaReviewsInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutFactoryQaReviewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutIdeasInput = {
@@ -3363,6 +4898,11 @@ export type AppCreateWithoutIdeasInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutIdeasInput = {
@@ -3418,6 +4958,11 @@ export type AppUncheckedCreateWithoutIdeasInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutIdeasInput = {
@@ -3488,6 +5033,11 @@ export type AppUpdateWithoutIdeasInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutIdeasInput = {
@@ -3543,6 +5093,11 @@ export type AppUncheckedUpdateWithoutIdeasInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutTrendwatcherProfilesInput = {
@@ -3597,6 +5152,11 @@ export type AppCreateWithoutTrendwatcherProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutTrendwatcherProfilesInput = {
@@ -3652,6 +5212,11 @@ export type AppUncheckedCreateWithoutTrendwatcherProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutTrendwatcherProfilesInput = {
@@ -3722,6 +5287,11 @@ export type AppUpdateWithoutTrendwatcherProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutTrendwatcherProfilesInput = {
@@ -3777,6 +5347,11 @@ export type AppUncheckedUpdateWithoutTrendwatcherProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutGenerationProfilesInput = {
@@ -3831,6 +5406,11 @@ export type AppCreateWithoutGenerationProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutGenerationProfilesInput = {
@@ -3886,6 +5466,11 @@ export type AppUncheckedCreateWithoutGenerationProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutGenerationProfilesInput = {
@@ -3956,6 +5541,11 @@ export type AppUpdateWithoutGenerationProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutGenerationProfilesInput = {
@@ -4011,6 +5601,11 @@ export type AppUncheckedUpdateWithoutGenerationProfilesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutScenarioMemoriesInput = {
@@ -4065,6 +5660,11 @@ export type AppCreateWithoutScenarioMemoriesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutScenarioMemoriesInput = {
@@ -4120,6 +5720,11 @@ export type AppUncheckedCreateWithoutScenarioMemoriesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutScenarioMemoriesInput = {
@@ -4190,6 +5795,11 @@ export type AppUpdateWithoutScenarioMemoriesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutScenarioMemoriesInput = {
@@ -4245,6 +5855,11 @@ export type AppUncheckedUpdateWithoutScenarioMemoriesInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutFavoritePromptsInput = {
@@ -4299,6 +5914,11 @@ export type AppCreateWithoutFavoritePromptsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutFavoritePromptsInput = {
@@ -4354,6 +5974,11 @@ export type AppUncheckedCreateWithoutFavoritePromptsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutFavoritePromptsInput = {
@@ -4424,6 +6049,11 @@ export type AppUpdateWithoutFavoritePromptsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutFavoritePromptsInput = {
@@ -4479,6 +6109,11 @@ export type AppUncheckedUpdateWithoutFavoritePromptsInput = {
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 export type AppCreateWithoutWarmupKeywordPoolsInput = {
@@ -4533,6 +6168,11 @@ export type AppCreateWithoutWarmupKeywordPoolsInput = {
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
 }
 
 export type AppUncheckedCreateWithoutWarmupKeywordPoolsInput = {
@@ -4588,6 +6228,11 @@ export type AppUncheckedCreateWithoutWarmupKeywordPoolsInput = {
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
   characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
   scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
 }
 
 export type AppCreateOrConnectWithoutWarmupKeywordPoolsInput = {
@@ -4658,6 +6303,11 @@ export type AppUpdateWithoutWarmupKeywordPoolsInput = {
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
 }
 
 export type AppUncheckedUpdateWithoutWarmupKeywordPoolsInput = {
@@ -4713,6 +6363,11 @@ export type AppUncheckedUpdateWithoutWarmupKeywordPoolsInput = {
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
   characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
   scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
 }
 
 
@@ -4735,6 +6390,11 @@ export type AppCountOutputType = {
   warmupKeywordPools: number
   characters: number
   scenes: number
+  leadMagnets: number
+  contentFunnels: number
+  contentHypotheses: number
+  factoryPublications: number
+  factoryQaReviews: number
 }
 
 export type AppCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -4752,6 +6412,11 @@ export type AppCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.In
   warmupKeywordPools?: boolean | AppCountOutputTypeCountWarmupKeywordPoolsArgs
   characters?: boolean | AppCountOutputTypeCountCharactersArgs
   scenes?: boolean | AppCountOutputTypeCountScenesArgs
+  leadMagnets?: boolean | AppCountOutputTypeCountLeadMagnetsArgs
+  contentFunnels?: boolean | AppCountOutputTypeCountContentFunnelsArgs
+  contentHypotheses?: boolean | AppCountOutputTypeCountContentHypothesesArgs
+  factoryPublications?: boolean | AppCountOutputTypeCountFactoryPublicationsArgs
+  factoryQaReviews?: boolean | AppCountOutputTypeCountFactoryQaReviewsArgs
 }
 
 /**
@@ -4862,6 +6527,41 @@ export type AppCountOutputTypeCountScenesArgs<ExtArgs extends runtime.Types.Exte
   where?: Prisma.SceneWhereInput
 }
 
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountLeadMagnetsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.LeadMagnetWhereInput
+}
+
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountContentFunnelsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ContentFunnelWhereInput
+}
+
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountContentHypothesesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ContentHypothesisWhereInput
+}
+
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountFactoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryPublicationWhereInput
+}
+
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountFactoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryQualityReviewWhereInput
+}
+
 
 export type AppSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -4917,6 +6617,11 @@ export type AppSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
   warmupKeywordPools?: boolean | Prisma.App$warmupKeywordPoolsArgs<ExtArgs>
   characters?: boolean | Prisma.App$charactersArgs<ExtArgs>
   scenes?: boolean | Prisma.App$scenesArgs<ExtArgs>
+  leadMagnets?: boolean | Prisma.App$leadMagnetsArgs<ExtArgs>
+  contentFunnels?: boolean | Prisma.App$contentFunnelsArgs<ExtArgs>
+  contentHypotheses?: boolean | Prisma.App$contentHypothesesArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.App$factoryPublicationsArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.App$factoryQaReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.AppCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["app"]>
 
@@ -5062,6 +6767,11 @@ export type AppInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   warmupKeywordPools?: boolean | Prisma.App$warmupKeywordPoolsArgs<ExtArgs>
   characters?: boolean | Prisma.App$charactersArgs<ExtArgs>
   scenes?: boolean | Prisma.App$scenesArgs<ExtArgs>
+  leadMagnets?: boolean | Prisma.App$leadMagnetsArgs<ExtArgs>
+  contentFunnels?: boolean | Prisma.App$contentFunnelsArgs<ExtArgs>
+  contentHypotheses?: boolean | Prisma.App$contentHypothesesArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.App$factoryPublicationsArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.App$factoryQaReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.AppCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AppIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -5084,6 +6794,11 @@ export type $AppPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     warmupKeywordPools: Prisma.$WarmupKeywordPoolPayload<ExtArgs>[]
     characters: Prisma.$CharacterPayload<ExtArgs>[]
     scenes: Prisma.$ScenePayload<ExtArgs>[]
+    leadMagnets: Prisma.$LeadMagnetPayload<ExtArgs>[]
+    contentFunnels: Prisma.$ContentFunnelPayload<ExtArgs>[]
+    contentHypotheses: Prisma.$ContentHypothesisPayload<ExtArgs>[]
+    factoryPublications: Prisma.$FactoryPublicationPayload<ExtArgs>[]
+    factoryQaReviews: Prisma.$FactoryQualityReviewPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -5533,6 +7248,11 @@ export interface Prisma__AppClient<T, Null = never, ExtArgs extends runtime.Type
   warmupKeywordPools<T extends Prisma.App$warmupKeywordPoolsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$warmupKeywordPoolsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WarmupKeywordPoolPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   characters<T extends Prisma.App$charactersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$charactersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CharacterPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   scenes<T extends Prisma.App$scenesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$scenesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ScenePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  leadMagnets<T extends Prisma.App$leadMagnetsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$leadMagnetsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LeadMagnetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contentFunnels<T extends Prisma.App$contentFunnelsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$contentFunnelsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContentFunnelPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contentHypotheses<T extends Prisma.App$contentHypothesesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$contentHypothesesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContentHypothesisPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryPublications<T extends Prisma.App$factoryPublicationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$factoryPublicationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryPublicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryQaReviews<T extends Prisma.App$factoryQaReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$factoryQaReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryQualityReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -6327,6 +8047,126 @@ export type App$scenesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
   take?: number
   skip?: number
   distinct?: Prisma.SceneScalarFieldEnum | Prisma.SceneScalarFieldEnum[]
+}
+
+/**
+ * App.leadMagnets
+ */
+export type App$leadMagnetsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the LeadMagnet
+   */
+  select?: Prisma.LeadMagnetSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the LeadMagnet
+   */
+  omit?: Prisma.LeadMagnetOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.LeadMagnetInclude<ExtArgs> | null
+  where?: Prisma.LeadMagnetWhereInput
+  orderBy?: Prisma.LeadMagnetOrderByWithRelationInput | Prisma.LeadMagnetOrderByWithRelationInput[]
+  cursor?: Prisma.LeadMagnetWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.LeadMagnetScalarFieldEnum | Prisma.LeadMagnetScalarFieldEnum[]
+}
+
+/**
+ * App.contentFunnels
+ */
+export type App$contentFunnelsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContentFunnel
+   */
+  select?: Prisma.ContentFunnelSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContentFunnel
+   */
+  omit?: Prisma.ContentFunnelOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContentFunnelInclude<ExtArgs> | null
+  where?: Prisma.ContentFunnelWhereInput
+  orderBy?: Prisma.ContentFunnelOrderByWithRelationInput | Prisma.ContentFunnelOrderByWithRelationInput[]
+  cursor?: Prisma.ContentFunnelWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContentFunnelScalarFieldEnum | Prisma.ContentFunnelScalarFieldEnum[]
+}
+
+/**
+ * App.contentHypotheses
+ */
+export type App$contentHypothesesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContentHypothesis
+   */
+  select?: Prisma.ContentHypothesisSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContentHypothesis
+   */
+  omit?: Prisma.ContentHypothesisOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContentHypothesisInclude<ExtArgs> | null
+  where?: Prisma.ContentHypothesisWhereInput
+  orderBy?: Prisma.ContentHypothesisOrderByWithRelationInput | Prisma.ContentHypothesisOrderByWithRelationInput[]
+  cursor?: Prisma.ContentHypothesisWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContentHypothesisScalarFieldEnum | Prisma.ContentHypothesisScalarFieldEnum[]
+}
+
+/**
+ * App.factoryPublications
+ */
+export type App$factoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryPublication
+   */
+  select?: Prisma.FactoryPublicationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryPublication
+   */
+  omit?: Prisma.FactoryPublicationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryPublicationInclude<ExtArgs> | null
+  where?: Prisma.FactoryPublicationWhereInput
+  orderBy?: Prisma.FactoryPublicationOrderByWithRelationInput | Prisma.FactoryPublicationOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryPublicationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryPublicationScalarFieldEnum | Prisma.FactoryPublicationScalarFieldEnum[]
+}
+
+/**
+ * App.factoryQaReviews
+ */
+export type App$factoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryQualityReview
+   */
+  select?: Prisma.FactoryQualityReviewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryQualityReview
+   */
+  omit?: Prisma.FactoryQualityReviewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryQualityReviewInclude<ExtArgs> | null
+  where?: Prisma.FactoryQualityReviewWhereInput
+  orderBy?: Prisma.FactoryQualityReviewOrderByWithRelationInput | Prisma.FactoryQualityReviewOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryQualityReviewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryQualityReviewScalarFieldEnum | Prisma.FactoryQualityReviewScalarFieldEnum[]
 }
 
 /**

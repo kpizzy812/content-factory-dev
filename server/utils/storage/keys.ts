@@ -63,6 +63,9 @@ export const StorageKeys = {
    *  GCS path: `zavodcamp/apps/{appId}/characters/{characterId}/{sha1}.{ext}`. */
   characterReferenceImage: (appId: number | string, characterId: string, sha1: string, ext = "png"): string =>
     `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/${sha1}.${ext}`,
+  /** Reusable presenter footage for provider-neutral lip-sync generation. */
+  presenterSourceClip: (appId: number | string, characterId: string, sha1: string, ext = "mp4"): string =>
+    `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/source-clips/${sha1}.${ext}`,
 
   /** Scene reference image (F2) — эталонные кадры сцены композитора.
    *  GCS path: `zavodcamp/apps/{appId}/scenes/{sceneId}/refs/{sha1}.{ext}`. */

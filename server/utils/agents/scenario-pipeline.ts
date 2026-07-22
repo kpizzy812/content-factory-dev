@@ -74,6 +74,7 @@ export interface ScenarioInput {
   insights: InsightFallback[]
   appName: string
   appDescription?: string | null
+  language?: string | null
   appKeywords: string[]
   variantsCount?: number
   // v3 extensions
@@ -125,6 +126,15 @@ export interface GeneratedVariant {
   toneProfile: string
   rationale: string
   storyPlan: StoryPlan | null
+}
+
+function contentLanguageLabel(raw: string | null | undefined): string {
+  const value = raw?.trim().toLowerCase()
+  if (!value || value === 'en' || value.startsWith('en-') || value === 'english') return 'English'
+  if (value === 'ru' || value.startsWith('ru-') || value === 'russian' || value === 'русский') return 'Russian'
+  if (value === 'es' || value.startsWith('es-') || value === 'spanish') return 'Spanish'
+  if (value === 'de' || value.startsWith('de-') || value === 'german') return 'German'
+  return raw!.trim()
 }
 
 // --- Account Style Context Builder ---
@@ -351,7 +361,7 @@ ${input.profileSettings.pacing
   // Account style identity
   const accountStyleContext = buildAccountStyleContextForPrompt(input.accountStyle)
 
-  return `Построй драматургию для короткого видео (15-60 секунд).
+  return `Построй драматургию для вертикального видео. Точная длительность и количество сцен задаются sceneCountStrategy на следующем этапе.
 
 ## Тренд
 - Название: ${input.trendTitle}
@@ -420,6 +430,7 @@ function buildScenePlannerPrompt(
   appIntegrationStrategy: string,
   favoritePromptIds: number[] = [],
 ): string {
+  const contentLanguage = contentLanguageLabel(input.language)
   const ref = input.referenceBreakdown as Record<string, unknown> | null
   const refSceneHint = ref?.sceneTimeline
     ? `\n## Паттерн сцен референса (для вдохновения, НЕ для копирования)
@@ -488,6 +499,7 @@ appScreenRef.intent = "show_interface" как сигнал downstream'у. Pipeli
 - Платформа: ${input.platform}
 - Приложение: ${input.appName}
 - Стратегия интеграции: ${appIntegrationStrategy}
+- Язык финального текста ролика: ${contentLanguage}
 
 ## [APP INTEGRATION — MANDATORY RULES]
 This is content marketing for **${input.appName}**. The scenario's hook/body/CTA already explicitly reference the app — but those fields don't reach the final video. ONLY scene-level subtitleCopy / voiceoverLine / spokenLine reach the viewer.
@@ -500,7 +512,7 @@ This is content marketing for **${input.appName}**. The scenario's hook/body/CTA
 
 2. **THE FINAL SCENE's subtitleCopy AND voiceoverLine MUST be a CTA mentioning "${input.appName}"**
    — direct verb forms: "Try ${input.appName}", "Download ${input.appName}", "Get ${input.appName}", "Open ${input.appName}", "Install ${input.appName}"
-   — connect to the resolution naturally
+   — use natural equivalents in ${contentLanguage} and connect to the resolution
 
 3. If the scenario has a moment of "transformation through touch / click / discovery / sound", THAT scene is the perfect natural integration point.
 
@@ -522,6 +534,7 @@ ${(() => {
     auto:      { min: 3, max: 5, minSec: 3, maxSec: 6, cost: '~\$2 (стандарт, 15-25с)' },
     detailed:  { min: 4, max: 5, minSec: 4, maxSec: 7, cost: '~\$2.5-3.5 (проработано, 20-35с)' },
     cinematic: { min: 5, max: 6, minSec: 6, maxSec: 9, cost: '~\$4-5 (максимум, 30-55с)' },
+    longform:  { min: 9, max: 9, minSec: 8, maxSec: 10, cost: 'длинный формат 72-90с' },
   }
   const b = budgetMap[strategy] ?? budgetMap.auto!
   return `## БЮДЖЕТНОЕ ОГРАНИЧЕНИЕ (sceneCountStrategy: ${strategy}) — ОБЯЗАТЕЛЬНО
@@ -533,19 +546,20 @@ ${(() => {
 })()}
 
 ## Задача
-Сгенерируй JSON-массив из 3-6 сцен. Каждая сцена — объект:
-- order: номер (1-6)
+ВАЖНО: диапазон из БЮДЖЕТНОГО ОГРАНИЧЕНИЯ выше имеет приоритет над любым общим количеством сцен. Для longform создай ровно 9 сцен.
+Сгенерируй JSON-массив со строгим количеством сцен из бюджетного ограничения выше. Каждая сцена — объект:
+- order: номер (1-10)
 - purpose: зачем эта сцена в драматургии
 - setting: место действия (конкретно)
 - action: что происходит (конкретно, визуально)
 - whatChanges: что меняется в этой сцене
 - emotionalState: эмоция героя/зрителя
 - appIntegrationBeat: как приложение появляется (null если не появляется в этой сцене)
-- visualPromptGuidance: guidance для генерации визуала (НА АНГЛИЙСКОМ, для FLUX/Runway)
+- visualPromptGuidance: guidance для генерации визуала НА АНГЛИЙСКОМ, для FLUX/Runway
 - appScreenRef: объект { imageId, intent } или null. Заполняй ТОЛЬКО когда сцена показывает экран приложения и imageId взят из списка "ДОСТУПНЫЕ СКРИНШОТЫ" выше. Если списка нет или сцена не про UI — null.
-- subtitleCopy: текст субтитров НА АНГЛИЙСКОМ (1-2 строки максимум, без эмодзи и спецсимволов, целевая аудитория — англоязычная)
+- subtitleCopy: текст субтитров на языке ${contentLanguage} (1-2 строки максимум, без эмодзи и спецсимволов)
 - subtitlePlacement: { position: "top"|"center"|"bottom", alignment: "left"|"center"|"right", avoidZones: [] }
-- voiceoverLine: строка для озвучки НА АНГЛИЙСКОМ или null
+- voiceoverLine: строка для озвучки на языке ${contentLanguage} или null
 - continuityNotes: заметки по непрерывности с предыдущей сценой
 - duration: длительность ("3s"-"10s")
 - cameraAngle: ракурс камеры
@@ -557,7 +571,7 @@ ${(() => {
 - Ни одна сцена не повторяет другую по смыслу
 - Субтитры различаются по содержанию
 - Герой визуально узнаваем во всех сценах
-- Общая длительность: 15-60 секунд
+- Общая длительность должна получиться из суммы duration всех сцен по выбранному бюджетному ограничению
 
 Ответь ТОЛЬКО JSON-массивом.`
 }
@@ -693,7 +707,14 @@ ${accountVisualContext}
 
 // --- Step 5: Build fullScript + humanization ---
 
-function buildFullScriptPrompt(scenes: SceneCard[], storyArc: StoryArc, appName: string, accountStyle?: AccountStyleProfileData | null): string {
+function buildFullScriptPrompt(
+  scenes: SceneCard[],
+  storyArc: StoryArc,
+  appName: string,
+  language?: string | null,
+  accountStyle?: AccountStyleProfileData | null,
+): string {
+  const contentLanguage = contentLanguageLabel(language)
   const toneConstraint = accountStyle?.tone.voice
     ? `\n## Account Tone Identity\n- Голос: ${accountStyle.tone.voice}\n- Формальность: ${accountStyle.tone.formality}\n${accountStyle.tone.forbiddenPhrases.length > 0 ? `- ЗАПРЕЩЁННЫЕ фразы: ${accountStyle.tone.forbiddenPhrases.join('; ')}` : ''}\nПиши в стиле этого аккаунта.`
     : ''
@@ -716,7 +737,7 @@ ${scenes.map(s => `${s.order}. [${s.emotionalState}] ${s.subtitleCopy}${s.voiceo
 ## App: ${appName}
 
 ## Task
-Generate a JSON object with these fields, ALL TEXT IN ENGLISH (target audience is English-speaking):
+Generate a JSON object with these fields. All viewer-facing text must be in ${contentLanguage}:
 - hook: first 1-3 seconds opener (max 15 words). MUST mention "${appName}" or its benefit — otherwise viewer won't understand what the video is about.
 - body: middle development (3-6 sentences). Mention "${appName}" at least once in the context of solving a problem.
 - cta: call to action (1-2 sentences). The name "${appName}" + an explicit action verb (download, try, open, get) are MANDATORY.
@@ -731,23 +752,24 @@ Rules:
 - CTA — friend's advice, not an ad banner, but the app name must be spoken
 - NO EMOJIS OR SPECIAL CHARACTERS (😀, 🚀, ★, ✓ etc.) — only letters, digits, basic punctuation
 - Write "${appName}" as-is, no translation or transliteration
-- ENGLISH ONLY for hook/body/cta/fullScript/title — even if the source trend or scenes are in another language
+- ${contentLanguage.toUpperCase()} ONLY for hook/body/cta/fullScript/title
 
 Respond with ONLY a JSON object.`
 }
 
 // --- Step 6: Humanization ---
 
-function buildHumanizationPrompt(fullScript: string): string {
+function buildHumanizationPrompt(fullScript: string, language?: string | null): string {
+  const contentLanguage = contentLanguageLabel(language)
   return `Проверь и улучши текст сценария, чтобы он звучал максимально естественно и по-человечески.
 
-## Текст (на английском)
+## Текст (язык: ${contentLanguage})
 ${fullScript}
 
 ## Задача
 Сгенерируй JSON-объект:
-- improvedScript: улучшенный текст (если требуется) — ТОЛЬКО НА АНГЛИЙСКОМ. Не переводи на русский, не подмешивай русские слова.
-- changes: массив изменений (каждый: { original, improved, reason }). Поля original и improved — на английском.
+- improvedScript: улучшенный текст (если требуется) — строго на языке ${contentLanguage}. Не переводи на другой язык.
+- changes: массив изменений (каждый: { original, improved, reason }). Поля original и improved — на языке ${contentLanguage}.
 - toneProfile: описание итогового тона текста (1 предложение, на русском — это для UI)
 - humanScore: число 1-100
 
@@ -885,7 +907,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
     const scenes = await callAnthropicAgent({
       systemPrompt: `Ты — Scene Planner, режиссёр-раскадровщик коротких видео.
 Каждая сцена — уникальная карточка с целью, декорацией, действием, эмоцией, камерой, субтитрами.
-3-6 сцен, ни одна не повторяет другую. Anti-loop: каждая сцена двигает сюжет.
+Количество сцен строго берётся из budget в user prompt. Ни одна сцена не повторяет другую. Anti-loop: каждая сцена двигает сюжет.
 Отвечай на русском. СТРОГО JSON.`,
       userPrompt: buildScenePlannerPrompt(storyResult.storyArc, storyResult.protagonist, input, storyResult.appIntegrationStrategy, favoritePrompts.map(p => p.id)),
       maxTokens: SCENARIO_MAX_TOKENS,
@@ -976,8 +998,12 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
           auto:      { min: 3, max: 5, minSec: 3, maxSec: 6 },
           detailed:  { min: 4, max: 5, minSec: 4, maxSec: 7 },
           cinematic: { min: 5, max: 6, minSec: 6, maxSec: 9 },
+          longform:  { min: 9, max: 9, minSec: 8, maxSec: 10 },
         }
         const b = budgetMap[strategy] ?? budgetMap.auto!
+        if (scenes.length < b.min) {
+          throw new Error(`Минимум ${b.min} сцен для стратегии ${strategy}, получено ${scenes.length}`)
+        }
         if (scenes.length > b.max) {
           scenes = scenes.slice(0, b.max)
         }
@@ -1102,7 +1128,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
     // Модель: anthropicModel (Sonnet) — не указываем tier, чтобы использовалась основная модель.
     const scriptResult = await callAnthropicAgent({
       systemPrompt: 'Ты — сценарист коротких вирусных видео. Пишешь тексты, которые звучат как живая речь. Отвечай на русском. СТРОГО JSON.',
-      userPrompt: buildFullScriptPrompt(continuityResult.validatedScenes, storyResult.storyArc, input.appName, input.accountStyle),
+      userPrompt: buildFullScriptPrompt(continuityResult.validatedScenes, storyResult.storyArc, input.appName, input.language, input.accountStyle),
       maxTokens: SCENARIO_MAX_TOKENS,
       agentName: 'scripter',
       validate: (data: unknown) => {
@@ -1118,7 +1144,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
     // Модель: anthropicModel (Sonnet) — не указываем tier, чтобы использовалась основная модель.
     const humanResult = await callAnthropicAgent({
       systemPrompt: 'Ты — редактор, который делает AI-тексты живыми и человечными. Отвечай на русском. СТРОГО JSON.',
-      userPrompt: buildHumanizationPrompt(scriptResult.fullScript),
+      userPrompt: buildHumanizationPrompt(scriptResult.fullScript, input.language),
       maxTokens: SCENARIO_MAX_TOKENS,
       agentName: 'humanizer',
       validate: (data: unknown) => {
@@ -1161,6 +1187,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
     if (input.appName && input.appName.trim()) {
       const validatorApp: MarketingValidatorApp = {
         name: input.appName,
+        language: input.language,
         hasAnalyzedReferenceImages: (input.appReferenceScreens ?? [])
           .some(s => s.hasUI !== false && s.caption && s.analyzedAt),
         corePain: input.appContext?.corePain ?? null,
@@ -1185,7 +1212,10 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
       // После auto-fix scriptResult.cta может быть устаревшим — приклеиваем имя
       // приложения к scenario.cta если его там нет (защита от UI-показа без бренда).
       if (!scriptResult.cta.toLowerCase().includes(input.appName.toLowerCase())) {
-        scriptResult.cta = `${scriptResult.cta.replace(/[.!?]\s*$/, '')}. Try ${input.appName}.`
+        const fallbackCta = contentLanguageLabel(input.language) === 'Russian'
+          ? `Попробуйте ${input.appName}`
+          : `Try ${input.appName}`
+        scriptResult.cta = `${scriptResult.cta.replace(/[.!?]\s*$/, '')}. ${fallbackCta}.`
       }
     }
 

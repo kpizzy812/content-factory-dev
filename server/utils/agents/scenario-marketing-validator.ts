@@ -19,14 +19,26 @@
 
 import type { StoryPlan, SceneCard } from '~~/shared/types/story'
 
-const CTA_VERBS = ['try', 'download', 'get', 'use', 'open', 'install', 'tap', 'start', 'join', 'discover']
-const CTA_VERB_REGEX = new RegExp(`\\b(${CTA_VERBS.join('|')})\\b`, 'i')
+const CTA_VERBS = [
+  'try', 'download', 'get', 'use', 'open', 'install', 'tap', 'start', 'join', 'discover',
+  'попробуй', 'попробуйте', 'скачай', 'скачайте', 'открой', 'откройте', 'получи', 'получите',
+  'используй', 'используйте', 'установи', 'установите', 'начни', 'начните', 'напиши', 'напишите',
+]
+
+function contentLanguageLabel(raw: string | null | undefined): string {
+  const value = raw?.trim().toLowerCase()
+  if (value === 'ru' || value?.startsWith('ru-') || value === 'russian' || value === 'русский') return 'Russian'
+  if (!value || value === 'en' || value.startsWith('en-') || value === 'english') return 'English'
+  return raw!.trim()
+}
 
 /**
  * Облегчённая проекция App, нужная валидатору.
  */
 export interface MarketingValidatorApp {
   name: string
+  /** Язык viewer-facing текста, например ru/en. */
+  language?: string | null
   /** Если у приложения есть analyzed reference images — валидатор требует, чтобы хотя бы одна сцена использовала appScreenRef. */
   hasAnalyzedReferenceImages?: boolean
   /** Опционально: corePain для построения CTA в repair'е. */
@@ -81,7 +93,8 @@ function finalSceneIsCta(scene: SceneCard, appName: string): boolean {
   const text = [scene.subtitleCopy, scene.voiceoverLine, scene.spokenLine]
     .filter((t): t is string => typeof t === 'string')
     .join(' ')
-  return CTA_VERB_REGEX.test(text)
+    .toLocaleLowerCase()
+  return CTA_VERBS.some(verb => text.includes(verb))
 }
 
 function ctaTextHasApp(cta: string | null | undefined, appName: string): boolean {
@@ -173,6 +186,7 @@ async function repairWithHaiku(
   storyPlan: StoryPlan,
   app: MarketingValidatorApp,
 ): Promise<HaikuRepairResponse> {
+  const contentLanguage = contentLanguageLabel(app.language)
   const sceneSummaries = targets.map(t => ({
     order: t.scene.order,
     role: t.reason,
@@ -190,14 +204,14 @@ Below are scenes that FAILED marketing checks. Rewrite ONLY their subtitleCopy, 
 
 For each scene with role="final_cta":
   - subtitleCopy AND voiceoverLine MUST contain "${app.name}" + a CTA verb (try, download, get, open, use, install, tap, start, join, discover)
-  - example shapes: "Try ${app.name} — make music with one tap", "Download ${app.name} today"
+  - use natural CTA verbs in ${contentLanguage}
 
 For each scene with role="mid_mention":
   - subtitleCopy OR voiceoverLine OR spokenLine MUST naturally include "${app.name}" once
   - keep the emotional moment intact, just weave the name into the existing line
 
 Constraints:
-- English only. No emojis.
+- ${contentLanguage} only. No emojis.
 - subtitleCopy ≤ 60 chars (max 2 lines).
 - voiceoverLine ≤ 240 chars.
 - spokenLine ≤ 80 chars (or null if originally null and no person on-camera).

@@ -20,7 +20,9 @@ import { isKnownNodeType, checkPortCompatibility } from '~~/shared/utils/pipelin
 /** Required config fields per node type. */
 const REQUIRED_CONFIG: Record<string, string[]> = {
   trendwatcher: [],
+  content_strategy: [],
   scenario: [],
+  quality_gate: [],
   video: [],
   // upload: проверяется кастомно (account vs group + dispatchMode), см. validateNodeConfig
   upload: [],
@@ -181,7 +183,7 @@ function validateNodeConfig(node: GraphNode): ValidationIssue[] {
           code: 'scenario_invalid_enum',
         })
       }
-      const validSceneStrategies = ['auto', 'minimal', 'detailed', 'cinematic']
+      const validSceneStrategies = ['auto', 'minimal', 'detailed', 'cinematic', 'longform']
       if (storytelling.sceneCountStrategy && !validSceneStrategies.includes(String(storytelling.sceneCountStrategy))) {
         issues.push({
           severity: 'error',
@@ -536,6 +538,7 @@ function validateNodeConfig(node: GraphNode): ValidationIssue[] {
 
   // Upload node: account vs group + dispatchMode (структурная проверка, без БД)
   if (type === 'upload') {
+    const usesFactoryAssignments = config.factoryAssignments === true
     const accountMode = String(config.accountMode || '').trim()
     const socialAccountId = Number(config.socialAccountId || config.accountId) || 0
     const accountGroupId = Number(config.accountGroupId || config.accountGroup) || 0
@@ -548,7 +551,7 @@ function validateNodeConfig(node: GraphNode): ValidationIssue[] {
           ? 'group'
           : 'account'
 
-    if (effectiveMode === 'account' && !socialAccountId) {
+    if (!usesFactoryAssignments && effectiveMode === 'account' && !socialAccountId) {
       issues.push({
         severity: 'error',
         nodeId: node.id,
@@ -557,7 +560,7 @@ function validateNodeConfig(node: GraphNode): ValidationIssue[] {
         code: 'upload_account_missing',
       })
     }
-    if (effectiveMode === 'group') {
+    if (!usesFactoryAssignments && effectiveMode === 'group') {
       if (!accountGroupId) {
         issues.push({
           severity: 'error',

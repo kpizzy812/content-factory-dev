@@ -67,6 +67,11 @@ export type Character = Prisma.CharacterModel
  */
 export type CharacterReferenceImage = Prisma.CharacterReferenceImageModel
 /**
+ * Model PresenterSourceClip
+ * 
+ */
+export type PresenterSourceClip = Prisma.PresenterSourceClipModel
+/**
  * Model SceneReferenceImage
  * 
  */
@@ -252,6 +257,36 @@ export type Reference = Prisma.ReferenceModel
  * 
  */
 export type ProductionCycle = Prisma.ProductionCycleModel
+/**
+ * Model LeadMagnet
+ * 
+ */
+export type LeadMagnet = Prisma.LeadMagnetModel
+/**
+ * Model ContentFunnel
+ * 
+ */
+export type ContentFunnel = Prisma.ContentFunnelModel
+/**
+ * Model ContentHypothesis
+ * 
+ */
+export type ContentHypothesis = Prisma.ContentHypothesisModel
+/**
+ * Model FactoryPublication
+ * 
+ */
+export type FactoryPublication = Prisma.FactoryPublicationModel
+/**
+ * Model FactoryQualityReview
+ * 
+ */
+export type FactoryQualityReview = Prisma.FactoryQualityReviewModel
+/**
+ * Model AttributionEvent
+ * 
+ */
+export type AttributionEvent = Prisma.AttributionEventModel
 /**
  * Model AgentLog
  * 

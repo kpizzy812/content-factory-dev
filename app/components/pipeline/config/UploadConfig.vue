@@ -162,6 +162,12 @@ const targetPlatform = computed<string | null>(() =>
 </script>
 
 <template>
+  <div v-if="config.factoryAssignments === true" role="alert" class="alert alert-info alert-soft text-xs">
+    <Icon name="mingcute:information-line" />
+    <span>Accounts are assigned by the factory from active official API connections.</span>
+  </div>
+
+  <template v-if="config.factoryAssignments !== true">
   <fieldset class="fieldset">
     <legend class="fieldset-legend">Приложение</legend>
     <SharedAsyncSelect
@@ -191,6 +197,7 @@ const targetPlatform = computed<string | null>(() =>
     />
     <SharedFieldHint text="Один аккаунт или группа с распределением. Группы создаются на странице приложения или в /accounts." />
   </fieldset>
+  </template>
 
   <fieldset class="fieldset">
     <legend class="fieldset-legend">Платформы</legend>

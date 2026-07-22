@@ -48,17 +48,17 @@ function onAppChange(v: number) {
 
 <template>
   <fieldset class="fieldset">
-    <legend class="fieldset-legend">Приложение *</legend>
+    <legend class="fieldset-legend">Приложение</legend>
     <select
       class="select select-sm w-full"
       :value="appId ?? ''"
       @change="onAppChange(Number(($event.target as HTMLSelectElement).value))"
     >
-      <option value="" disabled>Выберите приложение</option>
+      <option value="">Из контекста фабрики</option>
       <option v-for="app in apps" :key="app.id" :value="app.id">{{ app.name }}</option>
     </select>
     <p class="text-[10px] text-base-content/50 mt-0.5">
-      Откуда брать персонажа. У каждого приложения своя библиотека.
+      Для обычного запуска выберите приложение. Фабрика передаст его автоматически.
     </p>
   </fieldset>
 
@@ -75,14 +75,12 @@ function onAppChange(v: number) {
         type="button"
         class="join-item btn btn-sm flex-1"
         :class="{ 'btn-primary': mode === 'first' }"
-        :disabled="!appId"
         @click="emit('update', 'mode', 'first')"
       >Первый</button>
       <button
         type="button"
         class="join-item btn btn-sm flex-1"
         :class="{ 'btn-primary': mode === 'random' }"
-        :disabled="!appId"
         @click="emit('update', 'mode', 'random')"
       >Случайный</button>
     </div>
@@ -118,6 +116,35 @@ function onAppChange(v: number) {
       <option value="">— любой —</option>
       <option v-for="t in allTags" :key="t" :value="t">{{ t }}</option>
     </select>
+  </fieldset>
+
+  <fieldset v-if="mode !== 'fixed'" class="fieldset">
+    <legend class="fieldset-legend">Роль персонажа</legend>
+    <select
+      class="select select-sm w-full"
+      :value="config.role ?? ''"
+      @change="emit('update', 'role', ($event.target as HTMLSelectElement).value || null)"
+    >
+      <option value="">Любая</option>
+      <option value="protagonist">Главный герой</option>
+      <option value="support">Второстепенный</option>
+      <option value="extra">Массовка</option>
+    </select>
+  </fieldset>
+
+  <fieldset class="fieldset">
+    <label class="flex items-center justify-between gap-3 cursor-pointer">
+      <span>
+        <span class="block text-xs font-medium">Только с исходниками lip-sync</span>
+        <span class="block text-[10px] text-base-content/50">Не выберет персонажа без активных видео</span>
+      </span>
+      <input
+        type="checkbox"
+        class="toggle toggle-sm toggle-primary"
+        :checked="config.requireSourceClips === true"
+        @change="emit('update', 'requireSourceClips', ($event.target as HTMLInputElement).checked)"
+      />
+    </label>
   </fieldset>
 
   <div role="alert" class="alert alert-info alert-soft text-xs">

@@ -26,7 +26,7 @@ const delayOptions = [
 
 // Должно совпадать с HEAVY_AUTO_RETRY в pipeline-engine.ts:processNode.
 // Тяжёлые AI-ноды получают авто-retry 1 без явной настройки пользователем.
-const HEAVY_AUTO_RETRY = new Set(['scenario', 'video', 'idea', 'trendwatcher'])
+const HEAVY_AUTO_RETRY = new Set(['scenario', 'video', 'idea', 'trendwatcher', 'content_strategy'])
 const defaultRetryForNode = computed(() =>
   HEAVY_AUTO_RETRY.has(props.nodeType) ? 1 : 0,
 )
@@ -46,12 +46,23 @@ function onUpdate(key: string, value: any) {
     @update="onUpdate"
   />
 
+  <PipelineConfigContentStrategyConfig
+    v-if="nodeType === 'content_strategy'"
+    :config="config"
+    @update="onUpdate"
+  />
+
   <PipelineConfigScenarioConfig
     v-if="nodeType === 'scenario'"
     :config="config"
     @update="onUpdate"
   />
 
+  <PipelineConfigQualityGateConfig
+    v-if="nodeType === 'quality_gate'"
+    :config="config"
+    @update="onUpdate"
+  />
   <PipelineConfigVideoConfig
     v-if="nodeType === 'video'"
     :config="config"

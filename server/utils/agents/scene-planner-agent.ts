@@ -1,6 +1,6 @@
 /**
  * Scene Planner Agent — создает детальные scene cards для каждой сцены видео.
- * 3-6 сцен с четкой драматургической целью, декорацией, действием, эмоцией,
+ * Количество сцен задаётся sceneCountStrategy; каждая сцена имеет цель, декорацию, действие и эмоцию,
  * камерой, субтитрами, voiceover-линией и continuity notes.
  * Anti-loop: ни одна сцена не дублирует другую по смыслу.
  *
@@ -37,7 +37,7 @@ export interface ScenePlannerInput {
   pacing?: 'slow' | 'moderate' | 'fast'
   sceneDiversity?: 'high' | 'medium' | 'low'
   /** Budget-ориентированный лимит сцен — минимум денег / сбалансированно / максимум проработки */
-  sceneCountStrategy?: 'auto' | 'minimal' | 'detailed' | 'cinematic'
+  sceneCountStrategy?: 'auto' | 'minimal' | 'detailed' | 'cinematic' | 'longform'
 }
 
 /**
@@ -62,7 +62,7 @@ const SYSTEM_PROMPT = `Ты — профессиональный сцен-пла
 5. **App integration (MANDATORY — НАРУШЕНИЕ ДЕЛАЕТ СЦЕНАРИЙ БЕСПОЛЕЗНЫМ)** — это контент-маркетинг для конкретного приложения. Hook/body/CTA сценария уже явно ссылаются на приложение. ТЫ ОБЯЗАН органично пропечатать его в spokenLine/subtitleCopy/voiceoverLine как минимум двух сцен (см. подробные правила в user prompt).
 
    Даже самый красивый storytelling провалится, если зритель не узнал название приложения. Это не реклама — это chord, вплетённый в историю.
-6. **3-6 сцен** — не меньше 3, не больше 6. Общая длительность 15-60 секунд.
+6. **Количество и длительность сцен** — строго по БЮДЖЕТНОМУ ОГРАНИЧЕНИЮ из запроса.
 
 ## Формат ответа
 Ответь СТРОГО JSON-массивом объектов SceneCard. Без обертки, без комментариев — только массив.`
@@ -287,7 +287,7 @@ function validate(data: unknown, budget?: { minScenes: number; maxScenes: number
     }
 
     // spokenLine: опциональная реплика персонажа для kling lip-sync.
-    // Ограничиваем длину 120 символов — длиннее не поместится в 3-9с клип.
+    // Ограничиваем длину 120 символов — длиннее не поместится в отдельный клип.
     let spokenLine: string | null = null
     if (typeof raw.spokenLine === 'string' && raw.spokenLine.trim().length > 0) {
       const trimmed = raw.spokenLine.trim()
@@ -328,7 +328,7 @@ export async function runScenePlannerAgent(input: ScenePlannerInput): Promise<Sc
     agentName: 'scene-planner',
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: buildPrompt(input),
-    maxTokens: 4096,
+    maxTokens: strategy === 'longform' ? 8192 : 4096,
     validate: (data) => validate(data, budget),
   })
 

@@ -28,6 +28,74 @@ function edge(source: string, target: string, sourceHandle?: string) {
 
 export const pipelinePresets: PipelinePreset[] = [
   {
+    id: 'content-factory-vertical',
+    name: 'AI-контент-завод 70-90 секунд',
+    description: 'Один уникальный вертикальный ролик на запуск: гипотеза, сценарий, presenter lip-sync, двойной QA и официальный постинг.',
+    category: 'Контент-завод',
+    difficulty: 'advanced',
+    useCase: 'Массовый выпуск до 300 уникальных Reels, TikTok и Shorts в сутки через страницу Фабрика',
+    icon: 'mingcute:factory-line',
+    color: 'primary',
+    graphData: {
+      nodes: [
+        node('strategy-1', 'content_strategy', 'Контент-гипотеза', 0, 0, {
+          useInternalMetrics: true,
+          useTrendBank: true,
+        }),
+        node('character-1', 'character', 'Ведущий из исходников', 2, 1.4, {
+          mode: 'first',
+          role: 'protagonist',
+          requireSourceClips: true,
+        }),
+        node('scenario-1', 'scenario', 'Сценарий 70-90 секунд', 1, 0, {
+          variantsCount: 1,
+          maxTrends: 1,
+          generationMode: 'story_driven',
+          storytelling: {
+            enabled: true,
+            protagonistMode: 'person',
+            continuityStrictness: 'moderate',
+            sceneCountStrategy: 'longform',
+            appIntegrationStyle: 'native',
+          },
+          subtitles: { enabled: true },
+          voiceover: { enabled: true, pacing: 'moderate' },
+        }),
+        node('qa-script-1', 'quality_gate', 'QA сценария', 2, 0, {
+          stage: 'script', minDurationSec: 70, maxDurationSec: 90, minCriticScore: 70,
+          requireFunnel: true, requireApprovedLeadMagnet: true, blockOnFailure: true,
+        }),
+        node('video-1', 'video', 'Вертикальное видео с lip-sync', 3, 0, {
+          format: 'vertical', quality: '1080p', maxVideos: 1,
+          voiceoverEnabled: true,
+          lipSyncEnabled: true, lipSyncModelId: 'kwaivgi/kling-lip-sync', requireLipSyncCharacter: true,
+          subtitlesEnabled: true, enableMusic: false,
+        }),
+        node('qa-final-1', 'quality_gate', 'QA готового видео', 4, 0, {
+          stage: 'final', minDurationSec: 70, maxDurationSec: 90, minCriticScore: 70,
+          requireFunnel: true, requireApprovedLeadMagnet: true, blockOnFailure: true,
+        }),
+        node('caption-1', 'caption_generator', 'Описания и хэштеги', 5, 0, {
+          platforms: ['instagram', 'tiktok', 'youtube'], styleVariant: 'viral',
+        }),
+        node('upload-1', 'upload', 'Официальная публикация', 6, 0, {
+          factoryAssignments: true,
+          uploadPlatforms: ['instagram', 'tiktok', 'youtube'], scheduledMode: 'auto', requiresApproval: false,
+        }),
+      ],
+      edges: [
+        edge('strategy-1', 'scenario-1'),
+        edge('strategy-1', 'character-1'),
+        edge('scenario-1', 'qa-script-1'),
+        edge('qa-script-1', 'video-1'),
+        edge('character-1', 'video-1'),
+        edge('video-1', 'qa-final-1'),
+        edge('qa-final-1', 'caption-1'),
+        edge('caption-1', 'upload-1'),
+      ],
+    },
+  },
+  {
     id: 'trend-to-video',
     name: 'Тренд → Видео → Публикация',
     description: 'Полный цикл: поиск трендов, генерация сценария, создание видео и публикация в соцсети.',

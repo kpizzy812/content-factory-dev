@@ -133,6 +133,7 @@ function onEditorSave(newConfig: Record<string, any>) {
       <option value="auto">Авто — 3-5 сцен по 3-6с (≈ $2 за видео)</option>
       <option value="detailed">Проработанный — 4-5 сцен по 4-7с (≈ $2.5-3.5)</option>
       <option value="cinematic">Кинематографичный — 5-6 сцен по 6-9с (≈ $4-5)</option>
+      <option value="longform">Длинный — 9 сцен по 8-10с (72-90 секунд)</option>
     </select>
     <SharedFieldHint text="Жёсткий лимит на количество сцен и их длительность. Scene planner обрежет хвост если превысит, duration каждой сцены clamp'ится в диапазон. Единственный способ гарантированно ограничить стоимость видео на этапе сценария." />
   </fieldset>

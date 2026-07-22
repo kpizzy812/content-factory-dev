@@ -51,6 +51,9 @@ export interface WorkflowRun {
   retryOfRunId: number | null
   replayOfRunId: number | null
   parentRunId: number | null
+  cycleId: number | null
+  trackingToken: string | null
+  inputContext: Record<string, unknown> | null
   cancelRequestedAt: string | null
   errorMessage: string | null
   errorCategory: ErrorCategory | null
@@ -137,6 +140,7 @@ export interface WorkflowRunSummary {
   errorMessage: string | null
   cancelRequestedAt: string | null
   replayOfRunId: number | null
+  trackingToken?: string | null
   startedAt: string
   finishedAt: string | null
   createdAt: string

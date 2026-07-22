@@ -29,6 +29,7 @@ import {
 } from './pipeline-cancel-registry'
 import { prisma } from './prisma'
 import { logAgent } from './agent-logger'
+import { syncFactoryCycleStatus } from './content-factory-status'
 
 const MAX_RUN_DURATION_MS = 30 * 60 * 1000 // 30 minutes
 const MAX_STEP_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes per step (default)
@@ -96,6 +97,7 @@ interface SystemContext {
   pipelineName: string
   triggerType: string
   pipelineId?: number
+  inputContext?: Record<string, unknown>
 }
 
 async function processNode(
@@ -126,7 +128,7 @@ async function processNode(
   // дешевле, чем ждать пока человек заметит и вручную нажмёт retry-step. Дефолт 1
   // (ровно одна повторная попытка) применяется только если пользователь не задал
   // retryCount явно — иначе уважаем его выбор (включая 0 = без retry).
-  const HEAVY_AUTO_RETRY = new Set(['scenario', 'video', 'idea', 'trendwatcher'])
+  const HEAVY_AUTO_RETRY = new Set(['scenario', 'video', 'idea', 'trendwatcher', 'content_strategy'])
   const userRetry = config.retryCount
   const defaultRetry = HEAVY_AUTO_RETRY.has(nodeType) ? 1 : 0
   const retryCount = Math.min(
@@ -157,8 +159,11 @@ async function processNode(
     : collectInput(nodeId, edges, outputs)
 
   // Inject system variables so notification templates can always resolve pipelineName, runId, triggerType
+  const runInputContext = systemContext?.inputContext ?? {}
   const input = {
+    ...runInputContext,
     ...rawInput,
+    ...(runInputContext._factory !== undefined ? { _factory: runInputContext._factory } : {}),
     _pipelineName: rawInput._pipelineName ?? (systemContext?.pipelineName ?? ''),
     _runId: rawInput._runId ?? runId,
     _triggerType: rawInput._triggerType ?? (systemContext?.triggerType ?? 'manual'),
@@ -511,6 +516,9 @@ export async function executePipeline(runId: number): Promise<void> {
     pipelineName: run.pipeline.name ?? '',
     triggerType: run.triggerType as string,
     pipelineId: run.pipelineId,
+    inputContext: run.inputContext && typeof run.inputContext === 'object' && !Array.isArray(run.inputContext)
+      ? run.inputContext as Record<string, unknown>
+      : undefined,
   }
 
   // ─── Pre-flight: fal.ai model access check for video nodes ───
@@ -559,6 +567,7 @@ export async function executePipeline(runId: number): Promise<void> {
           `Конвейер #${run.pipelineId} заблокирован: ${failMessage}`,
           { runId, pipelineId: run.pipelineId },
         )
+        if (run.cycleId) await syncFactoryCycleStatus(run.cycleId).catch(() => {})
         return
       }
     }
@@ -762,6 +771,8 @@ export async function executePipeline(runId: number): Promise<void> {
       errorCategory: hasFailed ? failCategory : null,
     },
   })
+
+  if (run.cycleId) await syncFactoryCycleStatus(run.cycleId).catch(() => {})
 
   const logLevel = hasFailed ? 'error' : (finalStatus === 'no_data' ? 'warn' : 'info')
   const logMessage = hasFailed

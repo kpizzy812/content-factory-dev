@@ -23,10 +23,10 @@
 
 export async function executeCharacterNode(
   config: Record<string, unknown>,
-  _input: Record<string, unknown>,
+  input: Record<string, unknown>,
   _signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
-  const appId = Number(config.appId)
+  const appId = Number(config.appId) || Number(input.appId)
   if (!appId || Number.isNaN(appId)) {
     return {
       character: null,
@@ -39,6 +39,8 @@ export async function executeCharacterNode(
   const characterId = typeof config.characterId === "string" && config.characterId ? config.characterId : null
   const mode = (typeof config.mode === "string" ? config.mode : "fixed") as "fixed" | "random" | "first"
   const tag = typeof config.tag === "string" && config.tag ? config.tag : null
+  const role = typeof config.role === "string" && config.role ? config.role : null
+  const requireSourceClips = config.requireSourceClips === true
 
   // Прямая выборка по characterId
   if (characterId) {
@@ -46,6 +48,7 @@ export async function executeCharacterNode(
       where: { id: characterId },
       include: {
         referenceImages: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
+        _count: { select: { sourceClips: { where: { isActive: true } } } },
       },
     })
     if (!c || c.archived) {
@@ -66,6 +69,14 @@ export async function executeCharacterNode(
         _domainStatus: "no_data",
       }
     }
+    if (requireSourceClips && c._count.sourceClips === 0) {
+      return {
+        character: null,
+        _noData: true,
+        _noDataReason: `У персонажа ${characterId} нет активных исходных видео для lip-sync`,
+        _domainStatus: "no_data",
+      }
+    }
     return buildOutput(c)
   }
 
@@ -75,6 +86,8 @@ export async function executeCharacterNode(
       appId,
       archived: false,
       ...(tag ? { tags: { has: tag } } : {}),
+      ...(role ? { role } : {}),
+      ...(requireSourceClips ? { sourceClips: { some: { isActive: true } } } : {}),
     },
     orderBy: { updatedAt: "desc" },
     include: { referenceImages: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },

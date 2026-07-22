@@ -3,7 +3,7 @@
 export type ScenarioGenerationMode = 'auto' | 'story_driven' | 'simple'
 export type ProtagonistMode = 'person' | 'object' | 'abstract' | 'auto'
 export type ContinuityStrictness = 'strict' | 'moderate' | 'relaxed'
-export type SceneCountStrategy = 'auto' | 'minimal' | 'detailed' | 'cinematic'
+export type SceneCountStrategy = 'auto' | 'minimal' | 'detailed' | 'cinematic' | 'longform'
 export type AppIntegrationStyle = 'native' | 'prominent' | 'subtle'
 export type SubtitleStrategyMode = 'dynamic' | 'static' | 'minimal' | 'none'
 export type VoiceoverStrategy = 'full' | 'partial' | 'none'

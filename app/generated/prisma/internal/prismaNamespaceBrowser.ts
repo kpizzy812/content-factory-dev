@@ -56,6 +56,7 @@ export const ModelName = {
   App: 'App',
   Character: 'Character',
   CharacterReferenceImage: 'CharacterReferenceImage',
+  PresenterSourceClip: 'PresenterSourceClip',
   SceneReferenceImage: 'SceneReferenceImage',
   Scene: 'Scene',
   AppReferenceImage: 'AppReferenceImage',
@@ -89,6 +90,12 @@ export const ModelName = {
   PostMetrics: 'PostMetrics',
   Reference: 'Reference',
   ProductionCycle: 'ProductionCycle',
+  LeadMagnet: 'LeadMagnet',
+  ContentFunnel: 'ContentFunnel',
+  ContentHypothesis: 'ContentHypothesis',
+  FactoryPublication: 'FactoryPublication',
+  FactoryQualityReview: 'FactoryQualityReview',
+  AttributionEvent: 'AttributionEvent',
   AgentLog: 'AgentLog',
   SecretAccessLog: 'SecretAccessLog',
   TelegramChat: 'TelegramChat',
@@ -279,6 +286,34 @@ export const CharacterReferenceImageScalarFieldEnum = {
 export type CharacterReferenceImageScalarFieldEnum = (typeof CharacterReferenceImageScalarFieldEnum)[keyof typeof CharacterReferenceImageScalarFieldEnum]
 
 
+export const PresenterSourceClipScalarFieldEnum = {
+  id: 'id',
+  characterId: 'characterId',
+  name: 'name',
+  fileUrl: 'fileUrl',
+  storageKey: 'storageKey',
+  storageProvider: 'storageProvider',
+  sha1: 'sha1',
+  mimeType: 'mimeType',
+  bytes: 'bytes',
+  durationSec: 'durationSec',
+  width: 'width',
+  height: 'height',
+  tags: 'tags',
+  outfit: 'outfit',
+  background: 'background',
+  gesture: 'gesture',
+  isActive: 'isActive',
+  usageCount: 'usageCount',
+  lastUsedAt: 'lastUsedAt',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PresenterSourceClipScalarFieldEnum = (typeof PresenterSourceClipScalarFieldEnum)[keyof typeof PresenterSourceClipScalarFieldEnum]
+
+
 export const SceneReferenceImageScalarFieldEnum = {
   id: 'id',
   sceneId: 'sceneId',
@@ -407,6 +442,7 @@ export type TrendScalarFieldEnum = (typeof TrendScalarFieldEnum)[keyof typeof Tr
 export const ScenarioScalarFieldEnum = {
   id: 'id',
   trendId: 'trendId',
+  hypothesisId: 'hypothesisId',
   briefId: 'briefId',
   appId: 'appId',
   sceneId: 'sceneId',
@@ -540,6 +576,7 @@ export const VideoScalarFieldEnum = {
   generateAudio: 'generateAudio',
   lipSyncEnabled: 'lipSyncEnabled',
   lipSyncModelId: 'lipSyncModelId',
+  lipSyncCharacterId: 'lipSyncCharacterId',
   isLocked: 'isLocked',
   lockedAt: 'lockedAt',
   lockedReason: 'lockedReason',
@@ -1019,6 +1056,13 @@ export type ReferenceScalarFieldEnum = (typeof ReferenceScalarFieldEnum)[keyof t
 export const ProductionCycleScalarFieldEnum = {
   id: 'id',
   appId: 'appId',
+  mode: 'mode',
+  pipelineId: 'pipelineId',
+  batchKey: 'batchKey',
+  targetCount: 'targetCount',
+  dailyLimitPerAccount: 'dailyLimitPerAccount',
+  sourceContext: 'sourceContext',
+  funnelId: 'funnelId',
   groupId: 'groupId',
   status: 'status',
   startedById: 'startedById',
@@ -1034,6 +1078,140 @@ export const ProductionCycleScalarFieldEnum = {
 } as const
 
 export type ProductionCycleScalarFieldEnum = (typeof ProductionCycleScalarFieldEnum)[keyof typeof ProductionCycleScalarFieldEnum]
+
+
+export const LeadMagnetScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  title: 'title',
+  problem: 'problem',
+  audience: 'audience',
+  content: 'content',
+  deliveryMessage: 'deliveryMessage',
+  warmupMessages: 'warmupMessages',
+  status: 'status',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LeadMagnetScalarFieldEnum = (typeof LeadMagnetScalarFieldEnum)[keyof typeof LeadMagnetScalarFieldEnum]
+
+
+export const ContentFunnelScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  leadMagnetId: 'leadMagnetId',
+  name: 'name',
+  keyword: 'keyword',
+  deliveryAdapter: 'deliveryAdapter',
+  deliveryConfig: 'deliveryConfig',
+  automationAdapter: 'automationAdapter',
+  automationConfig: 'automationConfig',
+  conversionAdapter: 'conversionAdapter',
+  conversionUrl: 'conversionUrl',
+  conversionTrackingParam: 'conversionTrackingParam',
+  webhookSecretHash: 'webhookSecretHash',
+  status: 'status',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContentFunnelScalarFieldEnum = (typeof ContentFunnelScalarFieldEnum)[keyof typeof ContentFunnelScalarFieldEnum]
+
+
+export const ContentHypothesisScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  cycleId: 'cycleId',
+  runId: 'runId',
+  trackingToken: 'trackingToken',
+  funnelId: 'funnelId',
+  leadMagnetId: 'leadMagnetId',
+  ordinal: 'ordinal',
+  title: 'title',
+  angle: 'angle',
+  audience: 'audience',
+  problem: 'problem',
+  promise: 'promise',
+  hook: 'hook',
+  cta: 'cta',
+  keyword: 'keyword',
+  proofPoints: 'proofPoints',
+  evidence: 'evidence',
+  sourceTrendIds: 'sourceTrendIds',
+  sourceIdeaIds: 'sourceIdeaIds',
+  fingerprint: 'fingerprint',
+  status: 'status',
+  rawOutput: 'rawOutput',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContentHypothesisScalarFieldEnum = (typeof ContentHypothesisScalarFieldEnum)[keyof typeof ContentHypothesisScalarFieldEnum]
+
+
+export const FactoryPublicationScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  cycleId: 'cycleId',
+  runId: 'runId',
+  funnelId: 'funnelId',
+  hypothesisId: 'hypothesisId',
+  socialAccountId: 'socialAccountId',
+  platform: 'platform',
+  trackingToken: 'trackingToken',
+  keyword: 'keyword',
+  videoId: 'videoId',
+  uploadId: 'uploadId',
+  status: 'status',
+  platformPostId: 'platformPostId',
+  platformPostUrl: 'platformPostUrl',
+  publishedAt: 'publishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FactoryPublicationScalarFieldEnum = (typeof FactoryPublicationScalarFieldEnum)[keyof typeof FactoryPublicationScalarFieldEnum]
+
+
+export const FactoryQualityReviewScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  cycleId: 'cycleId',
+  runId: 'runId',
+  hypothesisId: 'hypothesisId',
+  scenarioId: 'scenarioId',
+  videoId: 'videoId',
+  stage: 'stage',
+  verdict: 'verdict',
+  score: 'score',
+  checks: 'checks',
+  issues: 'issues',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FactoryQualityReviewScalarFieldEnum = (typeof FactoryQualityReviewScalarFieldEnum)[keyof typeof FactoryQualityReviewScalarFieldEnum]
+
+
+export const AttributionEventScalarFieldEnum = {
+  id: 'id',
+  publicationId: 'publicationId',
+  trackingToken: 'trackingToken',
+  type: 'type',
+  source: 'source',
+  idempotencyKey: 'idempotencyKey',
+  externalEventId: 'externalEventId',
+  externalUserId: 'externalUserId',
+  messengerUserId: 'messengerUserId',
+  payload: 'payload',
+  occurredAt: 'occurredAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AttributionEventScalarFieldEnum = (typeof AttributionEventScalarFieldEnum)[keyof typeof AttributionEventScalarFieldEnum]
 
 
 export const AgentLogScalarFieldEnum = {
@@ -1189,6 +1367,9 @@ export const WorkflowRunScalarFieldEnum = {
   retryOfRunId: 'retryOfRunId',
   replayOfRunId: 'replayOfRunId',
   parentRunId: 'parentRunId',
+  cycleId: 'cycleId',
+  trackingToken: 'trackingToken',
+  inputContext: 'inputContext',
   cancelRequestedAt: 'cancelRequestedAt',
   cancelRequestedBy: 'cancelRequestedBy',
   errorMessage: 'errorMessage',

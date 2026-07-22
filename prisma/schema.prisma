@@ -230,6 +230,11 @@ model App {
   warmupKeywordPools   WarmupKeywordPool[]
   characters           Character[]
   scenes               Scene[]
+  leadMagnets          LeadMagnet[]
+  contentFunnels       ContentFunnel[]
+  contentHypotheses    ContentHypothesis[]
+  factoryPublications  FactoryPublication[]
+  factoryQaReviews     FactoryQualityReview[]
 }
 
 // --- Character Library (F1) — per-app reference-персонажи для консистентной генерации ---
@@ -259,6 +264,8 @@ model Character {
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
   referenceImages CharacterReferenceImage[]
+  sourceClips     PresenterSourceClip[]
+  lipSyncVideos   Video[]                   @relation("VideoLipSyncCharacter")
 
   @@index([appId, archived])
   @@index([appId, name])
@@ -310,6 +317,34 @@ model CharacterReferenceImage {
 // Загружаются прямо в композитор сцены — это "примеры кадра, как должно получиться",
 // AI пересобирает из них mood/lighting/camera-angle и инжектит в финальный prompt.
 // GCS path: `zavodcamp/apps/{appId}/scenes/{sceneId}/refs/{sha1}.{ext}`.
+model PresenterSourceClip {
+  id              String    @id @default(cuid())
+  characterId     String
+  character       Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  name            String?
+  fileUrl         String
+  storageKey      String?
+  storageProvider String    @default("gcs")
+  sha1            String
+  mimeType        String?
+  bytes           Int?
+  durationSec     Float
+  width           Int?
+  height          Int?
+  tags            String[]
+  outfit          String?
+  background      String?
+  gesture         String?
+  isActive        Boolean   @default(true)
+  usageCount      Int       @default(0)
+  lastUsedAt      DateTime?
+  uploadedById    Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([characterId, sha1])
+  @@index([characterId, isActive, lastUsedAt])
+}
 model SceneReferenceImage {
   id                  String    @id @default(cuid())
   sceneId             String
@@ -566,6 +601,8 @@ model Scenario {
   // обязательно заполнен. Когда задан — классический trend-driven путь (CreativeBrief → Scenario).
   trendId             Int?
   trend               Trend?                     @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  hypothesisId        String?
+  hypothesis          ContentHypothesis?         @relation(fields: [hypothesisId], references: [id], onDelete: SetNull)
   briefId             Int?
   appId               Int?
   // sceneId — обратная ссылка на исходную Scene из SceneComposer. onDelete: SetNull
@@ -595,8 +632,10 @@ model Scenario {
   videos              Video[]
   feedbacks           ScenarioFeedback[]
   criticReviews       CriticReview[]
+  factoryQaReviews    FactoryQualityReview[]
 
   @@index([trendId, isDeleted])
+  @@index([hypothesisId, isDeleted])
   @@index([status, isDeleted])
   @@index([runId])
   @@index([pipelineId])
@@ -729,6 +768,8 @@ model Video {
   // Lip-sync (premium feature, gated by quality preset)
   lipSyncEnabled           Boolean               @default(false)
   lipSyncModelId           String?
+  lipSyncCharacterId       String?
+  lipSyncCharacter         Character?            @relation("VideoLipSyncCharacter", fields: [lipSyncCharacterId], references: [id], onDelete: SetNull)
   // Job safety
   isLocked                 Boolean               @default(false)
   lockedAt                 DateTime?
@@ -750,6 +791,8 @@ model Video {
   steps                    VideoGenerationStep[]
   mediaPredictions         MediaPrediction[]
   postingJobs              PostingJob[]
+  factoryPublications      FactoryPublication[]
+  factoryQaReviews         FactoryQualityReview[]
   uniqueVariants           VideoUniqueVariant[]
   captions                 Caption[]
   // External creative source (Google Drive, future YouTube/etc.)
@@ -776,6 +819,7 @@ model Video {
   @@index([status])
   @@index([runId])
   @@index([pipelineId])
+  @@index([lipSyncCharacterId])
   @@index([externalSource, externalSourceId])
   @@index([framePassRunAt])
   @@index([storageProvider])
@@ -1002,6 +1046,7 @@ model SocialAccount {
   warmupSessions      WarmupSession[]
   deviceProfileLinks  DeviceProfileAccount[]
   metricsSnapshots    AccountMetricsSnapshot[]
+  factoryPublications FactoryPublication[]
   proxyDeepCheckLogs  ProxyDeepCheckLog[]
 
   @@index([appId, status])
@@ -1371,6 +1416,7 @@ model Upload {
   references      Reference[]
   attempts        SocialUploadAttempt[]
   postingJob      PostingJob?
+  factoryPublication FactoryPublication?
 
   @@index([status])
   @@index([videoId])
@@ -1425,25 +1471,215 @@ model Reference {
 }
 
 model ProductionCycle {
-  id           Int           @id @default(autoincrement())
-  appId        Int
-  app          App           @relation(fields: [appId], references: [id])
-  groupId      Int?
-  accountGroup AccountGroup? @relation(fields: [groupId], references: [id])
-  status       CycleStatus   @default(pending)
-  startedById  Int
-  startedAt    DateTime      @default(now())
-  completedAt  DateTime?
-  errorMessage String?
-  trendsFound  Int           @default(0)
-  scenariosGen Int           @default(0)
-  videosGen    Int           @default(0)
-  uploadsCount Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  logs         AgentLog[]
+  id                       Int           @id @default(autoincrement())
+  appId                    Int
+  app                      App           @relation(fields: [appId], references: [id])
+  mode                     String        @default("legacy")
+  pipelineId               Int?
+  pipeline                 Pipeline?     @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  batchKey                 String?       @unique
+  targetCount              Int           @default(1)
+  dailyLimitPerAccount     Int           @default(50)
+  sourceContext            Json?
+  funnelId                 String?
+  funnel                   ContentFunnel? @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+  groupId                  Int?
+  accountGroup             AccountGroup? @relation(fields: [groupId], references: [id])
+  status                   CycleStatus   @default(pending)
+  startedById              Int
+  startedAt                DateTime      @default(now())
+  completedAt              DateTime?
+  errorMessage             String?
+  trendsFound              Int           @default(0)
+  scenariosGen             Int           @default(0)
+  videosGen                Int           @default(0)
+  uploadsCount             Int           @default(0)
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  logs                     AgentLog[]
+  runs                     WorkflowRun[]
+  hypotheses               ContentHypothesis[]
+  qaReviews                FactoryQualityReview[]
+  factoryPublications      FactoryPublication[]
+
+  @@index([pipelineId, status])
+  @@index([mode, status, startedAt])
+  @@index([funnelId])
 }
 
+model LeadMagnet {
+  id               String              @id @default(cuid())
+  appId            Int
+  app              App                 @relation(fields: [appId], references: [id], onDelete: Cascade)
+  title            String
+  problem          String?
+  audience         String?
+  content          Json
+  deliveryMessage  String?
+  warmupMessages   Json?
+  status           String              @default("draft")
+  createdById      Int?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  funnels          ContentFunnel[]
+  hypotheses       ContentHypothesis[]
+
+  @@index([appId, status])
+}
+
+model ContentFunnel {
+  id                       String               @id @default(cuid())
+  appId                    Int
+  app                      App                  @relation(fields: [appId], references: [id], onDelete: Cascade)
+  leadMagnetId             String?
+  leadMagnet               LeadMagnet?          @relation(fields: [leadMagnetId], references: [id], onDelete: SetNull)
+  name                     String
+  keyword                  String
+  deliveryAdapter          String
+  deliveryConfig           Json?
+  automationAdapter        String?
+  automationConfig         Json?
+  conversionAdapter        String
+  conversionUrl            String
+  conversionTrackingParam  String               @default("tracking_token")
+  webhookSecretHash        String
+  status                   String               @default("active")
+  createdById              Int?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  cycles                   ProductionCycle[]
+  hypotheses               ContentHypothesis[]
+  publications             FactoryPublication[]
+
+  @@index([appId, status])
+  @@index([leadMagnetId])
+}
+
+model ContentHypothesis {
+  id              String                 @id @default(cuid())
+  appId           Int
+  app             App                    @relation(fields: [appId], references: [id], onDelete: Cascade)
+  cycleId         Int?
+  cycle           ProductionCycle?       @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  runId           Int?                   @unique
+  run             WorkflowRun?           @relation(fields: [runId], references: [id], onDelete: SetNull)
+  trackingToken   String?                @unique
+  funnelId        String?
+  funnel          ContentFunnel?         @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+  leadMagnetId    String?
+  leadMagnet      LeadMagnet?            @relation(fields: [leadMagnetId], references: [id], onDelete: SetNull)
+  ordinal         Int?
+  title           String
+  angle           String
+  audience        String
+  problem         String
+  promise         String
+  hook            String
+  cta             String
+  keyword         String?
+  proofPoints     Json
+  evidence        Json?
+  sourceTrendIds  Int[]
+  sourceIdeaIds   Int[]
+  fingerprint     String
+  status          String                 @default("generated")
+  rawOutput       Json?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  scenarios       Scenario[]
+  publications    FactoryPublication[]
+  qaReviews       FactoryQualityReview[]
+
+  @@unique([cycleId, fingerprint])
+  @@index([appId, status, createdAt])
+  @@index([funnelId])
+  @@index([leadMagnetId])
+}
+
+model FactoryPublication {
+  id               String             @id @default(cuid())
+  appId            Int
+  app              App                @relation(fields: [appId], references: [id], onDelete: Cascade)
+  cycleId          Int
+  cycle            ProductionCycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  runId            Int
+  run              WorkflowRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  funnelId         String?
+  funnel           ContentFunnel?     @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+  hypothesisId     String?
+  hypothesis       ContentHypothesis? @relation(fields: [hypothesisId], references: [id], onDelete: SetNull)
+  socialAccountId  Int
+  socialAccount    SocialAccount      @relation(fields: [socialAccountId], references: [id])
+  platform         Platform
+  trackingToken    String
+  keyword          String?
+  videoId          Int?
+  video            Video?             @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  uploadId         Int?               @unique
+  upload           Upload?            @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  status           String             @default("planned")
+  platformPostId   String?
+  platformPostUrl  String?
+  publishedAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  events           AttributionEvent[]
+
+  @@unique([runId, socialAccountId])
+  @@index([cycleId, status])
+  @@index([hypothesisId])
+  @@index([trackingToken, platform])
+  @@index([socialAccountId, platformPostId])
+}
+
+model FactoryQualityReview {
+  id             String             @id @default(cuid())
+  appId          Int
+  app            App                @relation(fields: [appId], references: [id], onDelete: Cascade)
+  cycleId        Int?
+  cycle          ProductionCycle?   @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  runId          Int
+  run            WorkflowRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  hypothesisId   String?
+  hypothesis     ContentHypothesis? @relation(fields: [hypothesisId], references: [id], onDelete: SetNull)
+  scenarioId     Int?
+  scenario       Scenario?          @relation(fields: [scenarioId], references: [id], onDelete: SetNull)
+  videoId        Int?
+  video          Video?             @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  stage          String
+  verdict        String
+  score          Int
+  checks         Json
+  issues         Json
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([runId, stage])
+  @@index([cycleId, verdict])
+  @@index([hypothesisId])
+  @@index([scenarioId])
+  @@index([videoId])
+}
+
+model AttributionEvent {
+  id               String             @id @default(cuid())
+  publicationId    String
+  publication      FactoryPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  trackingToken    String
+  type             String
+  source           String
+  idempotencyKey   String             @unique
+  externalEventId  String?
+  externalUserId   String?
+  messengerUserId  String?
+  payload          Json?
+  occurredAt       DateTime           @default(now())
+  createdAt        DateTime           @default(now())
+
+  @@index([trackingToken, occurredAt])
+  @@index([publicationId, type, occurredAt])
+  @@index([source, externalEventId])
+}
 model AgentLog {
   id        Int              @id @default(autoincrement())
   cycleId   Int?
@@ -1639,6 +1875,7 @@ model Pipeline {
   uploads             Upload[]
   ideas               Idea[]
   postingJobs         PostingJob[]
+  productionCycles    ProductionCycle[]
 }
 
 model WorkflowRun {
@@ -1653,6 +1890,10 @@ model WorkflowRun {
   retryOfRunId      Int?
   replayOfRunId     Int?
   parentRunId       Int?
+  cycleId           Int?
+  cycle             ProductionCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  trackingToken     String?          @unique
+  inputContext      Json?
   cancelRequestedAt DateTime?
   cancelRequestedBy Int?
   errorMessage      String?
@@ -1668,10 +1909,14 @@ model WorkflowRun {
   uploads           Upload[]
   ideas             Idea[]
   postingJobs       PostingJob[]
+  factoryPublications FactoryPublication[]
+  contentHypothesis ContentHypothesis?
+  factoryQaReviews  FactoryQualityReview[]
 
   @@index([pipelineId, createdAt])
   @@index([status])
   @@index([parentRunId])
+  @@index([cycleId, status])
 }
 
 model WorkflowStep {

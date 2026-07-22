@@ -34,6 +34,7 @@ export type WorkflowRunAvgAggregateOutputType = {
   retryOfRunId: number | null
   replayOfRunId: number | null
   parentRunId: number | null
+  cycleId: number | null
   cancelRequestedBy: number | null
 }
 
@@ -45,6 +46,7 @@ export type WorkflowRunSumAggregateOutputType = {
   retryOfRunId: number | null
   replayOfRunId: number | null
   parentRunId: number | null
+  cycleId: number | null
   cancelRequestedBy: number | null
 }
 
@@ -58,6 +60,8 @@ export type WorkflowRunMinAggregateOutputType = {
   retryOfRunId: number | null
   replayOfRunId: number | null
   parentRunId: number | null
+  cycleId: number | null
+  trackingToken: string | null
   cancelRequestedAt: Date | null
   cancelRequestedBy: number | null
   errorMessage: string | null
@@ -77,6 +81,8 @@ export type WorkflowRunMaxAggregateOutputType = {
   retryOfRunId: number | null
   replayOfRunId: number | null
   parentRunId: number | null
+  cycleId: number | null
+  trackingToken: string | null
   cancelRequestedAt: Date | null
   cancelRequestedBy: number | null
   errorMessage: string | null
@@ -97,6 +103,9 @@ export type WorkflowRunCountAggregateOutputType = {
   retryOfRunId: number
   replayOfRunId: number
   parentRunId: number
+  cycleId: number
+  trackingToken: number
+  inputContext: number
   cancelRequestedAt: number
   cancelRequestedBy: number
   errorMessage: number
@@ -116,6 +125,7 @@ export type WorkflowRunAvgAggregateInputType = {
   retryOfRunId?: true
   replayOfRunId?: true
   parentRunId?: true
+  cycleId?: true
   cancelRequestedBy?: true
 }
 
@@ -127,6 +137,7 @@ export type WorkflowRunSumAggregateInputType = {
   retryOfRunId?: true
   replayOfRunId?: true
   parentRunId?: true
+  cycleId?: true
   cancelRequestedBy?: true
 }
 
@@ -140,6 +151,8 @@ export type WorkflowRunMinAggregateInputType = {
   retryOfRunId?: true
   replayOfRunId?: true
   parentRunId?: true
+  cycleId?: true
+  trackingToken?: true
   cancelRequestedAt?: true
   cancelRequestedBy?: true
   errorMessage?: true
@@ -159,6 +172,8 @@ export type WorkflowRunMaxAggregateInputType = {
   retryOfRunId?: true
   replayOfRunId?: true
   parentRunId?: true
+  cycleId?: true
+  trackingToken?: true
   cancelRequestedAt?: true
   cancelRequestedBy?: true
   errorMessage?: true
@@ -179,6 +194,9 @@ export type WorkflowRunCountAggregateInputType = {
   retryOfRunId?: true
   replayOfRunId?: true
   parentRunId?: true
+  cycleId?: true
+  trackingToken?: true
+  inputContext?: true
   cancelRequestedAt?: true
   cancelRequestedBy?: true
   errorMessage?: true
@@ -286,6 +304,9 @@ export type WorkflowRunGroupByOutputType = {
   retryOfRunId: number | null
   replayOfRunId: number | null
   parentRunId: number | null
+  cycleId: number | null
+  trackingToken: string | null
+  inputContext: runtime.JsonValue | null
   cancelRequestedAt: Date | null
   cancelRequestedBy: number | null
   errorMessage: string | null
@@ -329,6 +350,9 @@ export type WorkflowRunWhereInput = {
   retryOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   replayOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   parentRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  cycleId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  trackingToken?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  inputContext?: Prisma.JsonNullableFilter<"WorkflowRun">
   cancelRequestedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
@@ -337,6 +361,7 @@ export type WorkflowRunWhereInput = {
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   pipeline?: Prisma.XOR<Prisma.PipelineScalarRelationFilter, Prisma.PipelineWhereInput>
+  cycle?: Prisma.XOR<Prisma.ProductionCycleNullableScalarRelationFilter, Prisma.ProductionCycleWhereInput> | null
   steps?: Prisma.WorkflowStepListRelationFilter
   scenarios?: Prisma.ScenarioListRelationFilter
   trends?: Prisma.TrendListRelationFilter
@@ -344,6 +369,9 @@ export type WorkflowRunWhereInput = {
   uploads?: Prisma.UploadListRelationFilter
   ideas?: Prisma.IdeaListRelationFilter
   postingJobs?: Prisma.PostingJobListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+  contentHypothesis?: Prisma.XOR<Prisma.ContentHypothesisNullableScalarRelationFilter, Prisma.ContentHypothesisWhereInput> | null
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
 }
 
 export type WorkflowRunOrderByWithRelationInput = {
@@ -357,6 +385,9 @@ export type WorkflowRunOrderByWithRelationInput = {
   retryOfRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   parentRunId?: Prisma.SortOrderInput | Prisma.SortOrder
+  cycleId?: Prisma.SortOrderInput | Prisma.SortOrder
+  trackingToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  inputContext?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelRequestedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -365,6 +396,7 @@ export type WorkflowRunOrderByWithRelationInput = {
   finishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   pipeline?: Prisma.PipelineOrderByWithRelationInput
+  cycle?: Prisma.ProductionCycleOrderByWithRelationInput
   steps?: Prisma.WorkflowStepOrderByRelationAggregateInput
   scenarios?: Prisma.ScenarioOrderByRelationAggregateInput
   trends?: Prisma.TrendOrderByRelationAggregateInput
@@ -372,10 +404,14 @@ export type WorkflowRunOrderByWithRelationInput = {
   uploads?: Prisma.UploadOrderByRelationAggregateInput
   ideas?: Prisma.IdeaOrderByRelationAggregateInput
   postingJobs?: Prisma.PostingJobOrderByRelationAggregateInput
+  factoryPublications?: Prisma.FactoryPublicationOrderByRelationAggregateInput
+  contentHypothesis?: Prisma.ContentHypothesisOrderByWithRelationInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewOrderByRelationAggregateInput
 }
 
 export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  trackingToken?: string
   AND?: Prisma.WorkflowRunWhereInput | Prisma.WorkflowRunWhereInput[]
   OR?: Prisma.WorkflowRunWhereInput[]
   NOT?: Prisma.WorkflowRunWhereInput | Prisma.WorkflowRunWhereInput[]
@@ -388,6 +424,8 @@ export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   retryOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   replayOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   parentRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  cycleId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  inputContext?: Prisma.JsonNullableFilter<"WorkflowRun">
   cancelRequestedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
@@ -396,6 +434,7 @@ export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   pipeline?: Prisma.XOR<Prisma.PipelineScalarRelationFilter, Prisma.PipelineWhereInput>
+  cycle?: Prisma.XOR<Prisma.ProductionCycleNullableScalarRelationFilter, Prisma.ProductionCycleWhereInput> | null
   steps?: Prisma.WorkflowStepListRelationFilter
   scenarios?: Prisma.ScenarioListRelationFilter
   trends?: Prisma.TrendListRelationFilter
@@ -403,7 +442,10 @@ export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   uploads?: Prisma.UploadListRelationFilter
   ideas?: Prisma.IdeaListRelationFilter
   postingJobs?: Prisma.PostingJobListRelationFilter
-}, "id">
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+  contentHypothesis?: Prisma.XOR<Prisma.ContentHypothesisNullableScalarRelationFilter, Prisma.ContentHypothesisWhereInput> | null
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
+}, "id" | "trackingToken">
 
 export type WorkflowRunOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -416,6 +458,9 @@ export type WorkflowRunOrderByWithAggregationInput = {
   retryOfRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   parentRunId?: Prisma.SortOrderInput | Prisma.SortOrder
+  cycleId?: Prisma.SortOrderInput | Prisma.SortOrder
+  trackingToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  inputContext?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelRequestedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -444,6 +489,9 @@ export type WorkflowRunScalarWhereWithAggregatesInput = {
   retryOfRunId?: Prisma.IntNullableWithAggregatesFilter<"WorkflowRun"> | number | null
   replayOfRunId?: Prisma.IntNullableWithAggregatesFilter<"WorkflowRun"> | number | null
   parentRunId?: Prisma.IntNullableWithAggregatesFilter<"WorkflowRun"> | number | null
+  cycleId?: Prisma.IntNullableWithAggregatesFilter<"WorkflowRun"> | number | null
+  trackingToken?: Prisma.StringNullableWithAggregatesFilter<"WorkflowRun"> | string | null
+  inputContext?: Prisma.JsonNullableWithAggregatesFilter<"WorkflowRun">
   cancelRequestedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"WorkflowRun"> | Date | string | null
   cancelRequestedBy?: Prisma.IntNullableWithAggregatesFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"WorkflowRun"> | string | null
@@ -462,6 +510,8 @@ export type WorkflowRunCreateInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -470,6 +520,7 @@ export type WorkflowRunCreateInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
@@ -477,6 +528,9 @@ export type WorkflowRunCreateInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateInput = {
@@ -490,6 +544,9 @@ export type WorkflowRunUncheckedCreateInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -504,6 +561,9 @@ export type WorkflowRunUncheckedCreateInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUpdateInput = {
@@ -515,6 +575,8 @@ export type WorkflowRunUpdateInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -523,6 +585,7 @@ export type WorkflowRunUpdateInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
@@ -530,6 +593,9 @@ export type WorkflowRunUpdateInput = {
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateInput = {
@@ -543,6 +609,9 @@ export type WorkflowRunUncheckedUpdateInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -557,6 +626,9 @@ export type WorkflowRunUncheckedUpdateInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunCreateManyInput = {
@@ -570,6 +642,9 @@ export type WorkflowRunCreateManyInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -588,6 +663,8 @@ export type WorkflowRunUpdateManyMutationInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -608,6 +685,9 @@ export type WorkflowRunUncheckedUpdateManyInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -632,6 +712,11 @@ export type WorkflowRunOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type WorkflowRunScalarRelationFilter = {
+  is?: Prisma.WorkflowRunWhereInput
+  isNot?: Prisma.WorkflowRunWhereInput
+}
+
 export type WorkflowRunCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   pipelineId?: Prisma.SortOrder
@@ -643,6 +728,9 @@ export type WorkflowRunCountOrderByAggregateInput = {
   retryOfRunId?: Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrder
   parentRunId?: Prisma.SortOrder
+  cycleId?: Prisma.SortOrder
+  trackingToken?: Prisma.SortOrder
+  inputContext?: Prisma.SortOrder
   cancelRequestedAt?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
@@ -660,6 +748,7 @@ export type WorkflowRunAvgOrderByAggregateInput = {
   retryOfRunId?: Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrder
   parentRunId?: Prisma.SortOrder
+  cycleId?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
 }
 
@@ -673,6 +762,8 @@ export type WorkflowRunMaxOrderByAggregateInput = {
   retryOfRunId?: Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrder
   parentRunId?: Prisma.SortOrder
+  cycleId?: Prisma.SortOrder
+  trackingToken?: Prisma.SortOrder
   cancelRequestedAt?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
@@ -692,6 +783,8 @@ export type WorkflowRunMinOrderByAggregateInput = {
   retryOfRunId?: Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrder
   parentRunId?: Prisma.SortOrder
+  cycleId?: Prisma.SortOrder
+  trackingToken?: Prisma.SortOrder
   cancelRequestedAt?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
@@ -709,12 +802,8 @@ export type WorkflowRunSumOrderByAggregateInput = {
   retryOfRunId?: Prisma.SortOrder
   replayOfRunId?: Prisma.SortOrder
   parentRunId?: Prisma.SortOrder
+  cycleId?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
-}
-
-export type WorkflowRunScalarRelationFilter = {
-  is?: Prisma.WorkflowRunWhereInput
-  isNot?: Prisma.WorkflowRunWhereInput
 }
 
 export type WorkflowRunCreateNestedOneWithoutTrendsInput = {
@@ -779,6 +868,92 @@ export type WorkflowRunUpdateOneWithoutUploadsNestedInput = {
   delete?: Prisma.WorkflowRunWhereInput | boolean
   connect?: Prisma.WorkflowRunWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.WorkflowRunUpdateToOneWithWhereWithoutUploadsInput, Prisma.WorkflowRunUpdateWithoutUploadsInput>, Prisma.WorkflowRunUncheckedUpdateWithoutUploadsInput>
+}
+
+export type WorkflowRunCreateNestedManyWithoutCycleInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutCycleInput, Prisma.WorkflowRunUncheckedCreateWithoutCycleInput> | Prisma.WorkflowRunCreateWithoutCycleInput[] | Prisma.WorkflowRunUncheckedCreateWithoutCycleInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutCycleInput | Prisma.WorkflowRunCreateOrConnectWithoutCycleInput[]
+  createMany?: Prisma.WorkflowRunCreateManyCycleInputEnvelope
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+}
+
+export type WorkflowRunUncheckedCreateNestedManyWithoutCycleInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutCycleInput, Prisma.WorkflowRunUncheckedCreateWithoutCycleInput> | Prisma.WorkflowRunCreateWithoutCycleInput[] | Prisma.WorkflowRunUncheckedCreateWithoutCycleInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutCycleInput | Prisma.WorkflowRunCreateOrConnectWithoutCycleInput[]
+  createMany?: Prisma.WorkflowRunCreateManyCycleInputEnvelope
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+}
+
+export type WorkflowRunUpdateManyWithoutCycleNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutCycleInput, Prisma.WorkflowRunUncheckedCreateWithoutCycleInput> | Prisma.WorkflowRunCreateWithoutCycleInput[] | Prisma.WorkflowRunUncheckedCreateWithoutCycleInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutCycleInput | Prisma.WorkflowRunCreateOrConnectWithoutCycleInput[]
+  upsert?: Prisma.WorkflowRunUpsertWithWhereUniqueWithoutCycleInput | Prisma.WorkflowRunUpsertWithWhereUniqueWithoutCycleInput[]
+  createMany?: Prisma.WorkflowRunCreateManyCycleInputEnvelope
+  set?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  disconnect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  delete?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  update?: Prisma.WorkflowRunUpdateWithWhereUniqueWithoutCycleInput | Prisma.WorkflowRunUpdateWithWhereUniqueWithoutCycleInput[]
+  updateMany?: Prisma.WorkflowRunUpdateManyWithWhereWithoutCycleInput | Prisma.WorkflowRunUpdateManyWithWhereWithoutCycleInput[]
+  deleteMany?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
+}
+
+export type WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutCycleInput, Prisma.WorkflowRunUncheckedCreateWithoutCycleInput> | Prisma.WorkflowRunCreateWithoutCycleInput[] | Prisma.WorkflowRunUncheckedCreateWithoutCycleInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutCycleInput | Prisma.WorkflowRunCreateOrConnectWithoutCycleInput[]
+  upsert?: Prisma.WorkflowRunUpsertWithWhereUniqueWithoutCycleInput | Prisma.WorkflowRunUpsertWithWhereUniqueWithoutCycleInput[]
+  createMany?: Prisma.WorkflowRunCreateManyCycleInputEnvelope
+  set?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  disconnect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  delete?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  update?: Prisma.WorkflowRunUpdateWithWhereUniqueWithoutCycleInput | Prisma.WorkflowRunUpdateWithWhereUniqueWithoutCycleInput[]
+  updateMany?: Prisma.WorkflowRunUpdateManyWithWhereWithoutCycleInput | Prisma.WorkflowRunUpdateManyWithWhereWithoutCycleInput[]
+  deleteMany?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
+}
+
+export type WorkflowRunCreateNestedOneWithoutContentHypothesisInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutContentHypothesisInput, Prisma.WorkflowRunUncheckedCreateWithoutContentHypothesisInput>
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutContentHypothesisInput
+  connect?: Prisma.WorkflowRunWhereUniqueInput
+}
+
+export type WorkflowRunUpdateOneWithoutContentHypothesisNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutContentHypothesisInput, Prisma.WorkflowRunUncheckedCreateWithoutContentHypothesisInput>
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutContentHypothesisInput
+  upsert?: Prisma.WorkflowRunUpsertWithoutContentHypothesisInput
+  disconnect?: Prisma.WorkflowRunWhereInput | boolean
+  delete?: Prisma.WorkflowRunWhereInput | boolean
+  connect?: Prisma.WorkflowRunWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.WorkflowRunUpdateToOneWithWhereWithoutContentHypothesisInput, Prisma.WorkflowRunUpdateWithoutContentHypothesisInput>, Prisma.WorkflowRunUncheckedUpdateWithoutContentHypothesisInput>
+}
+
+export type WorkflowRunCreateNestedOneWithoutFactoryPublicationsInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryPublicationsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutFactoryPublicationsInput
+  connect?: Prisma.WorkflowRunWhereUniqueInput
+}
+
+export type WorkflowRunUpdateOneRequiredWithoutFactoryPublicationsNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryPublicationsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutFactoryPublicationsInput
+  upsert?: Prisma.WorkflowRunUpsertWithoutFactoryPublicationsInput
+  connect?: Prisma.WorkflowRunWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.WorkflowRunUpdateToOneWithWhereWithoutFactoryPublicationsInput, Prisma.WorkflowRunUpdateWithoutFactoryPublicationsInput>, Prisma.WorkflowRunUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type WorkflowRunCreateNestedOneWithoutFactoryQaReviewsInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutFactoryQaReviewsInput
+  connect?: Prisma.WorkflowRunWhereUniqueInput
+}
+
+export type WorkflowRunUpdateOneRequiredWithoutFactoryQaReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutFactoryQaReviewsInput
+  upsert?: Prisma.WorkflowRunUpsertWithoutFactoryQaReviewsInput
+  connect?: Prisma.WorkflowRunWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.WorkflowRunUpdateToOneWithWhereWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUpdateWithoutFactoryQaReviewsInput>, Prisma.WorkflowRunUncheckedUpdateWithoutFactoryQaReviewsInput>
 }
 
 export type WorkflowRunCreateNestedManyWithoutPipelineInput = {
@@ -886,6 +1061,8 @@ export type WorkflowRunCreateWithoutTrendsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -894,12 +1071,16 @@ export type WorkflowRunCreateWithoutTrendsInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   videos?: Prisma.VideoCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutTrendsInput = {
@@ -913,6 +1094,9 @@ export type WorkflowRunUncheckedCreateWithoutTrendsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -926,6 +1110,9 @@ export type WorkflowRunUncheckedCreateWithoutTrendsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutTrendsInput = {
@@ -953,6 +1140,8 @@ export type WorkflowRunUpdateWithoutTrendsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -961,12 +1150,16 @@ export type WorkflowRunUpdateWithoutTrendsInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutTrendsInput = {
@@ -980,6 +1173,9 @@ export type WorkflowRunUncheckedUpdateWithoutTrendsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -993,6 +1189,9 @@ export type WorkflowRunUncheckedUpdateWithoutTrendsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunCreateWithoutScenariosInput = {
@@ -1004,6 +1203,8 @@ export type WorkflowRunCreateWithoutScenariosInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1012,12 +1213,16 @@ export type WorkflowRunCreateWithoutScenariosInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
   videos?: Prisma.VideoCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutScenariosInput = {
@@ -1031,6 +1236,9 @@ export type WorkflowRunUncheckedCreateWithoutScenariosInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1044,6 +1252,9 @@ export type WorkflowRunUncheckedCreateWithoutScenariosInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutScenariosInput = {
@@ -1071,6 +1282,8 @@ export type WorkflowRunUpdateWithoutScenariosInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1079,12 +1292,16 @@ export type WorkflowRunUpdateWithoutScenariosInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
   videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutScenariosInput = {
@@ -1098,6 +1315,9 @@ export type WorkflowRunUncheckedUpdateWithoutScenariosInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1111,6 +1331,9 @@ export type WorkflowRunUncheckedUpdateWithoutScenariosInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunCreateWithoutVideosInput = {
@@ -1122,6 +1345,8 @@ export type WorkflowRunCreateWithoutVideosInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1130,12 +1355,16 @@ export type WorkflowRunCreateWithoutVideosInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutVideosInput = {
@@ -1149,6 +1378,9 @@ export type WorkflowRunUncheckedCreateWithoutVideosInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1162,6 +1394,9 @@ export type WorkflowRunUncheckedCreateWithoutVideosInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutVideosInput = {
@@ -1189,6 +1424,8 @@ export type WorkflowRunUpdateWithoutVideosInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1197,12 +1434,16 @@ export type WorkflowRunUpdateWithoutVideosInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutVideosInput = {
@@ -1216,6 +1457,9 @@ export type WorkflowRunUncheckedUpdateWithoutVideosInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1229,6 +1473,9 @@ export type WorkflowRunUncheckedUpdateWithoutVideosInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunCreateWithoutUploadsInput = {
@@ -1240,6 +1487,8 @@ export type WorkflowRunCreateWithoutUploadsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1248,12 +1497,16 @@ export type WorkflowRunCreateWithoutUploadsInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
   videos?: Prisma.VideoCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutUploadsInput = {
@@ -1267,6 +1520,9 @@ export type WorkflowRunUncheckedCreateWithoutUploadsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1280,6 +1536,9 @@ export type WorkflowRunUncheckedCreateWithoutUploadsInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutUploadsInput = {
@@ -1307,6 +1566,8 @@ export type WorkflowRunUpdateWithoutUploadsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1315,12 +1576,16 @@ export type WorkflowRunUpdateWithoutUploadsInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
   videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutUploadsInput = {
@@ -1334,6 +1599,9 @@ export type WorkflowRunUncheckedUpdateWithoutUploadsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1347,9 +1615,12 @@ export type WorkflowRunUncheckedUpdateWithoutUploadsInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
-export type WorkflowRunCreateWithoutPipelineInput = {
+export type WorkflowRunCreateWithoutCycleInput = {
   status?: $Enums.RunStatus
   triggerType?: $Enums.TriggerType
   triggeredBy?: number | null
@@ -1358,6 +1629,8 @@ export type WorkflowRunCreateWithoutPipelineInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1365,6 +1638,7 @@ export type WorkflowRunCreateWithoutPipelineInput = {
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
+  pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
@@ -1372,10 +1646,14 @@ export type WorkflowRunCreateWithoutPipelineInput = {
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
-export type WorkflowRunUncheckedCreateWithoutPipelineInput = {
+export type WorkflowRunUncheckedCreateWithoutCycleInput = {
   id?: number
+  pipelineId: number
   status?: $Enums.RunStatus
   triggerType?: $Enums.TriggerType
   triggeredBy?: number | null
@@ -1384,6 +1662,8 @@ export type WorkflowRunUncheckedCreateWithoutPipelineInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1398,6 +1678,550 @@ export type WorkflowRunUncheckedCreateWithoutPipelineInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
+}
+
+export type WorkflowRunCreateOrConnectWithoutCycleInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutCycleInput, Prisma.WorkflowRunUncheckedCreateWithoutCycleInput>
+}
+
+export type WorkflowRunCreateManyCycleInputEnvelope = {
+  data: Prisma.WorkflowRunCreateManyCycleInput | Prisma.WorkflowRunCreateManyCycleInput[]
+  skipDuplicates?: boolean
+}
+
+export type WorkflowRunUpsertWithWhereUniqueWithoutCycleInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  update: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutCycleInput, Prisma.WorkflowRunUncheckedUpdateWithoutCycleInput>
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutCycleInput, Prisma.WorkflowRunUncheckedCreateWithoutCycleInput>
+}
+
+export type WorkflowRunUpdateWithWhereUniqueWithoutCycleInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutCycleInput, Prisma.WorkflowRunUncheckedUpdateWithoutCycleInput>
+}
+
+export type WorkflowRunUpdateManyWithWhereWithoutCycleInput = {
+  where: Prisma.WorkflowRunScalarWhereInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateManyMutationInput, Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleInput>
+}
+
+export type WorkflowRunScalarWhereInput = {
+  AND?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
+  OR?: Prisma.WorkflowRunScalarWhereInput[]
+  NOT?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
+  id?: Prisma.IntFilter<"WorkflowRun"> | number
+  pipelineId?: Prisma.IntFilter<"WorkflowRun"> | number
+  status?: Prisma.EnumRunStatusFilter<"WorkflowRun"> | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFilter<"WorkflowRun"> | $Enums.TriggerType
+  triggeredBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  graphSnapshot?: Prisma.JsonNullableFilter<"WorkflowRun">
+  graphVersionId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  retryOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  replayOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  parentRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  cycleId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  trackingToken?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  inputContext?: Prisma.JsonNullableFilter<"WorkflowRun">
+  cancelRequestedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
+  cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
+  errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  errorCategory?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  startedAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
+  finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
+  createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
+}
+
+export type WorkflowRunCreateWithoutContentHypothesisInput = {
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
+  steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
+}
+
+export type WorkflowRunUncheckedCreateWithoutContentHypothesisInput = {
+  id?: number
+  pipelineId: number
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  steps?: Prisma.WorkflowStepUncheckedCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioUncheckedCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
+}
+
+export type WorkflowRunCreateOrConnectWithoutContentHypothesisInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutContentHypothesisInput, Prisma.WorkflowRunUncheckedCreateWithoutContentHypothesisInput>
+}
+
+export type WorkflowRunUpsertWithoutContentHypothesisInput = {
+  update: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutContentHypothesisInput, Prisma.WorkflowRunUncheckedUpdateWithoutContentHypothesisInput>
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutContentHypothesisInput, Prisma.WorkflowRunUncheckedCreateWithoutContentHypothesisInput>
+  where?: Prisma.WorkflowRunWhereInput
+}
+
+export type WorkflowRunUpdateToOneWithWhereWithoutContentHypothesisInput = {
+  where?: Prisma.WorkflowRunWhereInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutContentHypothesisInput, Prisma.WorkflowRunUncheckedUpdateWithoutContentHypothesisInput>
+}
+
+export type WorkflowRunUpdateWithoutContentHypothesisInput = {
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
+  steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunUncheckedUpdateWithoutContentHypothesisInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  pipelineId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  steps?: Prisma.WorkflowStepUncheckedUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUncheckedUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunCreateWithoutFactoryPublicationsInput = {
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
+  steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
+}
+
+export type WorkflowRunUncheckedCreateWithoutFactoryPublicationsInput = {
+  id?: number
+  pipelineId: number
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  steps?: Prisma.WorkflowStepUncheckedCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioUncheckedCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
+}
+
+export type WorkflowRunCreateOrConnectWithoutFactoryPublicationsInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryPublicationsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryPublicationsInput>
+}
+
+export type WorkflowRunUpsertWithoutFactoryPublicationsInput = {
+  update: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutFactoryPublicationsInput, Prisma.WorkflowRunUncheckedUpdateWithoutFactoryPublicationsInput>
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryPublicationsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryPublicationsInput>
+  where?: Prisma.WorkflowRunWhereInput
+}
+
+export type WorkflowRunUpdateToOneWithWhereWithoutFactoryPublicationsInput = {
+  where?: Prisma.WorkflowRunWhereInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutFactoryPublicationsInput, Prisma.WorkflowRunUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type WorkflowRunUpdateWithoutFactoryPublicationsInput = {
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
+  steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunUncheckedUpdateWithoutFactoryPublicationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  pipelineId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  steps?: Prisma.WorkflowStepUncheckedUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUncheckedUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunCreateWithoutFactoryQaReviewsInput = {
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
+  steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+}
+
+export type WorkflowRunUncheckedCreateWithoutFactoryQaReviewsInput = {
+  id?: number
+  pipelineId: number
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  steps?: Prisma.WorkflowStepUncheckedCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioUncheckedCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+}
+
+export type WorkflowRunCreateOrConnectWithoutFactoryQaReviewsInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryQaReviewsInput>
+}
+
+export type WorkflowRunUpsertWithoutFactoryQaReviewsInput = {
+  update: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUncheckedUpdateWithoutFactoryQaReviewsInput>
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUncheckedCreateWithoutFactoryQaReviewsInput>
+  where?: Prisma.WorkflowRunWhereInput
+}
+
+export type WorkflowRunUpdateToOneWithWhereWithoutFactoryQaReviewsInput = {
+  where?: Prisma.WorkflowRunWhereInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutFactoryQaReviewsInput, Prisma.WorkflowRunUncheckedUpdateWithoutFactoryQaReviewsInput>
+}
+
+export type WorkflowRunUpdateWithoutFactoryQaReviewsInput = {
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
+  steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+}
+
+export type WorkflowRunUncheckedUpdateWithoutFactoryQaReviewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  pipelineId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  steps?: Prisma.WorkflowStepUncheckedUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUncheckedUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+}
+
+export type WorkflowRunCreateWithoutPipelineInput = {
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
+  steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
+}
+
+export type WorkflowRunUncheckedCreateWithoutPipelineInput = {
+  id?: number
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+  steps?: Prisma.WorkflowStepUncheckedCreateNestedManyWithoutRunInput
+  scenarios?: Prisma.ScenarioUncheckedCreateNestedManyWithoutRunInput
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutRunInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutPipelineInput = {
@@ -1426,29 +2250,6 @@ export type WorkflowRunUpdateManyWithWhereWithoutPipelineInput = {
   data: Prisma.XOR<Prisma.WorkflowRunUpdateManyMutationInput, Prisma.WorkflowRunUncheckedUpdateManyWithoutPipelineInput>
 }
 
-export type WorkflowRunScalarWhereInput = {
-  AND?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
-  OR?: Prisma.WorkflowRunScalarWhereInput[]
-  NOT?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
-  id?: Prisma.IntFilter<"WorkflowRun"> | number
-  pipelineId?: Prisma.IntFilter<"WorkflowRun"> | number
-  status?: Prisma.EnumRunStatusFilter<"WorkflowRun"> | $Enums.RunStatus
-  triggerType?: Prisma.EnumTriggerTypeFilter<"WorkflowRun"> | $Enums.TriggerType
-  triggeredBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
-  graphSnapshot?: Prisma.JsonNullableFilter<"WorkflowRun">
-  graphVersionId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
-  retryOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
-  replayOfRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
-  parentRunId?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
-  cancelRequestedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
-  cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
-  errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
-  errorCategory?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
-  startedAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
-  finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
-  createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
-}
-
 export type WorkflowRunCreateWithoutStepsInput = {
   status?: $Enums.RunStatus
   triggerType?: $Enums.TriggerType
@@ -1458,6 +2259,8 @@ export type WorkflowRunCreateWithoutStepsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1466,12 +2269,16 @@ export type WorkflowRunCreateWithoutStepsInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
   videos?: Prisma.VideoCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutStepsInput = {
@@ -1485,6 +2292,9 @@ export type WorkflowRunUncheckedCreateWithoutStepsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1498,6 +2308,9 @@ export type WorkflowRunUncheckedCreateWithoutStepsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutStepsInput = {
@@ -1525,6 +2338,8 @@ export type WorkflowRunUpdateWithoutStepsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1533,12 +2348,16 @@ export type WorkflowRunUpdateWithoutStepsInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
   videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutStepsInput = {
@@ -1552,6 +2371,9 @@ export type WorkflowRunUncheckedUpdateWithoutStepsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1565,6 +2387,9 @@ export type WorkflowRunUncheckedUpdateWithoutStepsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunCreateWithoutIdeasInput = {
@@ -1576,6 +2401,8 @@ export type WorkflowRunCreateWithoutIdeasInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1584,12 +2411,16 @@ export type WorkflowRunCreateWithoutIdeasInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
   videos?: Prisma.VideoCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutIdeasInput = {
@@ -1603,6 +2434,9 @@ export type WorkflowRunUncheckedCreateWithoutIdeasInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1616,6 +2450,9 @@ export type WorkflowRunUncheckedCreateWithoutIdeasInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutIdeasInput = {
@@ -1643,6 +2480,8 @@ export type WorkflowRunUpdateWithoutIdeasInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1651,12 +2490,16 @@ export type WorkflowRunUpdateWithoutIdeasInput = {
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
   videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutIdeasInput = {
@@ -1670,6 +2513,9 @@ export type WorkflowRunUncheckedUpdateWithoutIdeasInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1683,6 +2529,9 @@ export type WorkflowRunUncheckedUpdateWithoutIdeasInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunCreateWithoutPostingJobsInput = {
@@ -1694,6 +2543,8 @@ export type WorkflowRunCreateWithoutPostingJobsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1702,12 +2553,16 @@ export type WorkflowRunCreateWithoutPostingJobsInput = {
   finishedAt?: Date | string | null
   createdAt?: Date | string
   pipeline: Prisma.PipelineCreateNestedOneWithoutRunsInput
+  cycle?: Prisma.ProductionCycleCreateNestedOneWithoutRunsInput
   steps?: Prisma.WorkflowStepCreateNestedManyWithoutRunInput
   scenarios?: Prisma.ScenarioCreateNestedManyWithoutRunInput
   trends?: Prisma.TrendCreateNestedManyWithoutRunInput
   videos?: Prisma.VideoCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutPostingJobsInput = {
@@ -1721,6 +2576,9 @@ export type WorkflowRunUncheckedCreateWithoutPostingJobsInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1734,6 +2592,9 @@ export type WorkflowRunUncheckedCreateWithoutPostingJobsInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutRunInput
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutRunInput
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutRunInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutRunInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedCreateNestedOneWithoutRunInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutRunInput
 }
 
 export type WorkflowRunCreateOrConnectWithoutPostingJobsInput = {
@@ -1761,6 +2622,93 @@ export type WorkflowRunUpdateWithoutPostingJobsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipeline?: Prisma.PipelineUpdateOneRequiredWithoutRunsNestedInput
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
+  steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunUncheckedUpdateWithoutPostingJobsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  pipelineId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  steps?: Prisma.WorkflowStepUncheckedUpdateManyWithoutRunNestedInput
+  scenarios?: Prisma.ScenarioUncheckedUpdateManyWithoutRunNestedInput
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutRunNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunCreateManyCycleInput = {
+  id?: number
+  pipelineId: number
+  status?: $Enums.RunStatus
+  triggerType?: $Enums.TriggerType
+  triggeredBy?: number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: number | null
+  retryOfRunId?: number | null
+  replayOfRunId?: number | null
+  parentRunId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Date | string | null
+  cancelRequestedBy?: number | null
+  errorMessage?: string | null
+  errorCategory?: string | null
+  startedAt?: Date | string
+  finishedAt?: Date | string | null
+  createdAt?: Date | string
+}
+
+export type WorkflowRunUpdateWithoutCycleInput = {
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1775,9 +2723,13 @@ export type WorkflowRunUpdateWithoutPostingJobsInput = {
   videos?: Prisma.VideoUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
-export type WorkflowRunUncheckedUpdateWithoutPostingJobsInput = {
+export type WorkflowRunUncheckedUpdateWithoutCycleInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   pipelineId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
@@ -1788,6 +2740,8 @@ export type WorkflowRunUncheckedUpdateWithoutPostingJobsInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1801,6 +2755,32 @@ export type WorkflowRunUncheckedUpdateWithoutPostingJobsInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutRunNestedInput
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
+}
+
+export type WorkflowRunUncheckedUpdateManyWithoutCycleInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  pipelineId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumRunStatusFieldUpdateOperationsInput | $Enums.RunStatus
+  triggerType?: Prisma.EnumTriggerTypeFieldUpdateOperationsInput | $Enums.TriggerType
+  triggeredBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  graphSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  graphVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type WorkflowRunCreateManyPipelineInput = {
@@ -1813,6 +2793,9 @@ export type WorkflowRunCreateManyPipelineInput = {
   retryOfRunId?: number | null
   replayOfRunId?: number | null
   parentRunId?: number | null
+  cycleId?: number | null
+  trackingToken?: string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Date | string | null
   cancelRequestedBy?: number | null
   errorMessage?: string | null
@@ -1831,6 +2814,8 @@ export type WorkflowRunUpdateWithoutPipelineInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1838,6 +2823,7 @@ export type WorkflowRunUpdateWithoutPipelineInput = {
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cycle?: Prisma.ProductionCycleUpdateOneWithoutRunsNestedInput
   steps?: Prisma.WorkflowStepUpdateManyWithoutRunNestedInput
   scenarios?: Prisma.ScenarioUpdateManyWithoutRunNestedInput
   trends?: Prisma.TrendUpdateManyWithoutRunNestedInput
@@ -1845,6 +2831,9 @@ export type WorkflowRunUpdateWithoutPipelineInput = {
   uploads?: Prisma.UploadUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutPipelineInput = {
@@ -1857,6 +2846,9 @@ export type WorkflowRunUncheckedUpdateWithoutPipelineInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1871,6 +2863,9 @@ export type WorkflowRunUncheckedUpdateWithoutPipelineInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutRunNestedInput
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutRunNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutRunNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutRunNestedInput
+  contentHypothesis?: Prisma.ContentHypothesisUncheckedUpdateOneWithoutRunNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutRunNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateManyWithoutPipelineInput = {
@@ -1883,6 +2878,9 @@ export type WorkflowRunUncheckedUpdateManyWithoutPipelineInput = {
   retryOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   replayOfRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   parentRunId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cycleId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackingToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inputContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   cancelRequestedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1905,6 +2903,8 @@ export type WorkflowRunCountOutputType = {
   uploads: number
   ideas: number
   postingJobs: number
+  factoryPublications: number
+  factoryQaReviews: number
 }
 
 export type WorkflowRunCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1915,6 +2915,8 @@ export type WorkflowRunCountOutputTypeSelect<ExtArgs extends runtime.Types.Exten
   uploads?: boolean | WorkflowRunCountOutputTypeCountUploadsArgs
   ideas?: boolean | WorkflowRunCountOutputTypeCountIdeasArgs
   postingJobs?: boolean | WorkflowRunCountOutputTypeCountPostingJobsArgs
+  factoryPublications?: boolean | WorkflowRunCountOutputTypeCountFactoryPublicationsArgs
+  factoryQaReviews?: boolean | WorkflowRunCountOutputTypeCountFactoryQaReviewsArgs
 }
 
 /**
@@ -1976,6 +2978,20 @@ export type WorkflowRunCountOutputTypeCountPostingJobsArgs<ExtArgs extends runti
   where?: Prisma.PostingJobWhereInput
 }
 
+/**
+ * WorkflowRunCountOutputType without action
+ */
+export type WorkflowRunCountOutputTypeCountFactoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryPublicationWhereInput
+}
+
+/**
+ * WorkflowRunCountOutputType without action
+ */
+export type WorkflowRunCountOutputTypeCountFactoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryQualityReviewWhereInput
+}
+
 
 export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1988,6 +3004,9 @@ export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   retryOfRunId?: boolean
   replayOfRunId?: boolean
   parentRunId?: boolean
+  cycleId?: boolean
+  trackingToken?: boolean
+  inputContext?: boolean
   cancelRequestedAt?: boolean
   cancelRequestedBy?: boolean
   errorMessage?: boolean
@@ -1996,6 +3015,7 @@ export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   finishedAt?: boolean
   createdAt?: boolean
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
+  cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
   steps?: boolean | Prisma.WorkflowRun$stepsArgs<ExtArgs>
   scenarios?: boolean | Prisma.WorkflowRun$scenariosArgs<ExtArgs>
   trends?: boolean | Prisma.WorkflowRun$trendsArgs<ExtArgs>
@@ -2003,6 +3023,9 @@ export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   uploads?: boolean | Prisma.WorkflowRun$uploadsArgs<ExtArgs>
   ideas?: boolean | Prisma.WorkflowRun$ideasArgs<ExtArgs>
   postingJobs?: boolean | Prisma.WorkflowRun$postingJobsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.WorkflowRun$factoryPublicationsArgs<ExtArgs>
+  contentHypothesis?: boolean | Prisma.WorkflowRun$contentHypothesisArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.WorkflowRun$factoryQaReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.WorkflowRunCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["workflowRun"]>
 
@@ -2017,6 +3040,9 @@ export type WorkflowRunSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   retryOfRunId?: boolean
   replayOfRunId?: boolean
   parentRunId?: boolean
+  cycleId?: boolean
+  trackingToken?: boolean
+  inputContext?: boolean
   cancelRequestedAt?: boolean
   cancelRequestedBy?: boolean
   errorMessage?: boolean
@@ -2025,6 +3051,7 @@ export type WorkflowRunSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   finishedAt?: boolean
   createdAt?: boolean
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
+  cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
 }, ExtArgs["result"]["workflowRun"]>
 
 export type WorkflowRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -2038,6 +3065,9 @@ export type WorkflowRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   retryOfRunId?: boolean
   replayOfRunId?: boolean
   parentRunId?: boolean
+  cycleId?: boolean
+  trackingToken?: boolean
+  inputContext?: boolean
   cancelRequestedAt?: boolean
   cancelRequestedBy?: boolean
   errorMessage?: boolean
@@ -2046,6 +3076,7 @@ export type WorkflowRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   finishedAt?: boolean
   createdAt?: boolean
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
+  cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
 }, ExtArgs["result"]["workflowRun"]>
 
 export type WorkflowRunSelectScalar = {
@@ -2059,6 +3090,9 @@ export type WorkflowRunSelectScalar = {
   retryOfRunId?: boolean
   replayOfRunId?: boolean
   parentRunId?: boolean
+  cycleId?: boolean
+  trackingToken?: boolean
+  inputContext?: boolean
   cancelRequestedAt?: boolean
   cancelRequestedBy?: boolean
   errorMessage?: boolean
@@ -2068,9 +3102,10 @@ export type WorkflowRunSelectScalar = {
   createdAt?: boolean
 }
 
-export type WorkflowRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "pipelineId" | "status" | "triggerType" | "triggeredBy" | "graphSnapshot" | "graphVersionId" | "retryOfRunId" | "replayOfRunId" | "parentRunId" | "cancelRequestedAt" | "cancelRequestedBy" | "errorMessage" | "errorCategory" | "startedAt" | "finishedAt" | "createdAt", ExtArgs["result"]["workflowRun"]>
+export type WorkflowRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "pipelineId" | "status" | "triggerType" | "triggeredBy" | "graphSnapshot" | "graphVersionId" | "retryOfRunId" | "replayOfRunId" | "parentRunId" | "cycleId" | "trackingToken" | "inputContext" | "cancelRequestedAt" | "cancelRequestedBy" | "errorMessage" | "errorCategory" | "startedAt" | "finishedAt" | "createdAt", ExtArgs["result"]["workflowRun"]>
 export type WorkflowRunInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
+  cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
   steps?: boolean | Prisma.WorkflowRun$stepsArgs<ExtArgs>
   scenarios?: boolean | Prisma.WorkflowRun$scenariosArgs<ExtArgs>
   trends?: boolean | Prisma.WorkflowRun$trendsArgs<ExtArgs>
@@ -2078,19 +3113,25 @@ export type WorkflowRunInclude<ExtArgs extends runtime.Types.Extensions.Internal
   uploads?: boolean | Prisma.WorkflowRun$uploadsArgs<ExtArgs>
   ideas?: boolean | Prisma.WorkflowRun$ideasArgs<ExtArgs>
   postingJobs?: boolean | Prisma.WorkflowRun$postingJobsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.WorkflowRun$factoryPublicationsArgs<ExtArgs>
+  contentHypothesis?: boolean | Prisma.WorkflowRun$contentHypothesisArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.WorkflowRun$factoryQaReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.WorkflowRunCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type WorkflowRunIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
+  cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
 }
 export type WorkflowRunIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
+  cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
 }
 
 export type $WorkflowRunPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "WorkflowRun"
   objects: {
     pipeline: Prisma.$PipelinePayload<ExtArgs>
+    cycle: Prisma.$ProductionCyclePayload<ExtArgs> | null
     steps: Prisma.$WorkflowStepPayload<ExtArgs>[]
     scenarios: Prisma.$ScenarioPayload<ExtArgs>[]
     trends: Prisma.$TrendPayload<ExtArgs>[]
@@ -2098,6 +3139,9 @@ export type $WorkflowRunPayload<ExtArgs extends runtime.Types.Extensions.Interna
     uploads: Prisma.$UploadPayload<ExtArgs>[]
     ideas: Prisma.$IdeaPayload<ExtArgs>[]
     postingJobs: Prisma.$PostingJobPayload<ExtArgs>[]
+    factoryPublications: Prisma.$FactoryPublicationPayload<ExtArgs>[]
+    contentHypothesis: Prisma.$ContentHypothesisPayload<ExtArgs> | null
+    factoryQaReviews: Prisma.$FactoryQualityReviewPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -2110,6 +3154,9 @@ export type $WorkflowRunPayload<ExtArgs extends runtime.Types.Extensions.Interna
     retryOfRunId: number | null
     replayOfRunId: number | null
     parentRunId: number | null
+    cycleId: number | null
+    trackingToken: string | null
+    inputContext: runtime.JsonValue | null
     cancelRequestedAt: Date | null
     cancelRequestedBy: number | null
     errorMessage: string | null
@@ -2512,6 +3559,7 @@ readonly fields: WorkflowRunFieldRefs;
 export interface Prisma__WorkflowRunClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   pipeline<T extends Prisma.PipelineDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PipelineDefaultArgs<ExtArgs>>): Prisma.Prisma__PipelineClient<runtime.Types.Result.GetResult<Prisma.$PipelinePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  cycle<T extends Prisma.WorkflowRun$cycleArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$cycleArgs<ExtArgs>>): Prisma.Prisma__ProductionCycleClient<runtime.Types.Result.GetResult<Prisma.$ProductionCyclePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   steps<T extends Prisma.WorkflowRun$stepsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$stepsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WorkflowStepPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   scenarios<T extends Prisma.WorkflowRun$scenariosArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$scenariosArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ScenarioPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   trends<T extends Prisma.WorkflowRun$trendsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$trendsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TrendPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2519,6 +3567,9 @@ export interface Prisma__WorkflowRunClient<T, Null = never, ExtArgs extends runt
   uploads<T extends Prisma.WorkflowRun$uploadsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$uploadsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UploadPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ideas<T extends Prisma.WorkflowRun$ideasArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$ideasArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IdeaPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   postingJobs<T extends Prisma.WorkflowRun$postingJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$postingJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PostingJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryPublications<T extends Prisma.WorkflowRun$factoryPublicationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$factoryPublicationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryPublicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contentHypothesis<T extends Prisma.WorkflowRun$contentHypothesisArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$contentHypothesisArgs<ExtArgs>>): Prisma.Prisma__ContentHypothesisClient<runtime.Types.Result.GetResult<Prisma.$ContentHypothesisPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  factoryQaReviews<T extends Prisma.WorkflowRun$factoryQaReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$factoryQaReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryQualityReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2558,6 +3609,9 @@ export interface WorkflowRunFieldRefs {
   readonly retryOfRunId: Prisma.FieldRef<"WorkflowRun", 'Int'>
   readonly replayOfRunId: Prisma.FieldRef<"WorkflowRun", 'Int'>
   readonly parentRunId: Prisma.FieldRef<"WorkflowRun", 'Int'>
+  readonly cycleId: Prisma.FieldRef<"WorkflowRun", 'Int'>
+  readonly trackingToken: Prisma.FieldRef<"WorkflowRun", 'String'>
+  readonly inputContext: Prisma.FieldRef<"WorkflowRun", 'Json'>
   readonly cancelRequestedAt: Prisma.FieldRef<"WorkflowRun", 'DateTime'>
   readonly cancelRequestedBy: Prisma.FieldRef<"WorkflowRun", 'Int'>
   readonly errorMessage: Prisma.FieldRef<"WorkflowRun", 'String'>
@@ -2966,6 +4020,25 @@ export type WorkflowRunDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
 }
 
 /**
+ * WorkflowRun.cycle
+ */
+export type WorkflowRun$cycleArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ProductionCycle
+   */
+  select?: Prisma.ProductionCycleSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ProductionCycle
+   */
+  omit?: Prisma.ProductionCycleOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProductionCycleInclude<ExtArgs> | null
+  where?: Prisma.ProductionCycleWhereInput
+}
+
+/**
  * WorkflowRun.steps
  */
 export type WorkflowRun$stepsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3131,6 +4204,73 @@ export type WorkflowRun$postingJobsArgs<ExtArgs extends runtime.Types.Extensions
   take?: number
   skip?: number
   distinct?: Prisma.PostingJobScalarFieldEnum | Prisma.PostingJobScalarFieldEnum[]
+}
+
+/**
+ * WorkflowRun.factoryPublications
+ */
+export type WorkflowRun$factoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryPublication
+   */
+  select?: Prisma.FactoryPublicationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryPublication
+   */
+  omit?: Prisma.FactoryPublicationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryPublicationInclude<ExtArgs> | null
+  where?: Prisma.FactoryPublicationWhereInput
+  orderBy?: Prisma.FactoryPublicationOrderByWithRelationInput | Prisma.FactoryPublicationOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryPublicationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryPublicationScalarFieldEnum | Prisma.FactoryPublicationScalarFieldEnum[]
+}
+
+/**
+ * WorkflowRun.contentHypothesis
+ */
+export type WorkflowRun$contentHypothesisArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContentHypothesis
+   */
+  select?: Prisma.ContentHypothesisSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContentHypothesis
+   */
+  omit?: Prisma.ContentHypothesisOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContentHypothesisInclude<ExtArgs> | null
+  where?: Prisma.ContentHypothesisWhereInput
+}
+
+/**
+ * WorkflowRun.factoryQaReviews
+ */
+export type WorkflowRun$factoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryQualityReview
+   */
+  select?: Prisma.FactoryQualityReviewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryQualityReview
+   */
+  omit?: Prisma.FactoryQualityReviewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryQualityReviewInclude<ExtArgs> | null
+  where?: Prisma.FactoryQualityReviewWhereInput
+  orderBy?: Prisma.FactoryQualityReviewOrderByWithRelationInput | Prisma.FactoryQualityReviewOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryQualityReviewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryQualityReviewScalarFieldEnum | Prisma.FactoryQualityReviewScalarFieldEnum[]
 }
 
 /**

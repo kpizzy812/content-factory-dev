@@ -12,7 +12,9 @@ import type { NodeType } from '~~/shared/utils/pipeline-node-registry'
  */
 export const EXECUTOR_HANDLED_TYPES: readonly NodeType[] = [
   'trendwatcher',
+  'content_strategy',
   'scenario',
+  'quality_gate',
   'video',
   'upload',
   'idea',
@@ -107,8 +109,14 @@ export async function executeNode(
   switch (type) {
     case 'trendwatcher':
       return executeTrendwatcherNode(config, input, signal)
+    case 'content_strategy':
+      return (await import('./pipeline-content-strategy'))
+        .executeContentStrategyNode(config, input, signal)
     case 'scenario':
       return executeScenarioNode(config, input, signal)
+    case 'quality_gate':
+      return (await import('./content-quality-gate'))
+        .executeQualityGateNode(config, input)
     case 'video':
       return executeVideoNode(config, input, signal)
     case 'upload':

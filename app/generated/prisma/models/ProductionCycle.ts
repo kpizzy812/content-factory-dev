@@ -29,6 +29,9 @@ export type AggregateProductionCycle = {
 export type ProductionCycleAvgAggregateOutputType = {
   id: number | null
   appId: number | null
+  pipelineId: number | null
+  targetCount: number | null
+  dailyLimitPerAccount: number | null
   groupId: number | null
   startedById: number | null
   trendsFound: number | null
@@ -40,6 +43,9 @@ export type ProductionCycleAvgAggregateOutputType = {
 export type ProductionCycleSumAggregateOutputType = {
   id: number | null
   appId: number | null
+  pipelineId: number | null
+  targetCount: number | null
+  dailyLimitPerAccount: number | null
   groupId: number | null
   startedById: number | null
   trendsFound: number | null
@@ -51,6 +57,12 @@ export type ProductionCycleSumAggregateOutputType = {
 export type ProductionCycleMinAggregateOutputType = {
   id: number | null
   appId: number | null
+  mode: string | null
+  pipelineId: number | null
+  batchKey: string | null
+  targetCount: number | null
+  dailyLimitPerAccount: number | null
+  funnelId: string | null
   groupId: number | null
   status: $Enums.CycleStatus | null
   startedById: number | null
@@ -68,6 +80,12 @@ export type ProductionCycleMinAggregateOutputType = {
 export type ProductionCycleMaxAggregateOutputType = {
   id: number | null
   appId: number | null
+  mode: string | null
+  pipelineId: number | null
+  batchKey: string | null
+  targetCount: number | null
+  dailyLimitPerAccount: number | null
+  funnelId: string | null
   groupId: number | null
   status: $Enums.CycleStatus | null
   startedById: number | null
@@ -85,6 +103,13 @@ export type ProductionCycleMaxAggregateOutputType = {
 export type ProductionCycleCountAggregateOutputType = {
   id: number
   appId: number
+  mode: number
+  pipelineId: number
+  batchKey: number
+  targetCount: number
+  dailyLimitPerAccount: number
+  sourceContext: number
+  funnelId: number
   groupId: number
   status: number
   startedById: number
@@ -104,6 +129,9 @@ export type ProductionCycleCountAggregateOutputType = {
 export type ProductionCycleAvgAggregateInputType = {
   id?: true
   appId?: true
+  pipelineId?: true
+  targetCount?: true
+  dailyLimitPerAccount?: true
   groupId?: true
   startedById?: true
   trendsFound?: true
@@ -115,6 +143,9 @@ export type ProductionCycleAvgAggregateInputType = {
 export type ProductionCycleSumAggregateInputType = {
   id?: true
   appId?: true
+  pipelineId?: true
+  targetCount?: true
+  dailyLimitPerAccount?: true
   groupId?: true
   startedById?: true
   trendsFound?: true
@@ -126,6 +157,12 @@ export type ProductionCycleSumAggregateInputType = {
 export type ProductionCycleMinAggregateInputType = {
   id?: true
   appId?: true
+  mode?: true
+  pipelineId?: true
+  batchKey?: true
+  targetCount?: true
+  dailyLimitPerAccount?: true
+  funnelId?: true
   groupId?: true
   status?: true
   startedById?: true
@@ -143,6 +180,12 @@ export type ProductionCycleMinAggregateInputType = {
 export type ProductionCycleMaxAggregateInputType = {
   id?: true
   appId?: true
+  mode?: true
+  pipelineId?: true
+  batchKey?: true
+  targetCount?: true
+  dailyLimitPerAccount?: true
+  funnelId?: true
   groupId?: true
   status?: true
   startedById?: true
@@ -160,6 +203,13 @@ export type ProductionCycleMaxAggregateInputType = {
 export type ProductionCycleCountAggregateInputType = {
   id?: true
   appId?: true
+  mode?: true
+  pipelineId?: true
+  batchKey?: true
+  targetCount?: true
+  dailyLimitPerAccount?: true
+  sourceContext?: true
+  funnelId?: true
   groupId?: true
   status?: true
   startedById?: true
@@ -264,6 +314,13 @@ export type ProductionCycleGroupByArgs<ExtArgs extends runtime.Types.Extensions.
 export type ProductionCycleGroupByOutputType = {
   id: number
   appId: number
+  mode: string
+  pipelineId: number | null
+  batchKey: string | null
+  targetCount: number
+  dailyLimitPerAccount: number
+  sourceContext: runtime.JsonValue | null
+  funnelId: string | null
   groupId: number | null
   status: $Enums.CycleStatus
   startedById: number
@@ -304,6 +361,13 @@ export type ProductionCycleWhereInput = {
   NOT?: Prisma.ProductionCycleWhereInput | Prisma.ProductionCycleWhereInput[]
   id?: Prisma.IntFilter<"ProductionCycle"> | number
   appId?: Prisma.IntFilter<"ProductionCycle"> | number
+  mode?: Prisma.StringFilter<"ProductionCycle"> | string
+  pipelineId?: Prisma.IntNullableFilter<"ProductionCycle"> | number | null
+  batchKey?: Prisma.StringNullableFilter<"ProductionCycle"> | string | null
+  targetCount?: Prisma.IntFilter<"ProductionCycle"> | number
+  dailyLimitPerAccount?: Prisma.IntFilter<"ProductionCycle"> | number
+  sourceContext?: Prisma.JsonNullableFilter<"ProductionCycle">
+  funnelId?: Prisma.StringNullableFilter<"ProductionCycle"> | string | null
   groupId?: Prisma.IntNullableFilter<"ProductionCycle"> | number | null
   status?: Prisma.EnumCycleStatusFilter<"ProductionCycle"> | $Enums.CycleStatus
   startedById?: Prisma.IntFilter<"ProductionCycle"> | number
@@ -317,13 +381,26 @@ export type ProductionCycleWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"ProductionCycle"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ProductionCycle"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
+  pipeline?: Prisma.XOR<Prisma.PipelineNullableScalarRelationFilter, Prisma.PipelineWhereInput> | null
+  funnel?: Prisma.XOR<Prisma.ContentFunnelNullableScalarRelationFilter, Prisma.ContentFunnelWhereInput> | null
   accountGroup?: Prisma.XOR<Prisma.AccountGroupNullableScalarRelationFilter, Prisma.AccountGroupWhereInput> | null
   logs?: Prisma.AgentLogListRelationFilter
+  runs?: Prisma.WorkflowRunListRelationFilter
+  hypotheses?: Prisma.ContentHypothesisListRelationFilter
+  qaReviews?: Prisma.FactoryQualityReviewListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
 }
 
 export type ProductionCycleOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrderInput | Prisma.SortOrder
+  batchKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
+  sourceContext?: Prisma.SortOrderInput | Prisma.SortOrder
+  funnelId?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
@@ -337,16 +414,29 @@ export type ProductionCycleOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   app?: Prisma.AppOrderByWithRelationInput
+  pipeline?: Prisma.PipelineOrderByWithRelationInput
+  funnel?: Prisma.ContentFunnelOrderByWithRelationInput
   accountGroup?: Prisma.AccountGroupOrderByWithRelationInput
   logs?: Prisma.AgentLogOrderByRelationAggregateInput
+  runs?: Prisma.WorkflowRunOrderByRelationAggregateInput
+  hypotheses?: Prisma.ContentHypothesisOrderByRelationAggregateInput
+  qaReviews?: Prisma.FactoryQualityReviewOrderByRelationAggregateInput
+  factoryPublications?: Prisma.FactoryPublicationOrderByRelationAggregateInput
 }
 
 export type ProductionCycleWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  batchKey?: string
   AND?: Prisma.ProductionCycleWhereInput | Prisma.ProductionCycleWhereInput[]
   OR?: Prisma.ProductionCycleWhereInput[]
   NOT?: Prisma.ProductionCycleWhereInput | Prisma.ProductionCycleWhereInput[]
   appId?: Prisma.IntFilter<"ProductionCycle"> | number
+  mode?: Prisma.StringFilter<"ProductionCycle"> | string
+  pipelineId?: Prisma.IntNullableFilter<"ProductionCycle"> | number | null
+  targetCount?: Prisma.IntFilter<"ProductionCycle"> | number
+  dailyLimitPerAccount?: Prisma.IntFilter<"ProductionCycle"> | number
+  sourceContext?: Prisma.JsonNullableFilter<"ProductionCycle">
+  funnelId?: Prisma.StringNullableFilter<"ProductionCycle"> | string | null
   groupId?: Prisma.IntNullableFilter<"ProductionCycle"> | number | null
   status?: Prisma.EnumCycleStatusFilter<"ProductionCycle"> | $Enums.CycleStatus
   startedById?: Prisma.IntFilter<"ProductionCycle"> | number
@@ -360,13 +450,26 @@ export type ProductionCycleWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"ProductionCycle"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ProductionCycle"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
+  pipeline?: Prisma.XOR<Prisma.PipelineNullableScalarRelationFilter, Prisma.PipelineWhereInput> | null
+  funnel?: Prisma.XOR<Prisma.ContentFunnelNullableScalarRelationFilter, Prisma.ContentFunnelWhereInput> | null
   accountGroup?: Prisma.XOR<Prisma.AccountGroupNullableScalarRelationFilter, Prisma.AccountGroupWhereInput> | null
   logs?: Prisma.AgentLogListRelationFilter
-}, "id">
+  runs?: Prisma.WorkflowRunListRelationFilter
+  hypotheses?: Prisma.ContentHypothesisListRelationFilter
+  qaReviews?: Prisma.FactoryQualityReviewListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+}, "id" | "batchKey">
 
 export type ProductionCycleOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrderInput | Prisma.SortOrder
+  batchKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
+  sourceContext?: Prisma.SortOrderInput | Prisma.SortOrder
+  funnelId?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
@@ -392,6 +495,13 @@ export type ProductionCycleScalarWhereWithAggregatesInput = {
   NOT?: Prisma.ProductionCycleScalarWhereWithAggregatesInput | Prisma.ProductionCycleScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"ProductionCycle"> | number
   appId?: Prisma.IntWithAggregatesFilter<"ProductionCycle"> | number
+  mode?: Prisma.StringWithAggregatesFilter<"ProductionCycle"> | string
+  pipelineId?: Prisma.IntNullableWithAggregatesFilter<"ProductionCycle"> | number | null
+  batchKey?: Prisma.StringNullableWithAggregatesFilter<"ProductionCycle"> | string | null
+  targetCount?: Prisma.IntWithAggregatesFilter<"ProductionCycle"> | number
+  dailyLimitPerAccount?: Prisma.IntWithAggregatesFilter<"ProductionCycle"> | number
+  sourceContext?: Prisma.JsonNullableWithAggregatesFilter<"ProductionCycle">
+  funnelId?: Prisma.StringNullableWithAggregatesFilter<"ProductionCycle"> | string | null
   groupId?: Prisma.IntNullableWithAggregatesFilter<"ProductionCycle"> | number | null
   status?: Prisma.EnumCycleStatusWithAggregatesFilter<"ProductionCycle"> | $Enums.CycleStatus
   startedById?: Prisma.IntWithAggregatesFilter<"ProductionCycle"> | number
@@ -407,6 +517,11 @@ export type ProductionCycleScalarWhereWithAggregatesInput = {
 }
 
 export type ProductionCycleCreateInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.CycleStatus
   startedById: number
   startedAt?: Date | string
@@ -419,13 +534,26 @@ export type ProductionCycleCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
   accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
   logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleUncheckedCreateInput = {
   id?: number
   appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
   groupId?: number | null
   status?: $Enums.CycleStatus
   startedById: number
@@ -439,9 +567,18 @@ export type ProductionCycleUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleUpdateInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -454,13 +591,26 @@ export type ProductionCycleUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
   accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
   logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
@@ -474,11 +624,22 @@ export type ProductionCycleUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleCreateManyInput = {
   id?: number
   appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
   groupId?: number | null
   status?: $Enums.CycleStatus
   startedById: number
@@ -494,6 +655,11 @@ export type ProductionCycleCreateManyInput = {
 }
 
 export type ProductionCycleUpdateManyMutationInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -510,6 +676,13 @@ export type ProductionCycleUpdateManyMutationInput = {
 export type ProductionCycleUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
@@ -537,6 +710,13 @@ export type ProductionCycleOrderByRelationAggregateInput = {
 export type ProductionCycleCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrder
+  batchKey?: Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
+  sourceContext?: Prisma.SortOrder
+  funnelId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
@@ -554,6 +734,9 @@ export type ProductionCycleCountOrderByAggregateInput = {
 export type ProductionCycleAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
   trendsFound?: Prisma.SortOrder
@@ -565,6 +748,12 @@ export type ProductionCycleAvgOrderByAggregateInput = {
 export type ProductionCycleMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrder
+  batchKey?: Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
+  funnelId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
@@ -582,6 +771,12 @@ export type ProductionCycleMaxOrderByAggregateInput = {
 export type ProductionCycleMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrder
+  batchKey?: Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
+  funnelId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
@@ -599,6 +794,9 @@ export type ProductionCycleMinOrderByAggregateInput = {
 export type ProductionCycleSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  pipelineId?: Prisma.SortOrder
+  targetCount?: Prisma.SortOrder
+  dailyLimitPerAccount?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   startedById?: Prisma.SortOrder
   trendsFound?: Prisma.SortOrder
@@ -610,6 +808,11 @@ export type ProductionCycleSumOrderByAggregateInput = {
 export type ProductionCycleNullableScalarRelationFilter = {
   is?: Prisma.ProductionCycleWhereInput | null
   isNot?: Prisma.ProductionCycleWhereInput | null
+}
+
+export type ProductionCycleScalarRelationFilter = {
+  is?: Prisma.ProductionCycleWhereInput
+  isNot?: Prisma.ProductionCycleWhereInput
 }
 
 export type ProductionCycleCreateNestedManyWithoutAppInput = {
@@ -700,6 +903,94 @@ export type EnumCycleStatusFieldUpdateOperationsInput = {
   set?: $Enums.CycleStatus
 }
 
+export type ProductionCycleCreateNestedManyWithoutFunnelInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFunnelInput, Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput> | Prisma.ProductionCycleCreateWithoutFunnelInput[] | Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput | Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput[]
+  createMany?: Prisma.ProductionCycleCreateManyFunnelInputEnvelope
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+}
+
+export type ProductionCycleUncheckedCreateNestedManyWithoutFunnelInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFunnelInput, Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput> | Prisma.ProductionCycleCreateWithoutFunnelInput[] | Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput | Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput[]
+  createMany?: Prisma.ProductionCycleCreateManyFunnelInputEnvelope
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+}
+
+export type ProductionCycleUpdateManyWithoutFunnelNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFunnelInput, Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput> | Prisma.ProductionCycleCreateWithoutFunnelInput[] | Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput | Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput[]
+  upsert?: Prisma.ProductionCycleUpsertWithWhereUniqueWithoutFunnelInput | Prisma.ProductionCycleUpsertWithWhereUniqueWithoutFunnelInput[]
+  createMany?: Prisma.ProductionCycleCreateManyFunnelInputEnvelope
+  set?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  disconnect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  delete?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  update?: Prisma.ProductionCycleUpdateWithWhereUniqueWithoutFunnelInput | Prisma.ProductionCycleUpdateWithWhereUniqueWithoutFunnelInput[]
+  updateMany?: Prisma.ProductionCycleUpdateManyWithWhereWithoutFunnelInput | Prisma.ProductionCycleUpdateManyWithWhereWithoutFunnelInput[]
+  deleteMany?: Prisma.ProductionCycleScalarWhereInput | Prisma.ProductionCycleScalarWhereInput[]
+}
+
+export type ProductionCycleUncheckedUpdateManyWithoutFunnelNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFunnelInput, Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput> | Prisma.ProductionCycleCreateWithoutFunnelInput[] | Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput | Prisma.ProductionCycleCreateOrConnectWithoutFunnelInput[]
+  upsert?: Prisma.ProductionCycleUpsertWithWhereUniqueWithoutFunnelInput | Prisma.ProductionCycleUpsertWithWhereUniqueWithoutFunnelInput[]
+  createMany?: Prisma.ProductionCycleCreateManyFunnelInputEnvelope
+  set?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  disconnect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  delete?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  update?: Prisma.ProductionCycleUpdateWithWhereUniqueWithoutFunnelInput | Prisma.ProductionCycleUpdateWithWhereUniqueWithoutFunnelInput[]
+  updateMany?: Prisma.ProductionCycleUpdateManyWithWhereWithoutFunnelInput | Prisma.ProductionCycleUpdateManyWithWhereWithoutFunnelInput[]
+  deleteMany?: Prisma.ProductionCycleScalarWhereInput | Prisma.ProductionCycleScalarWhereInput[]
+}
+
+export type ProductionCycleCreateNestedOneWithoutHypothesesInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutHypothesesInput, Prisma.ProductionCycleUncheckedCreateWithoutHypothesesInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutHypothesesInput
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+}
+
+export type ProductionCycleUpdateOneWithoutHypothesesNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutHypothesesInput, Prisma.ProductionCycleUncheckedCreateWithoutHypothesesInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutHypothesesInput
+  upsert?: Prisma.ProductionCycleUpsertWithoutHypothesesInput
+  disconnect?: Prisma.ProductionCycleWhereInput | boolean
+  delete?: Prisma.ProductionCycleWhereInput | boolean
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProductionCycleUpdateToOneWithWhereWithoutHypothesesInput, Prisma.ProductionCycleUpdateWithoutHypothesesInput>, Prisma.ProductionCycleUncheckedUpdateWithoutHypothesesInput>
+}
+
+export type ProductionCycleCreateNestedOneWithoutFactoryPublicationsInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFactoryPublicationsInput, Prisma.ProductionCycleUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutFactoryPublicationsInput
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+}
+
+export type ProductionCycleUpdateOneRequiredWithoutFactoryPublicationsNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFactoryPublicationsInput, Prisma.ProductionCycleUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutFactoryPublicationsInput
+  upsert?: Prisma.ProductionCycleUpsertWithoutFactoryPublicationsInput
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProductionCycleUpdateToOneWithWhereWithoutFactoryPublicationsInput, Prisma.ProductionCycleUpdateWithoutFactoryPublicationsInput>, Prisma.ProductionCycleUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type ProductionCycleCreateNestedOneWithoutQaReviewsInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutQaReviewsInput, Prisma.ProductionCycleUncheckedCreateWithoutQaReviewsInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutQaReviewsInput
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+}
+
+export type ProductionCycleUpdateOneWithoutQaReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutQaReviewsInput, Prisma.ProductionCycleUncheckedCreateWithoutQaReviewsInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutQaReviewsInput
+  upsert?: Prisma.ProductionCycleUpsertWithoutQaReviewsInput
+  disconnect?: Prisma.ProductionCycleWhereInput | boolean
+  delete?: Prisma.ProductionCycleWhereInput | boolean
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProductionCycleUpdateToOneWithWhereWithoutQaReviewsInput, Prisma.ProductionCycleUpdateWithoutQaReviewsInput>, Prisma.ProductionCycleUncheckedUpdateWithoutQaReviewsInput>
+}
+
 export type ProductionCycleCreateNestedOneWithoutLogsInput = {
   create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutLogsInput, Prisma.ProductionCycleUncheckedCreateWithoutLogsInput>
   connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutLogsInput
@@ -716,7 +1007,70 @@ export type ProductionCycleUpdateOneWithoutLogsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ProductionCycleUpdateToOneWithWhereWithoutLogsInput, Prisma.ProductionCycleUpdateWithoutLogsInput>, Prisma.ProductionCycleUncheckedUpdateWithoutLogsInput>
 }
 
+export type ProductionCycleCreateNestedManyWithoutPipelineInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutPipelineInput, Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput> | Prisma.ProductionCycleCreateWithoutPipelineInput[] | Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput | Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput[]
+  createMany?: Prisma.ProductionCycleCreateManyPipelineInputEnvelope
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+}
+
+export type ProductionCycleUncheckedCreateNestedManyWithoutPipelineInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutPipelineInput, Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput> | Prisma.ProductionCycleCreateWithoutPipelineInput[] | Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput | Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput[]
+  createMany?: Prisma.ProductionCycleCreateManyPipelineInputEnvelope
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+}
+
+export type ProductionCycleUpdateManyWithoutPipelineNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutPipelineInput, Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput> | Prisma.ProductionCycleCreateWithoutPipelineInput[] | Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput | Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput[]
+  upsert?: Prisma.ProductionCycleUpsertWithWhereUniqueWithoutPipelineInput | Prisma.ProductionCycleUpsertWithWhereUniqueWithoutPipelineInput[]
+  createMany?: Prisma.ProductionCycleCreateManyPipelineInputEnvelope
+  set?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  disconnect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  delete?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  update?: Prisma.ProductionCycleUpdateWithWhereUniqueWithoutPipelineInput | Prisma.ProductionCycleUpdateWithWhereUniqueWithoutPipelineInput[]
+  updateMany?: Prisma.ProductionCycleUpdateManyWithWhereWithoutPipelineInput | Prisma.ProductionCycleUpdateManyWithWhereWithoutPipelineInput[]
+  deleteMany?: Prisma.ProductionCycleScalarWhereInput | Prisma.ProductionCycleScalarWhereInput[]
+}
+
+export type ProductionCycleUncheckedUpdateManyWithoutPipelineNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutPipelineInput, Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput> | Prisma.ProductionCycleCreateWithoutPipelineInput[] | Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput[]
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput | Prisma.ProductionCycleCreateOrConnectWithoutPipelineInput[]
+  upsert?: Prisma.ProductionCycleUpsertWithWhereUniqueWithoutPipelineInput | Prisma.ProductionCycleUpsertWithWhereUniqueWithoutPipelineInput[]
+  createMany?: Prisma.ProductionCycleCreateManyPipelineInputEnvelope
+  set?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  disconnect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  delete?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  connect?: Prisma.ProductionCycleWhereUniqueInput | Prisma.ProductionCycleWhereUniqueInput[]
+  update?: Prisma.ProductionCycleUpdateWithWhereUniqueWithoutPipelineInput | Prisma.ProductionCycleUpdateWithWhereUniqueWithoutPipelineInput[]
+  updateMany?: Prisma.ProductionCycleUpdateManyWithWhereWithoutPipelineInput | Prisma.ProductionCycleUpdateManyWithWhereWithoutPipelineInput[]
+  deleteMany?: Prisma.ProductionCycleScalarWhereInput | Prisma.ProductionCycleScalarWhereInput[]
+}
+
+export type ProductionCycleCreateNestedOneWithoutRunsInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutRunsInput, Prisma.ProductionCycleUncheckedCreateWithoutRunsInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutRunsInput
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+}
+
+export type ProductionCycleUpdateOneWithoutRunsNestedInput = {
+  create?: Prisma.XOR<Prisma.ProductionCycleCreateWithoutRunsInput, Prisma.ProductionCycleUncheckedCreateWithoutRunsInput>
+  connectOrCreate?: Prisma.ProductionCycleCreateOrConnectWithoutRunsInput
+  upsert?: Prisma.ProductionCycleUpsertWithoutRunsInput
+  disconnect?: Prisma.ProductionCycleWhereInput | boolean
+  delete?: Prisma.ProductionCycleWhereInput | boolean
+  connect?: Prisma.ProductionCycleWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProductionCycleUpdateToOneWithWhereWithoutRunsInput, Prisma.ProductionCycleUpdateWithoutRunsInput>, Prisma.ProductionCycleUncheckedUpdateWithoutRunsInput>
+}
+
 export type ProductionCycleCreateWithoutAppInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.CycleStatus
   startedById: number
   startedAt?: Date | string
@@ -728,12 +1082,25 @@ export type ProductionCycleCreateWithoutAppInput = {
   uploadsCount?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
   accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
   logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleUncheckedCreateWithoutAppInput = {
   id?: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
   groupId?: number | null
   status?: $Enums.CycleStatus
   startedById: number
@@ -747,6 +1114,10 @@ export type ProductionCycleUncheckedCreateWithoutAppInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleCreateOrConnectWithoutAppInput = {
@@ -781,6 +1152,13 @@ export type ProductionCycleScalarWhereInput = {
   NOT?: Prisma.ProductionCycleScalarWhereInput | Prisma.ProductionCycleScalarWhereInput[]
   id?: Prisma.IntFilter<"ProductionCycle"> | number
   appId?: Prisma.IntFilter<"ProductionCycle"> | number
+  mode?: Prisma.StringFilter<"ProductionCycle"> | string
+  pipelineId?: Prisma.IntNullableFilter<"ProductionCycle"> | number | null
+  batchKey?: Prisma.StringNullableFilter<"ProductionCycle"> | string | null
+  targetCount?: Prisma.IntFilter<"ProductionCycle"> | number
+  dailyLimitPerAccount?: Prisma.IntFilter<"ProductionCycle"> | number
+  sourceContext?: Prisma.JsonNullableFilter<"ProductionCycle">
+  funnelId?: Prisma.StringNullableFilter<"ProductionCycle"> | string | null
   groupId?: Prisma.IntNullableFilter<"ProductionCycle"> | number | null
   status?: Prisma.EnumCycleStatusFilter<"ProductionCycle"> | $Enums.CycleStatus
   startedById?: Prisma.IntFilter<"ProductionCycle"> | number
@@ -796,6 +1174,11 @@ export type ProductionCycleScalarWhereInput = {
 }
 
 export type ProductionCycleCreateWithoutAccountGroupInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.CycleStatus
   startedById: number
   startedAt?: Date | string
@@ -808,12 +1191,25 @@ export type ProductionCycleCreateWithoutAccountGroupInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
   logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleUncheckedCreateWithoutAccountGroupInput = {
   id?: number
   appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
   status?: $Enums.CycleStatus
   startedById: number
   startedAt?: Date | string
@@ -826,6 +1222,10 @@ export type ProductionCycleUncheckedCreateWithoutAccountGroupInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleCreateOrConnectWithoutAccountGroupInput = {
@@ -854,7 +1254,12 @@ export type ProductionCycleUpdateManyWithWhereWithoutAccountGroupInput = {
   data: Prisma.XOR<Prisma.ProductionCycleUpdateManyMutationInput, Prisma.ProductionCycleUncheckedUpdateManyWithoutAccountGroupInput>
 }
 
-export type ProductionCycleCreateWithoutLogsInput = {
+export type ProductionCycleCreateWithoutFunnelInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.CycleStatus
   startedById: number
   startedAt?: Date | string
@@ -867,12 +1272,24 @@ export type ProductionCycleCreateWithoutLogsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
   accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
 }
 
-export type ProductionCycleUncheckedCreateWithoutLogsInput = {
+export type ProductionCycleUncheckedCreateWithoutFunnelInput = {
   id?: number
   appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: $Enums.CycleStatus
   startedById: number
@@ -885,6 +1302,470 @@ export type ProductionCycleUncheckedCreateWithoutLogsInput = {
   uploadsCount?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleCreateOrConnectWithoutFunnelInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFunnelInput, Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput>
+}
+
+export type ProductionCycleCreateManyFunnelInputEnvelope = {
+  data: Prisma.ProductionCycleCreateManyFunnelInput | Prisma.ProductionCycleCreateManyFunnelInput[]
+  skipDuplicates?: boolean
+}
+
+export type ProductionCycleUpsertWithWhereUniqueWithoutFunnelInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  update: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutFunnelInput, Prisma.ProductionCycleUncheckedUpdateWithoutFunnelInput>
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFunnelInput, Prisma.ProductionCycleUncheckedCreateWithoutFunnelInput>
+}
+
+export type ProductionCycleUpdateWithWhereUniqueWithoutFunnelInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutFunnelInput, Prisma.ProductionCycleUncheckedUpdateWithoutFunnelInput>
+}
+
+export type ProductionCycleUpdateManyWithWhereWithoutFunnelInput = {
+  where: Prisma.ProductionCycleScalarWhereInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateManyMutationInput, Prisma.ProductionCycleUncheckedUpdateManyWithoutFunnelInput>
+}
+
+export type ProductionCycleCreateWithoutHypothesesInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleUncheckedCreateWithoutHypothesesInput = {
+  id?: number
+  appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleCreateOrConnectWithoutHypothesesInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutHypothesesInput, Prisma.ProductionCycleUncheckedCreateWithoutHypothesesInput>
+}
+
+export type ProductionCycleUpsertWithoutHypothesesInput = {
+  update: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutHypothesesInput, Prisma.ProductionCycleUncheckedUpdateWithoutHypothesesInput>
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutHypothesesInput, Prisma.ProductionCycleUncheckedCreateWithoutHypothesesInput>
+  where?: Prisma.ProductionCycleWhereInput
+}
+
+export type ProductionCycleUpdateToOneWithWhereWithoutHypothesesInput = {
+  where?: Prisma.ProductionCycleWhereInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutHypothesesInput, Prisma.ProductionCycleUncheckedUpdateWithoutHypothesesInput>
+}
+
+export type ProductionCycleUpdateWithoutHypothesesInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateWithoutHypothesesInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleCreateWithoutFactoryPublicationsInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleUncheckedCreateWithoutFactoryPublicationsInput = {
+  id?: number
+  appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleCreateOrConnectWithoutFactoryPublicationsInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFactoryPublicationsInput, Prisma.ProductionCycleUncheckedCreateWithoutFactoryPublicationsInput>
+}
+
+export type ProductionCycleUpsertWithoutFactoryPublicationsInput = {
+  update: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutFactoryPublicationsInput, Prisma.ProductionCycleUncheckedUpdateWithoutFactoryPublicationsInput>
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutFactoryPublicationsInput, Prisma.ProductionCycleUncheckedCreateWithoutFactoryPublicationsInput>
+  where?: Prisma.ProductionCycleWhereInput
+}
+
+export type ProductionCycleUpdateToOneWithWhereWithoutFactoryPublicationsInput = {
+  where?: Prisma.ProductionCycleWhereInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutFactoryPublicationsInput, Prisma.ProductionCycleUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type ProductionCycleUpdateWithoutFactoryPublicationsInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateWithoutFactoryPublicationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleCreateWithoutQaReviewsInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleUncheckedCreateWithoutQaReviewsInput = {
+  id?: number
+  appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleCreateOrConnectWithoutQaReviewsInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutQaReviewsInput, Prisma.ProductionCycleUncheckedCreateWithoutQaReviewsInput>
+}
+
+export type ProductionCycleUpsertWithoutQaReviewsInput = {
+  update: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutQaReviewsInput, Prisma.ProductionCycleUncheckedUpdateWithoutQaReviewsInput>
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutQaReviewsInput, Prisma.ProductionCycleUncheckedCreateWithoutQaReviewsInput>
+  where?: Prisma.ProductionCycleWhereInput
+}
+
+export type ProductionCycleUpdateToOneWithWhereWithoutQaReviewsInput = {
+  where?: Prisma.ProductionCycleWhereInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutQaReviewsInput, Prisma.ProductionCycleUncheckedUpdateWithoutQaReviewsInput>
+}
+
+export type ProductionCycleUpdateWithoutQaReviewsInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateWithoutQaReviewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleCreateWithoutLogsInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleUncheckedCreateWithoutLogsInput = {
+  id?: number
+  appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
 }
 
 export type ProductionCycleCreateOrConnectWithoutLogsInput = {
@@ -904,6 +1785,11 @@ export type ProductionCycleUpdateToOneWithWhereWithoutLogsInput = {
 }
 
 export type ProductionCycleUpdateWithoutLogsInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -916,12 +1802,25 @@ export type ProductionCycleUpdateWithoutLogsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
   accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleUncheckedUpdateWithoutLogsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
@@ -934,10 +1833,228 @@ export type ProductionCycleUncheckedUpdateWithoutLogsInput = {
   uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleCreateWithoutPipelineInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleUncheckedCreateWithoutPipelineInput = {
+  id?: number
+  appId: number
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  runs?: Prisma.WorkflowRunUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleCreateOrConnectWithoutPipelineInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutPipelineInput, Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput>
+}
+
+export type ProductionCycleCreateManyPipelineInputEnvelope = {
+  data: Prisma.ProductionCycleCreateManyPipelineInput | Prisma.ProductionCycleCreateManyPipelineInput[]
+  skipDuplicates?: boolean
+}
+
+export type ProductionCycleUpsertWithWhereUniqueWithoutPipelineInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  update: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutPipelineInput, Prisma.ProductionCycleUncheckedUpdateWithoutPipelineInput>
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutPipelineInput, Prisma.ProductionCycleUncheckedCreateWithoutPipelineInput>
+}
+
+export type ProductionCycleUpdateWithWhereUniqueWithoutPipelineInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutPipelineInput, Prisma.ProductionCycleUncheckedUpdateWithoutPipelineInput>
+}
+
+export type ProductionCycleUpdateManyWithWhereWithoutPipelineInput = {
+  where: Prisma.ProductionCycleScalarWhereInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateManyMutationInput, Prisma.ProductionCycleUncheckedUpdateManyWithoutPipelineInput>
+}
+
+export type ProductionCycleCreateWithoutRunsInput = {
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutCyclesInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutProductionCyclesInput
+  funnel?: Prisma.ContentFunnelCreateNestedOneWithoutCyclesInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutCyclesInput
+  logs?: Prisma.AgentLogCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleUncheckedCreateWithoutRunsInput = {
+  id?: number
+  appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  logs?: Prisma.AgentLogUncheckedCreateNestedManyWithoutCycleInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutCycleInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutCycleInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutCycleInput
+}
+
+export type ProductionCycleCreateOrConnectWithoutRunsInput = {
+  where: Prisma.ProductionCycleWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutRunsInput, Prisma.ProductionCycleUncheckedCreateWithoutRunsInput>
+}
+
+export type ProductionCycleUpsertWithoutRunsInput = {
+  update: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutRunsInput, Prisma.ProductionCycleUncheckedUpdateWithoutRunsInput>
+  create: Prisma.XOR<Prisma.ProductionCycleCreateWithoutRunsInput, Prisma.ProductionCycleUncheckedCreateWithoutRunsInput>
+  where?: Prisma.ProductionCycleWhereInput
+}
+
+export type ProductionCycleUpdateToOneWithWhereWithoutRunsInput = {
+  where?: Prisma.ProductionCycleWhereInput
+  data: Prisma.XOR<Prisma.ProductionCycleUpdateWithoutRunsInput, Prisma.ProductionCycleUncheckedUpdateWithoutRunsInput>
+}
+
+export type ProductionCycleUpdateWithoutRunsInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateWithoutRunsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleCreateManyAppInput = {
   id?: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
   groupId?: number | null
   status?: $Enums.CycleStatus
   startedById: number
@@ -953,6 +2070,11 @@ export type ProductionCycleCreateManyAppInput = {
 }
 
 export type ProductionCycleUpdateWithoutAppInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -964,12 +2086,25 @@ export type ProductionCycleUpdateWithoutAppInput = {
   uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
   accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
   logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleUncheckedUpdateWithoutAppInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
@@ -983,10 +2118,21 @@ export type ProductionCycleUncheckedUpdateWithoutAppInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleUncheckedUpdateManyWithoutAppInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1004,6 +2150,13 @@ export type ProductionCycleUncheckedUpdateManyWithoutAppInput = {
 export type ProductionCycleCreateManyAccountGroupInput = {
   id?: number
   appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
   status?: $Enums.CycleStatus
   startedById: number
   startedAt?: Date | string
@@ -1018,6 +2171,11 @@ export type ProductionCycleCreateManyAccountGroupInput = {
 }
 
 export type ProductionCycleUpdateWithoutAccountGroupInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1030,12 +2188,25 @@ export type ProductionCycleUpdateWithoutAccountGroupInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
   logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleUncheckedUpdateWithoutAccountGroupInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1048,11 +2219,224 @@ export type ProductionCycleUncheckedUpdateWithoutAccountGroupInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
 }
 
 export type ProductionCycleUncheckedUpdateManyWithoutAccountGroupInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ProductionCycleCreateManyFunnelInput = {
+  id?: number
+  appId: number
+  mode?: string
+  pipelineId?: number | null
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ProductionCycleUpdateWithoutFunnelInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutProductionCyclesNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateWithoutFunnelInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateManyWithoutFunnelInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ProductionCycleCreateManyPipelineInput = {
+  id?: number
+  appId: number
+  mode?: string
+  batchKey?: string | null
+  targetCount?: number
+  dailyLimitPerAccount?: number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: string | null
+  groupId?: number | null
+  status?: $Enums.CycleStatus
+  startedById: number
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  errorMessage?: string | null
+  trendsFound?: number
+  scenariosGen?: number
+  videosGen?: number
+  uploadsCount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ProductionCycleUpdateWithoutPipelineInput = {
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutCyclesNestedInput
+  funnel?: Prisma.ContentFunnelUpdateOneWithoutCyclesNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutCyclesNestedInput
+  logs?: Prisma.AgentLogUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateWithoutPipelineInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
+  startedById?: Prisma.IntFieldUpdateOperationsInput | number
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trendsFound?: Prisma.IntFieldUpdateOperationsInput | number
+  scenariosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  videosGen?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadsCount?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.AgentLogUncheckedUpdateManyWithoutCycleNestedInput
+  runs?: Prisma.WorkflowRunUncheckedUpdateManyWithoutCycleNestedInput
+  hypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutCycleNestedInput
+  qaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutCycleNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutCycleNestedInput
+}
+
+export type ProductionCycleUncheckedUpdateManyWithoutPipelineInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
+  batchKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  targetCount?: Prisma.IntFieldUpdateOperationsInput | number
+  dailyLimitPerAccount?: Prisma.IntFieldUpdateOperationsInput | number
+  sourceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  funnelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.EnumCycleStatusFieldUpdateOperationsInput | $Enums.CycleStatus
   startedById?: Prisma.IntFieldUpdateOperationsInput | number
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1073,10 +2457,18 @@ export type ProductionCycleUncheckedUpdateManyWithoutAccountGroupInput = {
 
 export type ProductionCycleCountOutputType = {
   logs: number
+  runs: number
+  hypotheses: number
+  qaReviews: number
+  factoryPublications: number
 }
 
 export type ProductionCycleCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   logs?: boolean | ProductionCycleCountOutputTypeCountLogsArgs
+  runs?: boolean | ProductionCycleCountOutputTypeCountRunsArgs
+  hypotheses?: boolean | ProductionCycleCountOutputTypeCountHypothesesArgs
+  qaReviews?: boolean | ProductionCycleCountOutputTypeCountQaReviewsArgs
+  factoryPublications?: boolean | ProductionCycleCountOutputTypeCountFactoryPublicationsArgs
 }
 
 /**
@@ -1096,10 +2488,45 @@ export type ProductionCycleCountOutputTypeCountLogsArgs<ExtArgs extends runtime.
   where?: Prisma.AgentLogWhereInput
 }
 
+/**
+ * ProductionCycleCountOutputType without action
+ */
+export type ProductionCycleCountOutputTypeCountRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.WorkflowRunWhereInput
+}
+
+/**
+ * ProductionCycleCountOutputType without action
+ */
+export type ProductionCycleCountOutputTypeCountHypothesesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ContentHypothesisWhereInput
+}
+
+/**
+ * ProductionCycleCountOutputType without action
+ */
+export type ProductionCycleCountOutputTypeCountQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryQualityReviewWhereInput
+}
+
+/**
+ * ProductionCycleCountOutputType without action
+ */
+export type ProductionCycleCountOutputTypeCountFactoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryPublicationWhereInput
+}
+
 
 export type ProductionCycleSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   appId?: boolean
+  mode?: boolean
+  pipelineId?: boolean
+  batchKey?: boolean
+  targetCount?: boolean
+  dailyLimitPerAccount?: boolean
+  sourceContext?: boolean
+  funnelId?: boolean
   groupId?: boolean
   status?: boolean
   startedById?: boolean
@@ -1113,14 +2540,27 @@ export type ProductionCycleSelect<ExtArgs extends runtime.Types.Extensions.Inter
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  pipeline?: boolean | Prisma.ProductionCycle$pipelineArgs<ExtArgs>
+  funnel?: boolean | Prisma.ProductionCycle$funnelArgs<ExtArgs>
   accountGroup?: boolean | Prisma.ProductionCycle$accountGroupArgs<ExtArgs>
   logs?: boolean | Prisma.ProductionCycle$logsArgs<ExtArgs>
+  runs?: boolean | Prisma.ProductionCycle$runsArgs<ExtArgs>
+  hypotheses?: boolean | Prisma.ProductionCycle$hypothesesArgs<ExtArgs>
+  qaReviews?: boolean | Prisma.ProductionCycle$qaReviewsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.ProductionCycle$factoryPublicationsArgs<ExtArgs>
   _count?: boolean | Prisma.ProductionCycleCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["productionCycle"]>
 
 export type ProductionCycleSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   appId?: boolean
+  mode?: boolean
+  pipelineId?: boolean
+  batchKey?: boolean
+  targetCount?: boolean
+  dailyLimitPerAccount?: boolean
+  sourceContext?: boolean
+  funnelId?: boolean
   groupId?: boolean
   status?: boolean
   startedById?: boolean
@@ -1134,12 +2574,21 @@ export type ProductionCycleSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  pipeline?: boolean | Prisma.ProductionCycle$pipelineArgs<ExtArgs>
+  funnel?: boolean | Prisma.ProductionCycle$funnelArgs<ExtArgs>
   accountGroup?: boolean | Prisma.ProductionCycle$accountGroupArgs<ExtArgs>
 }, ExtArgs["result"]["productionCycle"]>
 
 export type ProductionCycleSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   appId?: boolean
+  mode?: boolean
+  pipelineId?: boolean
+  batchKey?: boolean
+  targetCount?: boolean
+  dailyLimitPerAccount?: boolean
+  sourceContext?: boolean
+  funnelId?: boolean
   groupId?: boolean
   status?: boolean
   startedById?: boolean
@@ -1153,12 +2602,21 @@ export type ProductionCycleSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  pipeline?: boolean | Prisma.ProductionCycle$pipelineArgs<ExtArgs>
+  funnel?: boolean | Prisma.ProductionCycle$funnelArgs<ExtArgs>
   accountGroup?: boolean | Prisma.ProductionCycle$accountGroupArgs<ExtArgs>
 }, ExtArgs["result"]["productionCycle"]>
 
 export type ProductionCycleSelectScalar = {
   id?: boolean
   appId?: boolean
+  mode?: boolean
+  pipelineId?: boolean
+  batchKey?: boolean
+  targetCount?: boolean
+  dailyLimitPerAccount?: boolean
+  sourceContext?: boolean
+  funnelId?: boolean
   groupId?: boolean
   status?: boolean
   startedById?: boolean
@@ -1173,19 +2631,29 @@ export type ProductionCycleSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProductionCycleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "groupId" | "status" | "startedById" | "startedAt" | "completedAt" | "errorMessage" | "trendsFound" | "scenariosGen" | "videosGen" | "uploadsCount" | "createdAt" | "updatedAt", ExtArgs["result"]["productionCycle"]>
+export type ProductionCycleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "mode" | "pipelineId" | "batchKey" | "targetCount" | "dailyLimitPerAccount" | "sourceContext" | "funnelId" | "groupId" | "status" | "startedById" | "startedAt" | "completedAt" | "errorMessage" | "trendsFound" | "scenariosGen" | "videosGen" | "uploadsCount" | "createdAt" | "updatedAt", ExtArgs["result"]["productionCycle"]>
 export type ProductionCycleInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  pipeline?: boolean | Prisma.ProductionCycle$pipelineArgs<ExtArgs>
+  funnel?: boolean | Prisma.ProductionCycle$funnelArgs<ExtArgs>
   accountGroup?: boolean | Prisma.ProductionCycle$accountGroupArgs<ExtArgs>
   logs?: boolean | Prisma.ProductionCycle$logsArgs<ExtArgs>
+  runs?: boolean | Prisma.ProductionCycle$runsArgs<ExtArgs>
+  hypotheses?: boolean | Prisma.ProductionCycle$hypothesesArgs<ExtArgs>
+  qaReviews?: boolean | Prisma.ProductionCycle$qaReviewsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.ProductionCycle$factoryPublicationsArgs<ExtArgs>
   _count?: boolean | Prisma.ProductionCycleCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ProductionCycleIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  pipeline?: boolean | Prisma.ProductionCycle$pipelineArgs<ExtArgs>
+  funnel?: boolean | Prisma.ProductionCycle$funnelArgs<ExtArgs>
   accountGroup?: boolean | Prisma.ProductionCycle$accountGroupArgs<ExtArgs>
 }
 export type ProductionCycleIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  pipeline?: boolean | Prisma.ProductionCycle$pipelineArgs<ExtArgs>
+  funnel?: boolean | Prisma.ProductionCycle$funnelArgs<ExtArgs>
   accountGroup?: boolean | Prisma.ProductionCycle$accountGroupArgs<ExtArgs>
 }
 
@@ -1193,12 +2661,25 @@ export type $ProductionCyclePayload<ExtArgs extends runtime.Types.Extensions.Int
   name: "ProductionCycle"
   objects: {
     app: Prisma.$AppPayload<ExtArgs>
+    pipeline: Prisma.$PipelinePayload<ExtArgs> | null
+    funnel: Prisma.$ContentFunnelPayload<ExtArgs> | null
     accountGroup: Prisma.$AccountGroupPayload<ExtArgs> | null
     logs: Prisma.$AgentLogPayload<ExtArgs>[]
+    runs: Prisma.$WorkflowRunPayload<ExtArgs>[]
+    hypotheses: Prisma.$ContentHypothesisPayload<ExtArgs>[]
+    qaReviews: Prisma.$FactoryQualityReviewPayload<ExtArgs>[]
+    factoryPublications: Prisma.$FactoryPublicationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
     appId: number
+    mode: string
+    pipelineId: number | null
+    batchKey: string | null
+    targetCount: number
+    dailyLimitPerAccount: number
+    sourceContext: runtime.JsonValue | null
+    funnelId: string | null
     groupId: number | null
     status: $Enums.CycleStatus
     startedById: number
@@ -1606,8 +3087,14 @@ readonly fields: ProductionCycleFieldRefs;
 export interface Prisma__ProductionCycleClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   app<T extends Prisma.AppDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AppDefaultArgs<ExtArgs>>): Prisma.Prisma__AppClient<runtime.Types.Result.GetResult<Prisma.$AppPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  pipeline<T extends Prisma.ProductionCycle$pipelineArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$pipelineArgs<ExtArgs>>): Prisma.Prisma__PipelineClient<runtime.Types.Result.GetResult<Prisma.$PipelinePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  funnel<T extends Prisma.ProductionCycle$funnelArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$funnelArgs<ExtArgs>>): Prisma.Prisma__ContentFunnelClient<runtime.Types.Result.GetResult<Prisma.$ContentFunnelPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   accountGroup<T extends Prisma.ProductionCycle$accountGroupArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$accountGroupArgs<ExtArgs>>): Prisma.Prisma__AccountGroupClient<runtime.Types.Result.GetResult<Prisma.$AccountGroupPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   logs<T extends Prisma.ProductionCycle$logsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$logsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  runs<T extends Prisma.ProductionCycle$runsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$runsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WorkflowRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  hypotheses<T extends Prisma.ProductionCycle$hypothesesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$hypothesesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ContentHypothesisPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  qaReviews<T extends Prisma.ProductionCycle$qaReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$qaReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryQualityReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryPublications<T extends Prisma.ProductionCycle$factoryPublicationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProductionCycle$factoryPublicationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryPublicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1639,6 +3126,13 @@ export interface Prisma__ProductionCycleClient<T, Null = never, ExtArgs extends 
 export interface ProductionCycleFieldRefs {
   readonly id: Prisma.FieldRef<"ProductionCycle", 'Int'>
   readonly appId: Prisma.FieldRef<"ProductionCycle", 'Int'>
+  readonly mode: Prisma.FieldRef<"ProductionCycle", 'String'>
+  readonly pipelineId: Prisma.FieldRef<"ProductionCycle", 'Int'>
+  readonly batchKey: Prisma.FieldRef<"ProductionCycle", 'String'>
+  readonly targetCount: Prisma.FieldRef<"ProductionCycle", 'Int'>
+  readonly dailyLimitPerAccount: Prisma.FieldRef<"ProductionCycle", 'Int'>
+  readonly sourceContext: Prisma.FieldRef<"ProductionCycle", 'Json'>
+  readonly funnelId: Prisma.FieldRef<"ProductionCycle", 'String'>
   readonly groupId: Prisma.FieldRef<"ProductionCycle", 'Int'>
   readonly status: Prisma.FieldRef<"ProductionCycle", 'CycleStatus'>
   readonly startedById: Prisma.FieldRef<"ProductionCycle", 'Int'>
@@ -2052,6 +3546,44 @@ export type ProductionCycleDeleteManyArgs<ExtArgs extends runtime.Types.Extensio
 }
 
 /**
+ * ProductionCycle.pipeline
+ */
+export type ProductionCycle$pipelineArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Pipeline
+   */
+  select?: Prisma.PipelineSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Pipeline
+   */
+  omit?: Prisma.PipelineOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PipelineInclude<ExtArgs> | null
+  where?: Prisma.PipelineWhereInput
+}
+
+/**
+ * ProductionCycle.funnel
+ */
+export type ProductionCycle$funnelArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContentFunnel
+   */
+  select?: Prisma.ContentFunnelSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContentFunnel
+   */
+  omit?: Prisma.ContentFunnelOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContentFunnelInclude<ExtArgs> | null
+  where?: Prisma.ContentFunnelWhereInput
+}
+
+/**
  * ProductionCycle.accountGroup
  */
 export type ProductionCycle$accountGroupArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2092,6 +3624,102 @@ export type ProductionCycle$logsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.AgentLogScalarFieldEnum | Prisma.AgentLogScalarFieldEnum[]
+}
+
+/**
+ * ProductionCycle.runs
+ */
+export type ProductionCycle$runsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the WorkflowRun
+   */
+  select?: Prisma.WorkflowRunSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the WorkflowRun
+   */
+  omit?: Prisma.WorkflowRunOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WorkflowRunInclude<ExtArgs> | null
+  where?: Prisma.WorkflowRunWhereInput
+  orderBy?: Prisma.WorkflowRunOrderByWithRelationInput | Prisma.WorkflowRunOrderByWithRelationInput[]
+  cursor?: Prisma.WorkflowRunWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.WorkflowRunScalarFieldEnum | Prisma.WorkflowRunScalarFieldEnum[]
+}
+
+/**
+ * ProductionCycle.hypotheses
+ */
+export type ProductionCycle$hypothesesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContentHypothesis
+   */
+  select?: Prisma.ContentHypothesisSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContentHypothesis
+   */
+  omit?: Prisma.ContentHypothesisOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContentHypothesisInclude<ExtArgs> | null
+  where?: Prisma.ContentHypothesisWhereInput
+  orderBy?: Prisma.ContentHypothesisOrderByWithRelationInput | Prisma.ContentHypothesisOrderByWithRelationInput[]
+  cursor?: Prisma.ContentHypothesisWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContentHypothesisScalarFieldEnum | Prisma.ContentHypothesisScalarFieldEnum[]
+}
+
+/**
+ * ProductionCycle.qaReviews
+ */
+export type ProductionCycle$qaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryQualityReview
+   */
+  select?: Prisma.FactoryQualityReviewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryQualityReview
+   */
+  omit?: Prisma.FactoryQualityReviewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryQualityReviewInclude<ExtArgs> | null
+  where?: Prisma.FactoryQualityReviewWhereInput
+  orderBy?: Prisma.FactoryQualityReviewOrderByWithRelationInput | Prisma.FactoryQualityReviewOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryQualityReviewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryQualityReviewScalarFieldEnum | Prisma.FactoryQualityReviewScalarFieldEnum[]
+}
+
+/**
+ * ProductionCycle.factoryPublications
+ */
+export type ProductionCycle$factoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryPublication
+   */
+  select?: Prisma.FactoryPublicationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryPublication
+   */
+  omit?: Prisma.FactoryPublicationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryPublicationInclude<ExtArgs> | null
+  where?: Prisma.FactoryPublicationWhereInput
+  orderBy?: Prisma.FactoryPublicationOrderByWithRelationInput | Prisma.FactoryPublicationOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryPublicationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryPublicationScalarFieldEnum | Prisma.FactoryPublicationScalarFieldEnum[]
 }
 
 /**

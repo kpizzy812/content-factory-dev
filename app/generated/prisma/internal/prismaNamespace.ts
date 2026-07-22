@@ -389,6 +389,7 @@ export const ModelName = {
   App: 'App',
   Character: 'Character',
   CharacterReferenceImage: 'CharacterReferenceImage',
+  PresenterSourceClip: 'PresenterSourceClip',
   SceneReferenceImage: 'SceneReferenceImage',
   Scene: 'Scene',
   AppReferenceImage: 'AppReferenceImage',
@@ -422,6 +423,12 @@ export const ModelName = {
   PostMetrics: 'PostMetrics',
   Reference: 'Reference',
   ProductionCycle: 'ProductionCycle',
+  LeadMagnet: 'LeadMagnet',
+  ContentFunnel: 'ContentFunnel',
+  ContentHypothesis: 'ContentHypothesis',
+  FactoryPublication: 'FactoryPublication',
+  FactoryQualityReview: 'FactoryQualityReview',
+  AttributionEvent: 'AttributionEvent',
   AgentLog: 'AgentLog',
   SecretAccessLog: 'SecretAccessLog',
   TelegramChat: 'TelegramChat',
@@ -473,7 +480,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption"
+    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -844,6 +851,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CharacterReferenceImageCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CharacterReferenceImageCountAggregateOutputType> | number
+        }
+      }
+    }
+    PresenterSourceClip: {
+      payload: Prisma.$PresenterSourceClipPayload<ExtArgs>
+      fields: Prisma.PresenterSourceClipFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PresenterSourceClipFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PresenterSourceClipFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>
+        }
+        findFirst: {
+          args: Prisma.PresenterSourceClipFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PresenterSourceClipFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>
+        }
+        findMany: {
+          args: Prisma.PresenterSourceClipFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>[]
+        }
+        create: {
+          args: Prisma.PresenterSourceClipCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>
+        }
+        createMany: {
+          args: Prisma.PresenterSourceClipCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PresenterSourceClipCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>[]
+        }
+        delete: {
+          args: Prisma.PresenterSourceClipDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>
+        }
+        update: {
+          args: Prisma.PresenterSourceClipUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>
+        }
+        deleteMany: {
+          args: Prisma.PresenterSourceClipDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PresenterSourceClipUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PresenterSourceClipUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>[]
+        }
+        upsert: {
+          args: Prisma.PresenterSourceClipUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterSourceClipPayload>
+        }
+        aggregate: {
+          args: Prisma.PresenterSourceClipAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePresenterSourceClip>
+        }
+        groupBy: {
+          args: Prisma.PresenterSourceClipGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PresenterSourceClipGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PresenterSourceClipCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PresenterSourceClipCountAggregateOutputType> | number
         }
       }
     }
@@ -3286,6 +3367,450 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ProductionCycleCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ProductionCycleCountAggregateOutputType> | number
+        }
+      }
+    }
+    LeadMagnet: {
+      payload: Prisma.$LeadMagnetPayload<ExtArgs>
+      fields: Prisma.LeadMagnetFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LeadMagnetFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LeadMagnetFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>
+        }
+        findFirst: {
+          args: Prisma.LeadMagnetFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LeadMagnetFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>
+        }
+        findMany: {
+          args: Prisma.LeadMagnetFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>[]
+        }
+        create: {
+          args: Prisma.LeadMagnetCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>
+        }
+        createMany: {
+          args: Prisma.LeadMagnetCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LeadMagnetCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>[]
+        }
+        delete: {
+          args: Prisma.LeadMagnetDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>
+        }
+        update: {
+          args: Prisma.LeadMagnetUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>
+        }
+        deleteMany: {
+          args: Prisma.LeadMagnetDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LeadMagnetUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LeadMagnetUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>[]
+        }
+        upsert: {
+          args: Prisma.LeadMagnetUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeadMagnetPayload>
+        }
+        aggregate: {
+          args: Prisma.LeadMagnetAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLeadMagnet>
+        }
+        groupBy: {
+          args: Prisma.LeadMagnetGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LeadMagnetGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LeadMagnetCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LeadMagnetCountAggregateOutputType> | number
+        }
+      }
+    }
+    ContentFunnel: {
+      payload: Prisma.$ContentFunnelPayload<ExtArgs>
+      fields: Prisma.ContentFunnelFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ContentFunnelFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ContentFunnelFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>
+        }
+        findFirst: {
+          args: Prisma.ContentFunnelFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ContentFunnelFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>
+        }
+        findMany: {
+          args: Prisma.ContentFunnelFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>[]
+        }
+        create: {
+          args: Prisma.ContentFunnelCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>
+        }
+        createMany: {
+          args: Prisma.ContentFunnelCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ContentFunnelCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>[]
+        }
+        delete: {
+          args: Prisma.ContentFunnelDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>
+        }
+        update: {
+          args: Prisma.ContentFunnelUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>
+        }
+        deleteMany: {
+          args: Prisma.ContentFunnelDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ContentFunnelUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ContentFunnelUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>[]
+        }
+        upsert: {
+          args: Prisma.ContentFunnelUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentFunnelPayload>
+        }
+        aggregate: {
+          args: Prisma.ContentFunnelAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContentFunnel>
+        }
+        groupBy: {
+          args: Prisma.ContentFunnelGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContentFunnelGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ContentFunnelCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContentFunnelCountAggregateOutputType> | number
+        }
+      }
+    }
+    ContentHypothesis: {
+      payload: Prisma.$ContentHypothesisPayload<ExtArgs>
+      fields: Prisma.ContentHypothesisFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ContentHypothesisFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ContentHypothesisFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>
+        }
+        findFirst: {
+          args: Prisma.ContentHypothesisFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ContentHypothesisFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>
+        }
+        findMany: {
+          args: Prisma.ContentHypothesisFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>[]
+        }
+        create: {
+          args: Prisma.ContentHypothesisCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>
+        }
+        createMany: {
+          args: Prisma.ContentHypothesisCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ContentHypothesisCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>[]
+        }
+        delete: {
+          args: Prisma.ContentHypothesisDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>
+        }
+        update: {
+          args: Prisma.ContentHypothesisUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>
+        }
+        deleteMany: {
+          args: Prisma.ContentHypothesisDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ContentHypothesisUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ContentHypothesisUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>[]
+        }
+        upsert: {
+          args: Prisma.ContentHypothesisUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ContentHypothesisPayload>
+        }
+        aggregate: {
+          args: Prisma.ContentHypothesisAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContentHypothesis>
+        }
+        groupBy: {
+          args: Prisma.ContentHypothesisGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContentHypothesisGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ContentHypothesisCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContentHypothesisCountAggregateOutputType> | number
+        }
+      }
+    }
+    FactoryPublication: {
+      payload: Prisma.$FactoryPublicationPayload<ExtArgs>
+      fields: Prisma.FactoryPublicationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FactoryPublicationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FactoryPublicationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>
+        }
+        findFirst: {
+          args: Prisma.FactoryPublicationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FactoryPublicationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>
+        }
+        findMany: {
+          args: Prisma.FactoryPublicationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>[]
+        }
+        create: {
+          args: Prisma.FactoryPublicationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>
+        }
+        createMany: {
+          args: Prisma.FactoryPublicationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FactoryPublicationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>[]
+        }
+        delete: {
+          args: Prisma.FactoryPublicationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>
+        }
+        update: {
+          args: Prisma.FactoryPublicationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>
+        }
+        deleteMany: {
+          args: Prisma.FactoryPublicationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FactoryPublicationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FactoryPublicationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>[]
+        }
+        upsert: {
+          args: Prisma.FactoryPublicationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryPublicationPayload>
+        }
+        aggregate: {
+          args: Prisma.FactoryPublicationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFactoryPublication>
+        }
+        groupBy: {
+          args: Prisma.FactoryPublicationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FactoryPublicationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FactoryPublicationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FactoryPublicationCountAggregateOutputType> | number
+        }
+      }
+    }
+    FactoryQualityReview: {
+      payload: Prisma.$FactoryQualityReviewPayload<ExtArgs>
+      fields: Prisma.FactoryQualityReviewFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FactoryQualityReviewFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FactoryQualityReviewFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>
+        }
+        findFirst: {
+          args: Prisma.FactoryQualityReviewFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FactoryQualityReviewFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>
+        }
+        findMany: {
+          args: Prisma.FactoryQualityReviewFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>[]
+        }
+        create: {
+          args: Prisma.FactoryQualityReviewCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>
+        }
+        createMany: {
+          args: Prisma.FactoryQualityReviewCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FactoryQualityReviewCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>[]
+        }
+        delete: {
+          args: Prisma.FactoryQualityReviewDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>
+        }
+        update: {
+          args: Prisma.FactoryQualityReviewUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>
+        }
+        deleteMany: {
+          args: Prisma.FactoryQualityReviewDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FactoryQualityReviewUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FactoryQualityReviewUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>[]
+        }
+        upsert: {
+          args: Prisma.FactoryQualityReviewUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FactoryQualityReviewPayload>
+        }
+        aggregate: {
+          args: Prisma.FactoryQualityReviewAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFactoryQualityReview>
+        }
+        groupBy: {
+          args: Prisma.FactoryQualityReviewGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FactoryQualityReviewGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FactoryQualityReviewCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FactoryQualityReviewCountAggregateOutputType> | number
+        }
+      }
+    }
+    AttributionEvent: {
+      payload: Prisma.$AttributionEventPayload<ExtArgs>
+      fields: Prisma.AttributionEventFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AttributionEventFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AttributionEventFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>
+        }
+        findFirst: {
+          args: Prisma.AttributionEventFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AttributionEventFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>
+        }
+        findMany: {
+          args: Prisma.AttributionEventFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>[]
+        }
+        create: {
+          args: Prisma.AttributionEventCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>
+        }
+        createMany: {
+          args: Prisma.AttributionEventCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AttributionEventCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>[]
+        }
+        delete: {
+          args: Prisma.AttributionEventDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>
+        }
+        update: {
+          args: Prisma.AttributionEventUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>
+        }
+        deleteMany: {
+          args: Prisma.AttributionEventDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AttributionEventUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AttributionEventUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>[]
+        }
+        upsert: {
+          args: Prisma.AttributionEventUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AttributionEventPayload>
+        }
+        aggregate: {
+          args: Prisma.AttributionEventAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAttributionEvent>
+        }
+        groupBy: {
+          args: Prisma.AttributionEventGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AttributionEventGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AttributionEventCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AttributionEventCountAggregateOutputType> | number
         }
       }
     }
@@ -6128,6 +6653,34 @@ export const CharacterReferenceImageScalarFieldEnum = {
 export type CharacterReferenceImageScalarFieldEnum = (typeof CharacterReferenceImageScalarFieldEnum)[keyof typeof CharacterReferenceImageScalarFieldEnum]
 
 
+export const PresenterSourceClipScalarFieldEnum = {
+  id: 'id',
+  characterId: 'characterId',
+  name: 'name',
+  fileUrl: 'fileUrl',
+  storageKey: 'storageKey',
+  storageProvider: 'storageProvider',
+  sha1: 'sha1',
+  mimeType: 'mimeType',
+  bytes: 'bytes',
+  durationSec: 'durationSec',
+  width: 'width',
+  height: 'height',
+  tags: 'tags',
+  outfit: 'outfit',
+  background: 'background',
+  gesture: 'gesture',
+  isActive: 'isActive',
+  usageCount: 'usageCount',
+  lastUsedAt: 'lastUsedAt',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PresenterSourceClipScalarFieldEnum = (typeof PresenterSourceClipScalarFieldEnum)[keyof typeof PresenterSourceClipScalarFieldEnum]
+
+
 export const SceneReferenceImageScalarFieldEnum = {
   id: 'id',
   sceneId: 'sceneId',
@@ -6256,6 +6809,7 @@ export type TrendScalarFieldEnum = (typeof TrendScalarFieldEnum)[keyof typeof Tr
 export const ScenarioScalarFieldEnum = {
   id: 'id',
   trendId: 'trendId',
+  hypothesisId: 'hypothesisId',
   briefId: 'briefId',
   appId: 'appId',
   sceneId: 'sceneId',
@@ -6389,6 +6943,7 @@ export const VideoScalarFieldEnum = {
   generateAudio: 'generateAudio',
   lipSyncEnabled: 'lipSyncEnabled',
   lipSyncModelId: 'lipSyncModelId',
+  lipSyncCharacterId: 'lipSyncCharacterId',
   isLocked: 'isLocked',
   lockedAt: 'lockedAt',
   lockedReason: 'lockedReason',
@@ -6868,6 +7423,13 @@ export type ReferenceScalarFieldEnum = (typeof ReferenceScalarFieldEnum)[keyof t
 export const ProductionCycleScalarFieldEnum = {
   id: 'id',
   appId: 'appId',
+  mode: 'mode',
+  pipelineId: 'pipelineId',
+  batchKey: 'batchKey',
+  targetCount: 'targetCount',
+  dailyLimitPerAccount: 'dailyLimitPerAccount',
+  sourceContext: 'sourceContext',
+  funnelId: 'funnelId',
   groupId: 'groupId',
   status: 'status',
   startedById: 'startedById',
@@ -6883,6 +7445,140 @@ export const ProductionCycleScalarFieldEnum = {
 } as const
 
 export type ProductionCycleScalarFieldEnum = (typeof ProductionCycleScalarFieldEnum)[keyof typeof ProductionCycleScalarFieldEnum]
+
+
+export const LeadMagnetScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  title: 'title',
+  problem: 'problem',
+  audience: 'audience',
+  content: 'content',
+  deliveryMessage: 'deliveryMessage',
+  warmupMessages: 'warmupMessages',
+  status: 'status',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LeadMagnetScalarFieldEnum = (typeof LeadMagnetScalarFieldEnum)[keyof typeof LeadMagnetScalarFieldEnum]
+
+
+export const ContentFunnelScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  leadMagnetId: 'leadMagnetId',
+  name: 'name',
+  keyword: 'keyword',
+  deliveryAdapter: 'deliveryAdapter',
+  deliveryConfig: 'deliveryConfig',
+  automationAdapter: 'automationAdapter',
+  automationConfig: 'automationConfig',
+  conversionAdapter: 'conversionAdapter',
+  conversionUrl: 'conversionUrl',
+  conversionTrackingParam: 'conversionTrackingParam',
+  webhookSecretHash: 'webhookSecretHash',
+  status: 'status',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContentFunnelScalarFieldEnum = (typeof ContentFunnelScalarFieldEnum)[keyof typeof ContentFunnelScalarFieldEnum]
+
+
+export const ContentHypothesisScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  cycleId: 'cycleId',
+  runId: 'runId',
+  trackingToken: 'trackingToken',
+  funnelId: 'funnelId',
+  leadMagnetId: 'leadMagnetId',
+  ordinal: 'ordinal',
+  title: 'title',
+  angle: 'angle',
+  audience: 'audience',
+  problem: 'problem',
+  promise: 'promise',
+  hook: 'hook',
+  cta: 'cta',
+  keyword: 'keyword',
+  proofPoints: 'proofPoints',
+  evidence: 'evidence',
+  sourceTrendIds: 'sourceTrendIds',
+  sourceIdeaIds: 'sourceIdeaIds',
+  fingerprint: 'fingerprint',
+  status: 'status',
+  rawOutput: 'rawOutput',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContentHypothesisScalarFieldEnum = (typeof ContentHypothesisScalarFieldEnum)[keyof typeof ContentHypothesisScalarFieldEnum]
+
+
+export const FactoryPublicationScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  cycleId: 'cycleId',
+  runId: 'runId',
+  funnelId: 'funnelId',
+  hypothesisId: 'hypothesisId',
+  socialAccountId: 'socialAccountId',
+  platform: 'platform',
+  trackingToken: 'trackingToken',
+  keyword: 'keyword',
+  videoId: 'videoId',
+  uploadId: 'uploadId',
+  status: 'status',
+  platformPostId: 'platformPostId',
+  platformPostUrl: 'platformPostUrl',
+  publishedAt: 'publishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FactoryPublicationScalarFieldEnum = (typeof FactoryPublicationScalarFieldEnum)[keyof typeof FactoryPublicationScalarFieldEnum]
+
+
+export const FactoryQualityReviewScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  cycleId: 'cycleId',
+  runId: 'runId',
+  hypothesisId: 'hypothesisId',
+  scenarioId: 'scenarioId',
+  videoId: 'videoId',
+  stage: 'stage',
+  verdict: 'verdict',
+  score: 'score',
+  checks: 'checks',
+  issues: 'issues',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FactoryQualityReviewScalarFieldEnum = (typeof FactoryQualityReviewScalarFieldEnum)[keyof typeof FactoryQualityReviewScalarFieldEnum]
+
+
+export const AttributionEventScalarFieldEnum = {
+  id: 'id',
+  publicationId: 'publicationId',
+  trackingToken: 'trackingToken',
+  type: 'type',
+  source: 'source',
+  idempotencyKey: 'idempotencyKey',
+  externalEventId: 'externalEventId',
+  externalUserId: 'externalUserId',
+  messengerUserId: 'messengerUserId',
+  payload: 'payload',
+  occurredAt: 'occurredAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AttributionEventScalarFieldEnum = (typeof AttributionEventScalarFieldEnum)[keyof typeof AttributionEventScalarFieldEnum]
 
 
 export const AgentLogScalarFieldEnum = {
@@ -7038,6 +7734,9 @@ export const WorkflowRunScalarFieldEnum = {
   retryOfRunId: 'retryOfRunId',
   replayOfRunId: 'replayOfRunId',
   parentRunId: 'parentRunId',
+  cycleId: 'cycleId',
+  trackingToken: 'trackingToken',
+  inputContext: 'inputContext',
   cancelRequestedAt: 'cancelRequestedAt',
   cancelRequestedBy: 'cancelRequestedBy',
   errorMessage: 'errorMessage',
@@ -7741,6 +8440,20 @@ export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMo
 
 
 /**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+    
+
+
+/**
  * Reference to a field of type 'Platform'
  */
 export type EnumPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Platform'>
@@ -7807,20 +8520,6 @@ export type EnumVariantStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$Pr
  * Reference to a field of type 'VariantStatus[]'
  */
 export type ListEnumVariantStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VariantStatus[]'>
-    
-
-
-/**
- * Reference to a field of type 'Float'
- */
-export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
-    
-
-
-/**
- * Reference to a field of type 'Float[]'
- */
-export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
 
 
@@ -8441,6 +9140,7 @@ export type GlobalOmitConfig = {
   app?: Prisma.AppOmit
   character?: Prisma.CharacterOmit
   characterReferenceImage?: Prisma.CharacterReferenceImageOmit
+  presenterSourceClip?: Prisma.PresenterSourceClipOmit
   sceneReferenceImage?: Prisma.SceneReferenceImageOmit
   scene?: Prisma.SceneOmit
   appReferenceImage?: Prisma.AppReferenceImageOmit
@@ -8474,6 +9174,12 @@ export type GlobalOmitConfig = {
   postMetrics?: Prisma.PostMetricsOmit
   reference?: Prisma.ReferenceOmit
   productionCycle?: Prisma.ProductionCycleOmit
+  leadMagnet?: Prisma.LeadMagnetOmit
+  contentFunnel?: Prisma.ContentFunnelOmit
+  contentHypothesis?: Prisma.ContentHypothesisOmit
+  factoryPublication?: Prisma.FactoryPublicationOmit
+  factoryQualityReview?: Prisma.FactoryQualityReviewOmit
+  attributionEvent?: Prisma.AttributionEventOmit
   agentLog?: Prisma.AgentLogOmit
   secretAccessLog?: Prisma.SecretAccessLogOmit
   telegramChat?: Prisma.TelegramChatOmit

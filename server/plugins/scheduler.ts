@@ -101,6 +101,7 @@ export default defineNitroPlugin((nitro) => {
       const stuckCycles = await prisma.productionCycle.findMany({
         where: {
           status: "running",
+          mode: "legacy",
           startedAt: { lt: threshold },
         },
         select: { id: true },

@@ -667,7 +667,10 @@ export async function executeCaptionGeneratorNode(
   const first = results[0] ?? {}
   return {
     ...first,
-    videos: results,
+    videos: results.map((result, index) => ({
+      ...result,
+      id: Number(result.videoId ?? stubs[index]?.id),
+    })),
     totalVideos: stubs.length,
     totalGenerated,
     totalReused,

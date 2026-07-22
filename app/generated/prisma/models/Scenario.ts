@@ -51,6 +51,7 @@ export type ScenarioSumAggregateOutputType = {
 export type ScenarioMinAggregateOutputType = {
   id: number | null
   trendId: number | null
+  hypothesisId: string | null
   briefId: number | null
   appId: number | null
   sceneId: string | null
@@ -73,6 +74,7 @@ export type ScenarioMinAggregateOutputType = {
 export type ScenarioMaxAggregateOutputType = {
   id: number | null
   trendId: number | null
+  hypothesisId: string | null
   briefId: number | null
   appId: number | null
   sceneId: string | null
@@ -95,6 +97,7 @@ export type ScenarioMaxAggregateOutputType = {
 export type ScenarioCountAggregateOutputType = {
   id: number
   trendId: number
+  hypothesisId: number
   briefId: number
   appId: number
   sceneId: number
@@ -141,6 +144,7 @@ export type ScenarioSumAggregateInputType = {
 export type ScenarioMinAggregateInputType = {
   id?: true
   trendId?: true
+  hypothesisId?: true
   briefId?: true
   appId?: true
   sceneId?: true
@@ -163,6 +167,7 @@ export type ScenarioMinAggregateInputType = {
 export type ScenarioMaxAggregateInputType = {
   id?: true
   trendId?: true
+  hypothesisId?: true
   briefId?: true
   appId?: true
   sceneId?: true
@@ -185,6 +190,7 @@ export type ScenarioMaxAggregateInputType = {
 export type ScenarioCountAggregateInputType = {
   id?: true
   trendId?: true
+  hypothesisId?: true
   briefId?: true
   appId?: true
   sceneId?: true
@@ -294,6 +300,7 @@ export type ScenarioGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
 export type ScenarioGroupByOutputType = {
   id: number
   trendId: number | null
+  hypothesisId: string | null
   briefId: number | null
   appId: number | null
   sceneId: string | null
@@ -339,6 +346,7 @@ export type ScenarioWhereInput = {
   NOT?: Prisma.ScenarioWhereInput | Prisma.ScenarioWhereInput[]
   id?: Prisma.IntFilter<"Scenario"> | number
   trendId?: Prisma.IntNullableFilter<"Scenario"> | number | null
+  hypothesisId?: Prisma.StringNullableFilter<"Scenario"> | string | null
   briefId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   appId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   sceneId?: Prisma.StringNullableFilter<"Scenario"> | string | null
@@ -357,6 +365,7 @@ export type ScenarioWhereInput = {
   runId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   pipelineId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   trend?: Prisma.XOR<Prisma.TrendNullableScalarRelationFilter, Prisma.TrendWhereInput> | null
+  hypothesis?: Prisma.XOR<Prisma.ContentHypothesisNullableScalarRelationFilter, Prisma.ContentHypothesisWhereInput> | null
   scene?: Prisma.XOR<Prisma.SceneNullableScalarRelationFilter, Prisma.SceneWhereInput> | null
   profile?: Prisma.XOR<Prisma.ScenarioGenerationProfileNullableScalarRelationFilter, Prisma.ScenarioGenerationProfileWhereInput> | null
   run?: Prisma.XOR<Prisma.WorkflowRunNullableScalarRelationFilter, Prisma.WorkflowRunWhereInput> | null
@@ -366,11 +375,13 @@ export type ScenarioWhereInput = {
   videos?: Prisma.VideoListRelationFilter
   feedbacks?: Prisma.ScenarioFeedbackListRelationFilter
   criticReviews?: Prisma.CriticReviewListRelationFilter
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
 }
 
 export type ScenarioOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   trendId?: Prisma.SortOrderInput | Prisma.SortOrder
+  hypothesisId?: Prisma.SortOrderInput | Prisma.SortOrder
   briefId?: Prisma.SortOrderInput | Prisma.SortOrder
   appId?: Prisma.SortOrderInput | Prisma.SortOrder
   sceneId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -389,6 +400,7 @@ export type ScenarioOrderByWithRelationInput = {
   runId?: Prisma.SortOrderInput | Prisma.SortOrder
   pipelineId?: Prisma.SortOrderInput | Prisma.SortOrder
   trend?: Prisma.TrendOrderByWithRelationInput
+  hypothesis?: Prisma.ContentHypothesisOrderByWithRelationInput
   scene?: Prisma.SceneOrderByWithRelationInput
   profile?: Prisma.ScenarioGenerationProfileOrderByWithRelationInput
   run?: Prisma.WorkflowRunOrderByWithRelationInput
@@ -398,6 +410,7 @@ export type ScenarioOrderByWithRelationInput = {
   videos?: Prisma.VideoOrderByRelationAggregateInput
   feedbacks?: Prisma.ScenarioFeedbackOrderByRelationAggregateInput
   criticReviews?: Prisma.CriticReviewOrderByRelationAggregateInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewOrderByRelationAggregateInput
 }
 
 export type ScenarioWhereUniqueInput = Prisma.AtLeast<{
@@ -406,6 +419,7 @@ export type ScenarioWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.ScenarioWhereInput[]
   NOT?: Prisma.ScenarioWhereInput | Prisma.ScenarioWhereInput[]
   trendId?: Prisma.IntNullableFilter<"Scenario"> | number | null
+  hypothesisId?: Prisma.StringNullableFilter<"Scenario"> | string | null
   briefId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   appId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   sceneId?: Prisma.StringNullableFilter<"Scenario"> | string | null
@@ -424,6 +438,7 @@ export type ScenarioWhereUniqueInput = Prisma.AtLeast<{
   runId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   pipelineId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   trend?: Prisma.XOR<Prisma.TrendNullableScalarRelationFilter, Prisma.TrendWhereInput> | null
+  hypothesis?: Prisma.XOR<Prisma.ContentHypothesisNullableScalarRelationFilter, Prisma.ContentHypothesisWhereInput> | null
   scene?: Prisma.XOR<Prisma.SceneNullableScalarRelationFilter, Prisma.SceneWhereInput> | null
   profile?: Prisma.XOR<Prisma.ScenarioGenerationProfileNullableScalarRelationFilter, Prisma.ScenarioGenerationProfileWhereInput> | null
   run?: Prisma.XOR<Prisma.WorkflowRunNullableScalarRelationFilter, Prisma.WorkflowRunWhereInput> | null
@@ -433,11 +448,13 @@ export type ScenarioWhereUniqueInput = Prisma.AtLeast<{
   videos?: Prisma.VideoListRelationFilter
   feedbacks?: Prisma.ScenarioFeedbackListRelationFilter
   criticReviews?: Prisma.CriticReviewListRelationFilter
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
 }, "id">
 
 export type ScenarioOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   trendId?: Prisma.SortOrderInput | Prisma.SortOrder
+  hypothesisId?: Prisma.SortOrderInput | Prisma.SortOrder
   briefId?: Prisma.SortOrderInput | Prisma.SortOrder
   appId?: Prisma.SortOrderInput | Prisma.SortOrder
   sceneId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -468,6 +485,7 @@ export type ScenarioScalarWhereWithAggregatesInput = {
   NOT?: Prisma.ScenarioScalarWhereWithAggregatesInput | Prisma.ScenarioScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"Scenario"> | number
   trendId?: Prisma.IntNullableWithAggregatesFilter<"Scenario"> | number | null
+  hypothesisId?: Prisma.StringNullableWithAggregatesFilter<"Scenario"> | string | null
   briefId?: Prisma.IntNullableWithAggregatesFilter<"Scenario"> | number | null
   appId?: Prisma.IntNullableWithAggregatesFilter<"Scenario"> | number | null
   sceneId?: Prisma.StringNullableWithAggregatesFilter<"Scenario"> | string | null
@@ -502,6 +520,7 @@ export type ScenarioCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -511,11 +530,13 @@ export type ScenarioCreateInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -538,6 +559,7 @@ export type ScenarioUncheckedCreateInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUpdateInput = {
@@ -555,6 +577,7 @@ export type ScenarioUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -564,11 +587,13 @@ export type ScenarioUpdateInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -591,11 +616,13 @@ export type ScenarioUncheckedUpdateInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioCreateManyInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -634,6 +661,7 @@ export type ScenarioUpdateManyMutationInput = {
 export type ScenarioUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -666,6 +694,7 @@ export type ScenarioOrderByRelationAggregateInput = {
 export type ScenarioCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   trendId?: Prisma.SortOrder
+  hypothesisId?: Prisma.SortOrder
   briefId?: Prisma.SortOrder
   appId?: Prisma.SortOrder
   sceneId?: Prisma.SortOrder
@@ -699,6 +728,7 @@ export type ScenarioAvgOrderByAggregateInput = {
 export type ScenarioMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   trendId?: Prisma.SortOrder
+  hypothesisId?: Prisma.SortOrder
   briefId?: Prisma.SortOrder
   appId?: Prisma.SortOrder
   sceneId?: Prisma.SortOrder
@@ -721,6 +751,7 @@ export type ScenarioMaxOrderByAggregateInput = {
 export type ScenarioMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   trendId?: Prisma.SortOrder
+  hypothesisId?: Prisma.SortOrder
   briefId?: Prisma.SortOrder
   appId?: Prisma.SortOrder
   sceneId?: Prisma.SortOrder
@@ -889,6 +920,64 @@ export type ScenarioUpdateOneRequiredWithoutVideosNestedInput = {
   upsert?: Prisma.ScenarioUpsertWithoutVideosInput
   connect?: Prisma.ScenarioWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.ScenarioUpdateToOneWithWhereWithoutVideosInput, Prisma.ScenarioUpdateWithoutVideosInput>, Prisma.ScenarioUncheckedUpdateWithoutVideosInput>
+}
+
+export type ScenarioCreateNestedManyWithoutHypothesisInput = {
+  create?: Prisma.XOR<Prisma.ScenarioCreateWithoutHypothesisInput, Prisma.ScenarioUncheckedCreateWithoutHypothesisInput> | Prisma.ScenarioCreateWithoutHypothesisInput[] | Prisma.ScenarioUncheckedCreateWithoutHypothesisInput[]
+  connectOrCreate?: Prisma.ScenarioCreateOrConnectWithoutHypothesisInput | Prisma.ScenarioCreateOrConnectWithoutHypothesisInput[]
+  createMany?: Prisma.ScenarioCreateManyHypothesisInputEnvelope
+  connect?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+}
+
+export type ScenarioUncheckedCreateNestedManyWithoutHypothesisInput = {
+  create?: Prisma.XOR<Prisma.ScenarioCreateWithoutHypothesisInput, Prisma.ScenarioUncheckedCreateWithoutHypothesisInput> | Prisma.ScenarioCreateWithoutHypothesisInput[] | Prisma.ScenarioUncheckedCreateWithoutHypothesisInput[]
+  connectOrCreate?: Prisma.ScenarioCreateOrConnectWithoutHypothesisInput | Prisma.ScenarioCreateOrConnectWithoutHypothesisInput[]
+  createMany?: Prisma.ScenarioCreateManyHypothesisInputEnvelope
+  connect?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+}
+
+export type ScenarioUpdateManyWithoutHypothesisNestedInput = {
+  create?: Prisma.XOR<Prisma.ScenarioCreateWithoutHypothesisInput, Prisma.ScenarioUncheckedCreateWithoutHypothesisInput> | Prisma.ScenarioCreateWithoutHypothesisInput[] | Prisma.ScenarioUncheckedCreateWithoutHypothesisInput[]
+  connectOrCreate?: Prisma.ScenarioCreateOrConnectWithoutHypothesisInput | Prisma.ScenarioCreateOrConnectWithoutHypothesisInput[]
+  upsert?: Prisma.ScenarioUpsertWithWhereUniqueWithoutHypothesisInput | Prisma.ScenarioUpsertWithWhereUniqueWithoutHypothesisInput[]
+  createMany?: Prisma.ScenarioCreateManyHypothesisInputEnvelope
+  set?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  disconnect?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  delete?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  connect?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  update?: Prisma.ScenarioUpdateWithWhereUniqueWithoutHypothesisInput | Prisma.ScenarioUpdateWithWhereUniqueWithoutHypothesisInput[]
+  updateMany?: Prisma.ScenarioUpdateManyWithWhereWithoutHypothesisInput | Prisma.ScenarioUpdateManyWithWhereWithoutHypothesisInput[]
+  deleteMany?: Prisma.ScenarioScalarWhereInput | Prisma.ScenarioScalarWhereInput[]
+}
+
+export type ScenarioUncheckedUpdateManyWithoutHypothesisNestedInput = {
+  create?: Prisma.XOR<Prisma.ScenarioCreateWithoutHypothesisInput, Prisma.ScenarioUncheckedCreateWithoutHypothesisInput> | Prisma.ScenarioCreateWithoutHypothesisInput[] | Prisma.ScenarioUncheckedCreateWithoutHypothesisInput[]
+  connectOrCreate?: Prisma.ScenarioCreateOrConnectWithoutHypothesisInput | Prisma.ScenarioCreateOrConnectWithoutHypothesisInput[]
+  upsert?: Prisma.ScenarioUpsertWithWhereUniqueWithoutHypothesisInput | Prisma.ScenarioUpsertWithWhereUniqueWithoutHypothesisInput[]
+  createMany?: Prisma.ScenarioCreateManyHypothesisInputEnvelope
+  set?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  disconnect?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  delete?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  connect?: Prisma.ScenarioWhereUniqueInput | Prisma.ScenarioWhereUniqueInput[]
+  update?: Prisma.ScenarioUpdateWithWhereUniqueWithoutHypothesisInput | Prisma.ScenarioUpdateWithWhereUniqueWithoutHypothesisInput[]
+  updateMany?: Prisma.ScenarioUpdateManyWithWhereWithoutHypothesisInput | Prisma.ScenarioUpdateManyWithWhereWithoutHypothesisInput[]
+  deleteMany?: Prisma.ScenarioScalarWhereInput | Prisma.ScenarioScalarWhereInput[]
+}
+
+export type ScenarioCreateNestedOneWithoutFactoryQaReviewsInput = {
+  create?: Prisma.XOR<Prisma.ScenarioCreateWithoutFactoryQaReviewsInput, Prisma.ScenarioUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.ScenarioCreateOrConnectWithoutFactoryQaReviewsInput
+  connect?: Prisma.ScenarioWhereUniqueInput
+}
+
+export type ScenarioUpdateOneWithoutFactoryQaReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.ScenarioCreateWithoutFactoryQaReviewsInput, Prisma.ScenarioUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.ScenarioCreateOrConnectWithoutFactoryQaReviewsInput
+  upsert?: Prisma.ScenarioUpsertWithoutFactoryQaReviewsInput
+  disconnect?: Prisma.ScenarioWhereInput | boolean
+  delete?: Prisma.ScenarioWhereInput | boolean
+  connect?: Prisma.ScenarioWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ScenarioUpdateToOneWithWhereWithoutFactoryQaReviewsInput, Prisma.ScenarioUpdateWithoutFactoryQaReviewsInput>, Prisma.ScenarioUncheckedUpdateWithoutFactoryQaReviewsInput>
 }
 
 export type ScenarioCreateNestedManyWithoutPipelineInput = {
@@ -1062,6 +1151,7 @@ export type ScenarioCreateWithoutSceneInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutScenariosInput
@@ -1070,11 +1160,13 @@ export type ScenarioCreateWithoutSceneInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutSceneInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   profileId?: number | null
@@ -1096,6 +1188,7 @@ export type ScenarioUncheckedCreateWithoutSceneInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutSceneInput = {
@@ -1130,6 +1223,7 @@ export type ScenarioScalarWhereInput = {
   NOT?: Prisma.ScenarioScalarWhereInput | Prisma.ScenarioScalarWhereInput[]
   id?: Prisma.IntFilter<"Scenario"> | number
   trendId?: Prisma.IntNullableFilter<"Scenario"> | number | null
+  hypothesisId?: Prisma.StringNullableFilter<"Scenario"> | string | null
   briefId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   appId?: Prisma.IntNullableFilter<"Scenario"> | number | null
   sceneId?: Prisma.StringNullableFilter<"Scenario"> | string | null
@@ -1163,6 +1257,7 @@ export type ScenarioCreateWithoutTrendInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -1172,10 +1267,12 @@ export type ScenarioCreateWithoutTrendInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutTrendInput = {
   id?: number
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1198,6 +1295,7 @@ export type ScenarioUncheckedCreateWithoutTrendInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutTrendInput = {
@@ -1241,6 +1339,7 @@ export type ScenarioCreateWithoutVariantsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -1249,11 +1348,13 @@ export type ScenarioCreateWithoutVariantsInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutVariantsInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1275,6 +1376,7 @@ export type ScenarioUncheckedCreateWithoutVariantsInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutVariantsInput = {
@@ -1308,6 +1410,7 @@ export type ScenarioUpdateWithoutVariantsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -1316,11 +1419,13 @@ export type ScenarioUpdateWithoutVariantsInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutVariantsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1342,6 +1447,7 @@ export type ScenarioUncheckedUpdateWithoutVariantsInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioCreateWithoutReviewActionsInput = {
@@ -1359,6 +1465,7 @@ export type ScenarioCreateWithoutReviewActionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -1367,11 +1474,13 @@ export type ScenarioCreateWithoutReviewActionsInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutReviewActionsInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1393,6 +1502,7 @@ export type ScenarioUncheckedCreateWithoutReviewActionsInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutReviewActionsInput = {
@@ -1426,6 +1536,7 @@ export type ScenarioUpdateWithoutReviewActionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -1434,11 +1545,13 @@ export type ScenarioUpdateWithoutReviewActionsInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutReviewActionsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1460,6 +1573,7 @@ export type ScenarioUncheckedUpdateWithoutReviewActionsInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioCreateWithoutVideosInput = {
@@ -1477,6 +1591,7 @@ export type ScenarioCreateWithoutVideosInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -1485,11 +1600,13 @@ export type ScenarioCreateWithoutVideosInput = {
   reviewActions?: Prisma.ScenarioReviewActionCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutVideosInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1511,6 +1628,7 @@ export type ScenarioUncheckedCreateWithoutVideosInput = {
   reviewActions?: Prisma.ScenarioReviewActionUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutVideosInput = {
@@ -1544,6 +1662,7 @@ export type ScenarioUpdateWithoutVideosInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -1552,11 +1671,13 @@ export type ScenarioUpdateWithoutVideosInput = {
   reviewActions?: Prisma.ScenarioReviewActionUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutVideosInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1578,9 +1699,10 @@ export type ScenarioUncheckedUpdateWithoutVideosInput = {
   reviewActions?: Prisma.ScenarioReviewActionUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
-export type ScenarioCreateWithoutPipelineInput = {
+export type ScenarioCreateWithoutHypothesisInput = {
   briefId?: number | null
   appId?: number | null
   status?: $Enums.ScenarioStatus
@@ -1598,6 +1720,89 @@ export type ScenarioCreateWithoutPipelineInput = {
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutScenariosInput
+  variants?: Prisma.ScenarioVariantCreateNestedManyWithoutScenarioInput
+  reviewActions?: Prisma.ScenarioReviewActionCreateNestedManyWithoutScenarioInput
+  videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
+  feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
+  criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
+}
+
+export type ScenarioUncheckedCreateWithoutHypothesisInput = {
+  id?: number
+  trendId?: number | null
+  briefId?: number | null
+  appId?: number | null
+  sceneId?: string | null
+  profileId?: number | null
+  status?: $Enums.ScenarioStatus
+  selectedVariantId?: number | null
+  generationStatus?: string | null
+  operatorNotes?: string | null
+  reworkRequest?: string | null
+  sourceBriefVersion?: string | null
+  sourcePromptVersion?: string | null
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  variants?: Prisma.ScenarioVariantUncheckedCreateNestedManyWithoutScenarioInput
+  reviewActions?: Prisma.ScenarioReviewActionUncheckedCreateNestedManyWithoutScenarioInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
+  feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
+  criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
+}
+
+export type ScenarioCreateOrConnectWithoutHypothesisInput = {
+  where: Prisma.ScenarioWhereUniqueInput
+  create: Prisma.XOR<Prisma.ScenarioCreateWithoutHypothesisInput, Prisma.ScenarioUncheckedCreateWithoutHypothesisInput>
+}
+
+export type ScenarioCreateManyHypothesisInputEnvelope = {
+  data: Prisma.ScenarioCreateManyHypothesisInput | Prisma.ScenarioCreateManyHypothesisInput[]
+  skipDuplicates?: boolean
+}
+
+export type ScenarioUpsertWithWhereUniqueWithoutHypothesisInput = {
+  where: Prisma.ScenarioWhereUniqueInput
+  update: Prisma.XOR<Prisma.ScenarioUpdateWithoutHypothesisInput, Prisma.ScenarioUncheckedUpdateWithoutHypothesisInput>
+  create: Prisma.XOR<Prisma.ScenarioCreateWithoutHypothesisInput, Prisma.ScenarioUncheckedCreateWithoutHypothesisInput>
+}
+
+export type ScenarioUpdateWithWhereUniqueWithoutHypothesisInput = {
+  where: Prisma.ScenarioWhereUniqueInput
+  data: Prisma.XOR<Prisma.ScenarioUpdateWithoutHypothesisInput, Prisma.ScenarioUncheckedUpdateWithoutHypothesisInput>
+}
+
+export type ScenarioUpdateManyWithWhereWithoutHypothesisInput = {
+  where: Prisma.ScenarioScalarWhereInput
+  data: Prisma.XOR<Prisma.ScenarioUpdateManyMutationInput, Prisma.ScenarioUncheckedUpdateManyWithoutHypothesisInput>
+}
+
+export type ScenarioCreateWithoutFactoryQaReviewsInput = {
+  briefId?: number | null
+  appId?: number | null
+  status?: $Enums.ScenarioStatus
+  selectedVariantId?: number | null
+  generationStatus?: string | null
+  operatorNotes?: string | null
+  reworkRequest?: string | null
+  sourceBriefVersion?: string | null
+  sourcePromptVersion?: string | null
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
+  scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
+  profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutScenariosInput
   variants?: Prisma.ScenarioVariantCreateNestedManyWithoutScenarioInput
   reviewActions?: Prisma.ScenarioReviewActionCreateNestedManyWithoutScenarioInput
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
@@ -1605,9 +1810,136 @@ export type ScenarioCreateWithoutPipelineInput = {
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
 }
 
+export type ScenarioUncheckedCreateWithoutFactoryQaReviewsInput = {
+  id?: number
+  trendId?: number | null
+  hypothesisId?: string | null
+  briefId?: number | null
+  appId?: number | null
+  sceneId?: string | null
+  profileId?: number | null
+  status?: $Enums.ScenarioStatus
+  selectedVariantId?: number | null
+  generationStatus?: string | null
+  operatorNotes?: string | null
+  reworkRequest?: string | null
+  sourceBriefVersion?: string | null
+  sourcePromptVersion?: string | null
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  variants?: Prisma.ScenarioVariantUncheckedCreateNestedManyWithoutScenarioInput
+  reviewActions?: Prisma.ScenarioReviewActionUncheckedCreateNestedManyWithoutScenarioInput
+  videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
+  feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
+  criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+}
+
+export type ScenarioCreateOrConnectWithoutFactoryQaReviewsInput = {
+  where: Prisma.ScenarioWhereUniqueInput
+  create: Prisma.XOR<Prisma.ScenarioCreateWithoutFactoryQaReviewsInput, Prisma.ScenarioUncheckedCreateWithoutFactoryQaReviewsInput>
+}
+
+export type ScenarioUpsertWithoutFactoryQaReviewsInput = {
+  update: Prisma.XOR<Prisma.ScenarioUpdateWithoutFactoryQaReviewsInput, Prisma.ScenarioUncheckedUpdateWithoutFactoryQaReviewsInput>
+  create: Prisma.XOR<Prisma.ScenarioCreateWithoutFactoryQaReviewsInput, Prisma.ScenarioUncheckedCreateWithoutFactoryQaReviewsInput>
+  where?: Prisma.ScenarioWhereInput
+}
+
+export type ScenarioUpdateToOneWithWhereWithoutFactoryQaReviewsInput = {
+  where?: Prisma.ScenarioWhereInput
+  data: Prisma.XOR<Prisma.ScenarioUpdateWithoutFactoryQaReviewsInput, Prisma.ScenarioUncheckedUpdateWithoutFactoryQaReviewsInput>
+}
+
+export type ScenarioUpdateWithoutFactoryQaReviewsInput = {
+  briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumScenarioStatusFieldUpdateOperationsInput | $Enums.ScenarioStatus
+  selectedVariantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  generationStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reworkRequest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceBriefVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourcePromptVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
+  scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
+  profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
+  run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutScenariosNestedInput
+  variants?: Prisma.ScenarioVariantUpdateManyWithoutScenarioNestedInput
+  reviewActions?: Prisma.ScenarioReviewActionUpdateManyWithoutScenarioNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
+  feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
+  criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+}
+
+export type ScenarioUncheckedUpdateWithoutFactoryQaReviewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumScenarioStatusFieldUpdateOperationsInput | $Enums.ScenarioStatus
+  selectedVariantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  generationStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reworkRequest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceBriefVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourcePromptVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  variants?: Prisma.ScenarioVariantUncheckedUpdateManyWithoutScenarioNestedInput
+  reviewActions?: Prisma.ScenarioReviewActionUncheckedUpdateManyWithoutScenarioNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
+  feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
+  criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+}
+
+export type ScenarioCreateWithoutPipelineInput = {
+  briefId?: number | null
+  appId?: number | null
+  status?: $Enums.ScenarioStatus
+  selectedVariantId?: number | null
+  generationStatus?: string | null
+  operatorNotes?: string | null
+  reworkRequest?: string | null
+  sourceBriefVersion?: string | null
+  sourcePromptVersion?: string | null
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
+  scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
+  profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
+  variants?: Prisma.ScenarioVariantCreateNestedManyWithoutScenarioInput
+  reviewActions?: Prisma.ScenarioReviewActionCreateNestedManyWithoutScenarioInput
+  videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
+  feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
+  criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
+}
+
 export type ScenarioUncheckedCreateWithoutPipelineInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1629,6 +1961,7 @@ export type ScenarioUncheckedCreateWithoutPipelineInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutPipelineInput = {
@@ -1672,6 +2005,7 @@ export type ScenarioCreateWithoutRunInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutScenariosInput
@@ -1680,11 +2014,13 @@ export type ScenarioCreateWithoutRunInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutRunInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1706,6 +2042,7 @@ export type ScenarioUncheckedCreateWithoutRunInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutRunInput = {
@@ -1749,6 +2086,7 @@ export type ScenarioCreateWithoutProfileInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutScenariosInput
@@ -1757,11 +2095,13 @@ export type ScenarioCreateWithoutProfileInput = {
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutProfileInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1783,6 +2123,7 @@ export type ScenarioUncheckedCreateWithoutProfileInput = {
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutProfileInput = {
@@ -1826,6 +2167,7 @@ export type ScenarioCreateWithoutFeedbacksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -1834,11 +2176,13 @@ export type ScenarioCreateWithoutFeedbacksInput = {
   reviewActions?: Prisma.ScenarioReviewActionCreateNestedManyWithoutScenarioInput
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutFeedbacksInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1860,6 +2204,7 @@ export type ScenarioUncheckedCreateWithoutFeedbacksInput = {
   reviewActions?: Prisma.ScenarioReviewActionUncheckedCreateNestedManyWithoutScenarioInput
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   criticReviews?: Prisma.CriticReviewUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutFeedbacksInput = {
@@ -1893,6 +2238,7 @@ export type ScenarioUpdateWithoutFeedbacksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -1901,11 +2247,13 @@ export type ScenarioUpdateWithoutFeedbacksInput = {
   reviewActions?: Prisma.ScenarioReviewActionUpdateManyWithoutScenarioNestedInput
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutFeedbacksInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1927,6 +2275,7 @@ export type ScenarioUncheckedUpdateWithoutFeedbacksInput = {
   reviewActions?: Prisma.ScenarioReviewActionUncheckedUpdateManyWithoutScenarioNestedInput
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioCreateWithoutCriticReviewsInput = {
@@ -1944,6 +2293,7 @@ export type ScenarioCreateWithoutCriticReviewsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   trend?: Prisma.TrendCreateNestedOneWithoutScenariosInput
+  hypothesis?: Prisma.ContentHypothesisCreateNestedOneWithoutScenariosInput
   scene?: Prisma.SceneCreateNestedOneWithoutScenariosInput
   profile?: Prisma.ScenarioGenerationProfileCreateNestedOneWithoutScenariosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutScenariosInput
@@ -1952,11 +2302,13 @@ export type ScenarioCreateWithoutCriticReviewsInput = {
   reviewActions?: Prisma.ScenarioReviewActionCreateNestedManyWithoutScenarioInput
   videos?: Prisma.VideoCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioUncheckedCreateWithoutCriticReviewsInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -1978,6 +2330,7 @@ export type ScenarioUncheckedCreateWithoutCriticReviewsInput = {
   reviewActions?: Prisma.ScenarioReviewActionUncheckedCreateNestedManyWithoutScenarioInput
   videos?: Prisma.VideoUncheckedCreateNestedManyWithoutScenarioInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedCreateNestedManyWithoutScenarioInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutScenarioInput
 }
 
 export type ScenarioCreateOrConnectWithoutCriticReviewsInput = {
@@ -2011,6 +2364,7 @@ export type ScenarioUpdateWithoutCriticReviewsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -2019,11 +2373,13 @@ export type ScenarioUpdateWithoutCriticReviewsInput = {
   reviewActions?: Prisma.ScenarioReviewActionUpdateManyWithoutScenarioNestedInput
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutCriticReviewsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2045,11 +2401,13 @@ export type ScenarioUncheckedUpdateWithoutCriticReviewsInput = {
   reviewActions?: Prisma.ScenarioReviewActionUncheckedUpdateManyWithoutScenarioNestedInput
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioCreateManySceneInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   profileId?: number | null
@@ -2083,6 +2441,7 @@ export type ScenarioUpdateWithoutSceneInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutScenariosNestedInput
@@ -2091,11 +2450,13 @@ export type ScenarioUpdateWithoutSceneInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutSceneInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   profileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2117,11 +2478,13 @@ export type ScenarioUncheckedUpdateWithoutSceneInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateManyWithoutSceneInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   profileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -2142,6 +2505,7 @@ export type ScenarioUncheckedUpdateManyWithoutSceneInput = {
 
 export type ScenarioCreateManyTrendInput = {
   id?: number
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -2175,6 +2539,7 @@ export type ScenarioUpdateWithoutTrendInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -2184,10 +2549,12 @@ export type ScenarioUpdateWithoutTrendInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutTrendInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2210,10 +2577,111 @@ export type ScenarioUncheckedUpdateWithoutTrendInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateManyWithoutTrendInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumScenarioStatusFieldUpdateOperationsInput | $Enums.ScenarioStatus
+  selectedVariantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  generationStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reworkRequest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceBriefVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourcePromptVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+}
+
+export type ScenarioCreateManyHypothesisInput = {
+  id?: number
+  trendId?: number | null
+  briefId?: number | null
+  appId?: number | null
+  sceneId?: string | null
+  profileId?: number | null
+  status?: $Enums.ScenarioStatus
+  selectedVariantId?: number | null
+  generationStatus?: string | null
+  operatorNotes?: string | null
+  reworkRequest?: string | null
+  sourceBriefVersion?: string | null
+  sourcePromptVersion?: string | null
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+}
+
+export type ScenarioUpdateWithoutHypothesisInput = {
+  briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumScenarioStatusFieldUpdateOperationsInput | $Enums.ScenarioStatus
+  selectedVariantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  generationStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reworkRequest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceBriefVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourcePromptVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
+  profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
+  run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutScenariosNestedInput
+  variants?: Prisma.ScenarioVariantUpdateManyWithoutScenarioNestedInput
+  reviewActions?: Prisma.ScenarioReviewActionUpdateManyWithoutScenarioNestedInput
+  videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
+  feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
+  criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
+}
+
+export type ScenarioUncheckedUpdateWithoutHypothesisInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumScenarioStatusFieldUpdateOperationsInput | $Enums.ScenarioStatus
+  selectedVariantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  generationStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reworkRequest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceBriefVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourcePromptVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  variants?: Prisma.ScenarioVariantUncheckedUpdateManyWithoutScenarioNestedInput
+  reviewActions?: Prisma.ScenarioReviewActionUncheckedUpdateManyWithoutScenarioNestedInput
+  videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
+  feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
+  criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
+}
+
+export type ScenarioUncheckedUpdateManyWithoutHypothesisInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2236,6 +2704,7 @@ export type ScenarioUncheckedUpdateManyWithoutTrendInput = {
 export type ScenarioCreateManyPipelineInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -2269,6 +2738,7 @@ export type ScenarioUpdateWithoutPipelineInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
@@ -2277,11 +2747,13 @@ export type ScenarioUpdateWithoutPipelineInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutPipelineInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2303,11 +2775,13 @@ export type ScenarioUncheckedUpdateWithoutPipelineInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateManyWithoutPipelineInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2329,6 +2803,7 @@ export type ScenarioUncheckedUpdateManyWithoutPipelineInput = {
 export type ScenarioCreateManyRunInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -2362,6 +2837,7 @@ export type ScenarioUpdateWithoutRunInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   profile?: Prisma.ScenarioGenerationProfileUpdateOneWithoutScenariosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutScenariosNestedInput
@@ -2370,11 +2846,13 @@ export type ScenarioUpdateWithoutRunInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutRunInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2396,11 +2874,13 @@ export type ScenarioUncheckedUpdateWithoutRunInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateManyWithoutRunInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2422,6 +2902,7 @@ export type ScenarioUncheckedUpdateManyWithoutRunInput = {
 export type ScenarioCreateManyProfileInput = {
   id?: number
   trendId?: number | null
+  hypothesisId?: string | null
   briefId?: number | null
   appId?: number | null
   sceneId?: string | null
@@ -2455,6 +2936,7 @@ export type ScenarioUpdateWithoutProfileInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trend?: Prisma.TrendUpdateOneWithoutScenariosNestedInput
+  hypothesis?: Prisma.ContentHypothesisUpdateOneWithoutScenariosNestedInput
   scene?: Prisma.SceneUpdateOneWithoutScenariosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutScenariosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutScenariosNestedInput
@@ -2463,11 +2945,13 @@ export type ScenarioUpdateWithoutProfileInput = {
   videos?: Prisma.VideoUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateWithoutProfileInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2489,11 +2973,13 @@ export type ScenarioUncheckedUpdateWithoutProfileInput = {
   videos?: Prisma.VideoUncheckedUpdateManyWithoutScenarioNestedInput
   feedbacks?: Prisma.ScenarioFeedbackUncheckedUpdateManyWithoutScenarioNestedInput
   criticReviews?: Prisma.CriticReviewUncheckedUpdateManyWithoutScenarioNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutScenarioNestedInput
 }
 
 export type ScenarioUncheckedUpdateManyWithoutProfileInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   trendId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  hypothesisId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   briefId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   appId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sceneId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2523,6 +3009,7 @@ export type ScenarioCountOutputType = {
   videos: number
   feedbacks: number
   criticReviews: number
+  factoryQaReviews: number
 }
 
 export type ScenarioCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2531,6 +3018,7 @@ export type ScenarioCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensio
   videos?: boolean | ScenarioCountOutputTypeCountVideosArgs
   feedbacks?: boolean | ScenarioCountOutputTypeCountFeedbacksArgs
   criticReviews?: boolean | ScenarioCountOutputTypeCountCriticReviewsArgs
+  factoryQaReviews?: boolean | ScenarioCountOutputTypeCountFactoryQaReviewsArgs
 }
 
 /**
@@ -2578,10 +3066,18 @@ export type ScenarioCountOutputTypeCountCriticReviewsArgs<ExtArgs extends runtim
   where?: Prisma.CriticReviewWhereInput
 }
 
+/**
+ * ScenarioCountOutputType without action
+ */
+export type ScenarioCountOutputTypeCountFactoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryQualityReviewWhereInput
+}
+
 
 export type ScenarioSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   trendId?: boolean
+  hypothesisId?: boolean
   briefId?: boolean
   appId?: boolean
   sceneId?: boolean
@@ -2600,6 +3096,7 @@ export type ScenarioSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   runId?: boolean
   pipelineId?: boolean
   trend?: boolean | Prisma.Scenario$trendArgs<ExtArgs>
+  hypothesis?: boolean | Prisma.Scenario$hypothesisArgs<ExtArgs>
   scene?: boolean | Prisma.Scenario$sceneArgs<ExtArgs>
   profile?: boolean | Prisma.Scenario$profileArgs<ExtArgs>
   run?: boolean | Prisma.Scenario$runArgs<ExtArgs>
@@ -2609,12 +3106,14 @@ export type ScenarioSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   videos?: boolean | Prisma.Scenario$videosArgs<ExtArgs>
   feedbacks?: boolean | Prisma.Scenario$feedbacksArgs<ExtArgs>
   criticReviews?: boolean | Prisma.Scenario$criticReviewsArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.Scenario$factoryQaReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.ScenarioCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["scenario"]>
 
 export type ScenarioSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   trendId?: boolean
+  hypothesisId?: boolean
   briefId?: boolean
   appId?: boolean
   sceneId?: boolean
@@ -2633,6 +3132,7 @@ export type ScenarioSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   runId?: boolean
   pipelineId?: boolean
   trend?: boolean | Prisma.Scenario$trendArgs<ExtArgs>
+  hypothesis?: boolean | Prisma.Scenario$hypothesisArgs<ExtArgs>
   scene?: boolean | Prisma.Scenario$sceneArgs<ExtArgs>
   profile?: boolean | Prisma.Scenario$profileArgs<ExtArgs>
   run?: boolean | Prisma.Scenario$runArgs<ExtArgs>
@@ -2642,6 +3142,7 @@ export type ScenarioSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
 export type ScenarioSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   trendId?: boolean
+  hypothesisId?: boolean
   briefId?: boolean
   appId?: boolean
   sceneId?: boolean
@@ -2660,6 +3161,7 @@ export type ScenarioSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   runId?: boolean
   pipelineId?: boolean
   trend?: boolean | Prisma.Scenario$trendArgs<ExtArgs>
+  hypothesis?: boolean | Prisma.Scenario$hypothesisArgs<ExtArgs>
   scene?: boolean | Prisma.Scenario$sceneArgs<ExtArgs>
   profile?: boolean | Prisma.Scenario$profileArgs<ExtArgs>
   run?: boolean | Prisma.Scenario$runArgs<ExtArgs>
@@ -2669,6 +3171,7 @@ export type ScenarioSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
 export type ScenarioSelectScalar = {
   id?: boolean
   trendId?: boolean
+  hypothesisId?: boolean
   briefId?: boolean
   appId?: boolean
   sceneId?: boolean
@@ -2688,9 +3191,10 @@ export type ScenarioSelectScalar = {
   pipelineId?: boolean
 }
 
-export type ScenarioOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "trendId" | "briefId" | "appId" | "sceneId" | "profileId" | "status" | "selectedVariantId" | "generationStatus" | "operatorNotes" | "reworkRequest" | "sourceBriefVersion" | "sourcePromptVersion" | "isDeleted" | "deletedAt" | "createdAt" | "updatedAt" | "runId" | "pipelineId", ExtArgs["result"]["scenario"]>
+export type ScenarioOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "trendId" | "hypothesisId" | "briefId" | "appId" | "sceneId" | "profileId" | "status" | "selectedVariantId" | "generationStatus" | "operatorNotes" | "reworkRequest" | "sourceBriefVersion" | "sourcePromptVersion" | "isDeleted" | "deletedAt" | "createdAt" | "updatedAt" | "runId" | "pipelineId", ExtArgs["result"]["scenario"]>
 export type ScenarioInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   trend?: boolean | Prisma.Scenario$trendArgs<ExtArgs>
+  hypothesis?: boolean | Prisma.Scenario$hypothesisArgs<ExtArgs>
   scene?: boolean | Prisma.Scenario$sceneArgs<ExtArgs>
   profile?: boolean | Prisma.Scenario$profileArgs<ExtArgs>
   run?: boolean | Prisma.Scenario$runArgs<ExtArgs>
@@ -2700,10 +3204,12 @@ export type ScenarioInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   videos?: boolean | Prisma.Scenario$videosArgs<ExtArgs>
   feedbacks?: boolean | Prisma.Scenario$feedbacksArgs<ExtArgs>
   criticReviews?: boolean | Prisma.Scenario$criticReviewsArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.Scenario$factoryQaReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.ScenarioCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ScenarioIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   trend?: boolean | Prisma.Scenario$trendArgs<ExtArgs>
+  hypothesis?: boolean | Prisma.Scenario$hypothesisArgs<ExtArgs>
   scene?: boolean | Prisma.Scenario$sceneArgs<ExtArgs>
   profile?: boolean | Prisma.Scenario$profileArgs<ExtArgs>
   run?: boolean | Prisma.Scenario$runArgs<ExtArgs>
@@ -2711,6 +3217,7 @@ export type ScenarioIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
 }
 export type ScenarioIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   trend?: boolean | Prisma.Scenario$trendArgs<ExtArgs>
+  hypothesis?: boolean | Prisma.Scenario$hypothesisArgs<ExtArgs>
   scene?: boolean | Prisma.Scenario$sceneArgs<ExtArgs>
   profile?: boolean | Prisma.Scenario$profileArgs<ExtArgs>
   run?: boolean | Prisma.Scenario$runArgs<ExtArgs>
@@ -2721,6 +3228,7 @@ export type $ScenarioPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   name: "Scenario"
   objects: {
     trend: Prisma.$TrendPayload<ExtArgs> | null
+    hypothesis: Prisma.$ContentHypothesisPayload<ExtArgs> | null
     scene: Prisma.$ScenePayload<ExtArgs> | null
     profile: Prisma.$ScenarioGenerationProfilePayload<ExtArgs> | null
     run: Prisma.$WorkflowRunPayload<ExtArgs> | null
@@ -2730,10 +3238,12 @@ export type $ScenarioPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     videos: Prisma.$VideoPayload<ExtArgs>[]
     feedbacks: Prisma.$ScenarioFeedbackPayload<ExtArgs>[]
     criticReviews: Prisma.$CriticReviewPayload<ExtArgs>[]
+    factoryQaReviews: Prisma.$FactoryQualityReviewPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
     trendId: number | null
+    hypothesisId: string | null
     briefId: number | null
     appId: number | null
     sceneId: string | null
@@ -3146,6 +3656,7 @@ readonly fields: ScenarioFieldRefs;
 export interface Prisma__ScenarioClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   trend<T extends Prisma.Scenario$trendArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$trendArgs<ExtArgs>>): Prisma.Prisma__TrendClient<runtime.Types.Result.GetResult<Prisma.$TrendPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  hypothesis<T extends Prisma.Scenario$hypothesisArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$hypothesisArgs<ExtArgs>>): Prisma.Prisma__ContentHypothesisClient<runtime.Types.Result.GetResult<Prisma.$ContentHypothesisPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   scene<T extends Prisma.Scenario$sceneArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$sceneArgs<ExtArgs>>): Prisma.Prisma__SceneClient<runtime.Types.Result.GetResult<Prisma.$ScenePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   profile<T extends Prisma.Scenario$profileArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$profileArgs<ExtArgs>>): Prisma.Prisma__ScenarioGenerationProfileClient<runtime.Types.Result.GetResult<Prisma.$ScenarioGenerationProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   run<T extends Prisma.Scenario$runArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$runArgs<ExtArgs>>): Prisma.Prisma__WorkflowRunClient<runtime.Types.Result.GetResult<Prisma.$WorkflowRunPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -3155,6 +3666,7 @@ export interface Prisma__ScenarioClient<T, Null = never, ExtArgs extends runtime
   videos<T extends Prisma.Scenario$videosArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$videosArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VideoPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   feedbacks<T extends Prisma.Scenario$feedbacksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$feedbacksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ScenarioFeedbackPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   criticReviews<T extends Prisma.Scenario$criticReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$criticReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CriticReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryQaReviews<T extends Prisma.Scenario$factoryQaReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Scenario$factoryQaReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryQualityReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3186,6 +3698,7 @@ export interface Prisma__ScenarioClient<T, Null = never, ExtArgs extends runtime
 export interface ScenarioFieldRefs {
   readonly id: Prisma.FieldRef<"Scenario", 'Int'>
   readonly trendId: Prisma.FieldRef<"Scenario", 'Int'>
+  readonly hypothesisId: Prisma.FieldRef<"Scenario", 'String'>
   readonly briefId: Prisma.FieldRef<"Scenario", 'Int'>
   readonly appId: Prisma.FieldRef<"Scenario", 'Int'>
   readonly sceneId: Prisma.FieldRef<"Scenario", 'String'>
@@ -3623,6 +4136,25 @@ export type Scenario$trendArgs<ExtArgs extends runtime.Types.Extensions.Internal
 }
 
 /**
+ * Scenario.hypothesis
+ */
+export type Scenario$hypothesisArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContentHypothesis
+   */
+  select?: Prisma.ContentHypothesisSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ContentHypothesis
+   */
+  omit?: Prisma.ContentHypothesisOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ContentHypothesisInclude<ExtArgs> | null
+  where?: Prisma.ContentHypothesisWhereInput
+}
+
+/**
  * Scenario.scene
  */
 export type Scenario$sceneArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3816,6 +4348,30 @@ export type Scenario$criticReviewsArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.CriticReviewScalarFieldEnum | Prisma.CriticReviewScalarFieldEnum[]
+}
+
+/**
+ * Scenario.factoryQaReviews
+ */
+export type Scenario$factoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryQualityReview
+   */
+  select?: Prisma.FactoryQualityReviewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryQualityReview
+   */
+  omit?: Prisma.FactoryQualityReviewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryQualityReviewInclude<ExtArgs> | null
+  where?: Prisma.FactoryQualityReviewWhereInput
+  orderBy?: Prisma.FactoryQualityReviewOrderByWithRelationInput | Prisma.FactoryQualityReviewOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryQualityReviewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryQualityReviewScalarFieldEnum | Prisma.FactoryQualityReviewScalarFieldEnum[]
 }
 
 /**

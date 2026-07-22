@@ -1,6 +1,7 @@
 import type { DecryptedAccount } from "./social/types"
 import { getSocialAdapter } from "./social/factory"
 import { sendTelegramAlert } from "./telegram/alerts"
+import { syncFactoryPublicationFromUpload } from "./factory-publication"
 
 /**
  * Расшифровывает токены аккаунта.
@@ -37,6 +38,7 @@ async function updateUploadStatus(
     where: { id: uploadId },
     data: { status: status as never, ...extra },
   })
+  await syncFactoryPublicationFromUpload(uploadId)
 }
 
 /**
@@ -206,12 +208,8 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Неизвестная ошибка"
 
-    await prisma.upload.update({
-      where: { id: uploadId },
-      data: {
-        status: "failed" as never,
-        errorMessage: message.slice(0, 1000),
-      },
+    await updateUploadStatus(uploadId, "failed", {
+      errorMessage: message.slice(0, 1000),
     }).catch(() => {})
   }
 }

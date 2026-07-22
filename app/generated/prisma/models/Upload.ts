@@ -401,6 +401,7 @@ export type UploadWhereInput = {
   references?: Prisma.ReferenceListRelationFilter
   attempts?: Prisma.SocialUploadAttemptListRelationFilter
   postingJob?: Prisma.XOR<Prisma.PostingJobNullableScalarRelationFilter, Prisma.PostingJobWhereInput> | null
+  factoryPublication?: Prisma.XOR<Prisma.FactoryPublicationNullableScalarRelationFilter, Prisma.FactoryPublicationWhereInput> | null
 }
 
 export type UploadOrderByWithRelationInput = {
@@ -437,6 +438,7 @@ export type UploadOrderByWithRelationInput = {
   references?: Prisma.ReferenceOrderByRelationAggregateInput
   attempts?: Prisma.SocialUploadAttemptOrderByRelationAggregateInput
   postingJob?: Prisma.PostingJobOrderByWithRelationInput
+  factoryPublication?: Prisma.FactoryPublicationOrderByWithRelationInput
 }
 
 export type UploadWhereUniqueInput = Prisma.AtLeast<{
@@ -476,6 +478,7 @@ export type UploadWhereUniqueInput = Prisma.AtLeast<{
   references?: Prisma.ReferenceListRelationFilter
   attempts?: Prisma.SocialUploadAttemptListRelationFilter
   postingJob?: Prisma.XOR<Prisma.PostingJobNullableScalarRelationFilter, Prisma.PostingJobWhereInput> | null
+  factoryPublication?: Prisma.XOR<Prisma.FactoryPublicationNullableScalarRelationFilter, Prisma.FactoryPublicationWhereInput> | null
 }, "id" | "idempotencyKey">
 
 export type UploadOrderByWithAggregationInput = {
@@ -568,6 +571,7 @@ export type UploadCreateInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateInput = {
@@ -599,6 +603,7 @@ export type UploadUncheckedCreateInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUpdateInput = {
@@ -629,6 +634,7 @@ export type UploadUpdateInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateInput = {
@@ -660,6 +666,7 @@ export type UploadUncheckedUpdateInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadCreateManyInput = {
@@ -1043,6 +1050,22 @@ export type UploadUpdateOneRequiredWithoutReferencesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UploadUpdateToOneWithWhereWithoutReferencesInput, Prisma.UploadUpdateWithoutReferencesInput>, Prisma.UploadUncheckedUpdateWithoutReferencesInput>
 }
 
+export type UploadCreateNestedOneWithoutFactoryPublicationInput = {
+  create?: Prisma.XOR<Prisma.UploadCreateWithoutFactoryPublicationInput, Prisma.UploadUncheckedCreateWithoutFactoryPublicationInput>
+  connectOrCreate?: Prisma.UploadCreateOrConnectWithoutFactoryPublicationInput
+  connect?: Prisma.UploadWhereUniqueInput
+}
+
+export type UploadUpdateOneWithoutFactoryPublicationNestedInput = {
+  create?: Prisma.XOR<Prisma.UploadCreateWithoutFactoryPublicationInput, Prisma.UploadUncheckedCreateWithoutFactoryPublicationInput>
+  connectOrCreate?: Prisma.UploadCreateOrConnectWithoutFactoryPublicationInput
+  upsert?: Prisma.UploadUpsertWithoutFactoryPublicationInput
+  disconnect?: Prisma.UploadWhereInput | boolean
+  delete?: Prisma.UploadWhereInput | boolean
+  connect?: Prisma.UploadWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UploadUpdateToOneWithWhereWithoutFactoryPublicationInput, Prisma.UploadUpdateWithoutFactoryPublicationInput>, Prisma.UploadUncheckedUpdateWithoutFactoryPublicationInput>
+}
+
 export type UploadCreateNestedManyWithoutPipelineInput = {
   create?: Prisma.XOR<Prisma.UploadCreateWithoutPipelineInput, Prisma.UploadUncheckedCreateWithoutPipelineInput> | Prisma.UploadCreateWithoutPipelineInput[] | Prisma.UploadUncheckedCreateWithoutPipelineInput[]
   connectOrCreate?: Prisma.UploadCreateOrConnectWithoutPipelineInput | Prisma.UploadCreateOrConnectWithoutPipelineInput[]
@@ -1170,6 +1193,7 @@ export type UploadCreateWithoutVideoInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutVideoInput = {
@@ -1200,6 +1224,7 @@ export type UploadUncheckedCreateWithoutVideoInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutVideoInput = {
@@ -1285,6 +1310,7 @@ export type UploadCreateWithoutSocialAccountInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutSocialAccountInput = {
@@ -1315,6 +1341,7 @@ export type UploadUncheckedCreateWithoutSocialAccountInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutSocialAccountInput = {
@@ -1370,6 +1397,7 @@ export type UploadCreateWithoutAccountGroupInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutAccountGroupInput = {
@@ -1400,6 +1428,7 @@ export type UploadUncheckedCreateWithoutAccountGroupInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutAccountGroupInput = {
@@ -1455,6 +1484,7 @@ export type UploadCreateWithoutAttemptsInput = {
   metrics?: Prisma.PostMetricsCreateNestedManyWithoutUploadInput
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutAttemptsInput = {
@@ -1485,6 +1515,7 @@ export type UploadUncheckedCreateWithoutAttemptsInput = {
   metrics?: Prisma.PostMetricsUncheckedCreateNestedManyWithoutUploadInput
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutAttemptsInput = {
@@ -1530,6 +1561,7 @@ export type UploadUpdateWithoutAttemptsInput = {
   metrics?: Prisma.PostMetricsUpdateManyWithoutUploadNestedInput
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutAttemptsInput = {
@@ -1560,6 +1592,7 @@ export type UploadUncheckedUpdateWithoutAttemptsInput = {
   metrics?: Prisma.PostMetricsUncheckedUpdateManyWithoutUploadNestedInput
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadCreateWithoutMetricsInput = {
@@ -1589,6 +1622,7 @@ export type UploadCreateWithoutMetricsInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutMetricsInput = {
@@ -1619,6 +1653,7 @@ export type UploadUncheckedCreateWithoutMetricsInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutMetricsInput = {
@@ -1664,6 +1699,7 @@ export type UploadUpdateWithoutMetricsInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutMetricsInput = {
@@ -1694,6 +1730,7 @@ export type UploadUncheckedUpdateWithoutMetricsInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadCreateWithoutReferencesInput = {
@@ -1723,6 +1760,7 @@ export type UploadCreateWithoutReferencesInput = {
   metrics?: Prisma.PostMetricsCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutReferencesInput = {
@@ -1753,6 +1791,7 @@ export type UploadUncheckedCreateWithoutReferencesInput = {
   metrics?: Prisma.PostMetricsUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutReferencesInput = {
@@ -1798,6 +1837,7 @@ export type UploadUpdateWithoutReferencesInput = {
   metrics?: Prisma.PostMetricsUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutReferencesInput = {
@@ -1826,6 +1866,145 @@ export type UploadUncheckedUpdateWithoutReferencesInput = {
   runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   metrics?: Prisma.PostMetricsUncheckedUpdateManyWithoutUploadNestedInput
+  attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
+  postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
+}
+
+export type UploadCreateWithoutFactoryPublicationInput = {
+  dispatchMode?: string | null
+  applicationId?: number | null
+  status?: $Enums.UploadStatus
+  postStatus?: $Enums.PostStatus
+  publishMode?: string
+  scheduledAt?: Date | string | null
+  platformPostId?: string | null
+  platformPostUrl?: string | null
+  title: string
+  description?: string | null
+  hashtags?: Prisma.UploadCreatehashtagsInput | string[]
+  idempotencyKey: string
+  errorMessage?: string | null
+  blockedByEnv?: boolean
+  attemptCount?: number
+  lastAttemptAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  video: Prisma.VideoCreateNestedOneWithoutUploadsInput
+  socialAccount: Prisma.SocialAccountCreateNestedOneWithoutUploadsInput
+  accountGroup?: Prisma.AccountGroupCreateNestedOneWithoutUploadsInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutUploadsInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutUploadsInput
+  metrics?: Prisma.PostMetricsCreateNestedManyWithoutUploadInput
+  references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
+  attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
+  postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+}
+
+export type UploadUncheckedCreateWithoutFactoryPublicationInput = {
+  id?: number
+  videoId: number
+  socialAccountId: number
+  accountGroupId?: number | null
+  dispatchMode?: string | null
+  applicationId?: number | null
+  status?: $Enums.UploadStatus
+  postStatus?: $Enums.PostStatus
+  publishMode?: string
+  scheduledAt?: Date | string | null
+  platformPostId?: string | null
+  platformPostUrl?: string | null
+  title: string
+  description?: string | null
+  hashtags?: Prisma.UploadCreatehashtagsInput | string[]
+  idempotencyKey: string
+  errorMessage?: string | null
+  blockedByEnv?: boolean
+  attemptCount?: number
+  lastAttemptAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  metrics?: Prisma.PostMetricsUncheckedCreateNestedManyWithoutUploadInput
+  references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
+  attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
+  postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+}
+
+export type UploadCreateOrConnectWithoutFactoryPublicationInput = {
+  where: Prisma.UploadWhereUniqueInput
+  create: Prisma.XOR<Prisma.UploadCreateWithoutFactoryPublicationInput, Prisma.UploadUncheckedCreateWithoutFactoryPublicationInput>
+}
+
+export type UploadUpsertWithoutFactoryPublicationInput = {
+  update: Prisma.XOR<Prisma.UploadUpdateWithoutFactoryPublicationInput, Prisma.UploadUncheckedUpdateWithoutFactoryPublicationInput>
+  create: Prisma.XOR<Prisma.UploadCreateWithoutFactoryPublicationInput, Prisma.UploadUncheckedCreateWithoutFactoryPublicationInput>
+  where?: Prisma.UploadWhereInput
+}
+
+export type UploadUpdateToOneWithWhereWithoutFactoryPublicationInput = {
+  where?: Prisma.UploadWhereInput
+  data: Prisma.XOR<Prisma.UploadUpdateWithoutFactoryPublicationInput, Prisma.UploadUncheckedUpdateWithoutFactoryPublicationInput>
+}
+
+export type UploadUpdateWithoutFactoryPublicationInput = {
+  dispatchMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumUploadStatusFieldUpdateOperationsInput | $Enums.UploadStatus
+  postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
+  publishMode?: Prisma.StringFieldUpdateOperationsInput | string
+  scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
+  idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  blockedByEnv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  video?: Prisma.VideoUpdateOneRequiredWithoutUploadsNestedInput
+  socialAccount?: Prisma.SocialAccountUpdateOneRequiredWithoutUploadsNestedInput
+  accountGroup?: Prisma.AccountGroupUpdateOneWithoutUploadsNestedInput
+  run?: Prisma.WorkflowRunUpdateOneWithoutUploadsNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutUploadsNestedInput
+  metrics?: Prisma.PostMetricsUpdateManyWithoutUploadNestedInput
+  references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
+  attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
+  postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+}
+
+export type UploadUncheckedUpdateWithoutFactoryPublicationInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  videoId?: Prisma.IntFieldUpdateOperationsInput | number
+  socialAccountId?: Prisma.IntFieldUpdateOperationsInput | number
+  accountGroupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dispatchMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumUploadStatusFieldUpdateOperationsInput | $Enums.UploadStatus
+  postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
+  publishMode?: Prisma.StringFieldUpdateOperationsInput | string
+  scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
+  idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  blockedByEnv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  metrics?: Prisma.PostMetricsUncheckedUpdateManyWithoutUploadNestedInput
+  references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
 }
@@ -1857,6 +2036,7 @@ export type UploadCreateWithoutPipelineInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutPipelineInput = {
@@ -1887,6 +2067,7 @@ export type UploadUncheckedCreateWithoutPipelineInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutPipelineInput = {
@@ -1942,6 +2123,7 @@ export type UploadCreateWithoutRunInput = {
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutRunInput = {
@@ -1972,6 +2154,7 @@ export type UploadUncheckedCreateWithoutRunInput = {
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
   postingJob?: Prisma.PostingJobUncheckedCreateNestedOneWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutRunInput = {
@@ -2027,6 +2210,7 @@ export type UploadCreateWithoutPostingJobInput = {
   metrics?: Prisma.PostMetricsCreateNestedManyWithoutUploadInput
   references?: Prisma.ReferenceCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptCreateNestedManyWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationCreateNestedOneWithoutUploadInput
 }
 
 export type UploadUncheckedCreateWithoutPostingJobInput = {
@@ -2057,6 +2241,7 @@ export type UploadUncheckedCreateWithoutPostingJobInput = {
   metrics?: Prisma.PostMetricsUncheckedCreateNestedManyWithoutUploadInput
   references?: Prisma.ReferenceUncheckedCreateNestedManyWithoutUploadInput
   attempts?: Prisma.SocialUploadAttemptUncheckedCreateNestedManyWithoutUploadInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedCreateNestedOneWithoutUploadInput
 }
 
 export type UploadCreateOrConnectWithoutPostingJobInput = {
@@ -2102,6 +2287,7 @@ export type UploadUpdateWithoutPostingJobInput = {
   metrics?: Prisma.PostMetricsUpdateManyWithoutUploadNestedInput
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutPostingJobInput = {
@@ -2132,6 +2318,7 @@ export type UploadUncheckedUpdateWithoutPostingJobInput = {
   metrics?: Prisma.PostMetricsUncheckedUpdateManyWithoutUploadNestedInput
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadCreateManyVideoInput = {
@@ -2187,6 +2374,7 @@ export type UploadUpdateWithoutVideoInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutVideoInput = {
@@ -2217,6 +2405,7 @@ export type UploadUncheckedUpdateWithoutVideoInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateManyWithoutVideoInput = {
@@ -2298,6 +2487,7 @@ export type UploadUpdateWithoutSocialAccountInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutSocialAccountInput = {
@@ -2328,6 +2518,7 @@ export type UploadUncheckedUpdateWithoutSocialAccountInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateManyWithoutSocialAccountInput = {
@@ -2409,6 +2600,7 @@ export type UploadUpdateWithoutAccountGroupInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutAccountGroupInput = {
@@ -2439,6 +2631,7 @@ export type UploadUncheckedUpdateWithoutAccountGroupInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateManyWithoutAccountGroupInput = {
@@ -2520,6 +2713,7 @@ export type UploadUpdateWithoutPipelineInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutPipelineInput = {
@@ -2550,6 +2744,7 @@ export type UploadUncheckedUpdateWithoutPipelineInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateManyWithoutPipelineInput = {
@@ -2631,6 +2826,7 @@ export type UploadUpdateWithoutRunInput = {
   references?: Prisma.ReferenceUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateWithoutRunInput = {
@@ -2661,6 +2857,7 @@ export type UploadUncheckedUpdateWithoutRunInput = {
   references?: Prisma.ReferenceUncheckedUpdateManyWithoutUploadNestedInput
   attempts?: Prisma.SocialUploadAttemptUncheckedUpdateManyWithoutUploadNestedInput
   postingJob?: Prisma.PostingJobUncheckedUpdateOneWithoutUploadNestedInput
+  factoryPublication?: Prisma.FactoryPublicationUncheckedUpdateOneWithoutUploadNestedInput
 }
 
 export type UploadUncheckedUpdateManyWithoutRunInput = {
@@ -2772,6 +2969,7 @@ export type UploadSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   references?: boolean | Prisma.Upload$referencesArgs<ExtArgs>
   attempts?: boolean | Prisma.Upload$attemptsArgs<ExtArgs>
   postingJob?: boolean | Prisma.Upload$postingJobArgs<ExtArgs>
+  factoryPublication?: boolean | Prisma.Upload$factoryPublicationArgs<ExtArgs>
   _count?: boolean | Prisma.UploadCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["upload"]>
 
@@ -2877,6 +3075,7 @@ export type UploadInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   references?: boolean | Prisma.Upload$referencesArgs<ExtArgs>
   attempts?: boolean | Prisma.Upload$attemptsArgs<ExtArgs>
   postingJob?: boolean | Prisma.Upload$postingJobArgs<ExtArgs>
+  factoryPublication?: boolean | Prisma.Upload$factoryPublicationArgs<ExtArgs>
   _count?: boolean | Prisma.UploadCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UploadIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2906,6 +3105,7 @@ export type $UploadPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     references: Prisma.$ReferencePayload<ExtArgs>[]
     attempts: Prisma.$SocialUploadAttemptPayload<ExtArgs>[]
     postingJob: Prisma.$PostingJobPayload<ExtArgs> | null
+    factoryPublication: Prisma.$FactoryPublicationPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -3335,6 +3535,7 @@ export interface Prisma__UploadClient<T, Null = never, ExtArgs extends runtime.T
   references<T extends Prisma.Upload$referencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Upload$referencesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReferencePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   attempts<T extends Prisma.Upload$attemptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Upload$attemptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SocialUploadAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   postingJob<T extends Prisma.Upload$postingJobArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Upload$postingJobArgs<ExtArgs>>): Prisma.Prisma__PostingJobClient<runtime.Types.Result.GetResult<Prisma.$PostingJobPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  factoryPublication<T extends Prisma.Upload$factoryPublicationArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Upload$factoryPublicationArgs<ExtArgs>>): Prisma.Prisma__FactoryPublicationClient<runtime.Types.Result.GetResult<Prisma.$FactoryPublicationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3934,6 +4135,25 @@ export type Upload$postingJobArgs<ExtArgs extends runtime.Types.Extensions.Inter
    */
   include?: Prisma.PostingJobInclude<ExtArgs> | null
   where?: Prisma.PostingJobWhereInput
+}
+
+/**
+ * Upload.factoryPublication
+ */
+export type Upload$factoryPublicationArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryPublication
+   */
+  select?: Prisma.FactoryPublicationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryPublication
+   */
+  omit?: Prisma.FactoryPublicationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryPublicationInclude<ExtArgs> | null
+  where?: Prisma.FactoryPublicationWhereInput
 }
 
 /**

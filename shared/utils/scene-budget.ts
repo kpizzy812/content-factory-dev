@@ -29,6 +29,7 @@ export const SCENE_BUDGET_LIMITS: Record<SceneCountStrategy, SceneBudgetLimit> =
   auto:      { minScenes: 3, maxScenes: 5, minSec: 3, maxSec: 6, totalSec: '15-25 секунд (стандарт, ~$2)' },
   detailed:  { minScenes: 4, maxScenes: 5, minSec: 4, maxSec: 7, totalSec: '20-35 секунд (проработано, ~$2.5-3.5)' },
   cinematic: { minScenes: 5, maxScenes: 6, minSec: 6, maxSec: 9, totalSec: '30-55 секунд (максимум, ~$4-5)' },
+  longform:  { minScenes: 9, maxScenes: 9, minSec: 8, maxSec: 10, totalSec: '72-90 секунд (длинный Reels/Shorts)' },
 }
 
 export interface ExpectedScenePlan {

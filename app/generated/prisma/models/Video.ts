@@ -108,6 +108,7 @@ export type VideoMinAggregateOutputType = {
   generateAudio: boolean | null
   lipSyncEnabled: boolean | null
   lipSyncModelId: string | null
+  lipSyncCharacterId: string | null
   isLocked: boolean | null
   lockedAt: Date | null
   lockedReason: string | null
@@ -171,6 +172,7 @@ export type VideoMaxAggregateOutputType = {
   generateAudio: boolean | null
   lipSyncEnabled: boolean | null
   lipSyncModelId: string | null
+  lipSyncCharacterId: string | null
   isLocked: boolean | null
   lockedAt: Date | null
   lockedReason: string | null
@@ -236,6 +238,7 @@ export type VideoCountAggregateOutputType = {
   generateAudio: number
   lipSyncEnabled: number
   lipSyncModelId: number
+  lipSyncCharacterId: number
   isLocked: number
   lockedAt: number
   lockedReason: number
@@ -344,6 +347,7 @@ export type VideoMinAggregateInputType = {
   generateAudio?: true
   lipSyncEnabled?: true
   lipSyncModelId?: true
+  lipSyncCharacterId?: true
   isLocked?: true
   lockedAt?: true
   lockedReason?: true
@@ -407,6 +411,7 @@ export type VideoMaxAggregateInputType = {
   generateAudio?: true
   lipSyncEnabled?: true
   lipSyncModelId?: true
+  lipSyncCharacterId?: true
   isLocked?: true
   lockedAt?: true
   lockedReason?: true
@@ -472,6 +477,7 @@ export type VideoCountAggregateInputType = {
   generateAudio?: true
   lipSyncEnabled?: true
   lipSyncModelId?: true
+  lipSyncCharacterId?: true
   isLocked?: true
   lockedAt?: true
   lockedReason?: true
@@ -625,6 +631,7 @@ export type VideoGroupByOutputType = {
   generateAudio: boolean
   lipSyncEnabled: boolean
   lipSyncModelId: string | null
+  lipSyncCharacterId: string | null
   isLocked: boolean
   lockedAt: Date | null
   lockedReason: string | null
@@ -714,6 +721,7 @@ export type VideoWhereInput = {
   generateAudio?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
+  lipSyncCharacterId?: Prisma.StringNullableFilter<"Video"> | string | null
   isLocked?: Prisma.BoolFilter<"Video"> | boolean
   lockedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
   lockedReason?: Prisma.StringNullableFilter<"Video"> | string | null
@@ -737,6 +745,7 @@ export type VideoWhereInput = {
   fitScore?: Prisma.FloatNullableFilter<"Video"> | number | null
   fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
   scenario?: Prisma.XOR<Prisma.ScenarioScalarRelationFilter, Prisma.ScenarioWhereInput>
+  lipSyncCharacter?: Prisma.XOR<Prisma.CharacterNullableScalarRelationFilter, Prisma.CharacterWhereInput> | null
   run?: Prisma.XOR<Prisma.WorkflowRunNullableScalarRelationFilter, Prisma.WorkflowRunWhereInput> | null
   pipeline?: Prisma.XOR<Prisma.PipelineNullableScalarRelationFilter, Prisma.PipelineWhereInput> | null
   assets?: Prisma.VideoAssetListRelationFilter
@@ -744,6 +753,8 @@ export type VideoWhereInput = {
   steps?: Prisma.VideoGenerationStepListRelationFilter
   mediaPredictions?: Prisma.MediaPredictionListRelationFilter
   postingJobs?: Prisma.PostingJobListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
   uniqueVariants?: Prisma.VideoUniqueVariantListRelationFilter
   captions?: Prisma.CaptionListRelationFilter
   driveFile?: Prisma.XOR<Prisma.DriveFileNullableScalarRelationFilter, Prisma.DriveFileWhereInput> | null
@@ -793,6 +804,7 @@ export type VideoOrderByWithRelationInput = {
   generateAudio?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrderInput | Prisma.SortOrder
+  lipSyncCharacterId?: Prisma.SortOrderInput | Prisma.SortOrder
   isLocked?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedReason?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -816,6 +828,7 @@ export type VideoOrderByWithRelationInput = {
   fitScore?: Prisma.SortOrderInput | Prisma.SortOrder
   fitRationale?: Prisma.SortOrderInput | Prisma.SortOrder
   scenario?: Prisma.ScenarioOrderByWithRelationInput
+  lipSyncCharacter?: Prisma.CharacterOrderByWithRelationInput
   run?: Prisma.WorkflowRunOrderByWithRelationInput
   pipeline?: Prisma.PipelineOrderByWithRelationInput
   assets?: Prisma.VideoAssetOrderByRelationAggregateInput
@@ -823,6 +836,8 @@ export type VideoOrderByWithRelationInput = {
   steps?: Prisma.VideoGenerationStepOrderByRelationAggregateInput
   mediaPredictions?: Prisma.MediaPredictionOrderByRelationAggregateInput
   postingJobs?: Prisma.PostingJobOrderByRelationAggregateInput
+  factoryPublications?: Prisma.FactoryPublicationOrderByRelationAggregateInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewOrderByRelationAggregateInput
   uniqueVariants?: Prisma.VideoUniqueVariantOrderByRelationAggregateInput
   captions?: Prisma.CaptionOrderByRelationAggregateInput
   driveFile?: Prisma.DriveFileOrderByWithRelationInput
@@ -875,6 +890,7 @@ export type VideoWhereUniqueInput = Prisma.AtLeast<{
   generateAudio?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
+  lipSyncCharacterId?: Prisma.StringNullableFilter<"Video"> | string | null
   isLocked?: Prisma.BoolFilter<"Video"> | boolean
   lockedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
   lockedReason?: Prisma.StringNullableFilter<"Video"> | string | null
@@ -898,6 +914,7 @@ export type VideoWhereUniqueInput = Prisma.AtLeast<{
   fitScore?: Prisma.FloatNullableFilter<"Video"> | number | null
   fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
   scenario?: Prisma.XOR<Prisma.ScenarioScalarRelationFilter, Prisma.ScenarioWhereInput>
+  lipSyncCharacter?: Prisma.XOR<Prisma.CharacterNullableScalarRelationFilter, Prisma.CharacterWhereInput> | null
   run?: Prisma.XOR<Prisma.WorkflowRunNullableScalarRelationFilter, Prisma.WorkflowRunWhereInput> | null
   pipeline?: Prisma.XOR<Prisma.PipelineNullableScalarRelationFilter, Prisma.PipelineWhereInput> | null
   assets?: Prisma.VideoAssetListRelationFilter
@@ -905,6 +922,8 @@ export type VideoWhereUniqueInput = Prisma.AtLeast<{
   steps?: Prisma.VideoGenerationStepListRelationFilter
   mediaPredictions?: Prisma.MediaPredictionListRelationFilter
   postingJobs?: Prisma.PostingJobListRelationFilter
+  factoryPublications?: Prisma.FactoryPublicationListRelationFilter
+  factoryQaReviews?: Prisma.FactoryQualityReviewListRelationFilter
   uniqueVariants?: Prisma.VideoUniqueVariantListRelationFilter
   captions?: Prisma.CaptionListRelationFilter
   driveFile?: Prisma.XOR<Prisma.DriveFileNullableScalarRelationFilter, Prisma.DriveFileWhereInput> | null
@@ -954,6 +973,7 @@ export type VideoOrderByWithAggregationInput = {
   generateAudio?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrderInput | Prisma.SortOrder
+  lipSyncCharacterId?: Prisma.SortOrderInput | Prisma.SortOrder
   isLocked?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedReason?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -1028,6 +1048,7 @@ export type VideoScalarWhereWithAggregatesInput = {
   generateAudio?: Prisma.BoolWithAggregatesFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolWithAggregatesFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableWithAggregatesFilter<"Video"> | string | null
+  lipSyncCharacterId?: Prisma.StringNullableWithAggregatesFilter<"Video"> | string | null
   isLocked?: Prisma.BoolWithAggregatesFilter<"Video"> | boolean
   lockedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Video"> | Date | string | null
   lockedReason?: Prisma.StringNullableWithAggregatesFilter<"Video"> | string | null
@@ -1112,6 +1133,7 @@ export type VideoCreateInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
@@ -1119,6 +1141,8 @@ export type VideoCreateInput = {
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -1168,6 +1192,7 @@ export type VideoUncheckedCreateInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -1195,6 +1220,8 @@ export type VideoUncheckedCreateInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -1261,6 +1288,7 @@ export type VideoUpdateInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -1268,6 +1296,8 @@ export type VideoUpdateInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -1317,6 +1347,7 @@ export type VideoUncheckedUpdateInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1344,6 +1375,8 @@ export type VideoUncheckedUpdateInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -1392,6 +1425,7 @@ export type VideoCreateManyInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -1519,6 +1553,7 @@ export type VideoUncheckedUpdateManyInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1595,6 +1630,7 @@ export type VideoCountOrderByAggregateInput = {
   generateAudio?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrder
+  lipSyncCharacterId?: Prisma.SortOrder
   isLocked?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   lockedReason?: Prisma.SortOrder
@@ -1680,6 +1716,7 @@ export type VideoMaxOrderByAggregateInput = {
   generateAudio?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrder
+  lipSyncCharacterId?: Prisma.SortOrder
   isLocked?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   lockedReason?: Prisma.SortOrder
@@ -1743,6 +1780,7 @@ export type VideoMinOrderByAggregateInput = {
   generateAudio?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrder
+  lipSyncCharacterId?: Prisma.SortOrder
   isLocked?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   lockedReason?: Prisma.SortOrder
@@ -1795,6 +1833,48 @@ export type VideoScalarRelationFilter = {
 export type VideoNullableScalarRelationFilter = {
   is?: Prisma.VideoWhereInput | null
   isNot?: Prisma.VideoWhereInput | null
+}
+
+export type VideoCreateNestedManyWithoutLipSyncCharacterInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput> | Prisma.VideoCreateWithoutLipSyncCharacterInput[] | Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput[]
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput | Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput[]
+  createMany?: Prisma.VideoCreateManyLipSyncCharacterInputEnvelope
+  connect?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+}
+
+export type VideoUncheckedCreateNestedManyWithoutLipSyncCharacterInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput> | Prisma.VideoCreateWithoutLipSyncCharacterInput[] | Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput[]
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput | Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput[]
+  createMany?: Prisma.VideoCreateManyLipSyncCharacterInputEnvelope
+  connect?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+}
+
+export type VideoUpdateManyWithoutLipSyncCharacterNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput> | Prisma.VideoCreateWithoutLipSyncCharacterInput[] | Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput[]
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput | Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput[]
+  upsert?: Prisma.VideoUpsertWithWhereUniqueWithoutLipSyncCharacterInput | Prisma.VideoUpsertWithWhereUniqueWithoutLipSyncCharacterInput[]
+  createMany?: Prisma.VideoCreateManyLipSyncCharacterInputEnvelope
+  set?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  disconnect?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  delete?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  connect?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  update?: Prisma.VideoUpdateWithWhereUniqueWithoutLipSyncCharacterInput | Prisma.VideoUpdateWithWhereUniqueWithoutLipSyncCharacterInput[]
+  updateMany?: Prisma.VideoUpdateManyWithWhereWithoutLipSyncCharacterInput | Prisma.VideoUpdateManyWithWhereWithoutLipSyncCharacterInput[]
+  deleteMany?: Prisma.VideoScalarWhereInput | Prisma.VideoScalarWhereInput[]
+}
+
+export type VideoUncheckedUpdateManyWithoutLipSyncCharacterNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput> | Prisma.VideoCreateWithoutLipSyncCharacterInput[] | Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput[]
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput | Prisma.VideoCreateOrConnectWithoutLipSyncCharacterInput[]
+  upsert?: Prisma.VideoUpsertWithWhereUniqueWithoutLipSyncCharacterInput | Prisma.VideoUpsertWithWhereUniqueWithoutLipSyncCharacterInput[]
+  createMany?: Prisma.VideoCreateManyLipSyncCharacterInputEnvelope
+  set?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  disconnect?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  delete?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  connect?: Prisma.VideoWhereUniqueInput | Prisma.VideoWhereUniqueInput[]
+  update?: Prisma.VideoUpdateWithWhereUniqueWithoutLipSyncCharacterInput | Prisma.VideoUpdateWithWhereUniqueWithoutLipSyncCharacterInput[]
+  updateMany?: Prisma.VideoUpdateManyWithWhereWithoutLipSyncCharacterInput | Prisma.VideoUpdateManyWithWhereWithoutLipSyncCharacterInput[]
+  deleteMany?: Prisma.VideoScalarWhereInput | Prisma.VideoScalarWhereInput[]
 }
 
 export type VideoCreateNestedManyWithoutScenarioInput = {
@@ -1853,14 +1933,6 @@ export type NullableBigIntFieldUpdateOperationsInput = {
   decrement?: bigint | number
   multiply?: bigint | number
   divide?: bigint | number
-}
-
-export type FloatFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
 }
 
 export type VideoCreateNestedOneWithoutFramesInput = {
@@ -1933,6 +2005,38 @@ export type VideoUpdateOneRequiredWithoutUploadsNestedInput = {
   upsert?: Prisma.VideoUpsertWithoutUploadsInput
   connect?: Prisma.VideoWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.VideoUpdateToOneWithWhereWithoutUploadsInput, Prisma.VideoUpdateWithoutUploadsInput>, Prisma.VideoUncheckedUpdateWithoutUploadsInput>
+}
+
+export type VideoCreateNestedOneWithoutFactoryPublicationsInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutFactoryPublicationsInput, Prisma.VideoUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutFactoryPublicationsInput
+  connect?: Prisma.VideoWhereUniqueInput
+}
+
+export type VideoUpdateOneWithoutFactoryPublicationsNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutFactoryPublicationsInput, Prisma.VideoUncheckedCreateWithoutFactoryPublicationsInput>
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutFactoryPublicationsInput
+  upsert?: Prisma.VideoUpsertWithoutFactoryPublicationsInput
+  disconnect?: Prisma.VideoWhereInput | boolean
+  delete?: Prisma.VideoWhereInput | boolean
+  connect?: Prisma.VideoWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.VideoUpdateToOneWithWhereWithoutFactoryPublicationsInput, Prisma.VideoUpdateWithoutFactoryPublicationsInput>, Prisma.VideoUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type VideoCreateNestedOneWithoutFactoryQaReviewsInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutFactoryQaReviewsInput, Prisma.VideoUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutFactoryQaReviewsInput
+  connect?: Prisma.VideoWhereUniqueInput
+}
+
+export type VideoUpdateOneWithoutFactoryQaReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoCreateWithoutFactoryQaReviewsInput, Prisma.VideoUncheckedCreateWithoutFactoryQaReviewsInput>
+  connectOrCreate?: Prisma.VideoCreateOrConnectWithoutFactoryQaReviewsInput
+  upsert?: Prisma.VideoUpsertWithoutFactoryQaReviewsInput
+  disconnect?: Prisma.VideoWhereInput | boolean
+  delete?: Prisma.VideoWhereInput | boolean
+  connect?: Prisma.VideoWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.VideoUpdateToOneWithWhereWithoutFactoryQaReviewsInput, Prisma.VideoUpdateWithoutFactoryQaReviewsInput>, Prisma.VideoUncheckedUpdateWithoutFactoryQaReviewsInput>
 }
 
 export type VideoCreateNestedManyWithoutPipelineInput = {
@@ -2119,249 +2223,7 @@ export type VideoUpdateOneRequiredWithoutCaptionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.VideoUpdateToOneWithWhereWithoutCaptionsInput, Prisma.VideoUpdateWithoutCaptionsInput>, Prisma.VideoUncheckedUpdateWithoutCaptionsInput>
 }
 
-export type VideoCreateWithoutScenarioInput = {
-  variantId?: number | null
-  applicationId?: number | null
-  status?: $Enums.VideoStatus
-  currentStep?: string | null
-  format?: $Enums.VideoFormat
-  filePath?: string | null
-  fileUrl?: string | null
-  storageKey?: string | null
-  storageProvider?: string
-  fileSizeBytes?: bigint | number | null
-  fileSha256?: string | null
-  duration?: number | null
-  errorMessage?: string | null
-  subtitlesEnabled?: boolean
-  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  subtitlePreset?: string | null
-  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  musicEnabled?: boolean
-  musicMood?: string | null
-  musicDuration?: number | null
-  musicVolume?: number
-  musicVolumeWithVoiceover?: number
-  clipDuration?: number
-  imageCount?: number
-  renderQuality?: string
-  targetPlatform?: string | null
-  voiceoverEnabled?: boolean
-  voiceoverProvider?: string | null
-  voiceoverModelId?: string | null
-  voiceoverVoiceId?: string | null
-  voiceoverLanguage?: string
-  voiceoverPacing?: string
-  voiceoverReconciliation?: string
-  imageModelId?: string
-  videoModelId?: string
-  modelStrategy?: string
-  generateAudio?: boolean
-  lipSyncEnabled?: boolean
-  lipSyncModelId?: string | null
-  isLocked?: boolean
-  lockedAt?: Date | string | null
-  lockedReason?: string | null
-  startedAt?: Date | string | null
-  finishedAt?: Date | string | null
-  totalCostEstimate?: number | null
-  totalCostActual?: number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  isExternalCreative?: boolean
-  externalSource?: string | null
-  externalSourceId?: string | null
-  driveFileId?: string | null
-  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  framePassVersion?: string | null
-  framePassRunAt?: Date | string | null
-  analysisDurationSec?: number | null
-  fitScore?: number | null
-  fitRationale?: string | null
-  run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
-  pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
-  assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
-  uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
-  steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
-  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
-  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
-  uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
-  captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
-  driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
-  driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
-  frames?: Prisma.VideoFrameCreateNestedManyWithoutVideoInput
-}
-
-export type VideoUncheckedCreateWithoutScenarioInput = {
-  id?: number
-  variantId?: number | null
-  applicationId?: number | null
-  status?: $Enums.VideoStatus
-  currentStep?: string | null
-  format?: $Enums.VideoFormat
-  filePath?: string | null
-  fileUrl?: string | null
-  storageKey?: string | null
-  storageProvider?: string
-  fileSizeBytes?: bigint | number | null
-  fileSha256?: string | null
-  duration?: number | null
-  errorMessage?: string | null
-  subtitlesEnabled?: boolean
-  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  subtitlePreset?: string | null
-  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  musicEnabled?: boolean
-  musicMood?: string | null
-  musicDuration?: number | null
-  musicVolume?: number
-  musicVolumeWithVoiceover?: number
-  clipDuration?: number
-  imageCount?: number
-  renderQuality?: string
-  targetPlatform?: string | null
-  voiceoverEnabled?: boolean
-  voiceoverProvider?: string | null
-  voiceoverModelId?: string | null
-  voiceoverVoiceId?: string | null
-  voiceoverLanguage?: string
-  voiceoverPacing?: string
-  voiceoverReconciliation?: string
-  imageModelId?: string
-  videoModelId?: string
-  modelStrategy?: string
-  generateAudio?: boolean
-  lipSyncEnabled?: boolean
-  lipSyncModelId?: string | null
-  isLocked?: boolean
-  lockedAt?: Date | string | null
-  lockedReason?: string | null
-  startedAt?: Date | string | null
-  finishedAt?: Date | string | null
-  totalCostEstimate?: number | null
-  totalCostActual?: number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  runId?: number | null
-  pipelineId?: number | null
-  isExternalCreative?: boolean
-  externalSource?: string | null
-  externalSourceId?: string | null
-  driveFileId?: string | null
-  driveCredentialId?: number | null
-  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  framePassVersion?: string | null
-  framePassRunAt?: Date | string | null
-  analysisDurationSec?: number | null
-  fitScore?: number | null
-  fitRationale?: string | null
-  assets?: Prisma.VideoAssetUncheckedCreateNestedManyWithoutVideoInput
-  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
-  steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
-  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
-  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
-  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
-  captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
-  driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
-  frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
-}
-
-export type VideoCreateOrConnectWithoutScenarioInput = {
-  where: Prisma.VideoWhereUniqueInput
-  create: Prisma.XOR<Prisma.VideoCreateWithoutScenarioInput, Prisma.VideoUncheckedCreateWithoutScenarioInput>
-}
-
-export type VideoCreateManyScenarioInputEnvelope = {
-  data: Prisma.VideoCreateManyScenarioInput | Prisma.VideoCreateManyScenarioInput[]
-  skipDuplicates?: boolean
-}
-
-export type VideoUpsertWithWhereUniqueWithoutScenarioInput = {
-  where: Prisma.VideoWhereUniqueInput
-  update: Prisma.XOR<Prisma.VideoUpdateWithoutScenarioInput, Prisma.VideoUncheckedUpdateWithoutScenarioInput>
-  create: Prisma.XOR<Prisma.VideoCreateWithoutScenarioInput, Prisma.VideoUncheckedCreateWithoutScenarioInput>
-}
-
-export type VideoUpdateWithWhereUniqueWithoutScenarioInput = {
-  where: Prisma.VideoWhereUniqueInput
-  data: Prisma.XOR<Prisma.VideoUpdateWithoutScenarioInput, Prisma.VideoUncheckedUpdateWithoutScenarioInput>
-}
-
-export type VideoUpdateManyWithWhereWithoutScenarioInput = {
-  where: Prisma.VideoScalarWhereInput
-  data: Prisma.XOR<Prisma.VideoUpdateManyMutationInput, Prisma.VideoUncheckedUpdateManyWithoutScenarioInput>
-}
-
-export type VideoScalarWhereInput = {
-  AND?: Prisma.VideoScalarWhereInput | Prisma.VideoScalarWhereInput[]
-  OR?: Prisma.VideoScalarWhereInput[]
-  NOT?: Prisma.VideoScalarWhereInput | Prisma.VideoScalarWhereInput[]
-  id?: Prisma.IntFilter<"Video"> | number
-  scenarioId?: Prisma.IntFilter<"Video"> | number
-  variantId?: Prisma.IntNullableFilter<"Video"> | number | null
-  applicationId?: Prisma.IntNullableFilter<"Video"> | number | null
-  status?: Prisma.EnumVideoStatusFilter<"Video"> | $Enums.VideoStatus
-  currentStep?: Prisma.StringNullableFilter<"Video"> | string | null
-  format?: Prisma.EnumVideoFormatFilter<"Video"> | $Enums.VideoFormat
-  filePath?: Prisma.StringNullableFilter<"Video"> | string | null
-  fileUrl?: Prisma.StringNullableFilter<"Video"> | string | null
-  storageKey?: Prisma.StringNullableFilter<"Video"> | string | null
-  storageProvider?: Prisma.StringFilter<"Video"> | string
-  fileSizeBytes?: Prisma.BigIntNullableFilter<"Video"> | bigint | number | null
-  fileSha256?: Prisma.StringNullableFilter<"Video"> | string | null
-  duration?: Prisma.IntNullableFilter<"Video"> | number | null
-  errorMessage?: Prisma.StringNullableFilter<"Video"> | string | null
-  subtitlesEnabled?: Prisma.BoolFilter<"Video"> | boolean
-  subtitlesStyle?: Prisma.JsonNullableFilter<"Video">
-  subtitlePreset?: Prisma.StringNullableFilter<"Video"> | string | null
-  voiceoverPlan?: Prisma.JsonNullableFilter<"Video">
-  musicEnabled?: Prisma.BoolFilter<"Video"> | boolean
-  musicMood?: Prisma.StringNullableFilter<"Video"> | string | null
-  musicDuration?: Prisma.IntNullableFilter<"Video"> | number | null
-  musicVolume?: Prisma.FloatFilter<"Video"> | number
-  musicVolumeWithVoiceover?: Prisma.FloatFilter<"Video"> | number
-  clipDuration?: Prisma.IntFilter<"Video"> | number
-  imageCount?: Prisma.IntFilter<"Video"> | number
-  renderQuality?: Prisma.StringFilter<"Video"> | string
-  targetPlatform?: Prisma.StringNullableFilter<"Video"> | string | null
-  voiceoverEnabled?: Prisma.BoolFilter<"Video"> | boolean
-  voiceoverProvider?: Prisma.StringNullableFilter<"Video"> | string | null
-  voiceoverModelId?: Prisma.StringNullableFilter<"Video"> | string | null
-  voiceoverVoiceId?: Prisma.StringNullableFilter<"Video"> | string | null
-  voiceoverLanguage?: Prisma.StringFilter<"Video"> | string
-  voiceoverPacing?: Prisma.StringFilter<"Video"> | string
-  voiceoverReconciliation?: Prisma.StringFilter<"Video"> | string
-  imageModelId?: Prisma.StringFilter<"Video"> | string
-  videoModelId?: Prisma.StringFilter<"Video"> | string
-  modelStrategy?: Prisma.StringFilter<"Video"> | string
-  generateAudio?: Prisma.BoolFilter<"Video"> | boolean
-  lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
-  lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
-  isLocked?: Prisma.BoolFilter<"Video"> | boolean
-  lockedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
-  lockedReason?: Prisma.StringNullableFilter<"Video"> | string | null
-  startedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
-  finishedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
-  totalCostEstimate?: Prisma.FloatNullableFilter<"Video"> | number | null
-  totalCostActual?: Prisma.FloatNullableFilter<"Video"> | number | null
-  createdAt?: Prisma.DateTimeFilter<"Video"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"Video"> | Date | string
-  runId?: Prisma.IntNullableFilter<"Video"> | number | null
-  pipelineId?: Prisma.IntNullableFilter<"Video"> | number | null
-  isExternalCreative?: Prisma.BoolFilter<"Video"> | boolean
-  externalSource?: Prisma.StringNullableFilter<"Video"> | string | null
-  externalSourceId?: Prisma.StringNullableFilter<"Video"> | string | null
-  driveFileId?: Prisma.StringNullableFilter<"Video"> | string | null
-  driveCredentialId?: Prisma.IntNullableFilter<"Video"> | number | null
-  analysisData?: Prisma.JsonNullableFilter<"Video">
-  framePassVersion?: Prisma.StringNullableFilter<"Video"> | string | null
-  framePassRunAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
-  analysisDurationSec?: Prisma.FloatNullableFilter<"Video"> | number | null
-  fitScore?: Prisma.FloatNullableFilter<"Video"> | number | null
-  fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
-}
-
-export type VideoCreateWithoutFramesInput = {
+export type VideoCreateWithoutLipSyncCharacterInput = {
   variantId?: number | null
   applicationId?: number | null
   status?: $Enums.VideoStatus
@@ -2428,13 +2290,16 @@ export type VideoCreateWithoutFramesInput = {
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
   driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
+  frames?: Prisma.VideoFrameCreateNestedManyWithoutVideoInput
 }
 
-export type VideoUncheckedCreateWithoutFramesInput = {
+export type VideoUncheckedCreateWithoutLipSyncCharacterInput = {
   id?: number
   scenarioId: number
   variantId?: number | null
@@ -2503,6 +2368,437 @@ export type VideoUncheckedCreateWithoutFramesInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
+  frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
+}
+
+export type VideoCreateOrConnectWithoutLipSyncCharacterInput = {
+  where: Prisma.VideoWhereUniqueInput
+  create: Prisma.XOR<Prisma.VideoCreateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput>
+}
+
+export type VideoCreateManyLipSyncCharacterInputEnvelope = {
+  data: Prisma.VideoCreateManyLipSyncCharacterInput | Prisma.VideoCreateManyLipSyncCharacterInput[]
+  skipDuplicates?: boolean
+}
+
+export type VideoUpsertWithWhereUniqueWithoutLipSyncCharacterInput = {
+  where: Prisma.VideoWhereUniqueInput
+  update: Prisma.XOR<Prisma.VideoUpdateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedUpdateWithoutLipSyncCharacterInput>
+  create: Prisma.XOR<Prisma.VideoCreateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedCreateWithoutLipSyncCharacterInput>
+}
+
+export type VideoUpdateWithWhereUniqueWithoutLipSyncCharacterInput = {
+  where: Prisma.VideoWhereUniqueInput
+  data: Prisma.XOR<Prisma.VideoUpdateWithoutLipSyncCharacterInput, Prisma.VideoUncheckedUpdateWithoutLipSyncCharacterInput>
+}
+
+export type VideoUpdateManyWithWhereWithoutLipSyncCharacterInput = {
+  where: Prisma.VideoScalarWhereInput
+  data: Prisma.XOR<Prisma.VideoUpdateManyMutationInput, Prisma.VideoUncheckedUpdateManyWithoutLipSyncCharacterInput>
+}
+
+export type VideoScalarWhereInput = {
+  AND?: Prisma.VideoScalarWhereInput | Prisma.VideoScalarWhereInput[]
+  OR?: Prisma.VideoScalarWhereInput[]
+  NOT?: Prisma.VideoScalarWhereInput | Prisma.VideoScalarWhereInput[]
+  id?: Prisma.IntFilter<"Video"> | number
+  scenarioId?: Prisma.IntFilter<"Video"> | number
+  variantId?: Prisma.IntNullableFilter<"Video"> | number | null
+  applicationId?: Prisma.IntNullableFilter<"Video"> | number | null
+  status?: Prisma.EnumVideoStatusFilter<"Video"> | $Enums.VideoStatus
+  currentStep?: Prisma.StringNullableFilter<"Video"> | string | null
+  format?: Prisma.EnumVideoFormatFilter<"Video"> | $Enums.VideoFormat
+  filePath?: Prisma.StringNullableFilter<"Video"> | string | null
+  fileUrl?: Prisma.StringNullableFilter<"Video"> | string | null
+  storageKey?: Prisma.StringNullableFilter<"Video"> | string | null
+  storageProvider?: Prisma.StringFilter<"Video"> | string
+  fileSizeBytes?: Prisma.BigIntNullableFilter<"Video"> | bigint | number | null
+  fileSha256?: Prisma.StringNullableFilter<"Video"> | string | null
+  duration?: Prisma.IntNullableFilter<"Video"> | number | null
+  errorMessage?: Prisma.StringNullableFilter<"Video"> | string | null
+  subtitlesEnabled?: Prisma.BoolFilter<"Video"> | boolean
+  subtitlesStyle?: Prisma.JsonNullableFilter<"Video">
+  subtitlePreset?: Prisma.StringNullableFilter<"Video"> | string | null
+  voiceoverPlan?: Prisma.JsonNullableFilter<"Video">
+  musicEnabled?: Prisma.BoolFilter<"Video"> | boolean
+  musicMood?: Prisma.StringNullableFilter<"Video"> | string | null
+  musicDuration?: Prisma.IntNullableFilter<"Video"> | number | null
+  musicVolume?: Prisma.FloatFilter<"Video"> | number
+  musicVolumeWithVoiceover?: Prisma.FloatFilter<"Video"> | number
+  clipDuration?: Prisma.IntFilter<"Video"> | number
+  imageCount?: Prisma.IntFilter<"Video"> | number
+  renderQuality?: Prisma.StringFilter<"Video"> | string
+  targetPlatform?: Prisma.StringNullableFilter<"Video"> | string | null
+  voiceoverEnabled?: Prisma.BoolFilter<"Video"> | boolean
+  voiceoverProvider?: Prisma.StringNullableFilter<"Video"> | string | null
+  voiceoverModelId?: Prisma.StringNullableFilter<"Video"> | string | null
+  voiceoverVoiceId?: Prisma.StringNullableFilter<"Video"> | string | null
+  voiceoverLanguage?: Prisma.StringFilter<"Video"> | string
+  voiceoverPacing?: Prisma.StringFilter<"Video"> | string
+  voiceoverReconciliation?: Prisma.StringFilter<"Video"> | string
+  imageModelId?: Prisma.StringFilter<"Video"> | string
+  videoModelId?: Prisma.StringFilter<"Video"> | string
+  modelStrategy?: Prisma.StringFilter<"Video"> | string
+  generateAudio?: Prisma.BoolFilter<"Video"> | boolean
+  lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
+  lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
+  lipSyncCharacterId?: Prisma.StringNullableFilter<"Video"> | string | null
+  isLocked?: Prisma.BoolFilter<"Video"> | boolean
+  lockedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
+  lockedReason?: Prisma.StringNullableFilter<"Video"> | string | null
+  startedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
+  finishedAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
+  totalCostEstimate?: Prisma.FloatNullableFilter<"Video"> | number | null
+  totalCostActual?: Prisma.FloatNullableFilter<"Video"> | number | null
+  createdAt?: Prisma.DateTimeFilter<"Video"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Video"> | Date | string
+  runId?: Prisma.IntNullableFilter<"Video"> | number | null
+  pipelineId?: Prisma.IntNullableFilter<"Video"> | number | null
+  isExternalCreative?: Prisma.BoolFilter<"Video"> | boolean
+  externalSource?: Prisma.StringNullableFilter<"Video"> | string | null
+  externalSourceId?: Prisma.StringNullableFilter<"Video"> | string | null
+  driveFileId?: Prisma.StringNullableFilter<"Video"> | string | null
+  driveCredentialId?: Prisma.IntNullableFilter<"Video"> | number | null
+  analysisData?: Prisma.JsonNullableFilter<"Video">
+  framePassVersion?: Prisma.StringNullableFilter<"Video"> | string | null
+  framePassRunAt?: Prisma.DateTimeNullableFilter<"Video"> | Date | string | null
+  analysisDurationSec?: Prisma.FloatNullableFilter<"Video"> | number | null
+  fitScore?: Prisma.FloatNullableFilter<"Video"> | number | null
+  fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
+}
+
+export type VideoCreateWithoutScenarioInput = {
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
+  assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
+  driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
+  frames?: Prisma.VideoFrameCreateNestedManyWithoutVideoInput
+}
+
+export type VideoUncheckedCreateWithoutScenarioInput = {
+  id?: number
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  driveCredentialId?: number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  assets?: Prisma.VideoAssetUncheckedCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
+  frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
+}
+
+export type VideoCreateOrConnectWithoutScenarioInput = {
+  where: Prisma.VideoWhereUniqueInput
+  create: Prisma.XOR<Prisma.VideoCreateWithoutScenarioInput, Prisma.VideoUncheckedCreateWithoutScenarioInput>
+}
+
+export type VideoCreateManyScenarioInputEnvelope = {
+  data: Prisma.VideoCreateManyScenarioInput | Prisma.VideoCreateManyScenarioInput[]
+  skipDuplicates?: boolean
+}
+
+export type VideoUpsertWithWhereUniqueWithoutScenarioInput = {
+  where: Prisma.VideoWhereUniqueInput
+  update: Prisma.XOR<Prisma.VideoUpdateWithoutScenarioInput, Prisma.VideoUncheckedUpdateWithoutScenarioInput>
+  create: Prisma.XOR<Prisma.VideoCreateWithoutScenarioInput, Prisma.VideoUncheckedCreateWithoutScenarioInput>
+}
+
+export type VideoUpdateWithWhereUniqueWithoutScenarioInput = {
+  where: Prisma.VideoWhereUniqueInput
+  data: Prisma.XOR<Prisma.VideoUpdateWithoutScenarioInput, Prisma.VideoUncheckedUpdateWithoutScenarioInput>
+}
+
+export type VideoUpdateManyWithWhereWithoutScenarioInput = {
+  where: Prisma.VideoScalarWhereInput
+  data: Prisma.XOR<Prisma.VideoUpdateManyMutationInput, Prisma.VideoUncheckedUpdateManyWithoutScenarioInput>
+}
+
+export type VideoCreateWithoutFramesInput = {
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
+  assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
+  driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
+}
+
+export type VideoUncheckedCreateWithoutFramesInput = {
+  id?: number
+  scenarioId: number
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  driveCredentialId?: number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  assets?: Prisma.VideoAssetUncheckedCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -2584,6 +2880,7 @@ export type VideoUpdateWithoutFramesInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -2591,6 +2888,8 @@ export type VideoUpdateWithoutFramesInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -2639,6 +2938,7 @@ export type VideoUncheckedUpdateWithoutFramesInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2666,6 +2966,8 @@ export type VideoUncheckedUpdateWithoutFramesInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -2731,12 +3033,15 @@ export type VideoCreateWithoutAssetsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -2786,6 +3091,7 @@ export type VideoUncheckedCreateWithoutAssetsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -2812,6 +3118,8 @@ export type VideoUncheckedCreateWithoutAssetsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -2894,12 +3202,15 @@ export type VideoUpdateWithoutAssetsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -2949,6 +3260,7 @@ export type VideoUncheckedUpdateWithoutAssetsInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2975,6 +3287,8 @@ export type VideoUncheckedUpdateWithoutAssetsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -3041,12 +3355,15 @@ export type VideoCreateWithoutStepsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
   uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -3096,6 +3413,7 @@ export type VideoUncheckedCreateWithoutStepsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -3122,6 +3440,8 @@ export type VideoUncheckedCreateWithoutStepsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -3204,12 +3524,15 @@ export type VideoUpdateWithoutStepsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -3259,6 +3582,7 @@ export type VideoUncheckedUpdateWithoutStepsInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3285,6 +3609,8 @@ export type VideoUncheckedUpdateWithoutStepsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -3351,12 +3677,15 @@ export type VideoCreateWithoutMediaPredictionsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
   uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -3406,6 +3735,7 @@ export type VideoUncheckedCreateWithoutMediaPredictionsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -3432,6 +3762,8 @@ export type VideoUncheckedCreateWithoutMediaPredictionsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -3514,12 +3846,15 @@ export type VideoUpdateWithoutMediaPredictionsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -3569,6 +3904,7 @@ export type VideoUncheckedUpdateWithoutMediaPredictionsInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3595,6 +3931,8 @@ export type VideoUncheckedUpdateWithoutMediaPredictionsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -3661,12 +3999,15 @@ export type VideoCreateWithoutUploadsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -3716,6 +4057,7 @@ export type VideoUncheckedCreateWithoutUploadsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -3742,6 +4084,8 @@ export type VideoUncheckedCreateWithoutUploadsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -3824,12 +4168,15 @@ export type VideoUpdateWithoutUploadsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -3879,6 +4226,7 @@ export type VideoUncheckedUpdateWithoutUploadsInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3905,6 +4253,652 @@ export type VideoUncheckedUpdateWithoutUploadsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
+  captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
+  driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
+  frames?: Prisma.VideoFrameUncheckedUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoCreateWithoutFactoryPublicationsInput = {
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
+  assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
+  driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
+  frames?: Prisma.VideoFrameCreateNestedManyWithoutVideoInput
+}
+
+export type VideoUncheckedCreateWithoutFactoryPublicationsInput = {
+  id?: number
+  scenarioId: number
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  driveCredentialId?: number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  assets?: Prisma.VideoAssetUncheckedCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
+  frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
+}
+
+export type VideoCreateOrConnectWithoutFactoryPublicationsInput = {
+  where: Prisma.VideoWhereUniqueInput
+  create: Prisma.XOR<Prisma.VideoCreateWithoutFactoryPublicationsInput, Prisma.VideoUncheckedCreateWithoutFactoryPublicationsInput>
+}
+
+export type VideoUpsertWithoutFactoryPublicationsInput = {
+  update: Prisma.XOR<Prisma.VideoUpdateWithoutFactoryPublicationsInput, Prisma.VideoUncheckedUpdateWithoutFactoryPublicationsInput>
+  create: Prisma.XOR<Prisma.VideoCreateWithoutFactoryPublicationsInput, Prisma.VideoUncheckedCreateWithoutFactoryPublicationsInput>
+  where?: Prisma.VideoWhereInput
+}
+
+export type VideoUpdateToOneWithWhereWithoutFactoryPublicationsInput = {
+  where?: Prisma.VideoWhereInput
+  data: Prisma.XOR<Prisma.VideoUpdateWithoutFactoryPublicationsInput, Prisma.VideoUncheckedUpdateWithoutFactoryPublicationsInput>
+}
+
+export type VideoUpdateWithoutFactoryPublicationsInput = {
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
+  run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
+  assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
+  steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
+  captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
+  driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
+  driveCredential?: Prisma.PipelineCredentialUpdateOneWithoutVideoUploadsNestedInput
+  frames?: Prisma.VideoFrameUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoUncheckedUpdateWithoutFactoryPublicationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  scenarioId?: Prisma.IntFieldUpdateOperationsInput | number
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveCredentialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  assets?: Prisma.VideoAssetUncheckedUpdateManyWithoutVideoNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutVideoNestedInput
+  steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
+  captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
+  driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
+  frames?: Prisma.VideoFrameUncheckedUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoCreateWithoutFactoryQaReviewsInput = {
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
+  run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
+  pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
+  assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
+  driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
+  frames?: Prisma.VideoFrameCreateNestedManyWithoutVideoInput
+}
+
+export type VideoUncheckedCreateWithoutFactoryQaReviewsInput = {
+  id?: number
+  scenarioId: number
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  driveCredentialId?: number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+  assets?: Prisma.VideoAssetUncheckedCreateNestedManyWithoutVideoInput
+  uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
+  steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
+  postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
+  captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
+  driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
+  frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
+}
+
+export type VideoCreateOrConnectWithoutFactoryQaReviewsInput = {
+  where: Prisma.VideoWhereUniqueInput
+  create: Prisma.XOR<Prisma.VideoCreateWithoutFactoryQaReviewsInput, Prisma.VideoUncheckedCreateWithoutFactoryQaReviewsInput>
+}
+
+export type VideoUpsertWithoutFactoryQaReviewsInput = {
+  update: Prisma.XOR<Prisma.VideoUpdateWithoutFactoryQaReviewsInput, Prisma.VideoUncheckedUpdateWithoutFactoryQaReviewsInput>
+  create: Prisma.XOR<Prisma.VideoCreateWithoutFactoryQaReviewsInput, Prisma.VideoUncheckedCreateWithoutFactoryQaReviewsInput>
+  where?: Prisma.VideoWhereInput
+}
+
+export type VideoUpdateToOneWithWhereWithoutFactoryQaReviewsInput = {
+  where?: Prisma.VideoWhereInput
+  data: Prisma.XOR<Prisma.VideoUpdateWithoutFactoryQaReviewsInput, Prisma.VideoUncheckedUpdateWithoutFactoryQaReviewsInput>
+}
+
+export type VideoUpdateWithoutFactoryQaReviewsInput = {
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
+  run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
+  assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
+  steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
+  captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
+  driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
+  driveCredential?: Prisma.PipelineCredentialUpdateOneWithoutVideoUploadsNestedInput
+  frames?: Prisma.VideoFrameUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoUncheckedUpdateWithoutFactoryQaReviewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  scenarioId?: Prisma.IntFieldUpdateOperationsInput | number
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveCredentialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  assets?: Prisma.VideoAssetUncheckedUpdateManyWithoutVideoNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutVideoNestedInput
+  steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -3971,12 +4965,15 @@ export type VideoCreateWithoutPipelineInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
   uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -4026,6 +5023,7 @@ export type VideoUncheckedCreateWithoutPipelineInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -4052,6 +5050,8 @@ export type VideoUncheckedCreateWithoutPipelineInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -4144,12 +5144,15 @@ export type VideoCreateWithoutRunInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
   uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -4199,6 +5202,7 @@ export type VideoUncheckedCreateWithoutRunInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -4225,6 +5229,8 @@ export type VideoUncheckedCreateWithoutRunInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -4317,6 +5323,7 @@ export type VideoCreateWithoutDriveCredentialInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
@@ -4324,6 +5331,8 @@ export type VideoCreateWithoutDriveCredentialInput = {
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -4372,6 +5381,7 @@ export type VideoUncheckedCreateWithoutDriveCredentialInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -4398,6 +5408,8 @@ export type VideoUncheckedCreateWithoutDriveCredentialInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -4490,6 +5502,7 @@ export type VideoCreateWithoutDriveFileInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
@@ -4497,6 +5510,8 @@ export type VideoCreateWithoutDriveFileInput = {
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
@@ -4545,6 +5560,7 @@ export type VideoUncheckedCreateWithoutDriveFileInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -4572,6 +5588,8 @@ export type VideoUncheckedCreateWithoutDriveFileInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
@@ -4653,6 +5671,7 @@ export type VideoUpdateWithoutDriveFileInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -4660,6 +5679,8 @@ export type VideoUpdateWithoutDriveFileInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveCredential?: Prisma.PipelineCredentialUpdateOneWithoutVideoUploadsNestedInput
@@ -4708,6 +5729,7 @@ export type VideoUncheckedUpdateWithoutDriveFileInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4735,6 +5757,8 @@ export type VideoUncheckedUpdateWithoutDriveFileInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   frames?: Prisma.VideoFrameUncheckedUpdateManyWithoutVideoNestedInput
@@ -4800,12 +5824,15 @@ export type VideoCreateWithoutPostingJobsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
   uploads?: Prisma.UploadCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
@@ -4855,6 +5882,7 @@ export type VideoUncheckedCreateWithoutPostingJobsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -4881,6 +5909,8 @@ export type VideoUncheckedCreateWithoutPostingJobsInput = {
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutVideoInput
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
@@ -4963,12 +5993,15 @@ export type VideoUpdateWithoutPostingJobsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -5018,6 +6051,7 @@ export type VideoUncheckedUpdateWithoutPostingJobsInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -5044,6 +6078,8 @@ export type VideoUncheckedUpdateWithoutPostingJobsInput = {
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -5110,6 +6146,7 @@ export type VideoCreateWithoutUniqueVariantsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
@@ -5117,6 +6154,8 @@ export type VideoCreateWithoutUniqueVariantsInput = {
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
   driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
@@ -5165,6 +6204,7 @@ export type VideoUncheckedCreateWithoutUniqueVariantsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -5192,6 +6232,8 @@ export type VideoUncheckedCreateWithoutUniqueVariantsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   captions?: Prisma.CaptionUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
   frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
@@ -5273,6 +6315,7 @@ export type VideoUpdateWithoutUniqueVariantsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -5280,6 +6323,8 @@ export type VideoUpdateWithoutUniqueVariantsInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
   driveCredential?: Prisma.PipelineCredentialUpdateOneWithoutVideoUploadsNestedInput
@@ -5328,6 +6373,7 @@ export type VideoUncheckedUpdateWithoutUniqueVariantsInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -5355,6 +6401,8 @@ export type VideoUncheckedUpdateWithoutUniqueVariantsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
   frames?: Prisma.VideoFrameUncheckedUpdateManyWithoutVideoNestedInput
@@ -5420,6 +6468,7 @@ export type VideoCreateWithoutCaptionsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   scenario: Prisma.ScenarioCreateNestedOneWithoutVideosInput
+  lipSyncCharacter?: Prisma.CharacterCreateNestedOneWithoutLipSyncVideosInput
   run?: Prisma.WorkflowRunCreateNestedOneWithoutVideosInput
   pipeline?: Prisma.PipelineCreateNestedOneWithoutVideosInput
   assets?: Prisma.VideoAssetCreateNestedManyWithoutVideoInput
@@ -5427,6 +6476,8 @@ export type VideoCreateWithoutCaptionsInput = {
   steps?: Prisma.VideoGenerationStepCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileCreateNestedOneWithoutVideoInput
   driveCredential?: Prisma.PipelineCredentialCreateNestedOneWithoutVideoUploadsInput
@@ -5475,6 +6526,7 @@ export type VideoUncheckedCreateWithoutCaptionsInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -5502,6 +6554,8 @@ export type VideoUncheckedCreateWithoutCaptionsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedCreateNestedManyWithoutVideoInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoInput
   postingJobs?: Prisma.PostingJobUncheckedCreateNestedManyWithoutVideoInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutVideoInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutVideoInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedCreateNestedManyWithoutVideoInput
   driveFile?: Prisma.DriveFileUncheckedCreateNestedOneWithoutVideoInput
   frames?: Prisma.VideoFrameUncheckedCreateNestedManyWithoutVideoInput
@@ -5583,6 +6637,7 @@ export type VideoUpdateWithoutCaptionsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -5590,6 +6645,8 @@ export type VideoUpdateWithoutCaptionsInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
   driveCredential?: Prisma.PipelineCredentialUpdateOneWithoutVideoUploadsNestedInput
@@ -5597,6 +6654,225 @@ export type VideoUpdateWithoutCaptionsInput = {
 }
 
 export type VideoUncheckedUpdateWithoutCaptionsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  scenarioId?: Prisma.IntFieldUpdateOperationsInput | number
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveCredentialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  assets?: Prisma.VideoAssetUncheckedUpdateManyWithoutVideoNestedInput
+  uploads?: Prisma.UploadUncheckedUpdateManyWithoutVideoNestedInput
+  steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
+  postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
+  driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
+  frames?: Prisma.VideoFrameUncheckedUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoCreateManyLipSyncCharacterInput = {
+  id?: number
+  scenarioId: number
+  variantId?: number | null
+  applicationId?: number | null
+  status?: $Enums.VideoStatus
+  currentStep?: string | null
+  format?: $Enums.VideoFormat
+  filePath?: string | null
+  fileUrl?: string | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  duration?: number | null
+  errorMessage?: string | null
+  subtitlesEnabled?: boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: boolean
+  musicMood?: string | null
+  musicDuration?: number | null
+  musicVolume?: number
+  musicVolumeWithVoiceover?: number
+  clipDuration?: number
+  imageCount?: number
+  renderQuality?: string
+  targetPlatform?: string | null
+  voiceoverEnabled?: boolean
+  voiceoverProvider?: string | null
+  voiceoverModelId?: string | null
+  voiceoverVoiceId?: string | null
+  voiceoverLanguage?: string
+  voiceoverPacing?: string
+  voiceoverReconciliation?: string
+  imageModelId?: string
+  videoModelId?: string
+  modelStrategy?: string
+  generateAudio?: boolean
+  lipSyncEnabled?: boolean
+  lipSyncModelId?: string | null
+  isLocked?: boolean
+  lockedAt?: Date | string | null
+  lockedReason?: string | null
+  startedAt?: Date | string | null
+  finishedAt?: Date | string | null
+  totalCostEstimate?: number | null
+  totalCostActual?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  runId?: number | null
+  pipelineId?: number | null
+  isExternalCreative?: boolean
+  externalSource?: string | null
+  externalSourceId?: string | null
+  driveFileId?: string | null
+  driveCredentialId?: number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: string | null
+  framePassRunAt?: Date | string | null
+  analysisDurationSec?: number | null
+  fitScore?: number | null
+  fitRationale?: string | null
+}
+
+export type VideoUpdateWithoutLipSyncCharacterInput = {
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
+  pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
+  assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
+  uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
+  steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
+  postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
+  uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
+  captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
+  driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
+  driveCredential?: Prisma.PipelineCredentialUpdateOneWithoutVideoUploadsNestedInput
+  frames?: Prisma.VideoFrameUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoUncheckedUpdateWithoutLipSyncCharacterInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   scenarioId?: Prisma.IntFieldUpdateOperationsInput | number
   variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -5665,9 +6941,78 @@ export type VideoUncheckedUpdateWithoutCaptionsInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
+  captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
   frames?: Prisma.VideoFrameUncheckedUpdateManyWithoutVideoNestedInput
+}
+
+export type VideoUncheckedUpdateManyWithoutLipSyncCharacterInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  scenarioId?: Prisma.IntFieldUpdateOperationsInput | number
+  variantId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  applicationId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumVideoStatusFieldUpdateOperationsInput | $Enums.VideoStatus
+  currentStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  format?: Prisma.EnumVideoFormatFieldUpdateOperationsInput | $Enums.VideoFormat
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitlesEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  subtitlesStyle?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  subtitlePreset?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  musicEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  musicMood?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  musicDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  musicVolume?: Prisma.FloatFieldUpdateOperationsInput | number
+  musicVolumeWithVoiceover?: Prisma.FloatFieldUpdateOperationsInput | number
+  clipDuration?: Prisma.IntFieldUpdateOperationsInput | number
+  imageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  renderQuality?: Prisma.StringFieldUpdateOperationsInput | string
+  targetPlatform?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  voiceoverProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverVoiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceoverLanguage?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverPacing?: Prisma.StringFieldUpdateOperationsInput | string
+  voiceoverReconciliation?: Prisma.StringFieldUpdateOperationsInput | string
+  imageModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
+  modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalCostEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalCostActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  runId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pipelineId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  isExternalCreative?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  externalSource?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  externalSourceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  driveCredentialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  analysisData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  framePassVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  framePassRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type VideoCreateManyScenarioInput = {
@@ -5711,6 +7056,7 @@ export type VideoCreateManyScenarioInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -5794,6 +7140,7 @@ export type VideoUpdateWithoutScenarioInput = {
   analysisDurationSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -5801,6 +7148,8 @@ export type VideoUpdateWithoutScenarioInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -5849,6 +7198,7 @@ export type VideoUncheckedUpdateWithoutScenarioInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -5876,6 +7226,8 @@ export type VideoUncheckedUpdateWithoutScenarioInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -5923,6 +7275,7 @@ export type VideoUncheckedUpdateManyWithoutScenarioInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -5989,6 +7342,7 @@ export type VideoCreateManyPipelineInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -6072,12 +7426,15 @@ export type VideoUpdateWithoutPipelineInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -6127,6 +7484,7 @@ export type VideoUncheckedUpdateWithoutPipelineInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6153,6 +7511,8 @@ export type VideoUncheckedUpdateWithoutPipelineInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -6201,6 +7561,7 @@ export type VideoUncheckedUpdateManyWithoutPipelineInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6266,6 +7627,7 @@ export type VideoCreateManyRunInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -6349,12 +7711,15 @@ export type VideoUpdateWithoutRunInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
   uploads?: Prisma.UploadUpdateManyWithoutVideoNestedInput
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -6404,6 +7769,7 @@ export type VideoUncheckedUpdateWithoutRunInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6430,6 +7796,8 @@ export type VideoUncheckedUpdateWithoutRunInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -6478,6 +7846,7 @@ export type VideoUncheckedUpdateManyWithoutRunInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6543,6 +7912,7 @@ export type VideoCreateManyDriveCredentialInput = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
+  lipSyncCharacterId?: string | null
   isLocked?: boolean
   lockedAt?: Date | string | null
   lockedReason?: string | null
@@ -6626,6 +7996,7 @@ export type VideoUpdateWithoutDriveCredentialInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scenario?: Prisma.ScenarioUpdateOneRequiredWithoutVideosNestedInput
+  lipSyncCharacter?: Prisma.CharacterUpdateOneWithoutLipSyncVideosNestedInput
   run?: Prisma.WorkflowRunUpdateOneWithoutVideosNestedInput
   pipeline?: Prisma.PipelineUpdateOneWithoutVideosNestedInput
   assets?: Prisma.VideoAssetUpdateManyWithoutVideoNestedInput
@@ -6633,6 +8004,8 @@ export type VideoUpdateWithoutDriveCredentialInput = {
   steps?: Prisma.VideoGenerationStepUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUpdateOneWithoutVideoNestedInput
@@ -6681,6 +8054,7 @@ export type VideoUncheckedUpdateWithoutDriveCredentialInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6707,6 +8081,8 @@ export type VideoUncheckedUpdateWithoutDriveCredentialInput = {
   steps?: Prisma.VideoGenerationStepUncheckedUpdateManyWithoutVideoNestedInput
   mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoNestedInput
   postingJobs?: Prisma.PostingJobUncheckedUpdateManyWithoutVideoNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutVideoNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutVideoNestedInput
   uniqueVariants?: Prisma.VideoUniqueVariantUncheckedUpdateManyWithoutVideoNestedInput
   captions?: Prisma.CaptionUncheckedUpdateManyWithoutVideoNestedInput
   driveFile?: Prisma.DriveFileUncheckedUpdateOneWithoutVideoNestedInput
@@ -6755,6 +8131,7 @@ export type VideoUncheckedUpdateManyWithoutDriveCredentialInput = {
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6789,6 +8166,8 @@ export type VideoCountOutputType = {
   steps: number
   mediaPredictions: number
   postingJobs: number
+  factoryPublications: number
+  factoryQaReviews: number
   uniqueVariants: number
   captions: number
   frames: number
@@ -6800,6 +8179,8 @@ export type VideoCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   steps?: boolean | VideoCountOutputTypeCountStepsArgs
   mediaPredictions?: boolean | VideoCountOutputTypeCountMediaPredictionsArgs
   postingJobs?: boolean | VideoCountOutputTypeCountPostingJobsArgs
+  factoryPublications?: boolean | VideoCountOutputTypeCountFactoryPublicationsArgs
+  factoryQaReviews?: boolean | VideoCountOutputTypeCountFactoryQaReviewsArgs
   uniqueVariants?: boolean | VideoCountOutputTypeCountUniqueVariantsArgs
   captions?: boolean | VideoCountOutputTypeCountCaptionsArgs
   frames?: boolean | VideoCountOutputTypeCountFramesArgs
@@ -6848,6 +8229,20 @@ export type VideoCountOutputTypeCountMediaPredictionsArgs<ExtArgs extends runtim
  */
 export type VideoCountOutputTypeCountPostingJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.PostingJobWhereInput
+}
+
+/**
+ * VideoCountOutputType without action
+ */
+export type VideoCountOutputTypeCountFactoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryPublicationWhereInput
+}
+
+/**
+ * VideoCountOutputType without action
+ */
+export type VideoCountOutputTypeCountFactoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FactoryQualityReviewWhereInput
 }
 
 /**
@@ -6914,6 +8309,7 @@ export type VideoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
+  lipSyncCharacterId?: boolean
   isLocked?: boolean
   lockedAt?: boolean
   lockedReason?: boolean
@@ -6937,6 +8333,7 @@ export type VideoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   fitScore?: boolean
   fitRationale?: boolean
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
+  lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
   run?: boolean | Prisma.Video$runArgs<ExtArgs>
   pipeline?: boolean | Prisma.Video$pipelineArgs<ExtArgs>
   assets?: boolean | Prisma.Video$assetsArgs<ExtArgs>
@@ -6944,6 +8341,8 @@ export type VideoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   steps?: boolean | Prisma.Video$stepsArgs<ExtArgs>
   mediaPredictions?: boolean | Prisma.Video$mediaPredictionsArgs<ExtArgs>
   postingJobs?: boolean | Prisma.Video$postingJobsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.Video$factoryPublicationsArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.Video$factoryQaReviewsArgs<ExtArgs>
   uniqueVariants?: boolean | Prisma.Video$uniqueVariantsArgs<ExtArgs>
   captions?: boolean | Prisma.Video$captionsArgs<ExtArgs>
   driveFile?: boolean | Prisma.Video$driveFileArgs<ExtArgs>
@@ -6994,6 +8393,7 @@ export type VideoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
+  lipSyncCharacterId?: boolean
   isLocked?: boolean
   lockedAt?: boolean
   lockedReason?: boolean
@@ -7017,6 +8417,7 @@ export type VideoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   fitScore?: boolean
   fitRationale?: boolean
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
+  lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
   run?: boolean | Prisma.Video$runArgs<ExtArgs>
   pipeline?: boolean | Prisma.Video$pipelineArgs<ExtArgs>
   driveCredential?: boolean | Prisma.Video$driveCredentialArgs<ExtArgs>
@@ -7064,6 +8465,7 @@ export type VideoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
+  lipSyncCharacterId?: boolean
   isLocked?: boolean
   lockedAt?: boolean
   lockedReason?: boolean
@@ -7087,6 +8489,7 @@ export type VideoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   fitScore?: boolean
   fitRationale?: boolean
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
+  lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
   run?: boolean | Prisma.Video$runArgs<ExtArgs>
   pipeline?: boolean | Prisma.Video$pipelineArgs<ExtArgs>
   driveCredential?: boolean | Prisma.Video$driveCredentialArgs<ExtArgs>
@@ -7134,6 +8537,7 @@ export type VideoSelectScalar = {
   generateAudio?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
+  lipSyncCharacterId?: boolean
   isLocked?: boolean
   lockedAt?: boolean
   lockedReason?: boolean
@@ -7158,9 +8562,10 @@ export type VideoSelectScalar = {
   fitRationale?: boolean
 }
 
-export type VideoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scenarioId" | "variantId" | "applicationId" | "status" | "currentStep" | "format" | "filePath" | "fileUrl" | "storageKey" | "storageProvider" | "fileSizeBytes" | "fileSha256" | "duration" | "errorMessage" | "subtitlesEnabled" | "subtitlesStyle" | "subtitlePreset" | "voiceoverPlan" | "musicEnabled" | "musicMood" | "musicDuration" | "musicVolume" | "musicVolumeWithVoiceover" | "clipDuration" | "imageCount" | "renderQuality" | "targetPlatform" | "voiceoverEnabled" | "voiceoverProvider" | "voiceoverModelId" | "voiceoverVoiceId" | "voiceoverLanguage" | "voiceoverPacing" | "voiceoverReconciliation" | "imageModelId" | "videoModelId" | "modelStrategy" | "generateAudio" | "lipSyncEnabled" | "lipSyncModelId" | "isLocked" | "lockedAt" | "lockedReason" | "startedAt" | "finishedAt" | "totalCostEstimate" | "totalCostActual" | "createdAt" | "updatedAt" | "runId" | "pipelineId" | "isExternalCreative" | "externalSource" | "externalSourceId" | "driveFileId" | "driveCredentialId" | "analysisData" | "framePassVersion" | "framePassRunAt" | "analysisDurationSec" | "fitScore" | "fitRationale", ExtArgs["result"]["video"]>
+export type VideoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scenarioId" | "variantId" | "applicationId" | "status" | "currentStep" | "format" | "filePath" | "fileUrl" | "storageKey" | "storageProvider" | "fileSizeBytes" | "fileSha256" | "duration" | "errorMessage" | "subtitlesEnabled" | "subtitlesStyle" | "subtitlePreset" | "voiceoverPlan" | "musicEnabled" | "musicMood" | "musicDuration" | "musicVolume" | "musicVolumeWithVoiceover" | "clipDuration" | "imageCount" | "renderQuality" | "targetPlatform" | "voiceoverEnabled" | "voiceoverProvider" | "voiceoverModelId" | "voiceoverVoiceId" | "voiceoverLanguage" | "voiceoverPacing" | "voiceoverReconciliation" | "imageModelId" | "videoModelId" | "modelStrategy" | "generateAudio" | "lipSyncEnabled" | "lipSyncModelId" | "lipSyncCharacterId" | "isLocked" | "lockedAt" | "lockedReason" | "startedAt" | "finishedAt" | "totalCostEstimate" | "totalCostActual" | "createdAt" | "updatedAt" | "runId" | "pipelineId" | "isExternalCreative" | "externalSource" | "externalSourceId" | "driveFileId" | "driveCredentialId" | "analysisData" | "framePassVersion" | "framePassRunAt" | "analysisDurationSec" | "fitScore" | "fitRationale", ExtArgs["result"]["video"]>
 export type VideoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
+  lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
   run?: boolean | Prisma.Video$runArgs<ExtArgs>
   pipeline?: boolean | Prisma.Video$pipelineArgs<ExtArgs>
   assets?: boolean | Prisma.Video$assetsArgs<ExtArgs>
@@ -7168,6 +8573,8 @@ export type VideoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   steps?: boolean | Prisma.Video$stepsArgs<ExtArgs>
   mediaPredictions?: boolean | Prisma.Video$mediaPredictionsArgs<ExtArgs>
   postingJobs?: boolean | Prisma.Video$postingJobsArgs<ExtArgs>
+  factoryPublications?: boolean | Prisma.Video$factoryPublicationsArgs<ExtArgs>
+  factoryQaReviews?: boolean | Prisma.Video$factoryQaReviewsArgs<ExtArgs>
   uniqueVariants?: boolean | Prisma.Video$uniqueVariantsArgs<ExtArgs>
   captions?: boolean | Prisma.Video$captionsArgs<ExtArgs>
   driveFile?: boolean | Prisma.Video$driveFileArgs<ExtArgs>
@@ -7177,12 +8584,14 @@ export type VideoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
 }
 export type VideoIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
+  lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
   run?: boolean | Prisma.Video$runArgs<ExtArgs>
   pipeline?: boolean | Prisma.Video$pipelineArgs<ExtArgs>
   driveCredential?: boolean | Prisma.Video$driveCredentialArgs<ExtArgs>
 }
 export type VideoIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
+  lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
   run?: boolean | Prisma.Video$runArgs<ExtArgs>
   pipeline?: boolean | Prisma.Video$pipelineArgs<ExtArgs>
   driveCredential?: boolean | Prisma.Video$driveCredentialArgs<ExtArgs>
@@ -7192,6 +8601,7 @@ export type $VideoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   name: "Video"
   objects: {
     scenario: Prisma.$ScenarioPayload<ExtArgs>
+    lipSyncCharacter: Prisma.$CharacterPayload<ExtArgs> | null
     run: Prisma.$WorkflowRunPayload<ExtArgs> | null
     pipeline: Prisma.$PipelinePayload<ExtArgs> | null
     assets: Prisma.$VideoAssetPayload<ExtArgs>[]
@@ -7199,6 +8609,8 @@ export type $VideoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     steps: Prisma.$VideoGenerationStepPayload<ExtArgs>[]
     mediaPredictions: Prisma.$MediaPredictionPayload<ExtArgs>[]
     postingJobs: Prisma.$PostingJobPayload<ExtArgs>[]
+    factoryPublications: Prisma.$FactoryPublicationPayload<ExtArgs>[]
+    factoryQaReviews: Prisma.$FactoryQualityReviewPayload<ExtArgs>[]
     uniqueVariants: Prisma.$VideoUniqueVariantPayload<ExtArgs>[]
     captions: Prisma.$CaptionPayload<ExtArgs>[]
     driveFile: Prisma.$DriveFilePayload<ExtArgs> | null
@@ -7247,6 +8659,7 @@ export type $VideoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     generateAudio: boolean
     lipSyncEnabled: boolean
     lipSyncModelId: string | null
+    lipSyncCharacterId: string | null
     isLocked: boolean
     lockedAt: Date | null
     lockedReason: string | null
@@ -7664,6 +9077,7 @@ readonly fields: VideoFieldRefs;
 export interface Prisma__VideoClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   scenario<T extends Prisma.ScenarioDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ScenarioDefaultArgs<ExtArgs>>): Prisma.Prisma__ScenarioClient<runtime.Types.Result.GetResult<Prisma.$ScenarioPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  lipSyncCharacter<T extends Prisma.Video$lipSyncCharacterArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$lipSyncCharacterArgs<ExtArgs>>): Prisma.Prisma__CharacterClient<runtime.Types.Result.GetResult<Prisma.$CharacterPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   run<T extends Prisma.Video$runArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$runArgs<ExtArgs>>): Prisma.Prisma__WorkflowRunClient<runtime.Types.Result.GetResult<Prisma.$WorkflowRunPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   pipeline<T extends Prisma.Video$pipelineArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$pipelineArgs<ExtArgs>>): Prisma.Prisma__PipelineClient<runtime.Types.Result.GetResult<Prisma.$PipelinePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   assets<T extends Prisma.Video$assetsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$assetsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VideoAssetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -7671,6 +9085,8 @@ export interface Prisma__VideoClient<T, Null = never, ExtArgs extends runtime.Ty
   steps<T extends Prisma.Video$stepsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$stepsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VideoGenerationStepPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   mediaPredictions<T extends Prisma.Video$mediaPredictionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$mediaPredictionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MediaPredictionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   postingJobs<T extends Prisma.Video$postingJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$postingJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PostingJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryPublications<T extends Prisma.Video$factoryPublicationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$factoryPublicationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryPublicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  factoryQaReviews<T extends Prisma.Video$factoryQaReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$factoryQaReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoryQualityReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   uniqueVariants<T extends Prisma.Video$uniqueVariantsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$uniqueVariantsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VideoUniqueVariantPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   captions<T extends Prisma.Video$captionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$captionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   driveFile<T extends Prisma.Video$driveFileArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Video$driveFileArgs<ExtArgs>>): Prisma.Prisma__DriveFileClient<runtime.Types.Result.GetResult<Prisma.$DriveFilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -7746,6 +9162,7 @@ export interface VideoFieldRefs {
   readonly generateAudio: Prisma.FieldRef<"Video", 'Boolean'>
   readonly lipSyncEnabled: Prisma.FieldRef<"Video", 'Boolean'>
   readonly lipSyncModelId: Prisma.FieldRef<"Video", 'String'>
+  readonly lipSyncCharacterId: Prisma.FieldRef<"Video", 'String'>
   readonly isLocked: Prisma.FieldRef<"Video", 'Boolean'>
   readonly lockedAt: Prisma.FieldRef<"Video", 'DateTime'>
   readonly lockedReason: Prisma.FieldRef<"Video", 'String'>
@@ -8169,6 +9586,25 @@ export type VideoDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
 }
 
 /**
+ * Video.lipSyncCharacter
+ */
+export type Video$lipSyncCharacterArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Character
+   */
+  select?: Prisma.CharacterSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Character
+   */
+  omit?: Prisma.CharacterOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CharacterInclude<ExtArgs> | null
+  where?: Prisma.CharacterWhereInput
+}
+
+/**
  * Video.run
  */
 export type Video$runArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -8324,6 +9760,54 @@ export type Video$postingJobsArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.PostingJobScalarFieldEnum | Prisma.PostingJobScalarFieldEnum[]
+}
+
+/**
+ * Video.factoryPublications
+ */
+export type Video$factoryPublicationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryPublication
+   */
+  select?: Prisma.FactoryPublicationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryPublication
+   */
+  omit?: Prisma.FactoryPublicationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryPublicationInclude<ExtArgs> | null
+  where?: Prisma.FactoryPublicationWhereInput
+  orderBy?: Prisma.FactoryPublicationOrderByWithRelationInput | Prisma.FactoryPublicationOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryPublicationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryPublicationScalarFieldEnum | Prisma.FactoryPublicationScalarFieldEnum[]
+}
+
+/**
+ * Video.factoryQaReviews
+ */
+export type Video$factoryQaReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FactoryQualityReview
+   */
+  select?: Prisma.FactoryQualityReviewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FactoryQualityReview
+   */
+  omit?: Prisma.FactoryQualityReviewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FactoryQualityReviewInclude<ExtArgs> | null
+  where?: Prisma.FactoryQualityReviewWhereInput
+  orderBy?: Prisma.FactoryQualityReviewOrderByWithRelationInput | Prisma.FactoryQualityReviewOrderByWithRelationInput[]
+  cursor?: Prisma.FactoryQualityReviewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FactoryQualityReviewScalarFieldEnum | Prisma.FactoryQualityReviewScalarFieldEnum[]
 }
 
 /**

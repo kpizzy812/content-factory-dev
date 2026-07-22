@@ -34,6 +34,7 @@ interface AppData {
   name: string
   description?: string | null
   keywords: string[]
+  language?: string | null
   transformationPromise?: string | null
   corePain?: string | null
   coreOutcome?: string | null
@@ -90,6 +91,7 @@ export async function generateScenarios(
     appName: app.name,
     appDescription: app.description,
     appKeywords: app.keywords,
+    language: app.language,
     variantsCount: variantsCount || 3,
     // v3 extensions
     appId: appId ?? null,

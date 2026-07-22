@@ -10,7 +10,7 @@
  * budget/balanced — нет.
  */
 
-import { basename, join } from "node:path"
+import { basename, extname, join } from "node:path"
 import { mkdir, unlink } from "node:fs/promises"
 import { prisma } from "./prisma"
 import { ensureStep, updateStep, appendStepLog, isStepCompleted, type StepKey } from "./video-pipeline-db"
@@ -22,6 +22,9 @@ import { getAssetsDirFor } from "./storage-paths"
 import { StorageKeys } from "./storage/keys"
 import { uploadLocalAsset } from "./storage/persist-asset"
 import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
+import { getStorageDriver } from "./storage"
+import { downloadFile } from "./video-helpers"
+import { reservePresenterSourceClip } from "./presenter-source-selector"
 import { logStepCost } from "./balance/cost-ledger"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 
@@ -48,6 +51,7 @@ export interface LipSyncStepInput {
   videoConfig: {
     lipSyncEnabled: boolean
     lipSyncModelId: string | null
+    lipSyncCharacterId: string | null
     voiceoverModelId: string | null
     voiceoverVoiceId: string | null
     voiceoverLanguage: string
@@ -125,6 +129,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   let totalCostUsd = 0
   const costByService = new Map<"replicate" | "fal.ai", number>()
   const audioCleanup: string[] = []
+  const sourceCleanup: string[] = []
   const assetsDir = getAssetsDirFor(videoId)
   await mkdir(assetsDir, { recursive: true })
 
@@ -138,6 +143,28 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       continue
     }
 
+    let sourceVideoPath = clipAsset.filePath
+    if (videoConfig.lipSyncCharacterId) {
+      const sourceClip = await reservePresenterSourceClip({
+        characterId: videoConfig.lipSyncCharacterId,
+        durationSec: scene.durationSec || 5,
+      })
+      if (sourceClip) {
+        const sourceExt = extname(sourceClip.name || sourceClip.fileUrl).toLowerCase()
+        const safeExt = [".mp4", ".mov", ".webm"].includes(sourceExt) ? sourceExt : ".mp4"
+        const localSourcePath = join(assetsDir, `presenter_${scene.order}_${sourceClip.id}${safeExt}`)
+        if (sourceClip.storageKey) {
+          await getStorageDriver().downloadToFile(sourceClip.storageKey, localSourcePath)
+        } else {
+          await downloadFile(sourceClip.fileUrl, localSourcePath)
+        }
+        sourceVideoPath = localSourcePath
+        sourceCleanup.push(localSourcePath)
+        await appendStepLog(step.id, `Scene ${scene.order}: presenter source ${sourceClip.id}`)
+      } else {
+        await appendStepLog(step.id, `Scene ${scene.order}: no active presenter source, using generated clip`)
+      }
+    }
     // 1. TTS spokenLine — отдельный синтез, не трогает voiceoverPlan (off-screen narrator).
     const audioPath = join(assetsDir, `scene_${scene.order}_spoken.mp3`)
     let ttsCost = 0
@@ -167,7 +194,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         videoId,
         videoAssetId: clipAsset.id,
         sceneOrder: scene.order,
-        sourceVideoPath: clipAsset.filePath,
+        sourceVideoPath,
         audioPath,
         outputPath: lipSyncedPath,
         durationSec: sceneSec,
@@ -206,7 +233,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   }
 
   // Cleanup временных аудиофайлов.
-  await Promise.allSettled(audioCleanup.map(p => unlink(p).catch(() => {})))
+  await Promise.allSettled([...audioCleanup, ...sourceCleanup].map(p => unlink(p).catch(() => {})))
 
   const result: LipSyncStepResult = {
     status: "completed",

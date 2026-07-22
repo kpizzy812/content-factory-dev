@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
     // Lip-sync (premium)
     lipSyncEnabled?: boolean
     lipSyncModelId?: string | null
+    lipSyncCharacterId?: string | null
     // Story-driven options
     forceImageGeneration?: boolean  // force images even in story-driven mode
   }>(event)
@@ -94,6 +95,16 @@ export default defineEventHandler(async (event) => {
   }
 
   // Валидация TTS модели
+  const resolvedLipSyncModel = body.lipSyncEnabled === true
+    ? (body.lipSyncModelId ? getModel(body.lipSyncModelId) : getDefaultLipSyncModel())
+    : null
+  if (body.lipSyncEnabled === true && (
+    !resolvedLipSyncModel
+    || resolvedLipSyncModel.task !== "lip_sync"
+    || !resolvedLipSyncModel.integrated
+  )) {
+    throw createError({ statusCode: 400, message: "Unknown or unavailable lip-sync model" })
+  }
   if (body.voiceoverEnabled && body.voiceoverModelId) {
     const model = getModel(body.voiceoverModelId)
     if (!model || model.task !== 'tts') {
@@ -167,6 +178,51 @@ export default defineEventHandler(async (event) => {
   }
 
   // Проверка дубля: нет активного Video для этого сценария
+  const scenarioApp = scenario.appId
+    ? await prisma.app.findUnique({ where: { id: scenario.appId }, select: { language: true } })
+    : null
+  let resolvedLipSyncCharacterId: string | null = null
+  if (body.lipSyncEnabled === true) {
+    if (body.lipSyncCharacterId) {
+      const character = await prisma.character.findUnique({
+        where: { id: body.lipSyncCharacterId },
+        select: {
+          id: true,
+          appId: true,
+          archived: true,
+          _count: { select: { sourceClips: { where: { isActive: true } } } },
+        },
+      })
+      if (!character || character.archived || (scenario.appId && character.appId !== scenario.appId)) {
+        throw createError({ statusCode: 400, message: "Lip-sync presenter was not found in the scenario application" })
+      }
+      if (character._count.sourceClips === 0) {
+        throw createError({ statusCode: 422, message: "Selected presenter has no active source clips" })
+      }
+      resolvedLipSyncCharacterId = character.id
+    } else if (scenario.appId) {
+      const protagonist = await prisma.character.findFirst({
+        where: {
+          appId: scenario.appId,
+          archived: false,
+          role: "protagonist",
+          sourceClips: { some: { isActive: true } },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })
+      const fallback = protagonist ? null : await prisma.character.findFirst({
+        where: {
+          appId: scenario.appId,
+          archived: false,
+          sourceClips: { some: { isActive: true } },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })
+      resolvedLipSyncCharacterId = protagonist?.id ?? fallback?.id ?? null
+    }
+  }
   const activeStatuses = ["pending", "configuring", "generating_prompts", "generating_images", "generating_clips", "generating_music", "assembling"]
   const activeVideo = await prisma.video.findFirst({
     where: {
@@ -238,11 +294,12 @@ export default defineEventHandler(async (event) => {
       voiceoverEnabled: resolvedVoiceoverEnabled,
       voiceoverModelId: body.voiceoverModelId || null,
       voiceoverVoiceId: body.voiceoverVoiceId || null,
-      voiceoverLanguage: body.voiceoverLanguage || 'en',
+      voiceoverLanguage: body.voiceoverLanguage || scenarioApp?.language || 'en',
       voiceoverPacing: body.voiceoverPacing || 'moderate',
       voiceoverReconciliation: body.voiceoverReconciliation || 'compress_audio',
       lipSyncEnabled: body.lipSyncEnabled === true,
-      lipSyncModelId: body.lipSyncModelId || null,
+      lipSyncModelId: resolvedLipSyncModel?.id ?? null,
+      lipSyncCharacterId: resolvedLipSyncCharacterId,
     },
   })
 

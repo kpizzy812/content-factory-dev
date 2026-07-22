@@ -13,7 +13,9 @@
 
 export const NODE_TYPES = [
   'trendwatcher',
+  'content_strategy',
   'scenario',
+  'quality_gate',
   'video',
   'caption_generator',
   'upload',
@@ -89,6 +91,21 @@ export const NODE_PORTS: Record<NodeType, { inputs: PortSpec[]; outputs: PortSpe
       { key: 'importedCount', type: 'number', required: false },
     ],
   },
+  content_strategy: {
+    inputs: [
+      { key: 'trends', type: 'array', required: false },
+      { key: 'ideas', type: 'array', required: false },
+    ],
+    outputs: [
+      { key: 'appId', type: 'number', required: true },
+      { key: 'hypothesis', type: 'object', required: true },
+      { key: 'hypotheses', type: 'array', required: true },
+      { key: 'trends', type: 'array', required: true },
+      { key: 'funnel', type: 'object', required: false },
+      { key: 'leadMagnet', type: 'object', required: true },
+      { key: 'funnelReady', type: 'boolean', required: true },
+    ],
+  },
   scenario: {
     inputs: [
       { key: 'trends', type: 'array', required: true, description: 'Тренды от Trendwatcher или Loop' },
@@ -99,7 +116,19 @@ export const NODE_PORTS: Record<NodeType, { inputs: PortSpec[]; outputs: PortSpe
       { key: 'variantsCreated', type: 'number', required: false },
     ],
   },
-  video: {
+  quality_gate: {
+    inputs: [
+      { key: 'hypotheses', type: 'array', required: false },
+      { key: 'scenarios', type: 'array', required: false },
+      { key: 'videos', type: 'array', required: false },
+    ],
+    outputs: [
+      { key: 'qualityReview', type: 'object', required: true },
+      { key: 'qualityGate', type: 'object', required: true },
+      { key: 'scenarios', type: 'array', required: false },
+      { key: 'videos', type: 'array', required: false },
+    ],
+  },  video: {
     inputs: [
       { key: 'scenarios', type: 'array', required: true, description: 'Сценарии для генерации видео' },
     ],
@@ -222,7 +251,9 @@ export const NODE_PORTS: Record<NodeType, { inputs: PortSpec[]; outputs: PortSpe
   // Character node — source-нода библиотеки персонажей. Выбирает Character по config
   // (characterId / random из app пула / по тегам) и выпускает character object для downstream.
   character: {
-    inputs: [],
+    inputs: [
+      { key: 'appId', type: 'number', required: false, description: 'Application from factory context' },
+    ],
     outputs: [
       { key: 'character', type: 'object', required: true, description: 'Выбранный персонаж с реф-фото' },
       { key: 'characterId', type: 'string', required: true },
@@ -258,6 +289,7 @@ const TRANSPORT_NODE_TYPES = new Set<NodeType>([
   'if_switch',
   'filter',
   'sub_pipeline',
+  'quality_gate',
 ])
 
 export function isTransportNode(t: string): boolean {
