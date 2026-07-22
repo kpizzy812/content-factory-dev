@@ -748,6 +748,7 @@ model Video {
   assets                   VideoAsset[]
   uploads                  Upload[]
   steps                    VideoGenerationStep[]
+  mediaPredictions         MediaPrediction[]
   postingJobs              PostingJob[]
   uniqueVariants           VideoUniqueVariant[]
   captions                 Caption[]
@@ -822,6 +823,7 @@ model VideoAsset {
   contentType              String?
   createdAt                DateTime         @default(now())
   favoritePromptsFromAsset FavoritePrompt[]
+  mediaPredictions         MediaPrediction[]
 
   @@index([storageKey])
   @@index([videoId, type, order])
@@ -867,6 +869,45 @@ model VideoGenerationStep {
   @@index([videoId, stepKey])
   @@index([falRequestId])
   @@index([status])
+}
+
+/// Durable record for every paid asynchronous media-provider request.
+/// Input/output snapshots are sanitized before persistence; provider outputs are
+/// copied to ContentFactory storage before a prediction is exposed as complete.
+model MediaPrediction {
+  id                       String      @id @default(cuid())
+  videoId                  Int?
+  video                    Video?      @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  videoAssetId             Int?
+  videoAsset               VideoAsset? @relation(fields: [videoAssetId], references: [id], onDelete: Cascade)
+  provider                 String      @default("replicate")
+  capability               String
+  model                    String
+  externalId               String?     @unique
+  idempotencyKey           String      @unique
+  status                   String      @default("starting")
+  inputSnapshot            Json?
+  outputSnapshot           Json?
+  outputUrl                String?
+  persistedStorageKey      String?
+  persistedStorageProvider String?
+  persistedFileSizeBytes   BigInt?
+  persistedFileSha256      String?
+  persistedContentType     String?
+  errorMessage             String?
+  metrics                  Json?
+  submittedAt              DateTime?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  terminalAt               DateTime?
+  webhookReceivedAt        DateTime?
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([videoId])
+  @@index([videoAssetId])
+  @@index([provider, externalId])
 }
 
 model TrendInsight {

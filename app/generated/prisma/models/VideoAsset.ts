@@ -306,6 +306,7 @@ export type VideoAssetWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"VideoAsset"> | Date | string
   video?: Prisma.XOR<Prisma.VideoScalarRelationFilter, Prisma.VideoWhereInput>
   favoritePromptsFromAsset?: Prisma.FavoritePromptListRelationFilter
+  mediaPredictions?: Prisma.MediaPredictionListRelationFilter
 }
 
 export type VideoAssetOrderByWithRelationInput = {
@@ -325,6 +326,7 @@ export type VideoAssetOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   video?: Prisma.VideoOrderByWithRelationInput
   favoritePromptsFromAsset?: Prisma.FavoritePromptOrderByRelationAggregateInput
+  mediaPredictions?: Prisma.MediaPredictionOrderByRelationAggregateInput
 }
 
 export type VideoAssetWhereUniqueInput = Prisma.AtLeast<{
@@ -347,6 +349,7 @@ export type VideoAssetWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"VideoAsset"> | Date | string
   video?: Prisma.XOR<Prisma.VideoScalarRelationFilter, Prisma.VideoWhereInput>
   favoritePromptsFromAsset?: Prisma.FavoritePromptListRelationFilter
+  mediaPredictions?: Prisma.MediaPredictionListRelationFilter
 }, "id">
 
 export type VideoAssetOrderByWithAggregationInput = {
@@ -406,6 +409,7 @@ export type VideoAssetCreateInput = {
   createdAt?: Date | string
   video: Prisma.VideoCreateNestedOneWithoutAssetsInput
   favoritePromptsFromAsset?: Prisma.FavoritePromptCreateNestedManyWithoutSourceVideoAssetInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoAssetInput
 }
 
 export type VideoAssetUncheckedCreateInput = {
@@ -424,6 +428,7 @@ export type VideoAssetUncheckedCreateInput = {
   contentType?: string | null
   createdAt?: Date | string
   favoritePromptsFromAsset?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutSourceVideoAssetInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoAssetInput
 }
 
 export type VideoAssetUpdateInput = {
@@ -441,6 +446,7 @@ export type VideoAssetUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   video?: Prisma.VideoUpdateOneRequiredWithoutAssetsNestedInput
   favoritePromptsFromAsset?: Prisma.FavoritePromptUpdateManyWithoutSourceVideoAssetNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoAssetNestedInput
 }
 
 export type VideoAssetUncheckedUpdateInput = {
@@ -459,6 +465,7 @@ export type VideoAssetUncheckedUpdateInput = {
   contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   favoritePromptsFromAsset?: Prisma.FavoritePromptUncheckedUpdateManyWithoutSourceVideoAssetNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoAssetNestedInput
 }
 
 export type VideoAssetCreateManyInput = {
@@ -638,6 +645,22 @@ export type EnumAssetTypeFieldUpdateOperationsInput = {
   set?: $Enums.AssetType
 }
 
+export type VideoAssetCreateNestedOneWithoutMediaPredictionsInput = {
+  create?: Prisma.XOR<Prisma.VideoAssetCreateWithoutMediaPredictionsInput, Prisma.VideoAssetUncheckedCreateWithoutMediaPredictionsInput>
+  connectOrCreate?: Prisma.VideoAssetCreateOrConnectWithoutMediaPredictionsInput
+  connect?: Prisma.VideoAssetWhereUniqueInput
+}
+
+export type VideoAssetUpdateOneWithoutMediaPredictionsNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoAssetCreateWithoutMediaPredictionsInput, Prisma.VideoAssetUncheckedCreateWithoutMediaPredictionsInput>
+  connectOrCreate?: Prisma.VideoAssetCreateOrConnectWithoutMediaPredictionsInput
+  upsert?: Prisma.VideoAssetUpsertWithoutMediaPredictionsInput
+  disconnect?: Prisma.VideoAssetWhereInput | boolean
+  delete?: Prisma.VideoAssetWhereInput | boolean
+  connect?: Prisma.VideoAssetWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.VideoAssetUpdateToOneWithWhereWithoutMediaPredictionsInput, Prisma.VideoAssetUpdateWithoutMediaPredictionsInput>, Prisma.VideoAssetUncheckedUpdateWithoutMediaPredictionsInput>
+}
+
 export type VideoAssetCreateNestedOneWithoutFavoritePromptsFromAssetInput = {
   create?: Prisma.XOR<Prisma.VideoAssetCreateWithoutFavoritePromptsFromAssetInput, Prisma.VideoAssetUncheckedCreateWithoutFavoritePromptsFromAssetInput>
   connectOrCreate?: Prisma.VideoAssetCreateOrConnectWithoutFavoritePromptsFromAssetInput
@@ -668,6 +691,7 @@ export type VideoAssetCreateWithoutVideoInput = {
   contentType?: string | null
   createdAt?: Date | string
   favoritePromptsFromAsset?: Prisma.FavoritePromptCreateNestedManyWithoutSourceVideoAssetInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoAssetInput
 }
 
 export type VideoAssetUncheckedCreateWithoutVideoInput = {
@@ -685,6 +709,7 @@ export type VideoAssetUncheckedCreateWithoutVideoInput = {
   contentType?: string | null
   createdAt?: Date | string
   favoritePromptsFromAsset?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutSourceVideoAssetInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoAssetInput
 }
 
 export type VideoAssetCreateOrConnectWithoutVideoInput = {
@@ -733,6 +758,92 @@ export type VideoAssetScalarWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"VideoAsset"> | Date | string
 }
 
+export type VideoAssetCreateWithoutMediaPredictionsInput = {
+  type: $Enums.AssetType
+  prompt?: string | null
+  filePath?: string | null
+  fileUrl?: string | null
+  order?: number
+  duration?: number | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  contentType?: string | null
+  createdAt?: Date | string
+  video: Prisma.VideoCreateNestedOneWithoutAssetsInput
+  favoritePromptsFromAsset?: Prisma.FavoritePromptCreateNestedManyWithoutSourceVideoAssetInput
+}
+
+export type VideoAssetUncheckedCreateWithoutMediaPredictionsInput = {
+  id?: number
+  videoId: number
+  type: $Enums.AssetType
+  prompt?: string | null
+  filePath?: string | null
+  fileUrl?: string | null
+  order?: number
+  duration?: number | null
+  storageKey?: string | null
+  storageProvider?: string
+  fileSizeBytes?: bigint | number | null
+  fileSha256?: string | null
+  contentType?: string | null
+  createdAt?: Date | string
+  favoritePromptsFromAsset?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutSourceVideoAssetInput
+}
+
+export type VideoAssetCreateOrConnectWithoutMediaPredictionsInput = {
+  where: Prisma.VideoAssetWhereUniqueInput
+  create: Prisma.XOR<Prisma.VideoAssetCreateWithoutMediaPredictionsInput, Prisma.VideoAssetUncheckedCreateWithoutMediaPredictionsInput>
+}
+
+export type VideoAssetUpsertWithoutMediaPredictionsInput = {
+  update: Prisma.XOR<Prisma.VideoAssetUpdateWithoutMediaPredictionsInput, Prisma.VideoAssetUncheckedUpdateWithoutMediaPredictionsInput>
+  create: Prisma.XOR<Prisma.VideoAssetCreateWithoutMediaPredictionsInput, Prisma.VideoAssetUncheckedCreateWithoutMediaPredictionsInput>
+  where?: Prisma.VideoAssetWhereInput
+}
+
+export type VideoAssetUpdateToOneWithWhereWithoutMediaPredictionsInput = {
+  where?: Prisma.VideoAssetWhereInput
+  data: Prisma.XOR<Prisma.VideoAssetUpdateWithoutMediaPredictionsInput, Prisma.VideoAssetUncheckedUpdateWithoutMediaPredictionsInput>
+}
+
+export type VideoAssetUpdateWithoutMediaPredictionsInput = {
+  type?: Prisma.EnumAssetTypeFieldUpdateOperationsInput | $Enums.AssetType
+  prompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  video?: Prisma.VideoUpdateOneRequiredWithoutAssetsNestedInput
+  favoritePromptsFromAsset?: Prisma.FavoritePromptUpdateManyWithoutSourceVideoAssetNestedInput
+}
+
+export type VideoAssetUncheckedUpdateWithoutMediaPredictionsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  videoId?: Prisma.IntFieldUpdateOperationsInput | number
+  type?: Prisma.EnumAssetTypeFieldUpdateOperationsInput | $Enums.AssetType
+  prompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fileUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  favoritePromptsFromAsset?: Prisma.FavoritePromptUncheckedUpdateManyWithoutSourceVideoAssetNestedInput
+}
+
 export type VideoAssetCreateWithoutFavoritePromptsFromAssetInput = {
   type: $Enums.AssetType
   prompt?: string | null
@@ -747,6 +858,7 @@ export type VideoAssetCreateWithoutFavoritePromptsFromAssetInput = {
   contentType?: string | null
   createdAt?: Date | string
   video: Prisma.VideoCreateNestedOneWithoutAssetsInput
+  mediaPredictions?: Prisma.MediaPredictionCreateNestedManyWithoutVideoAssetInput
 }
 
 export type VideoAssetUncheckedCreateWithoutFavoritePromptsFromAssetInput = {
@@ -764,6 +876,7 @@ export type VideoAssetUncheckedCreateWithoutFavoritePromptsFromAssetInput = {
   fileSha256?: string | null
   contentType?: string | null
   createdAt?: Date | string
+  mediaPredictions?: Prisma.MediaPredictionUncheckedCreateNestedManyWithoutVideoAssetInput
 }
 
 export type VideoAssetCreateOrConnectWithoutFavoritePromptsFromAssetInput = {
@@ -796,6 +909,7 @@ export type VideoAssetUpdateWithoutFavoritePromptsFromAssetInput = {
   contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   video?: Prisma.VideoUpdateOneRequiredWithoutAssetsNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoAssetNestedInput
 }
 
 export type VideoAssetUncheckedUpdateWithoutFavoritePromptsFromAssetInput = {
@@ -813,6 +927,7 @@ export type VideoAssetUncheckedUpdateWithoutFavoritePromptsFromAssetInput = {
   fileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoAssetNestedInput
 }
 
 export type VideoAssetCreateManyVideoInput = {
@@ -845,6 +960,7 @@ export type VideoAssetUpdateWithoutVideoInput = {
   contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   favoritePromptsFromAsset?: Prisma.FavoritePromptUpdateManyWithoutSourceVideoAssetNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUpdateManyWithoutVideoAssetNestedInput
 }
 
 export type VideoAssetUncheckedUpdateWithoutVideoInput = {
@@ -862,6 +978,7 @@ export type VideoAssetUncheckedUpdateWithoutVideoInput = {
   contentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   favoritePromptsFromAsset?: Prisma.FavoritePromptUncheckedUpdateManyWithoutSourceVideoAssetNestedInput
+  mediaPredictions?: Prisma.MediaPredictionUncheckedUpdateManyWithoutVideoAssetNestedInput
 }
 
 export type VideoAssetUncheckedUpdateManyWithoutVideoInput = {
@@ -887,10 +1004,12 @@ export type VideoAssetUncheckedUpdateManyWithoutVideoInput = {
 
 export type VideoAssetCountOutputType = {
   favoritePromptsFromAsset: number
+  mediaPredictions: number
 }
 
 export type VideoAssetCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   favoritePromptsFromAsset?: boolean | VideoAssetCountOutputTypeCountFavoritePromptsFromAssetArgs
+  mediaPredictions?: boolean | VideoAssetCountOutputTypeCountMediaPredictionsArgs
 }
 
 /**
@@ -908,6 +1027,13 @@ export type VideoAssetCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.E
  */
 export type VideoAssetCountOutputTypeCountFavoritePromptsFromAssetArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.FavoritePromptWhereInput
+}
+
+/**
+ * VideoAssetCountOutputType without action
+ */
+export type VideoAssetCountOutputTypeCountMediaPredictionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MediaPredictionWhereInput
 }
 
 
@@ -928,6 +1054,7 @@ export type VideoAssetSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   favoritePromptsFromAsset?: boolean | Prisma.VideoAsset$favoritePromptsFromAssetArgs<ExtArgs>
+  mediaPredictions?: boolean | Prisma.VideoAsset$mediaPredictionsArgs<ExtArgs>
   _count?: boolean | Prisma.VideoAssetCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["videoAsset"]>
 
@@ -988,6 +1115,7 @@ export type VideoAssetOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs
 export type VideoAssetInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   favoritePromptsFromAsset?: boolean | Prisma.VideoAsset$favoritePromptsFromAssetArgs<ExtArgs>
+  mediaPredictions?: boolean | Prisma.VideoAsset$mediaPredictionsArgs<ExtArgs>
   _count?: boolean | Prisma.VideoAssetCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type VideoAssetIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1002,6 +1130,7 @@ export type $VideoAssetPayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     video: Prisma.$VideoPayload<ExtArgs>
     favoritePromptsFromAsset: Prisma.$FavoritePromptPayload<ExtArgs>[]
+    mediaPredictions: Prisma.$MediaPredictionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -1414,6 +1543,7 @@ export interface Prisma__VideoAssetClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   video<T extends Prisma.VideoDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VideoDefaultArgs<ExtArgs>>): Prisma.Prisma__VideoClient<runtime.Types.Result.GetResult<Prisma.$VideoPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   favoritePromptsFromAsset<T extends Prisma.VideoAsset$favoritePromptsFromAssetArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VideoAsset$favoritePromptsFromAssetArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FavoritePromptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  mediaPredictions<T extends Prisma.VideoAsset$mediaPredictionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VideoAsset$mediaPredictionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MediaPredictionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1879,6 +2009,30 @@ export type VideoAsset$favoritePromptsFromAssetArgs<ExtArgs extends runtime.Type
   take?: number
   skip?: number
   distinct?: Prisma.FavoritePromptScalarFieldEnum | Prisma.FavoritePromptScalarFieldEnum[]
+}
+
+/**
+ * VideoAsset.mediaPredictions
+ */
+export type VideoAsset$mediaPredictionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MediaPrediction
+   */
+  select?: Prisma.MediaPredictionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MediaPrediction
+   */
+  omit?: Prisma.MediaPredictionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MediaPredictionInclude<ExtArgs> | null
+  where?: Prisma.MediaPredictionWhereInput
+  orderBy?: Prisma.MediaPredictionOrderByWithRelationInput | Prisma.MediaPredictionOrderByWithRelationInput[]
+  cursor?: Prisma.MediaPredictionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MediaPredictionScalarFieldEnum | Prisma.MediaPredictionScalarFieldEnum[]
 }
 
 /**

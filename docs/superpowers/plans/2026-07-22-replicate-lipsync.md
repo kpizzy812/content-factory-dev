@@ -65,13 +65,13 @@
 - Create: `server/utils/replicate/prediction-state.ts`
 - Create: `server/utils/replicate/prediction-repository.ts`
 
-- [ ] Write failing pure state-machine tests proving that `starting -> processing -> succeeded` is valid, duplicate `succeeded` is a no-op, `succeeded -> processing` is rejected, and canceled/failed jobs are terminal.
-- [ ] Run `bun test tests/unit/replicate/prediction-state.spec.ts` and confirm the missing implementation failure.
-- [ ] Add `MediaPrediction` with: internal id, optional `videoId`, optional `videoAssetId`, provider, capability, model, unique idempotency key, unique nullable external prediction id, status, sanitized input/output snapshots, provider output URL, persisted storage metadata, error, metrics, submitted/completed/terminal/webhook timestamps, and created/updated timestamps.
-- [ ] Add indexes for `(status, updatedAt)`, `videoId`, and provider/external id. Add cascading relations where a prediction belongs to a video or asset.
-- [ ] Create migration SQL matching the schema and run `bunx prisma generate`.
-- [ ] Implement pure transition rules, terminal guards, sanitization, create-or-read-by-idempotency-key, attach-external-id, and atomic terminal update helpers.
-- [ ] Re-run focused state tests and confirm they pass.
+- [x] Write failing pure state-machine tests proving that `starting -> processing -> succeeded` is valid, duplicate `succeeded` is a no-op, `succeeded -> processing` is rejected, and canceled/failed jobs are terminal.
+- [x] Run `bun test tests/unit/replicate/prediction-state.spec.ts` and confirm the missing implementation failure.
+- [x] Add `MediaPrediction` with: internal id, optional `videoId`, optional `videoAssetId`, provider, capability, model, unique idempotency key, unique nullable external prediction id, status, sanitized input/output snapshots, provider output URL, persisted storage metadata, error, metrics, submitted/completed/terminal/webhook timestamps, and created/updated timestamps.
+- [x] Add indexes for `(status, updatedAt)`, `videoId`, and provider/external id. Add cascading relations where a prediction belongs to a video or asset.
+- [x] Create migration SQL matching the schema and run `bunx prisma generate`.
+- [x] Implement pure transition rules, terminal guards, sanitization, create-or-read-by-idempotency-key, attach-external-id, and atomic terminal update helpers.
+- [x] Re-run focused state tests and confirm they pass.
 
 ## Task 4: Implement Replicate Submission, Polling And Mock Mode
 

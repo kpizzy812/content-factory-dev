@@ -403,6 +403,7 @@ export const ModelName = {
   VideoFrame: 'VideoFrame',
   VideoAsset: 'VideoAsset',
   VideoGenerationStep: 'VideoGenerationStep',
+  MediaPrediction: 'MediaPrediction',
   TrendInsight: 'TrendInsight',
   CreativeBrief: 'CreativeBrief',
   SocialAccount: 'SocialAccount',
@@ -472,7 +473,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption"
+    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1879,6 +1880,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.VideoGenerationStepCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.VideoGenerationStepCountAggregateOutputType> | number
+        }
+      }
+    }
+    MediaPrediction: {
+      payload: Prisma.$MediaPredictionPayload<ExtArgs>
+      fields: Prisma.MediaPredictionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MediaPredictionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MediaPredictionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>
+        }
+        findFirst: {
+          args: Prisma.MediaPredictionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MediaPredictionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>
+        }
+        findMany: {
+          args: Prisma.MediaPredictionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>[]
+        }
+        create: {
+          args: Prisma.MediaPredictionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>
+        }
+        createMany: {
+          args: Prisma.MediaPredictionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MediaPredictionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>[]
+        }
+        delete: {
+          args: Prisma.MediaPredictionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>
+        }
+        update: {
+          args: Prisma.MediaPredictionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>
+        }
+        deleteMany: {
+          args: Prisma.MediaPredictionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MediaPredictionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MediaPredictionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>[]
+        }
+        upsert: {
+          args: Prisma.MediaPredictionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaPredictionPayload>
+        }
+        aggregate: {
+          args: Prisma.MediaPredictionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMediaPrediction>
+        }
+        groupBy: {
+          args: Prisma.MediaPredictionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MediaPredictionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MediaPredictionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MediaPredictionCountAggregateOutputType> | number
         }
       }
     }
@@ -6414,6 +6489,38 @@ export const VideoGenerationStepScalarFieldEnum = {
 export type VideoGenerationStepScalarFieldEnum = (typeof VideoGenerationStepScalarFieldEnum)[keyof typeof VideoGenerationStepScalarFieldEnum]
 
 
+export const MediaPredictionScalarFieldEnum = {
+  id: 'id',
+  videoId: 'videoId',
+  videoAssetId: 'videoAssetId',
+  provider: 'provider',
+  capability: 'capability',
+  model: 'model',
+  externalId: 'externalId',
+  idempotencyKey: 'idempotencyKey',
+  status: 'status',
+  inputSnapshot: 'inputSnapshot',
+  outputSnapshot: 'outputSnapshot',
+  outputUrl: 'outputUrl',
+  persistedStorageKey: 'persistedStorageKey',
+  persistedStorageProvider: 'persistedStorageProvider',
+  persistedFileSizeBytes: 'persistedFileSizeBytes',
+  persistedFileSha256: 'persistedFileSha256',
+  persistedContentType: 'persistedContentType',
+  errorMessage: 'errorMessage',
+  metrics: 'metrics',
+  submittedAt: 'submittedAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  terminalAt: 'terminalAt',
+  webhookReceivedAt: 'webhookReceivedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MediaPredictionScalarFieldEnum = (typeof MediaPredictionScalarFieldEnum)[keyof typeof MediaPredictionScalarFieldEnum]
+
+
 export const TrendInsightScalarFieldEnum = {
   id: 'id',
   trendId: 'trendId',
@@ -8344,6 +8451,7 @@ export type GlobalOmitConfig = {
   videoFrame?: Prisma.VideoFrameOmit
   videoAsset?: Prisma.VideoAssetOmit
   videoGenerationStep?: Prisma.VideoGenerationStepOmit
+  mediaPrediction?: Prisma.MediaPredictionOmit
   trendInsight?: Prisma.TrendInsightOmit
   creativeBrief?: Prisma.CreativeBriefOmit
   socialAccount?: Prisma.SocialAccountOmit

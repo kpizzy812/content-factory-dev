@@ -70,6 +70,7 @@ export const ModelName = {
   VideoFrame: 'VideoFrame',
   VideoAsset: 'VideoAsset',
   VideoGenerationStep: 'VideoGenerationStep',
+  MediaPrediction: 'MediaPrediction',
   TrendInsight: 'TrendInsight',
   CreativeBrief: 'CreativeBrief',
   SocialAccount: 'SocialAccount',
@@ -637,6 +638,38 @@ export const VideoGenerationStepScalarFieldEnum = {
 } as const
 
 export type VideoGenerationStepScalarFieldEnum = (typeof VideoGenerationStepScalarFieldEnum)[keyof typeof VideoGenerationStepScalarFieldEnum]
+
+
+export const MediaPredictionScalarFieldEnum = {
+  id: 'id',
+  videoId: 'videoId',
+  videoAssetId: 'videoAssetId',
+  provider: 'provider',
+  capability: 'capability',
+  model: 'model',
+  externalId: 'externalId',
+  idempotencyKey: 'idempotencyKey',
+  status: 'status',
+  inputSnapshot: 'inputSnapshot',
+  outputSnapshot: 'outputSnapshot',
+  outputUrl: 'outputUrl',
+  persistedStorageKey: 'persistedStorageKey',
+  persistedStorageProvider: 'persistedStorageProvider',
+  persistedFileSizeBytes: 'persistedFileSizeBytes',
+  persistedFileSha256: 'persistedFileSha256',
+  persistedContentType: 'persistedContentType',
+  errorMessage: 'errorMessage',
+  metrics: 'metrics',
+  submittedAt: 'submittedAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  terminalAt: 'terminalAt',
+  webhookReceivedAt: 'webhookReceivedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MediaPredictionScalarFieldEnum = (typeof MediaPredictionScalarFieldEnum)[keyof typeof MediaPredictionScalarFieldEnum]
 
 
 export const TrendInsightScalarFieldEnum = {
