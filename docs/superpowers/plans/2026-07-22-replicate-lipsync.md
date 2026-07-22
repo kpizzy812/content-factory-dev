@@ -99,12 +99,12 @@
 - Create: `server/utils/replicate/webhook.ts`
 - Create: `server/api/webhooks/replicate.post.ts`
 
-- [ ] Write failing tests proving invalid signatures return an authentication error, valid payloads are normalized, duplicate terminal events are no-ops, and late processing events cannot overwrite success.
-- [ ] Run `bun test tests/unit/replicate/webhook.spec.ts` and confirm expected failure.
-- [ ] Build a Fetch `Request` from Nitro's untouched raw body, URL, method, and headers; validate it with the official client's `validateWebhook` before parsing JSON.
-- [ ] Return a fast 2xx response after an idempotent database update. Do not download output media in the request handler.
-- [ ] Store only sanitized provider payload fields and timestamps.
-- [ ] Re-run focused webhook tests and confirm they pass.
+- [x] Write failing tests proving invalid signatures return an authentication error, valid payloads are normalized, duplicate terminal events are no-ops, and late processing events cannot overwrite success.
+- [x] Run `bun test tests/unit/replicate/webhook.spec.ts` and confirm expected failure.
+- [x] Build a Fetch `Request` from Nitro's untouched raw body, URL, method, and headers; validate it with the official client's `validateWebhook` before parsing JSON.
+- [x] Return a fast 2xx response after an idempotent database update. Do not download output media in the request handler.
+- [x] Store only sanitized provider payload fields and timestamps.
+- [x] Re-run focused webhook tests and confirm they pass.
 
 ## Task 6: Finalize Outputs And Recover Missed Webhooks
 
