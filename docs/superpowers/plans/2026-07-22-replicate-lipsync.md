@@ -150,11 +150,11 @@
 - Create: `docs/operations/replicate.md`
 - Create: `tests/integration/replicate-lipsync-flow.spec.ts`
 
-- [ ] Add an integration test using mock mode that creates a prediction, applies a duplicate webhook, persists one output, and resumes without a second paid submission.
-- [ ] Run `bun test tests/integration/replicate-lipsync-flow.spec.ts` and confirm the intended initial failure, then add only the wiring needed for it to pass.
-- [ ] Document setup, exact webhook URL, signature-secret acquisition, model/privacy constraints, mock mode, recovery behavior, fallback policy, and a canary procedure using one 2-10 second source clip before batch runs.
-- [ ] Run `bunx prisma validate`.
-- [ ] Run all new tests with `bun test tests/unit/replicate tests/unit/media-provider tests/unit/lip-sync-provider.spec.ts tests/integration/replicate-lipsync-flow.spec.ts`.
-- [ ] Run the full unit suite with `bun run test:unit`.
-- [ ] Run `bun run build`.
-- [ ] Inspect `git diff --check`, `git status --short`, and the migration diff. Do not claim completion unless all required commands exit successfully.
+- [x] Add an integration test using mock mode that creates a prediction, applies a duplicate webhook, persists one output, and resumes without a second paid submission.
+- [x] Run the integration test. It passed with the Tasks 1-7 wiring already in place, so no additional production wiring was needed.
+- [x] Document setup, exact webhook URL, signature-secret acquisition, model/privacy constraints, mock mode, recovery behavior, fallback policy, and a canary procedure using one 2-10 second source clip before batch runs.
+- [x] Run `bunx prisma validate`.
+- [x] Run all new tests with `bun test tests/unit/replicate tests/unit/media-provider tests/unit/lip-sync-provider.spec.ts tests/integration/replicate-lipsync-flow.spec.ts`.
+- [x] Run the full unit suite with `bun run test:unit`.
+- [x] Run `bun run build`.
+- [x] Inspect `git diff --check`, `git status --short`, and the migration diff. Do not claim completion unless all required commands exit successfully.

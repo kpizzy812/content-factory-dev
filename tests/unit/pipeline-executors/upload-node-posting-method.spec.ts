@@ -31,6 +31,8 @@ const { createPostingJobMock, assertOneToOneMock, runUploadPipelineMock } =
 
 vi.mock("../../../server/utils/posting/job-service", () => ({
   createPostingJob: createPostingJobMock,
+  defaultMaxAttemptsForMethod: (postingMethod: string | null | undefined) =>
+    postingMethod === "browser_automation" ? 5 : 3,
 }))
 vi.mock("../../../server/utils/accounts/one-to-one-guard", () => ({
   assertOneToOneForBrowserAutomation: assertOneToOneMock,
@@ -223,7 +225,7 @@ describe("executeUploadNode — развилка по postingMethod (PR5)", () =
     expect(arg.runId).toBe(fx.runId)
     expect(arg.pipelineId).toBe(fx.pipelineId)
     expect(arg.scheduledAt).toBeNull()
-    expect(arg.maxAttempts).toBe(3)
+    expect(arg.maxAttempts).toBe(5)
 
     // W6: contentSnapshot.caption = полный IG-текст (Caption.title), НЕ youtube title.
     expect(arg.contentSnapshot.caption).toBe("Полный IG caption текст для Reels 🎬")
