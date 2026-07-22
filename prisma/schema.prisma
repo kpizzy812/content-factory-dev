@@ -894,6 +894,10 @@ model MediaPrediction {
   persistedFileSizeBytes   BigInt?
   persistedFileSha256      String?
   persistedContentType     String?
+  persistenceStatus        String      @default("pending")
+  persistenceStartedAt     DateTime?
+  persistenceAttemptCount  Int         @default(0)
+  persistenceError         String?
   errorMessage             String?
   metrics                  Json?
   submittedAt              DateTime?

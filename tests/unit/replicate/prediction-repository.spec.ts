@@ -110,4 +110,64 @@ describe("media prediction repository", () => {
       }),
     }))
   })
+
+  it("claims output persistence with one atomic compare-and-set", async () => {
+    const updateMany = vi.fn()
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 })
+    const client = {
+      mediaPrediction: { updateMany },
+      $transaction: async (operation: (tx: unknown) => Promise<unknown>) => operation(client),
+    }
+    const repository = createMediaPredictionRepository(client)
+
+    await expect(repository.claimPersistence("internal_1")).resolves.toBe(true)
+    await expect(repository.claimPersistence("internal_1")).resolves.toBe(false)
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "internal_1",
+        status: "succeeded",
+        persistedStorageKey: null,
+        persistenceStatus: { in: ["pending", "failed"] },
+      },
+      data: expect.objectContaining({
+        persistenceStatus: "persisting",
+        persistenceStartedAt: expect.any(Date),
+        persistenceError: null,
+      }),
+    })
+  })
+
+  it("records persistent storage metadata after upload", async () => {
+    const persisted = makeRow({
+      status: "succeeded",
+      persistedStorageKey: "contentfactory/media-predictions/internal_1/output.mp4",
+      persistenceStatus: "persisted",
+    })
+    const update = vi.fn(async () => persisted)
+    const client = {
+      mediaPrediction: { update },
+      $transaction: async (operation: (tx: unknown) => Promise<unknown>) => operation(client),
+    }
+    const repository = createMediaPredictionRepository(client)
+
+    const result = await repository.markOutputPersisted("internal_1", {
+      storageKey: "contentfactory/media-predictions/internal_1/output.mp4",
+      storageProvider: "gcs",
+      fileSizeBytes: 100n,
+      fileSha256: "sha256",
+      contentType: "video/mp4",
+    })
+
+    expect(result).toBe(persisted)
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "internal_1" },
+      data: expect.objectContaining({
+        persistenceStatus: "persisted",
+        persistedStorageKey: "contentfactory/media-predictions/internal_1/output.mp4",
+        persistedStorageProvider: "gcs",
+        persistedFileSizeBytes: 100n,
+      }),
+    })
+  })
 })

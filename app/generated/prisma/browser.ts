@@ -150,16 +150,20 @@ export type Proxy = Prisma.ProxyModel
  * Model ProxyDeepCheckLog
  * *
  *  * Уровень C deep proxy check log.
+ *  *
  *  * Уровень A/B (быстрый probe.ts через Node http-agent) сохраняется в ProxyHealthCheck.
  *  * Уровень C (реальный Indigo browser + CDP + ifconfig.me inside Chromium) — здесь.
+ *  *
  *  * Гибридная схема: денормализованные ключевые поля (detectedIp/isLeaking/outcome/
  *  * proxyActuallyWorking/durationMs/recommendation) + fullResult JSON для drill-down.
  *  * Это даёт быстрый list/index без JSON parsing, при этом не теряет полную структуру
  *  * DeepProxyCheckResult.steps для отладки.
+ *  *
  *  * Уровни A/B и C НЕ shared в одну таблицу потому что:
- *  * - A/B частые/дешёвые (>100/день), C редкие/дорогие (<50/неделю)
- *  * - shape steps/verdict сильно различается
- *  * - JOIN history per proxy естественнее с раздельными таблицами
+ *  *   - A/B частые/дешёвые (>100/день), C редкие/дорогие (<50/неделю)
+ *  *   - shape steps/verdict сильно различается
+ *  *   - JOIN history per proxy естественнее с раздельными таблицами
+ *  *
  *  * onDelete: Proxy=Cascade (логи бесполезны), SocialAccount/IndigoProfile/User=SetNull
  *  * (лог сохраняется для аналитики прокси).
  */

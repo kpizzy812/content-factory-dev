@@ -1,5 +1,6 @@
 import { prisma } from "../prisma"
 import type { MediaPredictionStatus, MediaProviderName } from "../media-provider/types"
+import type { AssetStorageColumns } from "../storage/persist-asset"
 import {
   isTerminalPredictionStatus,
   sanitizePredictionSnapshot,
@@ -14,6 +15,10 @@ export interface MediaPredictionRecord {
   inputSnapshot: unknown
   outputSnapshot: unknown
   outputUrl: string | null
+  persistedStorageKey: string | null
+  persistedStorageProvider: string | null
+  persistenceStatus: string
+  persistenceError: string | null
   errorMessage: string | null
   terminalAt: Date | null
   webhookReceivedAt: Date | null
@@ -23,6 +28,8 @@ export interface MediaPredictionRecord {
 interface MediaPredictionDelegate {
   upsert(args: Record<string, unknown>): Promise<MediaPredictionRecord>
   findUnique(args: Record<string, unknown>): Promise<MediaPredictionRecord | null>
+  findMany(args: Record<string, unknown>): Promise<MediaPredictionRecord[]>
+  update(args: Record<string, unknown>): Promise<MediaPredictionRecord>
   updateMany(args: Record<string, unknown>): Promise<{ count: number }>
 }
 
@@ -78,6 +85,10 @@ export function createMediaPredictionRepository(
 
     findByIdempotencyKey(idempotencyKey: string): Promise<MediaPredictionRecord | null> {
       return client.mediaPrediction.findUnique({ where: { idempotencyKey } })
+    },
+
+    findById(id: string): Promise<MediaPredictionRecord | null> {
+      return client.mediaPrediction.findUnique({ where: { id } })
     },
 
     findByExternalId(externalId: string): Promise<MediaPredictionRecord | null> {
@@ -160,6 +171,79 @@ export function createMediaPredictionRepository(
         if (!result) throw new Error(`Media prediction disappeared after update: ${current.id}`)
         return result
       }, { isolationLevel: "Serializable" })
+    },
+
+    async claimPersistence(id: string): Promise<boolean> {
+      const result = await client.mediaPrediction.updateMany({
+        where: {
+          id,
+          status: "succeeded",
+          persistedStorageKey: null,
+          persistenceStatus: { in: ["pending", "failed"] },
+        },
+        data: {
+          persistenceStatus: "persisting",
+          persistenceStartedAt: new Date(),
+          persistenceError: null,
+          persistenceAttemptCount: { increment: 1 },
+        },
+      })
+      return result.count === 1
+    },
+
+    markOutputPersisted(
+      id: string,
+      asset: AssetStorageColumns,
+    ): Promise<MediaPredictionRecord> {
+      return client.mediaPrediction.update({
+        where: { id },
+        data: {
+          persistenceStatus: "persisted",
+          persistenceError: null,
+          persistedStorageKey: asset.storageKey,
+          persistedStorageProvider: asset.storageProvider,
+          persistedFileSizeBytes: asset.fileSizeBytes,
+          persistedFileSha256: asset.fileSha256,
+          persistedContentType: asset.contentType,
+        },
+      })
+    },
+
+    markPersistenceFailed(id: string, error: string): Promise<MediaPredictionRecord> {
+      return client.mediaPrediction.update({
+        where: { id },
+        data: {
+          persistenceStatus: "failed",
+          persistenceError: error.slice(0, 2_000),
+        },
+      })
+    },
+
+    findRecoverable(limit: number): Promise<MediaPredictionRecord[]> {
+      const staleBefore = new Date(Date.now() - 2 * 60 * 1000)
+      return client.mediaPrediction.findMany({
+        where: {
+          externalId: { not: null },
+          persistedStorageKey: null,
+          OR: [
+            {
+              status: { in: ["starting", "processing"] },
+              updatedAt: { lte: staleBefore },
+            },
+            {
+              status: "succeeded",
+              persistenceStatus: { in: ["pending", "failed"] },
+            },
+            {
+              status: "succeeded",
+              persistenceStatus: "persisting",
+              persistenceStartedAt: { lte: staleBefore },
+            },
+          ],
+        },
+        orderBy: { updatedAt: "asc" },
+        take: Math.max(1, Math.min(limit, 100)),
+      })
     },
   }
 }

@@ -50,6 +50,10 @@ export const StorageKeys = {
   videoLipSyncClip: (videoId: number | string, basename: string): string =>
     `${STORAGE_PATH_PREFIX}videos/${vid(videoId)}/lipsync/${basename}`,
 
+  /** Durable copy of a temporary media-provider output. */
+  mediaPredictionOutput: (predictionId: string, extension = "mp4"): string =>
+    `${STORAGE_PATH_PREFIX}media-predictions/${predictionId}/output.${extension.replace(/^\./, "")}`,
+
   /** App reference image — dedup по sha1. Совпадает с существующей структурой
    *  storage/uploads/app-references/{appId}/{sha1}.{ext}, только под префиксом. */
   appReferenceImage: (appId: number | string, sha1: string, ext = "png"): string =>

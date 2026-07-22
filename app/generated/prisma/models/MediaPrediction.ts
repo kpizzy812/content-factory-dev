@@ -32,12 +32,14 @@ export type MediaPredictionAvgAggregateOutputType = {
   videoId: number | null
   videoAssetId: number | null
   persistedFileSizeBytes: number | null
+  persistenceAttemptCount: number | null
 }
 
 export type MediaPredictionSumAggregateOutputType = {
   videoId: number | null
   videoAssetId: number | null
   persistedFileSizeBytes: bigint | null
+  persistenceAttemptCount: number | null
 }
 
 export type MediaPredictionMinAggregateOutputType = {
@@ -56,6 +58,10 @@ export type MediaPredictionMinAggregateOutputType = {
   persistedFileSizeBytes: bigint | null
   persistedFileSha256: string | null
   persistedContentType: string | null
+  persistenceStatus: string | null
+  persistenceStartedAt: Date | null
+  persistenceAttemptCount: number | null
+  persistenceError: string | null
   errorMessage: string | null
   submittedAt: Date | null
   startedAt: Date | null
@@ -82,6 +88,10 @@ export type MediaPredictionMaxAggregateOutputType = {
   persistedFileSizeBytes: bigint | null
   persistedFileSha256: string | null
   persistedContentType: string | null
+  persistenceStatus: string | null
+  persistenceStartedAt: Date | null
+  persistenceAttemptCount: number | null
+  persistenceError: string | null
   errorMessage: string | null
   submittedAt: Date | null
   startedAt: Date | null
@@ -110,6 +120,10 @@ export type MediaPredictionCountAggregateOutputType = {
   persistedFileSizeBytes: number
   persistedFileSha256: number
   persistedContentType: number
+  persistenceStatus: number
+  persistenceStartedAt: number
+  persistenceAttemptCount: number
+  persistenceError: number
   errorMessage: number
   metrics: number
   submittedAt: number
@@ -127,12 +141,14 @@ export type MediaPredictionAvgAggregateInputType = {
   videoId?: true
   videoAssetId?: true
   persistedFileSizeBytes?: true
+  persistenceAttemptCount?: true
 }
 
 export type MediaPredictionSumAggregateInputType = {
   videoId?: true
   videoAssetId?: true
   persistedFileSizeBytes?: true
+  persistenceAttemptCount?: true
 }
 
 export type MediaPredictionMinAggregateInputType = {
@@ -151,6 +167,10 @@ export type MediaPredictionMinAggregateInputType = {
   persistedFileSizeBytes?: true
   persistedFileSha256?: true
   persistedContentType?: true
+  persistenceStatus?: true
+  persistenceStartedAt?: true
+  persistenceAttemptCount?: true
+  persistenceError?: true
   errorMessage?: true
   submittedAt?: true
   startedAt?: true
@@ -177,6 +197,10 @@ export type MediaPredictionMaxAggregateInputType = {
   persistedFileSizeBytes?: true
   persistedFileSha256?: true
   persistedContentType?: true
+  persistenceStatus?: true
+  persistenceStartedAt?: true
+  persistenceAttemptCount?: true
+  persistenceError?: true
   errorMessage?: true
   submittedAt?: true
   startedAt?: true
@@ -205,6 +229,10 @@ export type MediaPredictionCountAggregateInputType = {
   persistedFileSizeBytes?: true
   persistedFileSha256?: true
   persistedContentType?: true
+  persistenceStatus?: true
+  persistenceStartedAt?: true
+  persistenceAttemptCount?: true
+  persistenceError?: true
   errorMessage?: true
   metrics?: true
   submittedAt?: true
@@ -321,6 +349,10 @@ export type MediaPredictionGroupByOutputType = {
   persistedFileSizeBytes: bigint | null
   persistedFileSha256: string | null
   persistedContentType: string | null
+  persistenceStatus: string
+  persistenceStartedAt: Date | null
+  persistenceAttemptCount: number
+  persistenceError: string | null
   errorMessage: string | null
   metrics: runtime.JsonValue | null
   submittedAt: Date | null
@@ -373,6 +405,10 @@ export type MediaPredictionWhereInput = {
   persistedFileSizeBytes?: Prisma.BigIntNullableFilter<"MediaPrediction"> | bigint | number | null
   persistedFileSha256?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   persistedContentType?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
+  persistenceStatus?: Prisma.StringFilter<"MediaPrediction"> | string
+  persistenceStartedAt?: Prisma.DateTimeNullableFilter<"MediaPrediction"> | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFilter<"MediaPrediction"> | number
+  persistenceError?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   metrics?: Prisma.JsonNullableFilter<"MediaPrediction">
   submittedAt?: Prisma.DateTimeNullableFilter<"MediaPrediction"> | Date | string | null
@@ -404,6 +440,10 @@ export type MediaPredictionOrderByWithRelationInput = {
   persistedFileSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   persistedFileSha256?: Prisma.SortOrderInput | Prisma.SortOrder
   persistedContentType?: Prisma.SortOrderInput | Prisma.SortOrder
+  persistenceStatus?: Prisma.SortOrder
+  persistenceStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
+  persistenceError?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   metrics?: Prisma.SortOrderInput | Prisma.SortOrder
   submittedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -438,6 +478,10 @@ export type MediaPredictionWhereUniqueInput = Prisma.AtLeast<{
   persistedFileSizeBytes?: Prisma.BigIntNullableFilter<"MediaPrediction"> | bigint | number | null
   persistedFileSha256?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   persistedContentType?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
+  persistenceStatus?: Prisma.StringFilter<"MediaPrediction"> | string
+  persistenceStartedAt?: Prisma.DateTimeNullableFilter<"MediaPrediction"> | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFilter<"MediaPrediction"> | number
+  persistenceError?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   metrics?: Prisma.JsonNullableFilter<"MediaPrediction">
   submittedAt?: Prisma.DateTimeNullableFilter<"MediaPrediction"> | Date | string | null
@@ -469,6 +513,10 @@ export type MediaPredictionOrderByWithAggregationInput = {
   persistedFileSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   persistedFileSha256?: Prisma.SortOrderInput | Prisma.SortOrder
   persistedContentType?: Prisma.SortOrderInput | Prisma.SortOrder
+  persistenceStatus?: Prisma.SortOrder
+  persistenceStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
+  persistenceError?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   metrics?: Prisma.SortOrderInput | Prisma.SortOrder
   submittedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -506,6 +554,10 @@ export type MediaPredictionScalarWhereWithAggregatesInput = {
   persistedFileSizeBytes?: Prisma.BigIntNullableWithAggregatesFilter<"MediaPrediction"> | bigint | number | null
   persistedFileSha256?: Prisma.StringNullableWithAggregatesFilter<"MediaPrediction"> | string | null
   persistedContentType?: Prisma.StringNullableWithAggregatesFilter<"MediaPrediction"> | string | null
+  persistenceStatus?: Prisma.StringWithAggregatesFilter<"MediaPrediction"> | string
+  persistenceStartedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaPrediction"> | Date | string | null
+  persistenceAttemptCount?: Prisma.IntWithAggregatesFilter<"MediaPrediction"> | number
+  persistenceError?: Prisma.StringNullableWithAggregatesFilter<"MediaPrediction"> | string | null
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"MediaPrediction"> | string | null
   metrics?: Prisma.JsonNullableWithAggregatesFilter<"MediaPrediction">
   submittedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaPrediction"> | Date | string | null
@@ -533,6 +585,10 @@ export type MediaPredictionCreateInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -564,6 +620,10 @@ export type MediaPredictionUncheckedCreateInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -591,6 +651,10 @@ export type MediaPredictionUpdateInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -622,6 +686,10 @@ export type MediaPredictionUncheckedUpdateInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -651,6 +719,10 @@ export type MediaPredictionCreateManyInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -678,6 +750,10 @@ export type MediaPredictionUpdateManyMutationInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -707,6 +783,10 @@ export type MediaPredictionUncheckedUpdateManyInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -746,6 +826,10 @@ export type MediaPredictionCountOrderByAggregateInput = {
   persistedFileSizeBytes?: Prisma.SortOrder
   persistedFileSha256?: Prisma.SortOrder
   persistedContentType?: Prisma.SortOrder
+  persistenceStatus?: Prisma.SortOrder
+  persistenceStartedAt?: Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
+  persistenceError?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   metrics?: Prisma.SortOrder
   submittedAt?: Prisma.SortOrder
@@ -761,6 +845,7 @@ export type MediaPredictionAvgOrderByAggregateInput = {
   videoId?: Prisma.SortOrder
   videoAssetId?: Prisma.SortOrder
   persistedFileSizeBytes?: Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
 }
 
 export type MediaPredictionMaxOrderByAggregateInput = {
@@ -779,6 +864,10 @@ export type MediaPredictionMaxOrderByAggregateInput = {
   persistedFileSizeBytes?: Prisma.SortOrder
   persistedFileSha256?: Prisma.SortOrder
   persistedContentType?: Prisma.SortOrder
+  persistenceStatus?: Prisma.SortOrder
+  persistenceStartedAt?: Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
+  persistenceError?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   submittedAt?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
@@ -805,6 +894,10 @@ export type MediaPredictionMinOrderByAggregateInput = {
   persistedFileSizeBytes?: Prisma.SortOrder
   persistedFileSha256?: Prisma.SortOrder
   persistedContentType?: Prisma.SortOrder
+  persistenceStatus?: Prisma.SortOrder
+  persistenceStartedAt?: Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
+  persistenceError?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   submittedAt?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
@@ -819,6 +912,7 @@ export type MediaPredictionSumOrderByAggregateInput = {
   videoId?: Prisma.SortOrder
   videoAssetId?: Prisma.SortOrder
   persistedFileSizeBytes?: Prisma.SortOrder
+  persistenceAttemptCount?: Prisma.SortOrder
 }
 
 export type MediaPredictionCreateNestedManyWithoutVideoInput = {
@@ -921,6 +1015,10 @@ export type MediaPredictionCreateWithoutVideoInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -950,6 +1048,10 @@ export type MediaPredictionUncheckedCreateWithoutVideoInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -1008,6 +1110,10 @@ export type MediaPredictionScalarWhereInput = {
   persistedFileSizeBytes?: Prisma.BigIntNullableFilter<"MediaPrediction"> | bigint | number | null
   persistedFileSha256?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   persistedContentType?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
+  persistenceStatus?: Prisma.StringFilter<"MediaPrediction"> | string
+  persistenceStartedAt?: Prisma.DateTimeNullableFilter<"MediaPrediction"> | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFilter<"MediaPrediction"> | number
+  persistenceError?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"MediaPrediction"> | string | null
   metrics?: Prisma.JsonNullableFilter<"MediaPrediction">
   submittedAt?: Prisma.DateTimeNullableFilter<"MediaPrediction"> | Date | string | null
@@ -1035,6 +1141,10 @@ export type MediaPredictionCreateWithoutVideoAssetInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -1064,6 +1174,10 @@ export type MediaPredictionUncheckedCreateWithoutVideoAssetInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -1118,6 +1232,10 @@ export type MediaPredictionCreateManyVideoInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -1145,6 +1263,10 @@ export type MediaPredictionUpdateWithoutVideoInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1174,6 +1296,10 @@ export type MediaPredictionUncheckedUpdateWithoutVideoInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1202,6 +1328,10 @@ export type MediaPredictionUncheckedUpdateManyWithoutVideoInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1230,6 +1360,10 @@ export type MediaPredictionCreateManyVideoAssetInput = {
   persistedFileSizeBytes?: bigint | number | null
   persistedFileSha256?: string | null
   persistedContentType?: string | null
+  persistenceStatus?: string
+  persistenceStartedAt?: Date | string | null
+  persistenceAttemptCount?: number
+  persistenceError?: string | null
   errorMessage?: string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Date | string | null
@@ -1257,6 +1391,10 @@ export type MediaPredictionUpdateWithoutVideoAssetInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1286,6 +1424,10 @@ export type MediaPredictionUncheckedUpdateWithoutVideoAssetInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1314,6 +1456,10 @@ export type MediaPredictionUncheckedUpdateManyWithoutVideoAssetInput = {
   persistedFileSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   persistedFileSha256?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   persistedContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  persistenceStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  persistenceStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  persistenceAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  persistenceError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   submittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1345,6 +1491,10 @@ export type MediaPredictionSelect<ExtArgs extends runtime.Types.Extensions.Inter
   persistedFileSizeBytes?: boolean
   persistedFileSha256?: boolean
   persistedContentType?: boolean
+  persistenceStatus?: boolean
+  persistenceStartedAt?: boolean
+  persistenceAttemptCount?: boolean
+  persistenceError?: boolean
   errorMessage?: boolean
   metrics?: boolean
   submittedAt?: boolean
@@ -1376,6 +1526,10 @@ export type MediaPredictionSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   persistedFileSizeBytes?: boolean
   persistedFileSha256?: boolean
   persistedContentType?: boolean
+  persistenceStatus?: boolean
+  persistenceStartedAt?: boolean
+  persistenceAttemptCount?: boolean
+  persistenceError?: boolean
   errorMessage?: boolean
   metrics?: boolean
   submittedAt?: boolean
@@ -1407,6 +1561,10 @@ export type MediaPredictionSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   persistedFileSizeBytes?: boolean
   persistedFileSha256?: boolean
   persistedContentType?: boolean
+  persistenceStatus?: boolean
+  persistenceStartedAt?: boolean
+  persistenceAttemptCount?: boolean
+  persistenceError?: boolean
   errorMessage?: boolean
   metrics?: boolean
   submittedAt?: boolean
@@ -1438,6 +1596,10 @@ export type MediaPredictionSelectScalar = {
   persistedFileSizeBytes?: boolean
   persistedFileSha256?: boolean
   persistedContentType?: boolean
+  persistenceStatus?: boolean
+  persistenceStartedAt?: boolean
+  persistenceAttemptCount?: boolean
+  persistenceError?: boolean
   errorMessage?: boolean
   metrics?: boolean
   submittedAt?: boolean
@@ -1449,7 +1611,7 @@ export type MediaPredictionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type MediaPredictionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "videoId" | "videoAssetId" | "provider" | "capability" | "model" | "externalId" | "idempotencyKey" | "status" | "inputSnapshot" | "outputSnapshot" | "outputUrl" | "persistedStorageKey" | "persistedStorageProvider" | "persistedFileSizeBytes" | "persistedFileSha256" | "persistedContentType" | "errorMessage" | "metrics" | "submittedAt" | "startedAt" | "completedAt" | "terminalAt" | "webhookReceivedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaPrediction"]>
+export type MediaPredictionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "videoId" | "videoAssetId" | "provider" | "capability" | "model" | "externalId" | "idempotencyKey" | "status" | "inputSnapshot" | "outputSnapshot" | "outputUrl" | "persistedStorageKey" | "persistedStorageProvider" | "persistedFileSizeBytes" | "persistedFileSha256" | "persistedContentType" | "persistenceStatus" | "persistenceStartedAt" | "persistenceAttemptCount" | "persistenceError" | "errorMessage" | "metrics" | "submittedAt" | "startedAt" | "completedAt" | "terminalAt" | "webhookReceivedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaPrediction"]>
 export type MediaPredictionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.MediaPrediction$videoArgs<ExtArgs>
   videoAsset?: boolean | Prisma.MediaPrediction$videoAssetArgs<ExtArgs>
@@ -1487,6 +1649,10 @@ export type $MediaPredictionPayload<ExtArgs extends runtime.Types.Extensions.Int
     persistedFileSizeBytes: bigint | null
     persistedFileSha256: string | null
     persistedContentType: string | null
+    persistenceStatus: string
+    persistenceStartedAt: Date | null
+    persistenceAttemptCount: number
+    persistenceError: string | null
     errorMessage: string | null
     metrics: runtime.JsonValue | null
     submittedAt: Date | null
@@ -1938,6 +2104,10 @@ export interface MediaPredictionFieldRefs {
   readonly persistedFileSizeBytes: Prisma.FieldRef<"MediaPrediction", 'BigInt'>
   readonly persistedFileSha256: Prisma.FieldRef<"MediaPrediction", 'String'>
   readonly persistedContentType: Prisma.FieldRef<"MediaPrediction", 'String'>
+  readonly persistenceStatus: Prisma.FieldRef<"MediaPrediction", 'String'>
+  readonly persistenceStartedAt: Prisma.FieldRef<"MediaPrediction", 'DateTime'>
+  readonly persistenceAttemptCount: Prisma.FieldRef<"MediaPrediction", 'Int'>
+  readonly persistenceError: Prisma.FieldRef<"MediaPrediction", 'String'>
   readonly errorMessage: Prisma.FieldRef<"MediaPrediction", 'String'>
   readonly metrics: Prisma.FieldRef<"MediaPrediction", 'Json'>
   readonly submittedAt: Prisma.FieldRef<"MediaPrediction", 'DateTime'>

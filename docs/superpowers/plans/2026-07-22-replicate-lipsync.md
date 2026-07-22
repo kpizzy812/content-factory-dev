@@ -115,13 +115,13 @@
 - Create: `server/plugins/replicate-recovery.ts`
 - Modify: `server/utils/storage/keys.ts`
 
-- [ ] Write failing tests proving one idempotency key creates one paid job, polling resumes an existing job, successful output is downloaded and persisted exactly once, expired/missing output fails clearly, and a missed webhook is recovered by `predictions.get`.
-- [ ] Run `bun test tests/unit/replicate/prediction-service.spec.ts` and confirm expected failure.
-- [ ] Implement `submitOrResumePrediction()` and `waitForPrediction()` using injected repository, provider, downloader, and persister dependencies.
-- [ ] Add a `StorageKeys.mediaPredictionOutput(predictionId, extension)` key builder.
-- [ ] Persist output immediately on success and record storage metadata before exposing completion to callers.
-- [ ] Add a scheduler gated by both `SCHEDULERS_ENABLED` and `REPLICATE_RECOVERY_ENABLED`; it polls stale non-terminal jobs in bounded batches and never starts in unit tests.
-- [ ] Re-run focused tests and confirm they pass.
+- [x] Write failing tests proving one idempotency key creates one paid job, polling resumes an existing job, successful output is downloaded and persisted exactly once, expired/missing output fails clearly, and a missed webhook is recovered by `predictions.get`.
+- [x] Run `bun test tests/unit/replicate/prediction-service.spec.ts` and confirm expected failure.
+- [x] Implement `submitOrResumePrediction()` and `waitForPrediction()` using injected repository, provider, downloader, and persister dependencies.
+- [x] Add a `StorageKeys.mediaPredictionOutput(predictionId, extension)` key builder.
+- [x] Persist output immediately on success and record storage metadata before exposing completion to callers.
+- [x] Add a scheduler gated by both `SCHEDULERS_ENABLED` and `REPLICATE_RECOVERY_ENABLED`; it polls stale non-terminal jobs in bounded batches and never starts in unit tests.
+- [x] Re-run focused tests and confirm they pass.
 
 ## Task 7: Route Existing Scene Lip-Sync Through Replicate
 
