@@ -83,13 +83,13 @@
 - Create: `server/utils/replicate/mock.ts`
 - Create: `server/utils/replicate/errors.ts`
 
-- [ ] Write failing tests against an injected official-client-shaped adapter proving create/get/cancel normalization, `webhook_events_filter: ["completed"]`, stable webhook URL construction, retry classification, and token redaction.
-- [ ] Write a failing deterministic mock test that returns a stable external id for the same idempotency key and can move from `processing` to `succeeded` without network access.
-- [ ] Run both focused tests and confirm expected failures.
-- [ ] Wrap the official `replicate` client behind an injected adapter so tests do not call the network.
-- [ ] Implement async `predictions.create`, `predictions.get`, and `predictions.cancel` normalization. The wrapper must not use `wait`, sync mode, or browser automation.
-- [ ] Implement deterministic mock behavior enabled only by `REPLICATE_MOCK_MODE=true`.
-- [ ] Re-run focused tests and confirm they pass.
+- [x] Write failing tests against an injected official-client-shaped adapter proving create/get/cancel normalization, `webhook_events_filter: ["completed"]`, stable webhook URL construction, retry classification, and token redaction.
+- [x] Write a failing deterministic mock test that returns a stable external id for the same idempotency key and can move from `processing` to `succeeded` without network access.
+- [x] Run both focused tests and confirm expected failures.
+- [x] Wrap the official `replicate` client behind an injected adapter so tests do not call the network.
+- [x] Implement async `predictions.create`, `predictions.get`, and `predictions.cancel` normalization. The wrapper must not use `wait`, sync mode, or browser automation.
+- [x] Implement deterministic mock behavior enabled only by `REPLICATE_MOCK_MODE=true`.
+- [x] Re-run focused tests and confirm they pass.
 
 ## Task 5: Verify And Apply Idempotent Replicate Webhooks
 
