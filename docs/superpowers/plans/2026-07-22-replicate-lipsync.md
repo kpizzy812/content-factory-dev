@@ -29,17 +29,16 @@
 - Modify: `package.json`
 - Modify: `bun.lock`
 - Modify: `.env.example`
-- Modify: `nuxt.config.ts`
 - Create: `tests/unit/replicate/config.spec.ts`
 - Create: `server/utils/replicate/config.ts`
 
-- [ ] Write a failing test asserting that `readReplicateConfig()` rejects a missing token outside mock mode, applies `kwaivgi/kling-lip-sync` as the default model, and never returns an empty webhook base URL when webhooks are enabled.
-- [ ] Run `bun test tests/unit/replicate/config.spec.ts` and confirm failure is caused by the missing module.
-- [ ] Run `bun add replicate` so `package.json` and `bun.lock` use the official client.
-- [ ] Add these documented variables to `.env.example`: `REPLICATE_API_TOKEN`, `REPLICATE_WEBHOOK_SIGNING_SECRET`, `REPLICATE_WEBHOOK_BASE_URL`, `REPLICATE_DEFAULT_LIPSYNC_MODEL`, `REPLICATE_MOCK_MODE`, `REPLICATE_RECOVERY_ENABLED`, and `MEDIA_PROVIDER_FALLBACK`.
-- [ ] Expose server-only runtime config in `nuxt.config.ts`; do not place any secret under `runtimeConfig.public`.
-- [ ] Implement `readReplicateConfig(env = process.env)` as a pure validator used by server code and tests.
-- [ ] Re-run the focused test and confirm it passes.
+- [x] Write a failing test asserting that `readReplicateConfig()` rejects a missing token outside mock mode, applies `kwaivgi/kling-lip-sync` as the default model, and never returns an empty webhook base URL when webhooks are enabled.
+- [x] Run `bun test tests/unit/replicate/config.spec.ts` and confirm failure is caused by the missing module.
+- [x] Run `bun add replicate` so `package.json` and `bun.lock` use the official client.
+- [x] Add these documented variables to `.env.example`: `REPLICATE_API_TOKEN`, `REPLICATE_WEBHOOK_SIGNING_SECRET`, `REPLICATE_WEBHOOK_BASE_URL`, `REPLICATE_DEFAULT_LIPSYNC_MODEL`, `REPLICATE_MOCK_MODE`, `REPLICATE_RECOVERY_ENABLED`, and `MEDIA_PROVIDER_FALLBACK`.
+- [x] Keep Replicate secrets out of `nuxt.config.ts` and read them only through the validated server-side `process.env` boundary, matching the existing no-secrets-in-bundle convention.
+- [x] Implement `readReplicateConfig(env = process.env)` as a pure validator used by server code and tests.
+- [x] Re-run the focused test and confirm it passes.
 
 ## Task 2: Define The Provider-Neutral Contract And Model Registry
 
@@ -159,4 +158,3 @@
 - [ ] Run the full unit suite with `bun run test:unit`.
 - [ ] Run `bun run build`.
 - [ ] Inspect `git diff --check`, `git status --short`, and the migration diff. Do not claim completion unless all required commands exit successfully.
-
