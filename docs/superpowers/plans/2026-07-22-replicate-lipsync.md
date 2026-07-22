@@ -48,12 +48,12 @@
 - Create: `server/utils/media-provider/types.ts`
 - Create: `server/utils/media-provider/registry.ts`
 
-- [ ] Write failing tests for a `lip_sync` registry entry that resolves Replicate by default, maps `videoUrl` to `video_url`, maps `audioUrl` to `audio_file`, reports `$0.014` per output second, and rejects unsupported models/capabilities.
-- [ ] Run `bun test tests/unit/media-provider/registry.spec.ts` and confirm the module-not-found failure.
-- [ ] Define `MediaCapability`, `MediaProviderName`, normalized input/output types, normalized prediction states, `MediaModelSpec`, and `MediaProvider` interfaces.
-- [ ] Register `kwaivgi/kling-lip-sync` as the default `lip_sync` model with its current input restrictions documented in code: 2-10 second `.mp4`/`.mov` input, supported video dimensions, supported audio formats, and provider data-processing note.
-- [ ] Add pure mapping and price-estimation functions; do not call Replicate from the registry.
-- [ ] Re-run the registry test and confirm it passes.
+- [x] Write failing tests for a `lip_sync` registry entry that resolves Replicate by default, maps `videoUrl` to `video_url`, maps `audioUrl` to `audio_file`, reports `$0.014` per output second, and rejects unsupported models/capabilities.
+- [x] Run `bun test tests/unit/media-provider/registry.spec.ts` and confirm the module-not-found failure.
+- [x] Define `MediaCapability`, `MediaProviderName`, normalized input/output types, normalized prediction states, `MediaModelSpec`, and `MediaProvider` interfaces.
+- [x] Register `kwaivgi/kling-lip-sync` as the default `lip_sync` model with its current input restrictions documented in code: 2-10 second `.mp4`/`.mov` input, supported video dimensions, supported audio formats, and provider data-processing note.
+- [x] Add pure mapping and price-estimation functions; do not call Replicate from the registry.
+- [x] Re-run the registry test and confirm it passes.
 
 ## Task 3: Persist Paid Predictions And Enforce Idempotency
 
