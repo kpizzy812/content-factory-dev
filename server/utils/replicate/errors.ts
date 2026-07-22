@@ -4,6 +4,18 @@ export interface ReplicateErrorClassification {
   message: string
 }
 
+export class ReplicateProviderError extends Error {
+  constructor(
+    message: string,
+    public readonly retryable: boolean,
+    public readonly status: number | null,
+    cause?: unknown,
+  ) {
+    super(message, { cause: cause instanceof Error ? cause : undefined })
+    this.name = "ReplicateProviderError"
+  }
+}
+
 export function classifyReplicateError(error: unknown): ReplicateErrorClassification {
   const status = extractStatus(error)
   const message = error instanceof Error ? error.message : String(error)
@@ -22,6 +34,20 @@ export function classifyReplicateError(error: unknown): ReplicateErrorClassifica
 export function sanitizeReplicateErrorMessage(message: string, apiToken: string | null): string {
   if (!apiToken) return message
   return message.split(apiToken).join("[REDACTED]")
+}
+
+export function toReplicateProviderError(
+  error: unknown,
+  apiToken: string | null,
+): ReplicateProviderError {
+  if (error instanceof ReplicateProviderError) return error
+  const classified = classifyReplicateError(error)
+  return new ReplicateProviderError(
+    sanitizeReplicateErrorMessage(classified.message, apiToken),
+    classified.retryable,
+    classified.status,
+    error,
+  )
 }
 
 function extractStatus(error: unknown): number | null {

@@ -305,6 +305,28 @@ export const TTS_MODELS: ModelMeta[] = [
 
 export const LIP_SYNC_MODELS: ModelMeta[] = [
   {
+    id: "kwaivgi/kling-lip-sync",
+    name: "Kling Lip Sync",
+    task: "lip_sync",
+    provider: "Replicate / Kuaishou",
+    pricing: {
+      unit: "second",
+      base: 0.014,
+    },
+    strengths: [
+      "Дешёвый липсинк готового видео",
+      "Подходит для коротких сцен с аватаром",
+      "Асинхронный API с восстановлением задач",
+    ],
+    tradeoffs: [
+      "Исходный клип должен быть длиной 2-10 секунд",
+      "Данные модели обрабатываются Kuaishou",
+    ],
+    avgGenerationTime: "~30-90 сек на сцену",
+    integrated: true,
+    tier: "budget",
+  },
+  {
     id: "fal-ai/sync-lipsync",
     name: "Sync Lipsync v1",
     task: "lip_sync",
@@ -325,7 +347,7 @@ export const LIP_SYNC_MODELS: ModelMeta[] = [
       "Требует TTS для генерации голоса персонажа",
     ],
     avgGenerationTime: "~30-60 сек на сцену",
-    integrated: true,
+    integrated: false,
     tier: "premium",
   },
 ]

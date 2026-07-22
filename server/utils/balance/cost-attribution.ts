@@ -8,7 +8,7 @@
 
 import { getModel } from "../video-models"
 
-export type CostService = "anthropic" | "fal.ai" | "mubert"
+export type CostService = "anthropic" | "fal.ai" | "replicate" | "mubert"
 
 /**
  * Возвращает имя сервиса для cost-tracking или null если шаг
@@ -27,8 +27,15 @@ export function mapStepKeyToService(
 
     case "image_generation":
     case "clip_generation":
-    case "lip_sync_generation":
       return "fal.ai"
+
+    case "lip_sync_generation": {
+      if (!modelId) return "replicate"
+      const model = getModel(modelId)
+      return model?.provider.toLowerCase().includes("fal")
+        ? "fal.ai"
+        : "replicate"
+    }
 
     case "music_generation":
       return "mubert"

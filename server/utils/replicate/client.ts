@@ -1,4 +1,7 @@
 import Replicate from "replicate"
+import { createHash } from "node:crypto"
+import { readFile } from "node:fs/promises"
+import { basename } from "node:path"
 import type {
   CreateMediaPredictionInput,
   MediaProvider,
@@ -7,6 +10,7 @@ import type {
 } from "../media-provider/types"
 import type { ReplicateConfig } from "./config"
 import { sanitizePredictionSnapshot } from "./prediction-state"
+import { toReplicateProviderError } from "./errors"
 
 interface RawReplicatePrediction {
   id: string
@@ -33,6 +37,31 @@ export interface CreateReplicateProviderOptions {
   client?: ReplicateClientAdapter
 }
 
+interface RawReplicateFile {
+  id: string
+  urls: { get: string }
+}
+
+export interface ReplicateFileClientAdapter {
+  files: {
+    create(
+      file: Blob | Buffer,
+      metadata?: Record<string, unknown>,
+    ): Promise<RawReplicateFile>
+    delete(id: string): Promise<boolean>
+  }
+}
+
+export interface UploadedReplicateInput {
+  id: string | null
+  url: string
+}
+
+export interface ReplicateInputUploader {
+  uploadFile(filePath: string, contentType: string): Promise<UploadedReplicateInput>
+  deleteFile(id: string): Promise<void>
+}
+
 export function createReplicateProvider({
   config,
   client = createOfficialClient(config),
@@ -50,18 +79,70 @@ export function createReplicateProvider({
         options.webhook_events_filter = ["completed"]
       }
 
-      const prediction = await client.predictions.create(options)
-      return normalizeReplicatePrediction(prediction, request.model.id)
+      try {
+        const prediction = await client.predictions.create(options)
+        return normalizeReplicatePrediction(prediction, request.model.id)
+      } catch (error) {
+        throw toReplicateProviderError(error, config.apiToken)
+      }
     },
 
     async get(externalId: string): Promise<NormalizedMediaPrediction> {
-      const prediction = await client.predictions.get(externalId)
-      return normalizeReplicatePrediction(prediction)
+      try {
+        const prediction = await client.predictions.get(externalId)
+        return normalizeReplicatePrediction(prediction)
+      } catch (error) {
+        throw toReplicateProviderError(error, config.apiToken)
+      }
     },
 
     async cancel(externalId: string): Promise<NormalizedMediaPrediction> {
-      const prediction = await client.predictions.cancel(externalId)
-      return normalizeReplicatePrediction(prediction)
+      try {
+        const prediction = await client.predictions.cancel(externalId)
+        return normalizeReplicatePrediction(prediction)
+      } catch (error) {
+        throw toReplicateProviderError(error, config.apiToken)
+      }
+    },
+  }
+}
+
+export function createReplicateInputUploader(
+  config: ReplicateConfig,
+  client?: ReplicateFileClientAdapter,
+): ReplicateInputUploader {
+  if (config.mockMode) {
+    return {
+      async uploadFile(filePath: string): Promise<UploadedReplicateInput> {
+        const contents = await readFile(filePath)
+        const digest = createHash("sha256").update(contents).digest("hex").slice(0, 24)
+        return { id: null, url: `mock://replicate-input/${digest}` }
+      },
+      async deleteFile(): Promise<void> {},
+    }
+  }
+
+  const resolvedClient = client
+    ?? createOfficialClient(config) as unknown as ReplicateFileClientAdapter
+
+  return {
+    async uploadFile(filePath: string, contentType: string): Promise<UploadedReplicateInput> {
+      try {
+        const contents = await readFile(filePath)
+        const blob = new Blob([new Uint8Array(contents)], { type: contentType })
+        const file = await resolvedClient.files.create(blob, { filename: basename(filePath) })
+        return { id: file.id, url: file.urls.get }
+      } catch (error) {
+        throw toReplicateProviderError(error, config.apiToken)
+      }
+    },
+
+    async deleteFile(id: string): Promise<void> {
+      try {
+        await resolvedClient.files.delete(id)
+      } catch (error) {
+        throw toReplicateProviderError(error, config.apiToken)
+      }
     },
   }
 }

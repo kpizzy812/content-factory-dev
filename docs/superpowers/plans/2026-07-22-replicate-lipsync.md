@@ -133,13 +133,13 @@
 - Modify: `server/utils/video-models.ts`
 - Modify: `server/utils/balance/cost-ledger.ts`
 
-- [ ] Write a failing test showing that the default lip-sync request uses Replicate's `kwaivgi/kling-lip-sync`, maps the video and TTS audio correctly, uses a deterministic key containing video/scene/source/audio identity, returns the persisted local clip path, and estimates cost at `$0.014` per output second.
-- [ ] Write a second failing test proving fal.ai is never called unless `MEDIA_PROVIDER_FALLBACK=fal` is explicitly set and Replicate fails with a retry-exhausted provider error.
-- [ ] Run `bun test tests/unit/lip-sync-provider.spec.ts` and confirm expected failures.
-- [ ] Implement provider-neutral `runLipSync()` with Replicate as primary and opt-in fal fallback.
-- [ ] Replace direct `falUploadFile`/`falSubmit`/`falPollUntilDone` calls in `lip-sync-runner.ts` with `runLipSync()` while preserving current step idempotency, per-scene fallback to the original clip, asset replacement, and cleanup behavior.
-- [ ] Change default model metadata and cost-ledger service naming from fal-only to the actual provider used.
-- [ ] Re-run focused tests and confirm they pass.
+- [x] Write a failing test showing that the default lip-sync request uses Replicate's `kwaivgi/kling-lip-sync`, maps the video and TTS audio correctly, uses a deterministic key containing video/scene/source/audio identity, returns the persisted local clip path, and estimates cost at `$0.014` per output second.
+- [x] Write a second failing test proving fal.ai is never called unless `MEDIA_PROVIDER_FALLBACK=fal` is explicitly set and Replicate fails with a retry-exhausted provider error.
+- [x] Run `bun test tests/unit/lip-sync-provider.spec.ts` and confirm expected failures.
+- [x] Implement provider-neutral `runLipSync()` with Replicate as primary and opt-in fal fallback.
+- [x] Replace direct `falUploadFile`/`falSubmit`/`falPollUntilDone` calls in `lip-sync-runner.ts` with `runLipSync()` while preserving current step idempotency, per-scene fallback to the original clip, asset replacement, and cleanup behavior.
+- [x] Change default model metadata and cost-ledger service naming from fal-only to the actual provider used.
+- [x] Re-run focused tests and confirm they pass.
 
 ## Task 8: Integration Verification And Documentation
 

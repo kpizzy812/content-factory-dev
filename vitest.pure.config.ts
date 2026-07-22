@@ -14,7 +14,11 @@ export default defineConfig({
     globals: true,
     pool: "threads",
     poolOptions: { threads: { singleThread: true } },
-    include: ["tests/unit/replicate/**/*.spec.ts", "tests/unit/media-provider/**/*.spec.ts"],
+    include: [
+      "tests/unit/replicate/**/*.spec.ts",
+      "tests/unit/media-provider/**/*.spec.ts",
+      "tests/unit/lip-sync-provider.spec.ts",
+    ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },
   resolve: {

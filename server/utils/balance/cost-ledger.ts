@@ -2,7 +2,7 @@
  * balance_v2: единая точка записи external API costs в AiAuditLog.
  *
  * Используется video-pipeline + video-pipeline-steps для логирования
- * реальных трат на fal.ai / mubert / anthropic. Запись в AiAuditLog
+ * реальных трат на Replicate / fal.ai / mubert / anthropic. Запись в AiAuditLog
  * с action='external_api_call' и заполненным service-полем.
  *
  * Defensive: не падает при ошибках БД, не дублирует существующие записи

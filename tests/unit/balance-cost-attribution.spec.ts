@@ -29,11 +29,15 @@ describe("mapStepKeyToService", () => {
     expect(mapStepKeyToService("clip_generation")).toBe("fal.ai")
   })
 
-  it("lip_sync_generation → fal.ai (любая модель)", () => {
+  it("lip_sync_generation → Replicate по умолчанию, fal.ai только для его модели", () => {
+    expect(mapStepKeyToService("lip_sync_generation", "kwaivgi/kling-lip-sync")).toBe(
+      "replicate",
+    )
     expect(mapStepKeyToService("lip_sync_generation", "fal-ai/sync-lipsync")).toBe(
       "fal.ai",
     )
-    expect(mapStepKeyToService("lip_sync_generation")).toBe("fal.ai")
+    expect(mapStepKeyToService("lip_sync_generation", "unknown-model")).toBe("replicate")
+    expect(mapStepKeyToService("lip_sync_generation")).toBe("replicate")
   })
 
   it("voiceover_generation с fal-провайдером → fal.ai", () => {

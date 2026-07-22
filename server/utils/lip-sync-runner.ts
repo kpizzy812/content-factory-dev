@@ -16,9 +16,7 @@ import { prisma } from "./prisma"
 import { ensureStep, updateStep, appendStepLog, isStepCompleted, type StepKey } from "./video-pipeline-db"
 import { updateVideoStatus } from "./video-pipeline-db"
 import { synthesizeSpeech } from "./tts"
-import { falSubmit, falPollUntilDone, falUploadFile } from "./fal"
-import { withTimeoutAndRetry } from "./external-call"
-import { downloadFile } from "./video-helpers"
+import { runLipSync } from "./media-provider/lip-sync"
 import { getModel, getDefaultLipSyncModel } from "./video-models"
 import { getAssetsDirFor } from "./storage-paths"
 import { StorageKeys } from "./storage/keys"
@@ -29,10 +27,6 @@ import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 
 const STEP_KEY: StepKey = "lip_sync_generation"
 const STEP_ORDER_INDEX = 5
-
-interface FalLipSyncResult {
-  video: { url: string }
-}
 
 export interface LipSyncStepResult {
   /** 'disabled' — фича выключена; 'skipped' — нет сцен с spokenLine; 'completed' — успех */
@@ -103,7 +97,11 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
 
   // Resolve lip-sync model
   const preferredId = videoConfig.lipSyncModelId
-  const model = (preferredId ? getModel(preferredId) : null) ?? getDefaultLipSyncModel()
+  const preferredModel = preferredId ? getModel(preferredId) : null
+  const model = preferredModel?.integrated
+    && preferredModel.provider.toLowerCase().includes("replicate")
+    ? preferredModel
+    : getDefaultLipSyncModel()
   if (!model || model.task !== "lip_sync") {
     await updateStep(step.id, {
       status: "skipped",
@@ -125,6 +123,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   const updatedClipPaths = [...clipPaths]
   let syncedSceneCount = 0
   let totalCostUsd = 0
+  const costByService = new Map<"replicate" | "fal.ai", number>()
   const audioCleanup: string[] = []
   const assetsDir = getAssetsDirFor(videoId)
   await mkdir(assetsDir, { recursive: true })
@@ -159,64 +158,24 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       continue
     }
 
-    // 2. Загружаем клип и аудио в fal storage.
-    let videoUrl: string
-    let audioUrl: string
-    try {
-      ;[videoUrl, audioUrl] = await Promise.all([
-        falUploadFile(clipAsset.filePath, "video/mp4"),
-        falUploadFile(audioPath, "audio/mpeg"),
-      ])
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "fal upload failed"
-      await appendStepLog(step.id, `Scene ${scene.order}: fal upload ошибка (${msg}) — оставляю оригинальный клип`)
-      continue
-    }
-
-    // 3. Submit lip-sync. Hard timeout 10 минут per attempt + 2 попытки.
-    // Lip-sync обычно занимает 30-90 секунд, но queue + processing могут затянуть до 5 минут.
-    // 10 минут с большим запасом, чтобы зависший fal.ai не блокировал pipeline forever.
-    let lipSyncedUrl: string | null = null
-    try {
-      const result = await withTimeoutAndRetry<{ data: FalLipSyncResult | undefined }>(
-        async () => {
-          const meta = await falSubmit(model.id, {
-            video_url: videoUrl,
-            audio_url: audioUrl,
-            sync_mode: "cut_off",
-          })
-          return await falPollUntilDone<FalLipSyncResult>(model.id, meta.requestId)
-        },
-        {
-          label: `Lip-sync scene_${scene.order}`,
-          timeoutMs: 10 * 60 * 1000,
-          maxRetries: 2,
-          initialBackoffMs: 3000,
-          onRetry: (attempt, err, delayMs) => {
-            const m = err instanceof Error ? err.message : String(err)
-            console.warn(`[lip-sync] scene ${scene.order} attempt ${attempt} failed: ${m}. Retry in ${delayMs}ms`)
-          },
-        },
-      )
-      lipSyncedUrl = result.data?.video?.url ?? null
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "fal sync-lipsync failed"
-      await appendStepLog(step.id, `Scene ${scene.order}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
-      continue
-    }
-
-    if (!lipSyncedUrl) {
-      await appendStepLog(step.id, `Scene ${scene.order}: модель не вернула url — оставляю оригинальный клип`)
-      continue
-    }
-
-    // 4. Скачиваем lip-synced клип, заменяем оригинал на месте.
+    // 2. Replicate по умолчанию; fal.ai доступен только как явно включённый fallback.
+    const sceneSec = scene.durationSec || 5
     const lipSyncedPath = join(assetsDir, `scene_${scene.order}_lipsync.mp4`)
+    let lipSyncResult: Awaited<ReturnType<typeof runLipSync>>
     try {
-      await downloadFile(lipSyncedUrl, lipSyncedPath)
+      lipSyncResult = await runLipSync({
+        videoId,
+        videoAssetId: clipAsset.id,
+        sceneOrder: scene.order,
+        sourceVideoPath: clipAsset.filePath,
+        audioPath,
+        outputPath: lipSyncedPath,
+        durationSec: sceneSec,
+        modelId: model.id,
+      })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "download failed"
-      await appendStepLog(step.id, `Scene ${scene.order}: скачивание lip-synced клипа упало (${msg}) — оставляю оригинальный`)
+      const msg = err instanceof Error ? err.message : "lip-sync failed"
+      await appendStepLog(step.id, `Scene ${scene.order}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
       continue
     }
 
@@ -238,12 +197,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     const idx = updatedClipPaths.findIndex(p => p === clipAsset.filePath)
     if (idx >= 0) updatedClipPaths[idx] = lipSyncedPath
 
-    // Цена: per-second of output (обычно clip duration).
-    const sceneSec = scene.durationSec || 5
-    const lipSyncCost = sceneSec * model.pricing.base
+    const lipSyncCost = lipSyncResult.costUsd
+    const service = lipSyncResult.provider === "replicate" ? "replicate" : "fal.ai"
+    costByService.set(service, (costByService.get(service) ?? 0) + lipSyncCost + ttsCost)
     totalCostUsd += lipSyncCost + ttsCost
     syncedSceneCount++
-    await appendStepLog(step.id, `Scene ${scene.order}: lip-sync завершён за ${sceneSec}s (lip $${lipSyncCost.toFixed(3)} + tts $${ttsCost.toFixed(3)})`)
+    await appendStepLog(step.id, `Scene ${scene.order}: ${lipSyncResult.provider} lip-sync завершён за ${sceneSec}s (lip $${lipSyncCost.toFixed(3)} + tts $${ttsCost.toFixed(3)})`)
   }
 
   // Cleanup временных аудиофайлов.
@@ -263,19 +222,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     outputSnapshot: result as unknown as Record<string, unknown>,
     actualCost: totalCostUsd,
   })
-  // balance_v2 cost ledger: lip-sync шаг = fal.ai по mapStepKeyToService.
-  // Логируем суммарный totalCostUsd (lip-sync API + дополнительный TTS spokenLine).
-  // Это НЕ дублирует voiceover_generation: stepKey разные (lip_sync_generation vs voiceover_generation),
-  // и spokenLine это off-screen narrator-replacement, отдельный от voiceoverPlan.lines который
-  // обрабатывает runVoiceoverGeneration. Idempotency check (videoId, stepKey, service) разводит пары.
-  await logStepCost(
-    step.id,
-    STEP_KEY,
-    "fal.ai",
-    totalCostUsd,
-    videoId,
-    model.id,
-  )
+  for (const [service, costUsd] of costByService) {
+    await logStepCost(step.id, STEP_KEY, service, costUsd, videoId, model.id)
+  }
   await appendStepLog(step.id, `Lip-sync завершён: ${syncedSceneCount} из ${lipSyncTargets.length} сцен синхронизировано, стоимость $${totalCostUsd.toFixed(3)}`)
 
   return result
