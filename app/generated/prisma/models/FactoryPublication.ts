@@ -33,6 +33,7 @@ export type FactoryPublicationAvgAggregateOutputType = {
   socialAccountId: number | null
   videoId: number | null
   uploadId: number | null
+  automationAttempts: number | null
 }
 
 export type FactoryPublicationSumAggregateOutputType = {
@@ -42,6 +43,7 @@ export type FactoryPublicationSumAggregateOutputType = {
   socialAccountId: number | null
   videoId: number | null
   uploadId: number | null
+  automationAttempts: number | null
 }
 
 export type FactoryPublicationMinAggregateOutputType = {
@@ -61,6 +63,12 @@ export type FactoryPublicationMinAggregateOutputType = {
   platformPostId: string | null
   platformPostUrl: string | null
   publishedAt: Date | null
+  automationStatus: string | null
+  automationExternalId: string | null
+  automationError: string | null
+  automationStartedAt: Date | null
+  automationSyncedAt: Date | null
+  automationAttempts: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -82,6 +90,12 @@ export type FactoryPublicationMaxAggregateOutputType = {
   platformPostId: string | null
   platformPostUrl: string | null
   publishedAt: Date | null
+  automationStatus: string | null
+  automationExternalId: string | null
+  automationError: string | null
+  automationStartedAt: Date | null
+  automationSyncedAt: Date | null
+  automationAttempts: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -103,6 +117,13 @@ export type FactoryPublicationCountAggregateOutputType = {
   platformPostId: number
   platformPostUrl: number
   publishedAt: number
+  automationStatus: number
+  automationExternalId: number
+  automationError: number
+  automationStartedAt: number
+  automationSyncedAt: number
+  automationAttempts: number
+  automationSnapshot: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -116,6 +137,7 @@ export type FactoryPublicationAvgAggregateInputType = {
   socialAccountId?: true
   videoId?: true
   uploadId?: true
+  automationAttempts?: true
 }
 
 export type FactoryPublicationSumAggregateInputType = {
@@ -125,6 +147,7 @@ export type FactoryPublicationSumAggregateInputType = {
   socialAccountId?: true
   videoId?: true
   uploadId?: true
+  automationAttempts?: true
 }
 
 export type FactoryPublicationMinAggregateInputType = {
@@ -144,6 +167,12 @@ export type FactoryPublicationMinAggregateInputType = {
   platformPostId?: true
   platformPostUrl?: true
   publishedAt?: true
+  automationStatus?: true
+  automationExternalId?: true
+  automationError?: true
+  automationStartedAt?: true
+  automationSyncedAt?: true
+  automationAttempts?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -165,6 +194,12 @@ export type FactoryPublicationMaxAggregateInputType = {
   platformPostId?: true
   platformPostUrl?: true
   publishedAt?: true
+  automationStatus?: true
+  automationExternalId?: true
+  automationError?: true
+  automationStartedAt?: true
+  automationSyncedAt?: true
+  automationAttempts?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -186,6 +221,13 @@ export type FactoryPublicationCountAggregateInputType = {
   platformPostId?: true
   platformPostUrl?: true
   publishedAt?: true
+  automationStatus?: true
+  automationExternalId?: true
+  automationError?: true
+  automationStartedAt?: true
+  automationSyncedAt?: true
+  automationAttempts?: true
+  automationSnapshot?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -294,6 +336,13 @@ export type FactoryPublicationGroupByOutputType = {
   platformPostId: string | null
   platformPostUrl: string | null
   publishedAt: Date | null
+  automationStatus: string
+  automationExternalId: string | null
+  automationError: string | null
+  automationStartedAt: Date | null
+  automationSyncedAt: Date | null
+  automationAttempts: number
+  automationSnapshot: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: FactoryPublicationCountAggregateOutputType | null
@@ -338,6 +387,13 @@ export type FactoryPublicationWhereInput = {
   platformPostId?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
   platformPostUrl?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
   publishedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationStatus?: Prisma.StringFilter<"FactoryPublication"> | string
+  automationExternalId?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
+  automationError?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
+  automationStartedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationSyncedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationAttempts?: Prisma.IntFilter<"FactoryPublication"> | number
+  automationSnapshot?: Prisma.JsonNullableFilter<"FactoryPublication">
   createdAt?: Prisma.DateTimeFilter<"FactoryPublication"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FactoryPublication"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
@@ -368,6 +424,13 @@ export type FactoryPublicationOrderByWithRelationInput = {
   platformPostId?: Prisma.SortOrderInput | Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   publishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationStatus?: Prisma.SortOrder
+  automationExternalId?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationError?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationSyncedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
+  automationSnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   app?: Prisma.AppOrderByWithRelationInput
@@ -402,6 +465,13 @@ export type FactoryPublicationWhereUniqueInput = Prisma.AtLeast<{
   platformPostId?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
   platformPostUrl?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
   publishedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationStatus?: Prisma.StringFilter<"FactoryPublication"> | string
+  automationExternalId?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
+  automationError?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
+  automationStartedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationSyncedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationAttempts?: Prisma.IntFilter<"FactoryPublication"> | number
+  automationSnapshot?: Prisma.JsonNullableFilter<"FactoryPublication">
   createdAt?: Prisma.DateTimeFilter<"FactoryPublication"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FactoryPublication"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
@@ -432,6 +502,13 @@ export type FactoryPublicationOrderByWithAggregationInput = {
   platformPostId?: Prisma.SortOrderInput | Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   publishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationStatus?: Prisma.SortOrder
+  automationExternalId?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationError?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationSyncedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
+  automationSnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.FactoryPublicationCountOrderByAggregateInput
@@ -461,6 +538,13 @@ export type FactoryPublicationScalarWhereWithAggregatesInput = {
   platformPostId?: Prisma.StringNullableWithAggregatesFilter<"FactoryPublication"> | string | null
   platformPostUrl?: Prisma.StringNullableWithAggregatesFilter<"FactoryPublication"> | string | null
   publishedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"FactoryPublication"> | Date | string | null
+  automationStatus?: Prisma.StringWithAggregatesFilter<"FactoryPublication"> | string
+  automationExternalId?: Prisma.StringNullableWithAggregatesFilter<"FactoryPublication"> | string | null
+  automationError?: Prisma.StringNullableWithAggregatesFilter<"FactoryPublication"> | string | null
+  automationStartedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"FactoryPublication"> | Date | string | null
+  automationSyncedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"FactoryPublication"> | Date | string | null
+  automationAttempts?: Prisma.IntWithAggregatesFilter<"FactoryPublication"> | number
+  automationSnapshot?: Prisma.JsonNullableWithAggregatesFilter<"FactoryPublication">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"FactoryPublication"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"FactoryPublication"> | Date | string
 }
@@ -474,6 +558,13 @@ export type FactoryPublicationCreateInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -504,6 +595,13 @@ export type FactoryPublicationUncheckedCreateInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -518,6 +616,13 @@ export type FactoryPublicationUpdateInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -548,6 +653,13 @@ export type FactoryPublicationUncheckedUpdateInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -570,6 +682,13 @@ export type FactoryPublicationCreateManyInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -583,6 +702,13 @@ export type FactoryPublicationUpdateManyMutationInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -604,6 +730,13 @@ export type FactoryPublicationUncheckedUpdateManyInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -645,6 +778,13 @@ export type FactoryPublicationCountOrderByAggregateInput = {
   platformPostId?: Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrder
   publishedAt?: Prisma.SortOrder
+  automationStatus?: Prisma.SortOrder
+  automationExternalId?: Prisma.SortOrder
+  automationError?: Prisma.SortOrder
+  automationStartedAt?: Prisma.SortOrder
+  automationSyncedAt?: Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
+  automationSnapshot?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -656,6 +796,7 @@ export type FactoryPublicationAvgOrderByAggregateInput = {
   socialAccountId?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
   uploadId?: Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
 }
 
 export type FactoryPublicationMaxOrderByAggregateInput = {
@@ -675,6 +816,12 @@ export type FactoryPublicationMaxOrderByAggregateInput = {
   platformPostId?: Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrder
   publishedAt?: Prisma.SortOrder
+  automationStatus?: Prisma.SortOrder
+  automationExternalId?: Prisma.SortOrder
+  automationError?: Prisma.SortOrder
+  automationStartedAt?: Prisma.SortOrder
+  automationSyncedAt?: Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -696,6 +843,12 @@ export type FactoryPublicationMinOrderByAggregateInput = {
   platformPostId?: Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrder
   publishedAt?: Prisma.SortOrder
+  automationStatus?: Prisma.SortOrder
+  automationExternalId?: Prisma.SortOrder
+  automationError?: Prisma.SortOrder
+  automationStartedAt?: Prisma.SortOrder
+  automationSyncedAt?: Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -707,6 +860,7 @@ export type FactoryPublicationSumOrderByAggregateInput = {
   socialAccountId?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
   uploadId?: Prisma.SortOrder
+  automationAttempts?: Prisma.SortOrder
 }
 
 export type FactoryPublicationScalarRelationFilter = {
@@ -1063,6 +1217,13 @@ export type FactoryPublicationCreateWithoutAppInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   cycle: Prisma.ProductionCycleCreateNestedOneWithoutFactoryPublicationsInput
@@ -1091,6 +1252,13 @@ export type FactoryPublicationUncheckedCreateWithoutAppInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1142,6 +1310,13 @@ export type FactoryPublicationScalarWhereInput = {
   platformPostId?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
   platformPostUrl?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
   publishedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationStatus?: Prisma.StringFilter<"FactoryPublication"> | string
+  automationExternalId?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
+  automationError?: Prisma.StringNullableFilter<"FactoryPublication"> | string | null
+  automationStartedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationSyncedAt?: Prisma.DateTimeNullableFilter<"FactoryPublication"> | Date | string | null
+  automationAttempts?: Prisma.IntFilter<"FactoryPublication"> | number
+  automationSnapshot?: Prisma.JsonNullableFilter<"FactoryPublication">
   createdAt?: Prisma.DateTimeFilter<"FactoryPublication"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"FactoryPublication"> | Date | string
 }
@@ -1155,6 +1330,13 @@ export type FactoryPublicationCreateWithoutVideoInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1183,6 +1365,13 @@ export type FactoryPublicationUncheckedCreateWithoutVideoInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1223,6 +1412,13 @@ export type FactoryPublicationCreateWithoutSocialAccountInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1251,6 +1447,13 @@ export type FactoryPublicationUncheckedCreateWithoutSocialAccountInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1291,6 +1494,13 @@ export type FactoryPublicationCreateWithoutUploadInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1319,6 +1529,13 @@ export type FactoryPublicationUncheckedCreateWithoutUploadInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1349,6 +1566,13 @@ export type FactoryPublicationUpdateWithoutUploadInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -1377,6 +1601,13 @@ export type FactoryPublicationUncheckedUpdateWithoutUploadInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -1391,6 +1622,13 @@ export type FactoryPublicationCreateWithoutCycleInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1419,6 +1657,13 @@ export type FactoryPublicationUncheckedCreateWithoutCycleInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1459,6 +1704,13 @@ export type FactoryPublicationCreateWithoutFunnelInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1487,6 +1739,13 @@ export type FactoryPublicationUncheckedCreateWithoutFunnelInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1527,6 +1786,13 @@ export type FactoryPublicationCreateWithoutHypothesisInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1555,6 +1821,13 @@ export type FactoryPublicationUncheckedCreateWithoutHypothesisInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1595,6 +1868,13 @@ export type FactoryPublicationCreateWithoutEventsInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1624,6 +1904,13 @@ export type FactoryPublicationUncheckedCreateWithoutEventsInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1653,6 +1940,13 @@ export type FactoryPublicationUpdateWithoutEventsInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -1682,6 +1976,13 @@ export type FactoryPublicationUncheckedUpdateWithoutEventsInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1695,6 +1996,13 @@ export type FactoryPublicationCreateWithoutRunInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutFactoryPublicationsInput
@@ -1723,6 +2031,13 @@ export type FactoryPublicationUncheckedCreateWithoutRunInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   events?: Prisma.AttributionEventUncheckedCreateNestedManyWithoutPublicationInput
@@ -1770,6 +2085,13 @@ export type FactoryPublicationCreateManyAppInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1783,6 +2105,13 @@ export type FactoryPublicationUpdateWithoutAppInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cycle?: Prisma.ProductionCycleUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -1811,6 +2140,13 @@ export type FactoryPublicationUncheckedUpdateWithoutAppInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -1832,6 +2168,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutAppInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1852,6 +2195,13 @@ export type FactoryPublicationCreateManyVideoInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1865,6 +2215,13 @@ export type FactoryPublicationUpdateWithoutVideoInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -1893,6 +2250,13 @@ export type FactoryPublicationUncheckedUpdateWithoutVideoInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -1914,6 +2278,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutVideoInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1934,6 +2305,13 @@ export type FactoryPublicationCreateManySocialAccountInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1947,6 +2325,13 @@ export type FactoryPublicationUpdateWithoutSocialAccountInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -1975,6 +2360,13 @@ export type FactoryPublicationUncheckedUpdateWithoutSocialAccountInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -1996,6 +2388,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutSocialAccountInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2016,6 +2415,13 @@ export type FactoryPublicationCreateManyCycleInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2029,6 +2435,13 @@ export type FactoryPublicationUpdateWithoutCycleInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -2057,6 +2470,13 @@ export type FactoryPublicationUncheckedUpdateWithoutCycleInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -2078,6 +2498,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutCycleInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2098,6 +2525,13 @@ export type FactoryPublicationCreateManyFunnelInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2111,6 +2545,13 @@ export type FactoryPublicationUpdateWithoutFunnelInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -2139,6 +2580,13 @@ export type FactoryPublicationUncheckedUpdateWithoutFunnelInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -2160,6 +2608,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutFunnelInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2180,6 +2635,13 @@ export type FactoryPublicationCreateManyHypothesisInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2193,6 +2655,13 @@ export type FactoryPublicationUpdateWithoutHypothesisInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -2221,6 +2690,13 @@ export type FactoryPublicationUncheckedUpdateWithoutHypothesisInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -2242,6 +2718,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutHypothesisInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2262,6 +2745,13 @@ export type FactoryPublicationCreateManyRunInput = {
   platformPostId?: string | null
   platformPostUrl?: string | null
   publishedAt?: Date | string | null
+  automationStatus?: string
+  automationExternalId?: string | null
+  automationError?: string | null
+  automationStartedAt?: Date | string | null
+  automationSyncedAt?: Date | string | null
+  automationAttempts?: number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -2275,6 +2765,13 @@ export type FactoryPublicationUpdateWithoutRunInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutFactoryPublicationsNestedInput
@@ -2303,6 +2800,13 @@ export type FactoryPublicationUncheckedUpdateWithoutRunInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.AttributionEventUncheckedUpdateManyWithoutPublicationNestedInput
@@ -2324,6 +2828,13 @@ export type FactoryPublicationUncheckedUpdateManyWithoutRunInput = {
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  automationExternalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  automationStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  automationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  automationSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2376,6 +2887,13 @@ export type FactoryPublicationSelect<ExtArgs extends runtime.Types.Extensions.In
   platformPostId?: boolean
   platformPostUrl?: boolean
   publishedAt?: boolean
+  automationStatus?: boolean
+  automationExternalId?: boolean
+  automationError?: boolean
+  automationStartedAt?: boolean
+  automationSyncedAt?: boolean
+  automationAttempts?: boolean
+  automationSnapshot?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -2407,6 +2925,13 @@ export type FactoryPublicationSelectCreateManyAndReturn<ExtArgs extends runtime.
   platformPostId?: boolean
   platformPostUrl?: boolean
   publishedAt?: boolean
+  automationStatus?: boolean
+  automationExternalId?: boolean
+  automationError?: boolean
+  automationStartedAt?: boolean
+  automationSyncedAt?: boolean
+  automationAttempts?: boolean
+  automationSnapshot?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -2436,6 +2961,13 @@ export type FactoryPublicationSelectUpdateManyAndReturn<ExtArgs extends runtime.
   platformPostId?: boolean
   platformPostUrl?: boolean
   publishedAt?: boolean
+  automationStatus?: boolean
+  automationExternalId?: boolean
+  automationError?: boolean
+  automationStartedAt?: boolean
+  automationSyncedAt?: boolean
+  automationAttempts?: boolean
+  automationSnapshot?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -2465,11 +2997,18 @@ export type FactoryPublicationSelectScalar = {
   platformPostId?: boolean
   platformPostUrl?: boolean
   publishedAt?: boolean
+  automationStatus?: boolean
+  automationExternalId?: boolean
+  automationError?: boolean
+  automationStartedAt?: boolean
+  automationSyncedAt?: boolean
+  automationAttempts?: boolean
+  automationSnapshot?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type FactoryPublicationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "cycleId" | "runId" | "funnelId" | "hypothesisId" | "socialAccountId" | "platform" | "trackingToken" | "keyword" | "videoId" | "uploadId" | "status" | "platformPostId" | "platformPostUrl" | "publishedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["factoryPublication"]>
+export type FactoryPublicationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "cycleId" | "runId" | "funnelId" | "hypothesisId" | "socialAccountId" | "platform" | "trackingToken" | "keyword" | "videoId" | "uploadId" | "status" | "platformPostId" | "platformPostUrl" | "publishedAt" | "automationStatus" | "automationExternalId" | "automationError" | "automationStartedAt" | "automationSyncedAt" | "automationAttempts" | "automationSnapshot" | "createdAt" | "updatedAt", ExtArgs["result"]["factoryPublication"]>
 export type FactoryPublicationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   cycle?: boolean | Prisma.ProductionCycleDefaultArgs<ExtArgs>
@@ -2533,6 +3072,13 @@ export type $FactoryPublicationPayload<ExtArgs extends runtime.Types.Extensions.
     platformPostId: string | null
     platformPostUrl: string | null
     publishedAt: Date | null
+    automationStatus: string
+    automationExternalId: string | null
+    automationError: string | null
+    automationStartedAt: Date | null
+    automationSyncedAt: Date | null
+    automationAttempts: number
+    automationSnapshot: runtime.JsonValue | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["factoryPublication"]>
@@ -2983,6 +3529,13 @@ export interface FactoryPublicationFieldRefs {
   readonly platformPostId: Prisma.FieldRef<"FactoryPublication", 'String'>
   readonly platformPostUrl: Prisma.FieldRef<"FactoryPublication", 'String'>
   readonly publishedAt: Prisma.FieldRef<"FactoryPublication", 'DateTime'>
+  readonly automationStatus: Prisma.FieldRef<"FactoryPublication", 'String'>
+  readonly automationExternalId: Prisma.FieldRef<"FactoryPublication", 'String'>
+  readonly automationError: Prisma.FieldRef<"FactoryPublication", 'String'>
+  readonly automationStartedAt: Prisma.FieldRef<"FactoryPublication", 'DateTime'>
+  readonly automationSyncedAt: Prisma.FieldRef<"FactoryPublication", 'DateTime'>
+  readonly automationAttempts: Prisma.FieldRef<"FactoryPublication", 'Int'>
+  readonly automationSnapshot: Prisma.FieldRef<"FactoryPublication", 'Json'>
   readonly createdAt: Prisma.FieldRef<"FactoryPublication", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"FactoryPublication", 'DateTime'>
 }

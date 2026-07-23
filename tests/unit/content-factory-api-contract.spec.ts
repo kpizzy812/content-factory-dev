@@ -32,6 +32,23 @@ describe('content factory API contract', () => {
     expect(`${event}\n${resolver}`).not.toMatch(/postingJob|chatplace|reforma/i)
   })
 
+  it('uses an official MCP adapter for the provider-specific ChatPlace integration', () => {
+    const adapter = source('server/utils/factory-automation/chatplace-mcp.ts')
+    const status = source('server/api/factory/integrations/chatplace/status.get.ts')
+    expect(adapter).toContain('createMcpClient')
+    expect(adapter).toContain('listTools')
+    expect(adapter).toContain('callTool')
+    expect(status).toContain('discoverChatPlaceTools')
+    expect(`${adapter}\n${status}`).not.toMatch(/adb|appium|private.?api/i)
+  })
+
+  it('exposes automation state in existing batch status', () => {
+    const batch = source('server/api/factory/batches/[id].get.ts')
+    expect(batch).toContain('automationStatus')
+    expect(batch).toContain('automationExternalId')
+    expect(batch).toContain('automationAttempts')
+  })
+
   it('preserves an environment-blocked publication status', () => {
     const publication = source('server/utils/factory-publication.ts')
     expect(publication).toContain("if (status === 'blocked_by_env') return 'blocked'")

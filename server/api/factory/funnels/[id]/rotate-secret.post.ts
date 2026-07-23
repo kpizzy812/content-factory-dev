@@ -2,6 +2,7 @@ import {
   generateContentFactoryWebhookSecret,
   hashContentFactoryWebhookSecret,
 } from '../../../../utils/content-factory-attribution'
+import { encrypt } from '../../../../utils/crypto'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -22,7 +23,10 @@ export default defineEventHandler(async (event) => {
   const webhookSecret = generateContentFactoryWebhookSecret()
   await prisma.contentFunnel.update({
     where: { id },
-    data: { webhookSecretHash: hashContentFactoryWebhookSecret(webhookSecret) },
+    data: {
+      webhookSecretHash: hashContentFactoryWebhookSecret(webhookSecret),
+      webhookSecretEncrypted: encrypt(webhookSecret),
+    },
   })
 
   return {

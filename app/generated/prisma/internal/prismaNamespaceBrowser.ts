@@ -1114,6 +1114,7 @@ export const ContentFunnelScalarFieldEnum = {
   conversionUrl: 'conversionUrl',
   conversionTrackingParam: 'conversionTrackingParam',
   webhookSecretHash: 'webhookSecretHash',
+  webhookSecretEncrypted: 'webhookSecretEncrypted',
   status: 'status',
   createdById: 'createdById',
   createdAt: 'createdAt',
@@ -1171,6 +1172,13 @@ export const FactoryPublicationScalarFieldEnum = {
   platformPostId: 'platformPostId',
   platformPostUrl: 'platformPostUrl',
   publishedAt: 'publishedAt',
+  automationStatus: 'automationStatus',
+  automationExternalId: 'automationExternalId',
+  automationError: 'automationError',
+  automationStartedAt: 'automationStartedAt',
+  automationSyncedAt: 'automationSyncedAt',
+  automationAttempts: 'automationAttempts',
+  automationSnapshot: 'automationSnapshot',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

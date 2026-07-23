@@ -23,6 +23,7 @@ describe('content factory database contract', () => {
     expect(funnel).toContain('automationAdapter')
     expect(funnel).toContain('conversionAdapter')
     expect(funnel).toContain('conversionTrackingParam')
+    expect(funnel).toContain('webhookSecretEncrypted')
     expect(funnel).not.toMatch(/chatplace|reforma/i)
   })
 
@@ -30,6 +31,16 @@ describe('content factory database contract', () => {
     expect(model('ContentHypothesis')).toContain('trackingToken')
     expect(model('FactoryPublication')).toContain('trackingToken')
     expect(model('AttributionEvent')).toContain('trackingToken')
+  })
+
+  it('tracks provider-neutral automation sync state on a publication', () => {
+    const publication = model('FactoryPublication')
+    expect(publication).toContain('automationStatus')
+    expect(publication).toContain('automationExternalId')
+    expect(publication).toContain('automationError')
+    expect(publication).toContain('automationAttempts')
+    expect(publication).toContain('automationSnapshot')
+    expect(publication).not.toMatch(/chatplace|reforma/i)
   })
 
   it('does not couple factory publications to the legacy posting job', () => {

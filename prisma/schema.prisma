@@ -1545,6 +1545,7 @@ model ContentFunnel {
   conversionUrl            String
   conversionTrackingParam  String               @default("tracking_token")
   webhookSecretHash        String
+  webhookSecretEncrypted   String?
   status                   String               @default("active")
   createdById              Int?
   createdAt                DateTime             @default(now())
@@ -1623,6 +1624,13 @@ model FactoryPublication {
   platformPostId   String?
   platformPostUrl  String?
   publishedAt      DateTime?
+  automationStatus     String    @default("not_requested")
+  automationExternalId String?
+  automationError      String?
+  automationStartedAt  DateTime?
+  automationSyncedAt   DateTime?
+  automationAttempts   Int       @default(0)
+  automationSnapshot   Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   events           AttributionEvent[]
@@ -1632,6 +1640,7 @@ model FactoryPublication {
   @@index([hypothesisId])
   @@index([trackingToken, platform])
   @@index([socialAccountId, platformPostId])
+  @@index([automationStatus, updatedAt])
 }
 
 model FactoryQualityReview {

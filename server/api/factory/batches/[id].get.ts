@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const canRead = user.canAdmin || cycle.startedById === user.id || cycle.pipeline?.userId === user.id || cycle.pipeline?.sharedWith.includes(user.id)
   if (!canRead) throw createError({ statusCode: 403, message: 'Нет доступа к партии' })
 
-  const [runs, total, runGroups, videos, publications, published, eventGroups] = await Promise.all([
+  const [runs, total, runGroups, videos, publications, published, eventGroups, automationGroups] = await Promise.all([
     prisma.workflowRun.findMany({
       where: { cycleId: id },
       select: {
@@ -45,6 +45,12 @@ export default defineEventHandler(async (event) => {
             keyword: true,
             platformPostId: true,
             platformPostUrl: true,
+            automationStatus: true,
+            automationExternalId: true,
+            automationError: true,
+            automationAttempts: true,
+            automationStartedAt: true,
+            automationSyncedAt: true,
             _count: { select: { events: true } },
           },
         },
@@ -59,6 +65,7 @@ export default defineEventHandler(async (event) => {
     prisma.factoryPublication.count({ where: { cycleId: id } }),
     prisma.factoryPublication.count({ where: { cycleId: id, status: 'published' } }),
     prisma.attributionEvent.groupBy({ by: ['type'], where: { publication: { cycleId: id } }, _count: { _all: true } }),
+    prisma.factoryPublication.groupBy({ by: ['automationStatus'], where: { cycleId: id }, _count: { _all: true } }),
   ])
 
   return {
@@ -70,6 +77,7 @@ export default defineEventHandler(async (event) => {
         publicationsQueued: publications,
         published,
         events: Object.fromEntries(eventGroups.map(group => [group.type, group._count._all])),
+        automation: Object.fromEntries(automationGroups.map(group => [group.automationStatus, group._count._all])),
       },
       runs,
     },

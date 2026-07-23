@@ -5,6 +5,7 @@ import {
   generateContentFactoryWebhookSecret,
   hashContentFactoryWebhookSecret,
 } from '../../../utils/content-factory-attribution'
+import { encrypt } from '../../../utils/crypto'
 
 function adapterName(value: unknown, field: string, required = true): string | null {
   const name = typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -92,6 +93,7 @@ export default defineEventHandler(async (event) => {
       conversionUrl,
       conversionTrackingParam,
       webhookSecretHash: hashContentFactoryWebhookSecret(webhookSecret),
+      webhookSecretEncrypted: encrypt(webhookSecret),
       createdById: user.id,
     },
     select: {

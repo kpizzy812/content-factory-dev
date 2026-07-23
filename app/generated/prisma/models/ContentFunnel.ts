@@ -48,6 +48,7 @@ export type ContentFunnelMinAggregateOutputType = {
   conversionUrl: string | null
   conversionTrackingParam: string | null
   webhookSecretHash: string | null
+  webhookSecretEncrypted: string | null
   status: string | null
   createdById: number | null
   createdAt: Date | null
@@ -66,6 +67,7 @@ export type ContentFunnelMaxAggregateOutputType = {
   conversionUrl: string | null
   conversionTrackingParam: string | null
   webhookSecretHash: string | null
+  webhookSecretEncrypted: string | null
   status: string | null
   createdById: number | null
   createdAt: Date | null
@@ -86,6 +88,7 @@ export type ContentFunnelCountAggregateOutputType = {
   conversionUrl: number
   conversionTrackingParam: number
   webhookSecretHash: number
+  webhookSecretEncrypted: number
   status: number
   createdById: number
   createdAt: number
@@ -116,6 +119,7 @@ export type ContentFunnelMinAggregateInputType = {
   conversionUrl?: true
   conversionTrackingParam?: true
   webhookSecretHash?: true
+  webhookSecretEncrypted?: true
   status?: true
   createdById?: true
   createdAt?: true
@@ -134,6 +138,7 @@ export type ContentFunnelMaxAggregateInputType = {
   conversionUrl?: true
   conversionTrackingParam?: true
   webhookSecretHash?: true
+  webhookSecretEncrypted?: true
   status?: true
   createdById?: true
   createdAt?: true
@@ -154,6 +159,7 @@ export type ContentFunnelCountAggregateInputType = {
   conversionUrl?: true
   conversionTrackingParam?: true
   webhookSecretHash?: true
+  webhookSecretEncrypted?: true
   status?: true
   createdById?: true
   createdAt?: true
@@ -261,6 +267,7 @@ export type ContentFunnelGroupByOutputType = {
   conversionUrl: string
   conversionTrackingParam: string
   webhookSecretHash: string
+  webhookSecretEncrypted: string | null
   status: string
   createdById: number | null
   createdAt: Date
@@ -304,6 +311,7 @@ export type ContentFunnelWhereInput = {
   conversionUrl?: Prisma.StringFilter<"ContentFunnel"> | string
   conversionTrackingParam?: Prisma.StringFilter<"ContentFunnel"> | string
   webhookSecretHash?: Prisma.StringFilter<"ContentFunnel"> | string
+  webhookSecretEncrypted?: Prisma.StringNullableFilter<"ContentFunnel"> | string | null
   status?: Prisma.StringFilter<"ContentFunnel"> | string
   createdById?: Prisma.IntNullableFilter<"ContentFunnel"> | number | null
   createdAt?: Prisma.DateTimeFilter<"ContentFunnel"> | Date | string
@@ -329,6 +337,7 @@ export type ContentFunnelOrderByWithRelationInput = {
   conversionUrl?: Prisma.SortOrder
   conversionTrackingParam?: Prisma.SortOrder
   webhookSecretHash?: Prisma.SortOrder
+  webhookSecretEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -357,6 +366,7 @@ export type ContentFunnelWhereUniqueInput = Prisma.AtLeast<{
   conversionUrl?: Prisma.StringFilter<"ContentFunnel"> | string
   conversionTrackingParam?: Prisma.StringFilter<"ContentFunnel"> | string
   webhookSecretHash?: Prisma.StringFilter<"ContentFunnel"> | string
+  webhookSecretEncrypted?: Prisma.StringNullableFilter<"ContentFunnel"> | string | null
   status?: Prisma.StringFilter<"ContentFunnel"> | string
   createdById?: Prisma.IntNullableFilter<"ContentFunnel"> | number | null
   createdAt?: Prisma.DateTimeFilter<"ContentFunnel"> | Date | string
@@ -382,6 +392,7 @@ export type ContentFunnelOrderByWithAggregationInput = {
   conversionUrl?: Prisma.SortOrder
   conversionTrackingParam?: Prisma.SortOrder
   webhookSecretHash?: Prisma.SortOrder
+  webhookSecretEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -410,6 +421,7 @@ export type ContentFunnelScalarWhereWithAggregatesInput = {
   conversionUrl?: Prisma.StringWithAggregatesFilter<"ContentFunnel"> | string
   conversionTrackingParam?: Prisma.StringWithAggregatesFilter<"ContentFunnel"> | string
   webhookSecretHash?: Prisma.StringWithAggregatesFilter<"ContentFunnel"> | string
+  webhookSecretEncrypted?: Prisma.StringNullableWithAggregatesFilter<"ContentFunnel"> | string | null
   status?: Prisma.StringWithAggregatesFilter<"ContentFunnel"> | string
   createdById?: Prisma.IntNullableWithAggregatesFilter<"ContentFunnel"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ContentFunnel"> | Date | string
@@ -428,6 +440,7 @@ export type ContentFunnelCreateInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -453,6 +466,7 @@ export type ContentFunnelUncheckedCreateInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -474,6 +488,7 @@ export type ContentFunnelUpdateInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -499,6 +514,7 @@ export type ContentFunnelUncheckedUpdateInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -522,6 +538,7 @@ export type ContentFunnelCreateManyInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -540,6 +557,7 @@ export type ContentFunnelUpdateManyMutationInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -560,6 +578,7 @@ export type ContentFunnelUncheckedUpdateManyInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -595,6 +614,7 @@ export type ContentFunnelCountOrderByAggregateInput = {
   conversionUrl?: Prisma.SortOrder
   conversionTrackingParam?: Prisma.SortOrder
   webhookSecretHash?: Prisma.SortOrder
+  webhookSecretEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -618,6 +638,7 @@ export type ContentFunnelMaxOrderByAggregateInput = {
   conversionUrl?: Prisma.SortOrder
   conversionTrackingParam?: Prisma.SortOrder
   webhookSecretHash?: Prisma.SortOrder
+  webhookSecretEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -636,6 +657,7 @@ export type ContentFunnelMinOrderByAggregateInput = {
   conversionUrl?: Prisma.SortOrder
   conversionTrackingParam?: Prisma.SortOrder
   webhookSecretHash?: Prisma.SortOrder
+  webhookSecretEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -791,6 +813,7 @@ export type ContentFunnelCreateWithoutAppInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -814,6 +837,7 @@ export type ContentFunnelUncheckedCreateWithoutAppInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -866,6 +890,7 @@ export type ContentFunnelScalarWhereInput = {
   conversionUrl?: Prisma.StringFilter<"ContentFunnel"> | string
   conversionTrackingParam?: Prisma.StringFilter<"ContentFunnel"> | string
   webhookSecretHash?: Prisma.StringFilter<"ContentFunnel"> | string
+  webhookSecretEncrypted?: Prisma.StringNullableFilter<"ContentFunnel"> | string | null
   status?: Prisma.StringFilter<"ContentFunnel"> | string
   createdById?: Prisma.IntNullableFilter<"ContentFunnel"> | number | null
   createdAt?: Prisma.DateTimeFilter<"ContentFunnel"> | Date | string
@@ -884,6 +909,7 @@ export type ContentFunnelCreateWithoutCyclesInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -908,6 +934,7 @@ export type ContentFunnelUncheckedCreateWithoutCyclesInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -944,6 +971,7 @@ export type ContentFunnelUpdateWithoutCyclesInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -968,6 +996,7 @@ export type ContentFunnelUncheckedUpdateWithoutCyclesInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -988,6 +1017,7 @@ export type ContentFunnelCreateWithoutLeadMagnetInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1011,6 +1041,7 @@ export type ContentFunnelUncheckedCreateWithoutLeadMagnetInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1058,6 +1089,7 @@ export type ContentFunnelCreateWithoutHypothesesInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1082,6 +1114,7 @@ export type ContentFunnelUncheckedCreateWithoutHypothesesInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1118,6 +1151,7 @@ export type ContentFunnelUpdateWithoutHypothesesInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1142,6 +1176,7 @@ export type ContentFunnelUncheckedUpdateWithoutHypothesesInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1162,6 +1197,7 @@ export type ContentFunnelCreateWithoutPublicationsInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1186,6 +1222,7 @@ export type ContentFunnelUncheckedCreateWithoutPublicationsInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1222,6 +1259,7 @@ export type ContentFunnelUpdateWithoutPublicationsInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1246,6 +1284,7 @@ export type ContentFunnelUncheckedUpdateWithoutPublicationsInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1267,6 +1306,7 @@ export type ContentFunnelCreateManyAppInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1285,6 +1325,7 @@ export type ContentFunnelUpdateWithoutAppInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1308,6 +1349,7 @@ export type ContentFunnelUncheckedUpdateWithoutAppInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1330,6 +1372,7 @@ export type ContentFunnelUncheckedUpdateManyWithoutAppInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1349,6 +1392,7 @@ export type ContentFunnelCreateManyLeadMagnetInput = {
   conversionUrl: string
   conversionTrackingParam?: string
   webhookSecretHash: string
+  webhookSecretEncrypted?: string | null
   status?: string
   createdById?: number | null
   createdAt?: Date | string
@@ -1367,6 +1411,7 @@ export type ContentFunnelUpdateWithoutLeadMagnetInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1390,6 +1435,7 @@ export type ContentFunnelUncheckedUpdateWithoutLeadMagnetInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1412,6 +1458,7 @@ export type ContentFunnelUncheckedUpdateManyWithoutLeadMagnetInput = {
   conversionUrl?: Prisma.StringFieldUpdateOperationsInput | string
   conversionTrackingParam?: Prisma.StringFieldUpdateOperationsInput | string
   webhookSecretHash?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookSecretEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1481,6 +1528,7 @@ export type ContentFunnelSelect<ExtArgs extends runtime.Types.Extensions.Interna
   conversionUrl?: boolean
   conversionTrackingParam?: boolean
   webhookSecretHash?: boolean
+  webhookSecretEncrypted?: boolean
   status?: boolean
   createdById?: boolean
   createdAt?: boolean
@@ -1507,6 +1555,7 @@ export type ContentFunnelSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   conversionUrl?: boolean
   conversionTrackingParam?: boolean
   webhookSecretHash?: boolean
+  webhookSecretEncrypted?: boolean
   status?: boolean
   createdById?: boolean
   createdAt?: boolean
@@ -1529,6 +1578,7 @@ export type ContentFunnelSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   conversionUrl?: boolean
   conversionTrackingParam?: boolean
   webhookSecretHash?: boolean
+  webhookSecretEncrypted?: boolean
   status?: boolean
   createdById?: boolean
   createdAt?: boolean
@@ -1551,13 +1601,14 @@ export type ContentFunnelSelectScalar = {
   conversionUrl?: boolean
   conversionTrackingParam?: boolean
   webhookSecretHash?: boolean
+  webhookSecretEncrypted?: boolean
   status?: boolean
   createdById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ContentFunnelOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "leadMagnetId" | "name" | "keyword" | "deliveryAdapter" | "deliveryConfig" | "automationAdapter" | "automationConfig" | "conversionAdapter" | "conversionUrl" | "conversionTrackingParam" | "webhookSecretHash" | "status" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["contentFunnel"]>
+export type ContentFunnelOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "leadMagnetId" | "name" | "keyword" | "deliveryAdapter" | "deliveryConfig" | "automationAdapter" | "automationConfig" | "conversionAdapter" | "conversionUrl" | "conversionTrackingParam" | "webhookSecretHash" | "webhookSecretEncrypted" | "status" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["contentFunnel"]>
 export type ContentFunnelInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   leadMagnet?: boolean | Prisma.ContentFunnel$leadMagnetArgs<ExtArgs>
@@ -1598,6 +1649,7 @@ export type $ContentFunnelPayload<ExtArgs extends runtime.Types.Extensions.Inter
     conversionUrl: string
     conversionTrackingParam: string
     webhookSecretHash: string
+    webhookSecretEncrypted: string | null
     status: string
     createdById: number | null
     createdAt: Date
@@ -2043,6 +2095,7 @@ export interface ContentFunnelFieldRefs {
   readonly conversionUrl: Prisma.FieldRef<"ContentFunnel", 'String'>
   readonly conversionTrackingParam: Prisma.FieldRef<"ContentFunnel", 'String'>
   readonly webhookSecretHash: Prisma.FieldRef<"ContentFunnel", 'String'>
+  readonly webhookSecretEncrypted: Prisma.FieldRef<"ContentFunnel", 'String'>
   readonly status: Prisma.FieldRef<"ContentFunnel", 'String'>
   readonly createdById: Prisma.FieldRef<"ContentFunnel", 'Int'>
   readonly createdAt: Prisma.FieldRef<"ContentFunnel", 'DateTime'>

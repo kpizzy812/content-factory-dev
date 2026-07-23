@@ -1,4 +1,8 @@
 import { prisma } from './prisma'
+import {
+  isFactoryAutomationSyncEnabled,
+  syncFactoryPublicationAutomation,
+} from './factory-automation'
 
 export async function linkFactoryPublication(input: {
   runId: number
@@ -50,4 +54,24 @@ export async function syncFactoryPublicationFromUpload(uploadId: number): Promis
       ...(status === 'published' ? { publishedAt: new Date() } : {}),
     },
   })
+
+  if (status === 'published' && isFactoryAutomationSyncEnabled()) {
+    const publication = await prisma.factoryPublication.findUnique({
+      where: { uploadId },
+      select: { id: true },
+    })
+    if (!publication) return
+    try {
+      await syncFactoryPublicationAutomation(publication.id)
+    } catch {
+      const failed = await prisma.factoryPublication.findUnique({
+        where: { id: publication.id },
+        select: { automationError: true },
+      })
+      console.error('[factory-automation] publication sync failed', {
+        publicationId: publication.id,
+        error: failed?.automationError ?? 'Unknown automation error',
+      })
+    }
+  }
 }
