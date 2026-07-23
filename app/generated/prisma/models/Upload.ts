@@ -59,6 +59,7 @@ export type UploadMinAggregateOutputType = {
   postStatus: $Enums.PostStatus | null
   publishMode: string | null
   scheduledAt: Date | null
+  platformContainerId: string | null
   platformPostId: string | null
   platformPostUrl: string | null
   title: string | null
@@ -85,6 +86,7 @@ export type UploadMaxAggregateOutputType = {
   postStatus: $Enums.PostStatus | null
   publishMode: string | null
   scheduledAt: Date | null
+  platformContainerId: string | null
   platformPostId: string | null
   platformPostUrl: string | null
   title: string | null
@@ -111,8 +113,10 @@ export type UploadCountAggregateOutputType = {
   postStatus: number
   publishMode: number
   scheduledAt: number
+  platformContainerId: number
   platformPostId: number
   platformPostUrl: number
+  platformOptions: number
   title: number
   description: number
   hashtags: number
@@ -162,6 +166,7 @@ export type UploadMinAggregateInputType = {
   postStatus?: true
   publishMode?: true
   scheduledAt?: true
+  platformContainerId?: true
   platformPostId?: true
   platformPostUrl?: true
   title?: true
@@ -188,6 +193,7 @@ export type UploadMaxAggregateInputType = {
   postStatus?: true
   publishMode?: true
   scheduledAt?: true
+  platformContainerId?: true
   platformPostId?: true
   platformPostUrl?: true
   title?: true
@@ -214,8 +220,10 @@ export type UploadCountAggregateInputType = {
   postStatus?: true
   publishMode?: true
   scheduledAt?: true
+  platformContainerId?: true
   platformPostId?: true
   platformPostUrl?: true
+  platformOptions?: true
   title?: true
   description?: true
   hashtags?: true
@@ -328,8 +336,10 @@ export type UploadGroupByOutputType = {
   postStatus: $Enums.PostStatus
   publishMode: string
   scheduledAt: Date | null
+  platformContainerId: string | null
   platformPostId: string | null
   platformPostUrl: string | null
+  platformOptions: runtime.JsonValue | null
   title: string
   description: string | null
   hashtags: string[]
@@ -378,8 +388,10 @@ export type UploadWhereInput = {
   postStatus?: Prisma.EnumPostStatusFilter<"Upload"> | $Enums.PostStatus
   publishMode?: Prisma.StringFilter<"Upload"> | string
   scheduledAt?: Prisma.DateTimeNullableFilter<"Upload"> | Date | string | null
+  platformContainerId?: Prisma.StringNullableFilter<"Upload"> | string | null
   platformPostId?: Prisma.StringNullableFilter<"Upload"> | string | null
   platformPostUrl?: Prisma.StringNullableFilter<"Upload"> | string | null
+  platformOptions?: Prisma.JsonNullableFilter<"Upload">
   title?: Prisma.StringFilter<"Upload"> | string
   description?: Prisma.StringNullableFilter<"Upload"> | string | null
   hashtags?: Prisma.StringNullableListFilter<"Upload">
@@ -415,8 +427,10 @@ export type UploadOrderByWithRelationInput = {
   postStatus?: Prisma.SortOrder
   publishMode?: Prisma.SortOrder
   scheduledAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  platformContainerId?: Prisma.SortOrderInput | Prisma.SortOrder
   platformPostId?: Prisma.SortOrderInput | Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  platformOptions?: Prisma.SortOrderInput | Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   hashtags?: Prisma.SortOrder
@@ -456,8 +470,10 @@ export type UploadWhereUniqueInput = Prisma.AtLeast<{
   postStatus?: Prisma.EnumPostStatusFilter<"Upload"> | $Enums.PostStatus
   publishMode?: Prisma.StringFilter<"Upload"> | string
   scheduledAt?: Prisma.DateTimeNullableFilter<"Upload"> | Date | string | null
+  platformContainerId?: Prisma.StringNullableFilter<"Upload"> | string | null
   platformPostId?: Prisma.StringNullableFilter<"Upload"> | string | null
   platformPostUrl?: Prisma.StringNullableFilter<"Upload"> | string | null
+  platformOptions?: Prisma.JsonNullableFilter<"Upload">
   title?: Prisma.StringFilter<"Upload"> | string
   description?: Prisma.StringNullableFilter<"Upload"> | string | null
   hashtags?: Prisma.StringNullableListFilter<"Upload">
@@ -492,8 +508,10 @@ export type UploadOrderByWithAggregationInput = {
   postStatus?: Prisma.SortOrder
   publishMode?: Prisma.SortOrder
   scheduledAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  platformContainerId?: Prisma.SortOrderInput | Prisma.SortOrder
   platformPostId?: Prisma.SortOrderInput | Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  platformOptions?: Prisma.SortOrderInput | Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   hashtags?: Prisma.SortOrder
@@ -527,8 +545,10 @@ export type UploadScalarWhereWithAggregatesInput = {
   postStatus?: Prisma.EnumPostStatusWithAggregatesFilter<"Upload"> | $Enums.PostStatus
   publishMode?: Prisma.StringWithAggregatesFilter<"Upload"> | string
   scheduledAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Upload"> | Date | string | null
+  platformContainerId?: Prisma.StringNullableWithAggregatesFilter<"Upload"> | string | null
   platformPostId?: Prisma.StringNullableWithAggregatesFilter<"Upload"> | string | null
   platformPostUrl?: Prisma.StringNullableWithAggregatesFilter<"Upload"> | string | null
+  platformOptions?: Prisma.JsonNullableWithAggregatesFilter<"Upload">
   title?: Prisma.StringWithAggregatesFilter<"Upload"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Upload"> | string | null
   hashtags?: Prisma.StringNullableListFilter<"Upload">
@@ -550,8 +570,10 @@ export type UploadCreateInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -585,8 +607,10 @@ export type UploadUncheckedCreateInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -613,8 +637,10 @@ export type UploadUpdateInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -648,8 +674,10 @@ export type UploadUncheckedUpdateInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -680,8 +708,10 @@ export type UploadCreateManyInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -703,8 +733,10 @@ export type UploadUpdateManyMutationInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -728,8 +760,10 @@ export type UploadUncheckedUpdateManyInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -765,8 +799,10 @@ export type UploadCountOrderByAggregateInput = {
   postStatus?: Prisma.SortOrder
   publishMode?: Prisma.SortOrder
   scheduledAt?: Prisma.SortOrder
+  platformContainerId?: Prisma.SortOrder
   platformPostId?: Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrder
+  platformOptions?: Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   hashtags?: Prisma.SortOrder
@@ -803,6 +839,7 @@ export type UploadMaxOrderByAggregateInput = {
   postStatus?: Prisma.SortOrder
   publishMode?: Prisma.SortOrder
   scheduledAt?: Prisma.SortOrder
+  platformContainerId?: Prisma.SortOrder
   platformPostId?: Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrder
   title?: Prisma.SortOrder
@@ -829,6 +866,7 @@ export type UploadMinOrderByAggregateInput = {
   postStatus?: Prisma.SortOrder
   publishMode?: Prisma.SortOrder
   scheduledAt?: Prisma.SortOrder
+  platformContainerId?: Prisma.SortOrder
   platformPostId?: Prisma.SortOrder
   platformPostUrl?: Prisma.SortOrder
   title?: Prisma.SortOrder
@@ -1173,8 +1211,10 @@ export type UploadCreateWithoutVideoInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1206,8 +1246,10 @@ export type UploadUncheckedCreateWithoutVideoInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1267,8 +1309,10 @@ export type UploadScalarWhereInput = {
   postStatus?: Prisma.EnumPostStatusFilter<"Upload"> | $Enums.PostStatus
   publishMode?: Prisma.StringFilter<"Upload"> | string
   scheduledAt?: Prisma.DateTimeNullableFilter<"Upload"> | Date | string | null
+  platformContainerId?: Prisma.StringNullableFilter<"Upload"> | string | null
   platformPostId?: Prisma.StringNullableFilter<"Upload"> | string | null
   platformPostUrl?: Prisma.StringNullableFilter<"Upload"> | string | null
+  platformOptions?: Prisma.JsonNullableFilter<"Upload">
   title?: Prisma.StringFilter<"Upload"> | string
   description?: Prisma.StringNullableFilter<"Upload"> | string | null
   hashtags?: Prisma.StringNullableListFilter<"Upload">
@@ -1290,8 +1334,10 @@ export type UploadCreateWithoutSocialAccountInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1323,8 +1369,10 @@ export type UploadUncheckedCreateWithoutSocialAccountInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1377,8 +1425,10 @@ export type UploadCreateWithoutAccountGroupInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1410,8 +1460,10 @@ export type UploadUncheckedCreateWithoutAccountGroupInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1464,8 +1516,10 @@ export type UploadCreateWithoutAttemptsInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1498,8 +1552,10 @@ export type UploadUncheckedCreateWithoutAttemptsInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1541,8 +1597,10 @@ export type UploadUpdateWithoutAttemptsInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1575,8 +1633,10 @@ export type UploadUncheckedUpdateWithoutAttemptsInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1602,8 +1662,10 @@ export type UploadCreateWithoutMetricsInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1636,8 +1698,10 @@ export type UploadUncheckedCreateWithoutMetricsInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1679,8 +1743,10 @@ export type UploadUpdateWithoutMetricsInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1713,8 +1779,10 @@ export type UploadUncheckedUpdateWithoutMetricsInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1740,8 +1808,10 @@ export type UploadCreateWithoutReferencesInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1774,8 +1844,10 @@ export type UploadUncheckedCreateWithoutReferencesInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1817,8 +1889,10 @@ export type UploadUpdateWithoutReferencesInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1851,8 +1925,10 @@ export type UploadUncheckedUpdateWithoutReferencesInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1878,8 +1954,10 @@ export type UploadCreateWithoutFactoryPublicationInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1912,8 +1990,10 @@ export type UploadUncheckedCreateWithoutFactoryPublicationInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -1955,8 +2035,10 @@ export type UploadUpdateWithoutFactoryPublicationInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -1989,8 +2071,10 @@ export type UploadUncheckedUpdateWithoutFactoryPublicationInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2016,8 +2100,10 @@ export type UploadCreateWithoutPipelineInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2050,8 +2136,10 @@ export type UploadUncheckedCreateWithoutPipelineInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2103,8 +2191,10 @@ export type UploadCreateWithoutRunInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2137,8 +2227,10 @@ export type UploadUncheckedCreateWithoutRunInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2190,8 +2282,10 @@ export type UploadCreateWithoutPostingJobInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2224,8 +2318,10 @@ export type UploadUncheckedCreateWithoutPostingJobInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2267,8 +2363,10 @@ export type UploadUpdateWithoutPostingJobInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2301,8 +2399,10 @@ export type UploadUncheckedUpdateWithoutPostingJobInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2331,8 +2431,10 @@ export type UploadCreateManyVideoInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2354,8 +2456,10 @@ export type UploadUpdateWithoutVideoInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2387,8 +2491,10 @@ export type UploadUncheckedUpdateWithoutVideoInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2418,8 +2524,10 @@ export type UploadUncheckedUpdateManyWithoutVideoInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2444,8 +2552,10 @@ export type UploadCreateManySocialAccountInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2467,8 +2577,10 @@ export type UploadUpdateWithoutSocialAccountInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2500,8 +2612,10 @@ export type UploadUncheckedUpdateWithoutSocialAccountInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2531,8 +2645,10 @@ export type UploadUncheckedUpdateManyWithoutSocialAccountInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2557,8 +2673,10 @@ export type UploadCreateManyAccountGroupInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2580,8 +2698,10 @@ export type UploadUpdateWithoutAccountGroupInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2613,8 +2733,10 @@ export type UploadUncheckedUpdateWithoutAccountGroupInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2644,8 +2766,10 @@ export type UploadUncheckedUpdateManyWithoutAccountGroupInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2671,8 +2795,10 @@ export type UploadCreateManyPipelineInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2693,8 +2819,10 @@ export type UploadUpdateWithoutPipelineInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2727,8 +2855,10 @@ export type UploadUncheckedUpdateWithoutPipelineInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2758,8 +2888,10 @@ export type UploadUncheckedUpdateManyWithoutPipelineInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2784,8 +2916,10 @@ export type UploadCreateManyRunInput = {
   postStatus?: $Enums.PostStatus
   publishMode?: string
   scheduledAt?: Date | string | null
+  platformContainerId?: string | null
   platformPostId?: string | null
   platformPostUrl?: string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title: string
   description?: string | null
   hashtags?: Prisma.UploadCreatehashtagsInput | string[]
@@ -2806,8 +2940,10 @@ export type UploadUpdateWithoutRunInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2840,8 +2976,10 @@ export type UploadUncheckedUpdateWithoutRunInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2871,8 +3009,10 @@ export type UploadUncheckedUpdateManyWithoutRunInput = {
   postStatus?: Prisma.EnumPostStatusFieldUpdateOperationsInput | $Enums.PostStatus
   publishMode?: Prisma.StringFieldUpdateOperationsInput | string
   scheduledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  platformContainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platformPostUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platformOptions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   hashtags?: Prisma.UploadUpdatehashtagsInput | string[]
@@ -2946,8 +3086,10 @@ export type UploadSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   postStatus?: boolean
   publishMode?: boolean
   scheduledAt?: boolean
+  platformContainerId?: boolean
   platformPostId?: boolean
   platformPostUrl?: boolean
+  platformOptions?: boolean
   title?: boolean
   description?: boolean
   hashtags?: boolean
@@ -2984,8 +3126,10 @@ export type UploadSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   postStatus?: boolean
   publishMode?: boolean
   scheduledAt?: boolean
+  platformContainerId?: boolean
   platformPostId?: boolean
   platformPostUrl?: boolean
+  platformOptions?: boolean
   title?: boolean
   description?: boolean
   hashtags?: boolean
@@ -3016,8 +3160,10 @@ export type UploadSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   postStatus?: boolean
   publishMode?: boolean
   scheduledAt?: boolean
+  platformContainerId?: boolean
   platformPostId?: boolean
   platformPostUrl?: boolean
+  platformOptions?: boolean
   title?: boolean
   description?: boolean
   hashtags?: boolean
@@ -3048,8 +3194,10 @@ export type UploadSelectScalar = {
   postStatus?: boolean
   publishMode?: boolean
   scheduledAt?: boolean
+  platformContainerId?: boolean
   platformPostId?: boolean
   platformPostUrl?: boolean
+  platformOptions?: boolean
   title?: boolean
   description?: boolean
   hashtags?: boolean
@@ -3064,7 +3212,7 @@ export type UploadSelectScalar = {
   pipelineId?: boolean
 }
 
-export type UploadOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "videoId" | "socialAccountId" | "accountGroupId" | "dispatchMode" | "applicationId" | "status" | "postStatus" | "publishMode" | "scheduledAt" | "platformPostId" | "platformPostUrl" | "title" | "description" | "hashtags" | "idempotencyKey" | "errorMessage" | "blockedByEnv" | "attemptCount" | "lastAttemptAt" | "createdAt" | "updatedAt" | "runId" | "pipelineId", ExtArgs["result"]["upload"]>
+export type UploadOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "videoId" | "socialAccountId" | "accountGroupId" | "dispatchMode" | "applicationId" | "status" | "postStatus" | "publishMode" | "scheduledAt" | "platformContainerId" | "platformPostId" | "platformPostUrl" | "platformOptions" | "title" | "description" | "hashtags" | "idempotencyKey" | "errorMessage" | "blockedByEnv" | "attemptCount" | "lastAttemptAt" | "createdAt" | "updatedAt" | "runId" | "pipelineId", ExtArgs["result"]["upload"]>
 export type UploadInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   socialAccount?: boolean | Prisma.SocialAccountDefaultArgs<ExtArgs>
@@ -3118,8 +3266,10 @@ export type $UploadPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     postStatus: $Enums.PostStatus
     publishMode: string
     scheduledAt: Date | null
+    platformContainerId: string | null
     platformPostId: string | null
     platformPostUrl: string | null
+    platformOptions: runtime.JsonValue | null
     title: string
     description: string | null
     hashtags: string[]
@@ -3575,8 +3725,10 @@ export interface UploadFieldRefs {
   readonly postStatus: Prisma.FieldRef<"Upload", 'PostStatus'>
   readonly publishMode: Prisma.FieldRef<"Upload", 'String'>
   readonly scheduledAt: Prisma.FieldRef<"Upload", 'DateTime'>
+  readonly platformContainerId: Prisma.FieldRef<"Upload", 'String'>
   readonly platformPostId: Prisma.FieldRef<"Upload", 'String'>
   readonly platformPostUrl: Prisma.FieldRef<"Upload", 'String'>
+  readonly platformOptions: Prisma.FieldRef<"Upload", 'Json'>
   readonly title: Prisma.FieldRef<"Upload", 'String'>
   readonly description: Prisma.FieldRef<"Upload", 'String'>
   readonly hashtags: Prisma.FieldRef<"Upload", 'String[]'>

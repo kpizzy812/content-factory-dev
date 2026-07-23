@@ -216,6 +216,22 @@ const targetPlatform = computed<string | null>(() =>
     <SharedFieldHint text="Куда публиковать видео. Можно выбрать несколько платформ одновременно." />
   </fieldset>
 
+  <fieldset v-if="selectedPlatforms.includes('instagram')" class="fieldset">
+    <legend class="fieldset-legend">Режим Instagram Reel</legend>
+    <select
+      :value="config.instagramPublishMode || 'reel'"
+      class="select select-sm w-full"
+      @change="emit('update', 'instagramPublishMode', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="reel">Обычный Reel</option>
+      <option value="trial_auto">Trial Reel, авто-публикация при хорошем результате</option>
+      <option value="trial_manual">Trial Reel, решение вручную</option>
+    </select>
+    <SharedFieldHint
+      text="Trial Reel сначала показывается не подписчикам. Режим доступен только для аккаунтов, которым Instagram открыл Trial Reels."
+    />
+  </fieldset>
+
   <fieldset class="fieldset">
     <legend class="fieldset-legend">Заголовок</legend>
     <input

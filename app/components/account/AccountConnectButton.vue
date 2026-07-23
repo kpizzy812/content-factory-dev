@@ -8,11 +8,7 @@ const { connectAccount } = useAccountActions()
 const isOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 
-const platforms = [
-  { value: 'youtube', label: 'YouTube', icon: 'mingcute:youtube-line' },
-  { value: 'tiktok', label: 'TikTok', icon: 'mingcute:tiktok-line' },
-  { value: 'instagram', label: 'Instagram', icon: 'mingcute:instagram-line' },
-]
+const platforms = [{ value: 'instagram', label: 'Instagram через Meta OAuth', icon: 'mingcute:instagram-line' }]
 
 function handleConnect(platform: string) {
   isOpen.value = false
@@ -33,7 +29,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   <div ref="dropdownRef" class="relative inline-block">
     <button class="btn btn-primary btn-sm gap-1" @click.stop="isOpen = !isOpen">
       <Icon name="mingcute:add-line" />
-      Подключить аккаунт
+      Подключить через API
     </button>
     <ul
       v-show="isOpen"

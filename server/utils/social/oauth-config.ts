@@ -30,12 +30,12 @@ export function getOAuthConfig(platform: string): OAuthConfig {
       getClientSecret: () => process.env.TIKTOK_CLIENT_SECRET || "",
     },
     instagram: {
-      authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
-      tokenUrl: "https://graph.facebook.com/v19.0/oauth/access_token",
+      authUrl: "https://www.instagram.com/oauth/authorize",
+      tokenUrl: "https://api.instagram.com/oauth/access_token",
       scopes: [
-        "instagram_basic",
-        "instagram_content_publish",
-        "pages_read_engagement",
+        "instagram_business_basic",
+        "instagram_business_content_publish",
+        "instagram_business_manage_insights",
       ],
       getClientId: () => process.env.INSTAGRAM_APP_ID || "",
       getClientSecret: () => process.env.INSTAGRAM_APP_SECRET || "",

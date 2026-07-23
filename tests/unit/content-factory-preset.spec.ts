@@ -40,6 +40,7 @@ describe('content factory vertical preset', () => {
     const scenario = nodes.find(node => node.data.type === 'scenario')!
     const character = nodes.find(node => node.data.type === 'character')!
     const video = nodes.find(node => node.data.type === 'video')!
+    const upload = nodes.find(node => node.data.type === 'upload')!
 
     expect(scenario.data.config.storytelling).toMatchObject({
       enabled: true,
@@ -54,6 +55,9 @@ describe('content factory vertical preset', () => {
       lipSyncEnabled: true,
       lipSyncModelId: 'kwaivgi/kling-lip-sync',
       requireLipSyncCharacter: true,
+    })
+    expect(upload.data.config).toMatchObject({
+      instagramPublishMode: 'trial_auto',
     })
   })
 

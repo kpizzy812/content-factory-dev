@@ -1674,6 +1674,12 @@ export async function executeUploadNode(
         continue
       }
 
+      const instagramPublishMode = ["reel", "trial_manual", "trial_auto"].includes(
+        String(config.instagramPublishMode),
+      )
+        ? String(config.instagramPublishMode)
+        : "reel"
+
       const upload = await prisma.upload.create({
         data: {
           videoId: video.id,
@@ -1684,6 +1690,9 @@ export async function executeUploadNode(
           description: caption?.description ?? variant?.hook ?? '',
           hashtags: caption?.hashtags ?? [],
           idempotencyKey: `pipeline-run${input._runId || 0}-v${video.id}-a${accountId}`,
+          platformOptions: accountPlatform === 'instagram'
+            ? { instagram: { publishMode: instagramPublishMode } }
+            : undefined,
           ...(uploadRunId ? { runId: uploadRunId } : {}),
           ...(uploadPipelineId ? { pipelineId: uploadPipelineId } : {}),
         },

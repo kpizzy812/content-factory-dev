@@ -81,6 +81,7 @@ export const pipelinePresets: PipelinePreset[] = [
         node('upload-1', 'upload', 'Официальная публикация', 6, 0, {
           factoryAssignments: true,
           uploadPlatforms: ['instagram', 'tiktok', 'youtube'], scheduledMode: 'auto', requiresApproval: false,
+          instagramPublishMode: 'trial_auto',
         }),
       ],
       edges: [

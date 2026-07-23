@@ -123,12 +123,13 @@ async function onAccountUpdated() {
             {{ app.name }}
           </option>
         </select>
+        <AccountConnectButton :app-id="currentAppId" />
         <button
-          class="btn btn-primary btn-sm gap-1"
+          class="btn btn-ghost btn-sm gap-1"
           @click="accountCreateModalRef?.open()"
         >
           <Icon name="mingcute:add-line" />
-          Добавить аккаунт
+          Добавить вручную
         </button>
       </div>
     </div>

@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
     description?: string
     hashtags?: string[]
     scheduledAt?: string
+    instagramPublishMode?: "reel" | "trial_manual" | "trial_auto"
   }>(event)
 
   // Валидация videoId
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
   // Проверить Video
   const video = await prisma.video.findUnique({
     where: { id: body.videoId },
-    select: { id: true, status: true, filePath: true },
+    select: { id: true, status: true, filePath: true, fileUrl: true, storageKey: true },
   })
 
   if (!video) {
@@ -58,7 +59,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!video.filePath) {
+  if (!video.filePath && !video.fileUrl && !video.storageKey) {
     throw createError({
       statusCode: 400,
       message: "У видео отсутствует файл для загрузки",
@@ -95,14 +96,16 @@ export default defineEventHandler(async (event) => {
   // Проверить существование аккаунтов
   const accounts = await prisma.socialAccount.findMany({
     where: { id: { in: targetAccountIds }, status: "active" },
-    select: { id: true },
+    select: { id: true, platform: true, postingMethod: true },
   })
 
-  const activeIds = accounts.map((a) => a.id)
+  const officialAccounts = accounts.filter(account => account.postingMethod === "api")
+  const activeIds = officialAccounts.map((a) => a.id)
+  const platformById = new Map(officialAccounts.map(account => [account.id, account.platform]))
   if (activeIds.length === 0) {
     throw createError({
       statusCode: 400,
-      message: "Нет активных аккаунтов для загрузки",
+      message: "Нет активных аккаунтов, подключённых через официальный API",
     })
   }
 
@@ -113,6 +116,13 @@ export default defineEventHandler(async (event) => {
   const hashtags = body.hashtags || []
   const scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null
   const publishMode = scheduledAt ? "scheduled" : "immediate"
+  const instagramPublishMode = body.instagramPublishMode ?? "reel"
+  if (!["reel", "trial_manual", "trial_auto"].includes(instagramPublishMode)) {
+    throw createError({
+      statusCode: 400,
+      message: "instagramPublishMode must be reel, trial_manual or trial_auto",
+    })
+  }
 
   // Определить applicationId из видео -> сценария
   const videoWithScenario = await prisma.video.findUnique({
@@ -149,6 +159,9 @@ export default defineEventHandler(async (event) => {
           status: status as never,
           blockedByEnv: !socialPostingEnabled,
           idempotencyKey,
+          platformOptions: platformById.get(accountId) === "instagram"
+            ? { instagram: { publishMode: instagramPublishMode } }
+            : undefined,
           errorMessage: !socialPostingEnabled
             ? "Публикация отключена (ENABLE_SOCIAL_POSTING=false). Загрузка будет выполнена после включения."
             : null,

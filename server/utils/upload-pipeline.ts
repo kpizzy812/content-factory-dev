@@ -1,4 +1,4 @@
-import type { DecryptedAccount } from "./social/types"
+import type { DecryptedAccount, UploadProgress } from "./social/types"
 import { getSocialAdapter } from "./social/factory"
 import { sendTelegramAlert } from "./telegram/alerts"
 import { syncFactoryPublicationFromUpload } from "./factory-publication"
@@ -39,6 +39,27 @@ async function updateUploadStatus(
     data: { status: status as never, ...extra },
   })
   await syncFactoryPublicationFromUpload(uploadId)
+}
+
+async function saveUploadProgress(
+  uploadId: number,
+  progress: UploadProgress,
+): Promise<void> {
+  const data: Record<string, unknown> = {}
+  if (progress.containerId) data.platformContainerId = progress.containerId
+  if (progress.postId) data.platformPostId = progress.postId
+  if (progress.postUrl) data.platformPostUrl = progress.postUrl
+  if (Object.keys(data).length === 0) return
+  await prisma.upload.update({
+    where: { id: uploadId },
+    data: data as never,
+  })
+}
+
+function objectOptions(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
 }
 
 /**
@@ -115,8 +136,8 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
       throw new Error(`Аккаунт для Upload ${uploadId} не найден`)
     }
 
-    if (!upload.video.filePath) {
-      throw new Error(`Видео ${upload.video.id} не имеет файла для загрузки`)
+    if (!upload.video.filePath && !upload.video.fileUrl && !upload.video.storageKey) {
+      throw new Error(`Видео ${upload.video.id} не имеет сохранённого файла для загрузки`)
     }
 
     if (upload.socialAccount.status !== "active") {
@@ -127,8 +148,8 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
 
     if (!upload.socialAccount.accessToken) {
       throw new Error(
-        `Аккаунт ${upload.socialAccount.displayName} создан вручную (без OAuth). ` +
-          `Публикация через OAuth API недоступна — используйте Indigo browser automation (PostingJob).`,
+        `Аккаунт ${upload.socialAccount.displayName} не подключён через официальный OAuth. ` +
+          `Переподключите аккаунт на странице аккаунтов.`,
       )
     }
 
@@ -166,11 +187,20 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
 
     try {
       const result = await adapter.uploadVideo(decrypted, {
-        filePath: upload.video.filePath,
+        filePath: upload.video.filePath || "",
+        fileUrl: upload.video.fileUrl,
+        storageKey: upload.video.storageKey,
         title: upload.title,
         description: upload.description || "",
         hashtags: upload.hashtags,
         isShort: isShortVideo(upload.video.format),
+        platformOptions: objectOptions(upload.platformOptions),
+        resume: {
+          containerId: upload.platformContainerId ?? undefined,
+          postId: upload.platformPostId ?? undefined,
+          postUrl: upload.platformPostUrl ?? undefined,
+        },
+        onProgress: progress => saveUploadProgress(uploadId, progress),
       })
 
       // 7. Успех: обновить Upload и attempt
@@ -185,6 +215,7 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
         externalPostId: result.platformPostId,
         responseSnapshot: {
           platformPostUrl: result.platformPostUrl,
+          resumed: Boolean(upload.platformContainerId || upload.platformPostId),
         },
       })
 
