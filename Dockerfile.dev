@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Build dependencies must stay available even when Saturn injects NODE_ENV=production.
+ENV NODE_ENV=development
+
+COPY package.json bun.lock* ./
+COPY prisma ./prisma/
+RUN bun install --frozen-lockfile
+
+COPY . .
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma generate
+RUN bun run build
+
+# Install media runtime only after the Nuxt build so BuildKit cannot run both
+# memory-heavy steps in parallel on the development builder.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
+
+RUN mkdir -p /app/storage/uploads /app/storage/frames \
+ && chmod 755 /app/storage \
+ && chmod +x /app/entrypoint.sh
+
+VOLUME /app/storage/uploads
+VOLUME /app/storage/frames
+EXPOSE 3000
+
+CMD ["./entrypoint.sh"]
