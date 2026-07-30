@@ -1,14 +1,21 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+// process.cwd(), а не import.meta.url: под happy-dom из основного vitest-конфига
+// import.meta.url не является file:-URL, и проверки существования файлов врут.
+function repoPath(path: string): string {
+  return resolve(process.cwd(), path)
+}
+
 function source(path: string): string {
-  return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
+  return readFileSync(repoPath(path), 'utf8')
 }
 
 describe('content factory API contract', () => {
   it('exposes batches under the factory namespace', () => {
-    expect(existsSync(new URL('../../server/api/factory/batches/index.post.ts', import.meta.url))).toBe(true)
-    expect(existsSync(new URL('../../server/api/zavod/batches/index.post.ts', import.meta.url))).toBe(false)
+    expect(existsSync(repoPath('server/api/factory/batches/index.post.ts'))).toBe(true)
+    expect(existsSync(repoPath('server/api/zavod/batches/index.post.ts'))).toBe(false)
   })
 
   it('uses only official social accounts for capacity planning', () => {

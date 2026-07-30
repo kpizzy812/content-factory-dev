@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const schema = readFileSync(new URL('../../prisma/schema.prisma', import.meta.url), 'utf8')
+// process.cwd(), а не import.meta.url: под happy-dom из основного vitest-конфига
+// import.meta.url не является file:-URL, и весь файл падает на сборе.
+const schema = readFileSync(resolve(process.cwd(), 'prisma/schema.prisma'), 'utf8')
 
 function model(name: string): string {
   const match = schema.match(new RegExp(`model ${name} \\{([\\s\\S]*?)\\n\\}`, 'm'))
