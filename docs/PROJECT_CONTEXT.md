@@ -297,8 +297,9 @@ HeyGen не используется по умолчанию из-за высо�
 - универсальные модели `LeadMagnet`, `ContentFunnel`, `ContentHypothesis`, `FactoryPublication`, `FactoryQualityReview`, `AttributionEvent` и API `/api/factory/*`;
 - нейтральные поля адаптеров вместо клиентских: `conversionAdapter`, `automationAdapter`, `deliveryAdapter`;
 - официальная публикация в Instagram: OAuth с защитой state, `content_publishing_limit`, Reel container, Trial Reels через `trial_params.graduation_strategy`, публичные media-ссылки с ограниченным сроком жизни;
-- адаптер Direct-автоматизации через MCP, подключаемый как внешний сервис и не проникающий в доменные модели.
+- адаптер Direct-автоматизации через MCP, подключаемый как внешний сервис и не проникающий в доменные модели;
+- собственная авторизация: локальные учётки со scrypt-паролем из стандартной библиотеки Node, MarketingCamp переведён в необязательный адаптер через `AUTH_PROVIDER`, первый администратор создаётся `bun run create:admin`.
 
 Унаследованный контур DuoPlus/ADB, прокси, warmup, Google Drive и обмен идеями с MarketingCamp выключен по умолчанию через флаги `LEGACY_*_ENABLED`: его API отдают 404, планировщики не стартуют, пункты меню скрыты. Код сохранён до подтверждения официальной замены, подробности в `docs/operations/legacy-contour.md`.
 
-Не сделано и остаётся следующими этапами: страница «Фабрика» (ждёт `$design-feature`), ingest-конвейер исходников с scene detection и perceptual hash, Remotion-рендер, Trendsee, нагрузочная проверка 300 задач в сутки, собственная авторизация вместо MarketingCamp, удаление DuoPlus/ADB после подтверждения официальной замены.
+Не сделано и остаётся следующими этапами: страница «Фабрика» (ждёт `$design-feature`), ingest-конвейер исходников с scene detection и perceptual hash, Remotion-рендер, Trendsee, нагрузочная проверка 300 задач в сутки, удаление DuoPlus/ADB после подтверждения официальной замены.

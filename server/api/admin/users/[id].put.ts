@@ -1,15 +1,17 @@
 /**
  * PUT /api/admin/users/:id
  *
- * MarketingCamp — единственный источник истины для прав, ролей, модулей и приложений.
- * Все RBAC-поля (rolePreset, canRead/canWrite/..., moduleAccess, appAssignments)
- * перезатираются при каждом логине через /api/auth/login. Локально править их
- * бессмысленно — изменения откатятся при следующем входе пользователя.
+ * При AUTH_PROVIDER=marketingcamp родительская платформа остаётся источником истины
+ * для прав, ролей, модулей и приложений: все RBAC-поля перезатираются при каждом
+ * логине через /api/auth/login, поэтому локально править их бессмысленно.
  *
- * Этот endpoint управляет только локальной активностью аккаунта в ZavodCamp:
- * isActive=false блокирует доступ к ZC даже при валидной MC сессии (защита на случай
- * когда нужно срочно отрубить юзера а MC роль ещё не отозвана).
+ * Этот endpoint управляет только локальной активностью аккаунта:
+ * isActive=false блокирует доступ даже при валидной внешней сессии (защита на случай
+ * когда нужно срочно отрубить юзера, а роль во внешней платформе ещё не отозвана).
+ * Пароль локальной учётки меняется отдельным endpoint'ом /api/admin/users/:id/password.
  */
+import { PUBLIC_USER_SELECT } from "~~/server/utils/auth/user-select"
+
 export default defineEventHandler(async (event) => {
   await requirePermission(event, "canAdmin")
 
@@ -38,6 +40,7 @@ export default defineEventHandler(async (event) => {
   const user = await prisma.zavodUser.update({
     where: { id },
     data: { isActive: body.isActive },
+    select: PUBLIC_USER_SELECT,
   })
 
   return { data: user }

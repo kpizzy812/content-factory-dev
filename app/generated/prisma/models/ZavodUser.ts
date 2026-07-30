@@ -42,6 +42,7 @@ export type ZavodUserMinAggregateOutputType = {
   email: string | null
   name: string | null
   surname: string | null
+  passwordHash: string | null
   rolePreset: $Enums.RolePreset | null
   roleName: string | null
   rolePresetName: string | null
@@ -66,6 +67,7 @@ export type ZavodUserMaxAggregateOutputType = {
   email: string | null
   name: string | null
   surname: string | null
+  passwordHash: string | null
   rolePreset: $Enums.RolePreset | null
   roleName: string | null
   rolePresetName: string | null
@@ -90,6 +92,7 @@ export type ZavodUserCountAggregateOutputType = {
   email: number
   name: number
   surname: number
+  passwordHash: number
   rolePreset: number
   roleName: number
   rolePresetName: number
@@ -127,6 +130,7 @@ export type ZavodUserMinAggregateInputType = {
   email?: true
   name?: true
   surname?: true
+  passwordHash?: true
   rolePreset?: true
   roleName?: true
   rolePresetName?: true
@@ -151,6 +155,7 @@ export type ZavodUserMaxAggregateInputType = {
   email?: true
   name?: true
   surname?: true
+  passwordHash?: true
   rolePreset?: true
   roleName?: true
   rolePresetName?: true
@@ -175,6 +180,7 @@ export type ZavodUserCountAggregateInputType = {
   email?: true
   name?: true
   surname?: true
+  passwordHash?: true
   rolePreset?: true
   roleName?: true
   rolePresetName?: true
@@ -287,6 +293,7 @@ export type ZavodUserGroupByOutputType = {
   email: string
   name: string | null
   surname: string | null
+  passwordHash: string | null
   rolePreset: $Enums.RolePreset
   roleName: string | null
   rolePresetName: string | null
@@ -335,6 +342,7 @@ export type ZavodUserWhereInput = {
   email?: Prisma.StringFilter<"ZavodUser"> | string
   name?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
   surname?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
+  passwordHash?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
   rolePreset?: Prisma.EnumRolePresetFilter<"ZavodUser"> | $Enums.RolePreset
   roleName?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
   rolePresetName?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
@@ -367,6 +375,7 @@ export type ZavodUserOrderByWithRelationInput = {
   email?: Prisma.SortOrder
   name?: Prisma.SortOrderInput | Prisma.SortOrder
   surname?: Prisma.SortOrderInput | Prisma.SortOrder
+  passwordHash?: Prisma.SortOrderInput | Prisma.SortOrder
   rolePreset?: Prisma.SortOrder
   roleName?: Prisma.SortOrderInput | Prisma.SortOrder
   rolePresetName?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -402,6 +411,7 @@ export type ZavodUserWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.ZavodUserWhereInput | Prisma.ZavodUserWhereInput[]
   name?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
   surname?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
+  passwordHash?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
   rolePreset?: Prisma.EnumRolePresetFilter<"ZavodUser"> | $Enums.RolePreset
   roleName?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
   rolePresetName?: Prisma.StringNullableFilter<"ZavodUser"> | string | null
@@ -434,6 +444,7 @@ export type ZavodUserOrderByWithAggregationInput = {
   email?: Prisma.SortOrder
   name?: Prisma.SortOrderInput | Prisma.SortOrder
   surname?: Prisma.SortOrderInput | Prisma.SortOrder
+  passwordHash?: Prisma.SortOrderInput | Prisma.SortOrder
   rolePreset?: Prisma.SortOrder
   roleName?: Prisma.SortOrderInput | Prisma.SortOrder
   rolePresetName?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -467,6 +478,7 @@ export type ZavodUserScalarWhereWithAggregatesInput = {
   email?: Prisma.StringWithAggregatesFilter<"ZavodUser"> | string
   name?: Prisma.StringNullableWithAggregatesFilter<"ZavodUser"> | string | null
   surname?: Prisma.StringNullableWithAggregatesFilter<"ZavodUser"> | string | null
+  passwordHash?: Prisma.StringNullableWithAggregatesFilter<"ZavodUser"> | string | null
   rolePreset?: Prisma.EnumRolePresetWithAggregatesFilter<"ZavodUser"> | $Enums.RolePreset
   roleName?: Prisma.StringNullableWithAggregatesFilter<"ZavodUser"> | string | null
   rolePresetName?: Prisma.StringNullableWithAggregatesFilter<"ZavodUser"> | string | null
@@ -491,6 +503,7 @@ export type ZavodUserCreateInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -523,6 +536,7 @@ export type ZavodUserUncheckedCreateInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -554,6 +568,7 @@ export type ZavodUserUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -586,6 +601,7 @@ export type ZavodUserUncheckedUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -618,6 +634,7 @@ export type ZavodUserCreateManyInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -642,6 +659,7 @@ export type ZavodUserUpdateManyMutationInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -667,6 +685,7 @@ export type ZavodUserUncheckedUpdateManyInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -700,6 +719,7 @@ export type ZavodUserCountOrderByAggregateInput = {
   email?: Prisma.SortOrder
   name?: Prisma.SortOrder
   surname?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
   rolePreset?: Prisma.SortOrder
   roleName?: Prisma.SortOrder
   rolePresetName?: Prisma.SortOrder
@@ -730,6 +750,7 @@ export type ZavodUserMaxOrderByAggregateInput = {
   email?: Prisma.SortOrder
   name?: Prisma.SortOrder
   surname?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
   rolePreset?: Prisma.SortOrder
   roleName?: Prisma.SortOrder
   rolePresetName?: Prisma.SortOrder
@@ -754,6 +775,7 @@ export type ZavodUserMinOrderByAggregateInput = {
   email?: Prisma.SortOrder
   name?: Prisma.SortOrder
   surname?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
   rolePreset?: Prisma.SortOrder
   roleName?: Prisma.SortOrder
   rolePresetName?: Prisma.SortOrder
@@ -937,6 +959,7 @@ export type ZavodUserCreateWithoutAppAssignmentsInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -968,6 +991,7 @@ export type ZavodUserUncheckedCreateWithoutAppAssignmentsInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1014,6 +1038,7 @@ export type ZavodUserUpdateWithoutAppAssignmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1045,6 +1070,7 @@ export type ZavodUserUncheckedUpdateWithoutAppAssignmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1075,6 +1101,7 @@ export type ZavodUserCreateWithoutProxyDeepCheckLogsInitiatedInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1106,6 +1133,7 @@ export type ZavodUserUncheckedCreateWithoutProxyDeepCheckLogsInitiatedInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1152,6 +1180,7 @@ export type ZavodUserUpdateWithoutProxyDeepCheckLogsInitiatedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1183,6 +1212,7 @@ export type ZavodUserUncheckedUpdateWithoutProxyDeepCheckLogsInitiatedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1213,6 +1243,7 @@ export type ZavodUserCreateWithoutSecretAccessLogsInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1244,6 +1275,7 @@ export type ZavodUserUncheckedCreateWithoutSecretAccessLogsInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1290,6 +1322,7 @@ export type ZavodUserUpdateWithoutSecretAccessLogsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1321,6 +1354,7 @@ export type ZavodUserUncheckedUpdateWithoutSecretAccessLogsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1351,6 +1385,7 @@ export type ZavodUserCreateWithoutDriveFilesInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1382,6 +1417,7 @@ export type ZavodUserUncheckedCreateWithoutDriveFilesInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1428,6 +1464,7 @@ export type ZavodUserUpdateWithoutDriveFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1459,6 +1496,7 @@ export type ZavodUserUncheckedUpdateWithoutDriveFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1489,6 +1527,7 @@ export type ZavodUserCreateWithoutFavoritePromptsInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1520,6 +1559,7 @@ export type ZavodUserUncheckedCreateWithoutFavoritePromptsInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1566,6 +1606,7 @@ export type ZavodUserUpdateWithoutFavoritePromptsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1597,6 +1638,7 @@ export type ZavodUserUncheckedUpdateWithoutFavoritePromptsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1627,6 +1669,7 @@ export type ZavodUserCreateWithoutPostingJobsCreatedInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1658,6 +1701,7 @@ export type ZavodUserUncheckedCreateWithoutPostingJobsCreatedInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1693,6 +1737,7 @@ export type ZavodUserCreateWithoutPostingJobsCancelledInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1724,6 +1769,7 @@ export type ZavodUserUncheckedCreateWithoutPostingJobsCancelledInput = {
   email: string
   name?: string | null
   surname?: string | null
+  passwordHash?: string | null
   rolePreset?: $Enums.RolePreset
   roleName?: string | null
   rolePresetName?: string | null
@@ -1770,6 +1816,7 @@ export type ZavodUserUpdateWithoutPostingJobsCreatedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1801,6 +1848,7 @@ export type ZavodUserUncheckedUpdateWithoutPostingJobsCreatedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1842,6 +1890,7 @@ export type ZavodUserUpdateWithoutPostingJobsCancelledInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1873,6 +1922,7 @@ export type ZavodUserUncheckedUpdateWithoutPostingJobsCancelledInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
   roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1989,6 +2039,7 @@ export type ZavodUserSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   email?: boolean
   name?: boolean
   surname?: boolean
+  passwordHash?: boolean
   rolePreset?: boolean
   roleName?: boolean
   rolePresetName?: boolean
@@ -2022,6 +2073,7 @@ export type ZavodUserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   email?: boolean
   name?: boolean
   surname?: boolean
+  passwordHash?: boolean
   rolePreset?: boolean
   roleName?: boolean
   rolePresetName?: boolean
@@ -2047,6 +2099,7 @@ export type ZavodUserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   email?: boolean
   name?: boolean
   surname?: boolean
+  passwordHash?: boolean
   rolePreset?: boolean
   roleName?: boolean
   rolePresetName?: boolean
@@ -2072,6 +2125,7 @@ export type ZavodUserSelectScalar = {
   email?: boolean
   name?: boolean
   surname?: boolean
+  passwordHash?: boolean
   rolePreset?: boolean
   roleName?: boolean
   rolePresetName?: boolean
@@ -2091,7 +2145,7 @@ export type ZavodUserSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ZavodUserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalId" | "email" | "name" | "surname" | "rolePreset" | "roleName" | "rolePresetName" | "canRead" | "canWrite" | "canCreate" | "canDelete" | "canApprove" | "canRunAgent" | "canApplyChanges" | "canAdmin" | "moduleAccess" | "telegramChatId" | "isActive" | "lastLoginAt" | "createdAt" | "updatedAt", ExtArgs["result"]["zavodUser"]>
+export type ZavodUserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalId" | "email" | "name" | "surname" | "passwordHash" | "rolePreset" | "roleName" | "rolePresetName" | "canRead" | "canWrite" | "canCreate" | "canDelete" | "canApprove" | "canRunAgent" | "canApplyChanges" | "canAdmin" | "moduleAccess" | "telegramChatId" | "isActive" | "lastLoginAt" | "createdAt" | "updatedAt", ExtArgs["result"]["zavodUser"]>
 export type ZavodUserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   appAssignments?: boolean | Prisma.ZavodUser$appAssignmentsArgs<ExtArgs>
   favoritePrompts?: boolean | Prisma.ZavodUser$favoritePromptsArgs<ExtArgs>
@@ -2122,6 +2176,7 @@ export type $ZavodUserPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     email: string
     name: string | null
     surname: string | null
+    passwordHash: string | null
     rolePreset: $Enums.RolePreset
     roleName: string | null
     rolePresetName: string | null
@@ -2574,6 +2629,7 @@ export interface ZavodUserFieldRefs {
   readonly email: Prisma.FieldRef<"ZavodUser", 'String'>
   readonly name: Prisma.FieldRef<"ZavodUser", 'String'>
   readonly surname: Prisma.FieldRef<"ZavodUser", 'String'>
+  readonly passwordHash: Prisma.FieldRef<"ZavodUser", 'String'>
   readonly rolePreset: Prisma.FieldRef<"ZavodUser", 'RolePreset'>
   readonly roleName: Prisma.FieldRef<"ZavodUser", 'String'>
   readonly rolePresetName: Prisma.FieldRef<"ZavodUser", 'String'>

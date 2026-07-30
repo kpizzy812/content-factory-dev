@@ -12,6 +12,7 @@
     "mock:drive": "bun run server/__mocks__/google-drive-server.ts",
     "mock:duoplus": "tsx server/__mocks__/duoplus-server.ts",
     "mock:all": "tsx server/__mocks__/proxy-server.ts",
+    "create:admin": "bun run scripts/create-admin.ts",
     "seed:warmup": "bun run scripts/seed-warmup-keywords.ts",
     "seed:drive-template": "bun run scripts/seed-drive-pipeline-template.ts",
     "test:warmup": "bun run scripts/test-warmup-planner.ts",

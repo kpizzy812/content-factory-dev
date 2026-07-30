@@ -1,4 +1,6 @@
 import { devExternalId, verifyDevAuth } from '../../utils/dev-auth'
+import { authenticateLocalUser } from '../../utils/auth/local-login'
+import { resolveAuthProvider } from '../../utils/auth/provider'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string }>(event)
@@ -50,6 +52,19 @@ export default defineEventHandler(async (event) => {
     await setUserSession(event, { user: sessionUser })
     return { user: sessionUser }
   }
+
+  // Основной путь: ContentFactory логинит сам. MarketingCamp ниже — только для
+  // установок, где родительская платформа действительно есть.
+  if (resolveAuthProvider(process.env) === 'local') {
+    const localUser = await authenticateLocalUser(email, body.password)
+    const sessionUser = {
+      id: localUser.id, externalId: localUser.externalId, email: localUser.email,
+      name: localUser.name, surname: localUser.surname, rolePreset: localUser.rolePreset,
+    }
+    await setUserSession(event, { user: sessionUser })
+    return { user: sessionUser }
+  }
+
   const result = await validateExternalUser(email, body.password)
 
   if (!result.valid) {

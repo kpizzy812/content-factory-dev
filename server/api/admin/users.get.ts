@@ -2,6 +2,8 @@
  * GET /api/admin/users
  * Список пользователей с пагинацией и фильтрами.
  */
+import { PUBLIC_USER_SELECT } from "~~/server/utils/auth/user-select"
+
 export default defineEventHandler(async (event) => {
   await requirePermission(event, "canAdmin")
 
@@ -25,6 +27,7 @@ export default defineEventHandler(async (event) => {
       skip: offset,
       take: limit,
       orderBy: { createdAt: "desc" },
+      select: PUBLIC_USER_SELECT,
     }),
     prisma.zavodUser.count({ where }),
   ])

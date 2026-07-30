@@ -156,6 +156,7 @@ export const ZavodUserScalarFieldEnum = {
   email: 'email',
   name: 'name',
   surname: 'surname',
+  passwordHash: 'passwordHash',
   rolePreset: 'rolePreset',
   roleName: 'roleName',
   rolePresetName: 'rolePresetName',

@@ -19,6 +19,8 @@
 - Согласованный контекст: `docs/PROJECT_CONTEXT.md`.
 - Архитектура: `docs/superpowers/specs/2026-07-22-content-factory-design.md`.
 - Дизайн-флоу: `docs/superpowers/specs/2026-07-22-global-design-feature-skill-design.md`.
+- Авторизация: `docs/operations/authentication.md`.
+- Унаследованный контур и его флаги: `docs/operations/legacy-contour.md`.
 - Старые документы и код VideoCamp/ZavodCamp являются исторической справкой и не переопределяют новые решения.
 
 ## Commands

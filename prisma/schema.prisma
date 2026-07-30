@@ -21,6 +21,8 @@ model ZavodUser {
   email            String            @unique
   name             String?
   surname          String?
+  // Локальный пароль. null у учёток, которые логинятся внешним провайдером.
+  passwordHash     String?
   rolePreset       RolePreset        @default(operator)
   roleName         String?
   rolePresetName   String?
