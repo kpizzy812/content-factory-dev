@@ -21,6 +21,7 @@
 - Дизайн-флоу: `docs/superpowers/specs/2026-07-22-global-design-feature-skill-design.md`.
 - Авторизация: `docs/operations/authentication.md`.
 - Библиотека исходников ведущего: `docs/operations/presenter-library.md`.
+- Прогон тестов с БД и список унаследованных падений: `docs/operations/running-db-tests.md`.
 - Унаследованный контур и его флаги: `docs/operations/legacy-contour.md`.
 - Старые документы и код VideoCamp/ZavodCamp являются исторической справкой и не переопределяют новые решения.
 
@@ -76,6 +77,7 @@ Bun должен быть доступен в `PATH`; если его нет, н
 ## Verification
 
 - Vitest работает в `singleThread`: очистка тестовой БД делает `TRUNCATE` всей public schema, поэтому параллелить suites нельзя.
+- Если Bun недоступен, DB-сьюты гонять в контейнере по `docs/operations/running-db-tests.md`. Там же таблица унаследованных падений: перед починкой такого теста сверяться с коммитом `904bb25`.
 - Playwright читает `.env.test`, поднимает Nuxt на `127.0.0.1:3100` и по умолчанию отключает платные API, social posting и schedulers.
 - Использовать mock-интеграции для тестов без расходов; не переносить production secrets в `.env.test`.
 - Платные вызовы начинать с одного canary job.
