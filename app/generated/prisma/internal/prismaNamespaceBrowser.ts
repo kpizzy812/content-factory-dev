@@ -308,6 +308,9 @@ export const PresenterSourceClipScalarFieldEnum = {
   usageCount: 'usageCount',
   lastUsedAt: 'lastUsedAt',
   uploadedById: 'uploadedById',
+  perceptualHash: 'perceptualHash',
+  sourceRecording: 'sourceRecording',
+  sourceStartSec: 'sourceStartSec',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

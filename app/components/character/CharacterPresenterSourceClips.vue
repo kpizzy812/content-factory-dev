@@ -58,6 +58,54 @@ async function onFileInputChange(event: Event) {
   await uploadFiles(Array.from(target.files ?? []))
 }
 
+// ─── Длинная запись: сервер сам размечает сцены и режет её на фрагменты ───
+const recordingInput = ref<HTMLInputElement | null>(null)
+const ingesting = ref(false)
+const ingestReport = ref<{ accepted: number; duplicates: number; errors: number } | null>(null)
+
+interface IngestResponse {
+  data: {
+    acceptedCount: number
+    skipped: Array<{ reason: 'duplicate' | 'error' }>
+  }
+}
+
+async function onRecordingChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  ingesting.value = true
+  error.value = ''
+  ingestReport.value = null
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    if (tagsInput.value.trim()) form.append('tags', tagsInput.value.trim())
+    if (outfit.value.trim()) form.append('outfit', outfit.value.trim())
+    if (background.value.trim()) form.append('background', background.value.trim())
+    if (gesture.value.trim()) form.append('gesture', gesture.value.trim())
+
+    const response = await $fetch<IngestResponse>(
+      `/api/characters/${props.characterId}/source-recordings`,
+      { method: 'POST', body: form },
+    )
+    ingestReport.value = {
+      accepted: response.data.acceptedCount,
+      duplicates: response.data.skipped.filter(s => s.reason === 'duplicate').length,
+      errors: response.data.skipped.filter(s => s.reason === 'error').length,
+    }
+    await refresh()
+  }
+  catch (e: any) {
+    error.value = e?.data?.message || e?.message || 'Не удалось разобрать запись'
+  }
+  finally {
+    ingesting.value = false
+    if (recordingInput.value) recordingInput.value.value = ''
+  }
+}
+
 function onDrop(event: DragEvent) {
   dragOver.value = false
   uploadFiles(Array.from(event.dataTransfer?.files ?? []))
@@ -119,6 +167,36 @@ async function deactivateClip(clip: PresenterSourceClip) {
         <span class="text-xs text-base-content/50">
           MP4, MOV или WebM, каждый фрагмент 2–10 секунд и до 100 MB. Lip-sync берёт наименее использованные клипы.
         </span>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-base-300 p-4 space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div class="text-sm font-medium">Длинная запись целиком</div>
+          <div class="text-xs text-base-content/50">
+            Разметим сцены, нарежем на фрагменты 2–10 секунд и выбросим похожие.
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" :disabled="ingesting" @click="recordingInput?.click()">
+          <Icon
+            :name="ingesting ? 'mingcute:loading-3-line' : 'mingcute:scissors-line'"
+            :class="{ 'animate-spin': ingesting }"
+          />
+          {{ ingesting ? 'Разбираю запись…' : 'Загрузить и нарезать' }}
+        </button>
+      </div>
+      <input
+        ref="recordingInput"
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm"
+        class="hidden"
+        @change="onRecordingChange"
+      >
+      <div v-if="ingestReport" class="text-xs text-base-content/70">
+        Принято фрагментов: {{ ingestReport.accepted }}.
+        <span v-if="ingestReport.duplicates"> Похожих отброшено: {{ ingestReport.duplicates }}.</span>
+        <span v-if="ingestReport.errors"> С ошибкой: {{ ingestReport.errors }}.</span>
       </div>
     </div>
 

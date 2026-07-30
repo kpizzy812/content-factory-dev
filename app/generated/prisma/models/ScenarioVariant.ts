@@ -831,14 +831,6 @@ export type EnumVariantStatusFieldUpdateOperationsInput = {
   set?: $Enums.VariantStatus
 }
 
-export type NullableFloatFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type ScenarioVariantCreateNestedOneWithoutBlockRevisionsInput = {
   create?: Prisma.XOR<Prisma.ScenarioVariantCreateWithoutBlockRevisionsInput, Prisma.ScenarioVariantUncheckedCreateWithoutBlockRevisionsInput>
   connectOrCreate?: Prisma.ScenarioVariantCreateOrConnectWithoutBlockRevisionsInput

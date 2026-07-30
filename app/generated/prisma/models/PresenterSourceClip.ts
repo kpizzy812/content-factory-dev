@@ -33,6 +33,7 @@ export type PresenterSourceClipAvgAggregateOutputType = {
   height: number | null
   usageCount: number | null
   uploadedById: number | null
+  sourceStartSec: number | null
 }
 
 export type PresenterSourceClipSumAggregateOutputType = {
@@ -42,6 +43,7 @@ export type PresenterSourceClipSumAggregateOutputType = {
   height: number | null
   usageCount: number | null
   uploadedById: number | null
+  sourceStartSec: number | null
 }
 
 export type PresenterSourceClipMinAggregateOutputType = {
@@ -64,6 +66,9 @@ export type PresenterSourceClipMinAggregateOutputType = {
   usageCount: number | null
   lastUsedAt: Date | null
   uploadedById: number | null
+  perceptualHash: string | null
+  sourceRecording: string | null
+  sourceStartSec: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -88,6 +93,9 @@ export type PresenterSourceClipMaxAggregateOutputType = {
   usageCount: number | null
   lastUsedAt: Date | null
   uploadedById: number | null
+  perceptualHash: string | null
+  sourceRecording: string | null
+  sourceStartSec: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -113,6 +121,9 @@ export type PresenterSourceClipCountAggregateOutputType = {
   usageCount: number
   lastUsedAt: number
   uploadedById: number
+  perceptualHash: number
+  sourceRecording: number
+  sourceStartSec: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -126,6 +137,7 @@ export type PresenterSourceClipAvgAggregateInputType = {
   height?: true
   usageCount?: true
   uploadedById?: true
+  sourceStartSec?: true
 }
 
 export type PresenterSourceClipSumAggregateInputType = {
@@ -135,6 +147,7 @@ export type PresenterSourceClipSumAggregateInputType = {
   height?: true
   usageCount?: true
   uploadedById?: true
+  sourceStartSec?: true
 }
 
 export type PresenterSourceClipMinAggregateInputType = {
@@ -157,6 +170,9 @@ export type PresenterSourceClipMinAggregateInputType = {
   usageCount?: true
   lastUsedAt?: true
   uploadedById?: true
+  perceptualHash?: true
+  sourceRecording?: true
+  sourceStartSec?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -181,6 +197,9 @@ export type PresenterSourceClipMaxAggregateInputType = {
   usageCount?: true
   lastUsedAt?: true
   uploadedById?: true
+  perceptualHash?: true
+  sourceRecording?: true
+  sourceStartSec?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -206,6 +225,9 @@ export type PresenterSourceClipCountAggregateInputType = {
   usageCount?: true
   lastUsedAt?: true
   uploadedById?: true
+  perceptualHash?: true
+  sourceRecording?: true
+  sourceStartSec?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -318,6 +340,9 @@ export type PresenterSourceClipGroupByOutputType = {
   usageCount: number
   lastUsedAt: Date | null
   uploadedById: number | null
+  perceptualHash: string | null
+  sourceRecording: string | null
+  sourceStartSec: number | null
   createdAt: Date
   updatedAt: Date
   _count: PresenterSourceClipCountAggregateOutputType | null
@@ -366,6 +391,9 @@ export type PresenterSourceClipWhereInput = {
   usageCount?: Prisma.IntFilter<"PresenterSourceClip"> | number
   lastUsedAt?: Prisma.DateTimeNullableFilter<"PresenterSourceClip"> | Date | string | null
   uploadedById?: Prisma.IntNullableFilter<"PresenterSourceClip"> | number | null
+  perceptualHash?: Prisma.StringNullableFilter<"PresenterSourceClip"> | string | null
+  sourceRecording?: Prisma.StringNullableFilter<"PresenterSourceClip"> | string | null
+  sourceStartSec?: Prisma.FloatNullableFilter<"PresenterSourceClip"> | number | null
   createdAt?: Prisma.DateTimeFilter<"PresenterSourceClip"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PresenterSourceClip"> | Date | string
   character?: Prisma.XOR<Prisma.CharacterScalarRelationFilter, Prisma.CharacterWhereInput>
@@ -392,6 +420,9 @@ export type PresenterSourceClipOrderByWithRelationInput = {
   usageCount?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   uploadedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  perceptualHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceRecording?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   character?: Prisma.CharacterOrderByWithRelationInput
@@ -422,6 +453,9 @@ export type PresenterSourceClipWhereUniqueInput = Prisma.AtLeast<{
   usageCount?: Prisma.IntFilter<"PresenterSourceClip"> | number
   lastUsedAt?: Prisma.DateTimeNullableFilter<"PresenterSourceClip"> | Date | string | null
   uploadedById?: Prisma.IntNullableFilter<"PresenterSourceClip"> | number | null
+  perceptualHash?: Prisma.StringNullableFilter<"PresenterSourceClip"> | string | null
+  sourceRecording?: Prisma.StringNullableFilter<"PresenterSourceClip"> | string | null
+  sourceStartSec?: Prisma.FloatNullableFilter<"PresenterSourceClip"> | number | null
   createdAt?: Prisma.DateTimeFilter<"PresenterSourceClip"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PresenterSourceClip"> | Date | string
   character?: Prisma.XOR<Prisma.CharacterScalarRelationFilter, Prisma.CharacterWhereInput>
@@ -448,6 +482,9 @@ export type PresenterSourceClipOrderByWithAggregationInput = {
   usageCount?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   uploadedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  perceptualHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceRecording?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.PresenterSourceClipCountOrderByAggregateInput
@@ -481,6 +518,9 @@ export type PresenterSourceClipScalarWhereWithAggregatesInput = {
   usageCount?: Prisma.IntWithAggregatesFilter<"PresenterSourceClip"> | number
   lastUsedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"PresenterSourceClip"> | Date | string | null
   uploadedById?: Prisma.IntNullableWithAggregatesFilter<"PresenterSourceClip"> | number | null
+  perceptualHash?: Prisma.StringNullableWithAggregatesFilter<"PresenterSourceClip"> | string | null
+  sourceRecording?: Prisma.StringNullableWithAggregatesFilter<"PresenterSourceClip"> | string | null
+  sourceStartSec?: Prisma.FloatNullableWithAggregatesFilter<"PresenterSourceClip"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"PresenterSourceClip"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"PresenterSourceClip"> | Date | string
 }
@@ -505,6 +545,9 @@ export type PresenterSourceClipCreateInput = {
   usageCount?: number
   lastUsedAt?: Date | string | null
   uploadedById?: number | null
+  perceptualHash?: string | null
+  sourceRecording?: string | null
+  sourceStartSec?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   character: Prisma.CharacterCreateNestedOneWithoutSourceClipsInput
@@ -531,6 +574,9 @@ export type PresenterSourceClipUncheckedCreateInput = {
   usageCount?: number
   lastUsedAt?: Date | string | null
   uploadedById?: number | null
+  perceptualHash?: string | null
+  sourceRecording?: string | null
+  sourceStartSec?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -555,6 +601,9 @@ export type PresenterSourceClipUpdateInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   character?: Prisma.CharacterUpdateOneRequiredWithoutSourceClipsNestedInput
@@ -581,6 +630,9 @@ export type PresenterSourceClipUncheckedUpdateInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -606,6 +658,9 @@ export type PresenterSourceClipCreateManyInput = {
   usageCount?: number
   lastUsedAt?: Date | string | null
   uploadedById?: number | null
+  perceptualHash?: string | null
+  sourceRecording?: string | null
+  sourceStartSec?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -630,6 +685,9 @@ export type PresenterSourceClipUpdateManyMutationInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -655,6 +713,9 @@ export type PresenterSourceClipUncheckedUpdateManyInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -695,6 +756,9 @@ export type PresenterSourceClipCountOrderByAggregateInput = {
   usageCount?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
+  perceptualHash?: Prisma.SortOrder
+  sourceRecording?: Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -706,6 +770,7 @@ export type PresenterSourceClipAvgOrderByAggregateInput = {
   height?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrder
 }
 
 export type PresenterSourceClipMaxOrderByAggregateInput = {
@@ -728,6 +793,9 @@ export type PresenterSourceClipMaxOrderByAggregateInput = {
   usageCount?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
+  perceptualHash?: Prisma.SortOrder
+  sourceRecording?: Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -752,6 +820,9 @@ export type PresenterSourceClipMinOrderByAggregateInput = {
   usageCount?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
+  perceptualHash?: Prisma.SortOrder
+  sourceRecording?: Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -763,6 +834,7 @@ export type PresenterSourceClipSumOrderByAggregateInput = {
   height?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
+  sourceStartSec?: Prisma.SortOrder
 }
 
 export type PresenterSourceClipCreateNestedManyWithoutCharacterInput = {
@@ -824,6 +896,14 @@ export type PresenterSourceClipUpdatetagsInput = {
   push?: string | string[]
 }
 
+export type NullableFloatFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 export type PresenterSourceClipCreateWithoutCharacterInput = {
   id?: string
   name?: string | null
@@ -844,6 +924,9 @@ export type PresenterSourceClipCreateWithoutCharacterInput = {
   usageCount?: number
   lastUsedAt?: Date | string | null
   uploadedById?: number | null
+  perceptualHash?: string | null
+  sourceRecording?: string | null
+  sourceStartSec?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -868,6 +951,9 @@ export type PresenterSourceClipUncheckedCreateWithoutCharacterInput = {
   usageCount?: number
   lastUsedAt?: Date | string | null
   uploadedById?: number | null
+  perceptualHash?: string | null
+  sourceRecording?: string | null
+  sourceStartSec?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -922,6 +1008,9 @@ export type PresenterSourceClipScalarWhereInput = {
   usageCount?: Prisma.IntFilter<"PresenterSourceClip"> | number
   lastUsedAt?: Prisma.DateTimeNullableFilter<"PresenterSourceClip"> | Date | string | null
   uploadedById?: Prisma.IntNullableFilter<"PresenterSourceClip"> | number | null
+  perceptualHash?: Prisma.StringNullableFilter<"PresenterSourceClip"> | string | null
+  sourceRecording?: Prisma.StringNullableFilter<"PresenterSourceClip"> | string | null
+  sourceStartSec?: Prisma.FloatNullableFilter<"PresenterSourceClip"> | number | null
   createdAt?: Prisma.DateTimeFilter<"PresenterSourceClip"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PresenterSourceClip"> | Date | string
 }
@@ -946,6 +1035,9 @@ export type PresenterSourceClipCreateManyCharacterInput = {
   usageCount?: number
   lastUsedAt?: Date | string | null
   uploadedById?: number | null
+  perceptualHash?: string | null
+  sourceRecording?: string | null
+  sourceStartSec?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -970,6 +1062,9 @@ export type PresenterSourceClipUpdateWithoutCharacterInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -994,6 +1089,9 @@ export type PresenterSourceClipUncheckedUpdateWithoutCharacterInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1018,6 +1116,9 @@ export type PresenterSourceClipUncheckedUpdateManyWithoutCharacterInput = {
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRecording?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceStartSec?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1045,6 +1146,9 @@ export type PresenterSourceClipSelect<ExtArgs extends runtime.Types.Extensions.I
   usageCount?: boolean
   lastUsedAt?: boolean
   uploadedById?: boolean
+  perceptualHash?: boolean
+  sourceRecording?: boolean
+  sourceStartSec?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
@@ -1071,6 +1175,9 @@ export type PresenterSourceClipSelectCreateManyAndReturn<ExtArgs extends runtime
   usageCount?: boolean
   lastUsedAt?: boolean
   uploadedById?: boolean
+  perceptualHash?: boolean
+  sourceRecording?: boolean
+  sourceStartSec?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
@@ -1097,6 +1204,9 @@ export type PresenterSourceClipSelectUpdateManyAndReturn<ExtArgs extends runtime
   usageCount?: boolean
   lastUsedAt?: boolean
   uploadedById?: boolean
+  perceptualHash?: boolean
+  sourceRecording?: boolean
+  sourceStartSec?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
@@ -1123,11 +1233,14 @@ export type PresenterSourceClipSelectScalar = {
   usageCount?: boolean
   lastUsedAt?: boolean
   uploadedById?: boolean
+  perceptualHash?: boolean
+  sourceRecording?: boolean
+  sourceStartSec?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type PresenterSourceClipOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "characterId" | "name" | "fileUrl" | "storageKey" | "storageProvider" | "sha1" | "mimeType" | "bytes" | "durationSec" | "width" | "height" | "tags" | "outfit" | "background" | "gesture" | "isActive" | "usageCount" | "lastUsedAt" | "uploadedById" | "createdAt" | "updatedAt", ExtArgs["result"]["presenterSourceClip"]>
+export type PresenterSourceClipOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "characterId" | "name" | "fileUrl" | "storageKey" | "storageProvider" | "sha1" | "mimeType" | "bytes" | "durationSec" | "width" | "height" | "tags" | "outfit" | "background" | "gesture" | "isActive" | "usageCount" | "lastUsedAt" | "uploadedById" | "perceptualHash" | "sourceRecording" | "sourceStartSec" | "createdAt" | "updatedAt", ExtArgs["result"]["presenterSourceClip"]>
 export type PresenterSourceClipInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
 }
@@ -1164,6 +1277,9 @@ export type $PresenterSourceClipPayload<ExtArgs extends runtime.Types.Extensions
     usageCount: number
     lastUsedAt: Date | null
     uploadedById: number | null
+    perceptualHash: string | null
+    sourceRecording: string | null
+    sourceStartSec: number | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["presenterSourceClip"]>
@@ -1610,6 +1726,9 @@ export interface PresenterSourceClipFieldRefs {
   readonly usageCount: Prisma.FieldRef<"PresenterSourceClip", 'Int'>
   readonly lastUsedAt: Prisma.FieldRef<"PresenterSourceClip", 'DateTime'>
   readonly uploadedById: Prisma.FieldRef<"PresenterSourceClip", 'Int'>
+  readonly perceptualHash: Prisma.FieldRef<"PresenterSourceClip", 'String'>
+  readonly sourceRecording: Prisma.FieldRef<"PresenterSourceClip", 'String'>
+  readonly sourceStartSec: Prisma.FieldRef<"PresenterSourceClip", 'Float'>
   readonly createdAt: Prisma.FieldRef<"PresenterSourceClip", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"PresenterSourceClip", 'DateTime'>
 }

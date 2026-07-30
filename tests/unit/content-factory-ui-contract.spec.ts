@@ -61,6 +61,12 @@ describe("presenter source clip library contract", () => {
     expect(component).toContain("method: 'DELETE'")
   })
 
+  it("принимает длинную запись на автонарезку", () => {
+    const component = file("app/components/character/CharacterPresenterSourceClips.vue")
+    expect(component).toContain("/source-recordings")
+    expect(component).toContain("ingestReport")
+  })
+
   it("mounts the clip library on the character page", () => {
     const page = file("app/pages/characters/[id].vue")
     expect(page).toContain("<CharacterPresenterSourceClips")

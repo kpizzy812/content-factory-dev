@@ -341,11 +341,17 @@ model PresenterSourceClip {
   usageCount      Int       @default(0)
   lastUsedAt      DateTime?
   uploadedById    Int?
+  // dHash первого кадра: контроль похожести исходников (PROJECT_CONTEXT §7).
+  perceptualHash  String?
+  // Происхождение при автонарезке длинной записи.
+  sourceRecording String?
+  sourceStartSec  Float?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@unique([characterId, sha1])
   @@index([characterId, isActive, lastUsedAt])
+  @@index([characterId, perceptualHash])
 }
 model SceneReferenceImage {
   id                  String    @id @default(cuid())
