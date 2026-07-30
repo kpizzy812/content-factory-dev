@@ -48,7 +48,8 @@ beforeAll(async () => {
   }
 })
 
-await setup({ dev: true, server: true, browser: false, env: nuxtTestEnv })
+// Зона Google Drive выключена по умолчанию — этот suite её проверяет, поэтому включает явно.
+await setup({ dev: true, server: true, browser: false, env: { ...nuxtTestEnv, LEGACY_GOOGLE_DRIVE_ENABLED: "true" } })
 
 const skipIfNoMock = () => ({ skip: !mockReachable })
 

@@ -18,7 +18,8 @@ import { createTestProxy, createTestSocialAccount } from "../helpers/factories"
 import { nuxtTestEnv } from "../helpers/nuxt-env"
 import { prisma } from "../../server/utils/prisma"
 
-await setup({ dev: true, server: true, browser: false, env: nuxtTestEnv })
+// Зона пула прокси выключена по умолчанию — этот suite её проверяет, поэтому включает явно.
+await setup({ dev: true, server: true, browser: false, env: { ...nuxtTestEnv, LEGACY_PROXY_POOL_ENABLED: "true" } })
 
 interface ProxyDtoLike {
   id: string

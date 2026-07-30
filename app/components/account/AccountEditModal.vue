@@ -20,6 +20,11 @@ const activeTab = ref<
   "credentials" | "proxy" | "indigo" | "warmup" | "metrics" | "readiness"
 >("credentials")
 
+// Вкладки прокси, устройства, прогрева и готовности принадлежат унаследованному
+// контуру. Он выключен по умолчанию, а его API отдают 404 — показывать вкладки нельзя.
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+loadLegacyModules()
+
 function open(payload: {
   id: number
   displayName: string
@@ -69,6 +74,7 @@ defineExpose({ open, close })
           Доступы
         </button>
         <button
+          v-if="legacyModules.proxyPool"
           role="tab"
           class="tab"
           :class="{ 'tab-active': activeTab === 'proxy' }"
@@ -78,6 +84,7 @@ defineExpose({ open, close })
           Прокси
         </button>
         <button
+          v-if="legacyModules.deviceAutomation"
           role="tab"
           class="tab"
           :class="{ 'tab-active': activeTab === 'indigo' }"
@@ -87,6 +94,7 @@ defineExpose({ open, close })
           Устройство
         </button>
         <button
+          v-if="legacyModules.deviceAutomation"
           role="tab"
           class="tab"
           :class="{ 'tab-active': activeTab === 'warmup' }"
@@ -105,6 +113,7 @@ defineExpose({ open, close })
           Статистика
         </button>
         <button
+          v-if="legacyModules.deviceAutomation"
           role="tab"
           class="tab"
           :class="{ 'tab-active': activeTab === 'readiness' }"
@@ -123,7 +132,7 @@ defineExpose({ open, close })
           />
         </div>
 
-        <div v-else-if="activeTab === 'proxy' && accountId">
+        <div v-else-if="activeTab === 'proxy' && accountId && legacyModules.proxyPool">
           <AccountProxyPicker
             :account-id="accountId"
             :current-proxy-id="currentProxyId"
@@ -131,7 +140,7 @@ defineExpose({ open, close })
           />
         </div>
 
-        <div v-else-if="activeTab === 'indigo' && accountId">
+        <div v-else-if="activeTab === 'indigo' && accountId && legacyModules.deviceAutomation">
           <AccountIndigoTab
             :account-id="accountId"
             :account-platform="accountPlatform ?? undefined"
@@ -139,7 +148,7 @@ defineExpose({ open, close })
           />
         </div>
 
-        <div v-else-if="activeTab === 'warmup' && accountId">
+        <div v-else-if="activeTab === 'warmup' && accountId && legacyModules.deviceAutomation">
           <AccountWarmupTab :account-id="accountId" @updated="onSaved" />
         </div>
 
@@ -147,7 +156,7 @@ defineExpose({ open, close })
           <AccountMetricsTab :account-id="accountId" />
         </div>
 
-        <div v-else-if="activeTab === 'readiness' && accountId">
+        <div v-else-if="activeTab === 'readiness' && accountId && legacyModules.deviceAutomation">
           <AccountReadinessTab
             :account-id="accountId"
             @open-create-modal="emit('open-create-posting-job', accountId)"

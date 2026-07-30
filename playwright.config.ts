@@ -69,6 +69,11 @@ export default defineConfig({
       SCHEDULERS_ENABLED: "false",
       POSTING_WORKER_ENABLED: "false",
       PROXY_HEALTH_CHECK_ENABLED: "false",
+      // Унаследованные зоны выключены в проде, но E2E продолжает их покрывать,
+      // пока код не удалён (proxy-lifecycle, mobile-navigation на /proxies).
+      LEGACY_DEVICE_AUTOMATION_ENABLED: "true",
+      LEGACY_PROXY_POOL_ENABLED: "true",
+      LEGACY_GOOGLE_DRIVE_ENABLED: "true",
       ENABLE_PAID_APIS: "false",
       ENABLE_SOCIAL_POSTING: "false",
       PROXY_MOCK_MODE: "true",

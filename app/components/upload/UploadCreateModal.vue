@@ -39,6 +39,9 @@ interface ActiveAccount {
   loginCheckedUsername?: string | null
 }
 
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+loadLegacyModules()
+
 // Загрузить список аккаунтов и групп
 const accountFilters = computed(() => ({}))
 const groupFilters = computed(() => ({}))
@@ -312,6 +315,17 @@ async function createPostingJobsForBrowserAccounts(
 ): Promise<{ created: number; errors: string[] }> {
   const errors: string[] = []
   let created = 0
+
+  // Device-постинг относится к унаследованному контуру: его API отдаёт 404, когда
+  // зона выключена. Говорим об этом прямо, а не роняем оператора в невнятную ошибку.
+  if (accounts.length && !legacyModules.value.deviceAutomation) {
+    return {
+      created: 0,
+      errors: accounts.map(acc =>
+        `${acc.displayName}: постинг через устройство отключён в этой установке`),
+    }
+  }
+
   for (const acc of accounts) {
     // Платформо-специфичный contentSnapshot через shared builders из
     // shared/types/posting-youtube.ts — единый источник правды (тот же что

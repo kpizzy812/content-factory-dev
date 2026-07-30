@@ -4,6 +4,11 @@ const { clear } = useUserSession()
 const colorMode = useColorMode()
 const { can, canAccessModule } = usePermissions()
 
+// Без await: navGroups — computed и сам перерисуется, когда карта приедет.
+// Стартовое состояние «всё выключено», поэтому запрещённые пункты не мигают.
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+loadLegacyModules()
+
 const isLoggingOut = ref(false)
 
 interface NavGroup {
@@ -37,7 +42,7 @@ const navGroups = computed(() => {
   if (canAccessModule('script-generator')) production.push({ to: '/characters', label: 'Персонажи', icon: 'mingcute:user-3-line', module: 'script-generator' })
   if (canAccessModule('script-generator')) production.push({ to: '/scenes', label: 'Композитор сцен', icon: 'mingcute:layers-line', module: 'script-generator' })
   if (canAccessModule('trendwatcher')) production.push({ to: '/creatives', label: 'Креативы', icon: 'mingcute:pic-line', module: 'trendwatcher' })
-  if (canAccessModule('trendwatcher')) production.push({ to: '/google-drive', label: 'Google Drive', icon: 'mingcute:cloud-line', module: 'trendwatcher' })
+  if (canAccessModule('trendwatcher') && legacyModules.value.googleDrive) production.push({ to: '/google-drive', label: 'Google Drive', icon: 'mingcute:cloud-line', module: 'trendwatcher' })
   if (canAccessModule('script-generator')) production.push({ to: '/prompts-library', label: 'Лучшие промты', icon: 'mingcute:star-line', module: 'script-generator' })
   if (production.length) groups.push({ label: 'Производство', icon: 'mingcute:movie-line', items: production })
 
@@ -45,10 +50,10 @@ const navGroups = computed(() => {
   const media: NavItem[] = []
   if (canAccessModule('video-generator')) media.push({ to: '/videos', label: 'Видео', icon: 'mingcute:video-line', module: 'video-generator' })
   if (canAccessModule('social-upload')) media.push({ to: '/uploads', label: 'Загрузки', icon: 'mingcute:upload-3-line', module: 'social-upload' })
-  if (canAccessModule('social-upload')) media.push({ to: '/posting-jobs', label: 'Постинг', icon: 'mingcute:send-line', module: 'social-upload' })
+  if (canAccessModule('social-upload') && legacyModules.value.deviceAutomation) media.push({ to: '/posting-jobs', label: 'Постинг', icon: 'mingcute:send-line', module: 'social-upload' })
   if (canAccessModule('social-upload')) media.push({ to: '/accounts', label: 'Аккаунты', icon: 'mingcute:group-line', module: 'social-upload' })
-  if (canAccessModule('social-upload')) media.push({ to: '/proxies', label: 'Прокси', icon: 'mingcute:wifi-line', module: 'social-upload' })
-  if (canAccessModule('social-upload')) media.push({ to: '/devices', label: 'DuoPlus', icon: 'mingcute:safari-line', module: 'social-upload' })
+  if (canAccessModule('social-upload') && legacyModules.value.proxyPool) media.push({ to: '/proxies', label: 'Прокси', icon: 'mingcute:wifi-line', module: 'social-upload' })
+  if (canAccessModule('social-upload') && legacyModules.value.deviceAutomation) media.push({ to: '/devices', label: 'DuoPlus', icon: 'mingcute:safari-line', module: 'social-upload' })
   if (media.length) groups.push({ label: 'Медиа', icon: 'mingcute:video-line', items: media })
 
   // Аналитика: Аналитика + Референсы

@@ -23,7 +23,8 @@ import {
 } from "../helpers/factories"
 import { prisma } from "../../server/utils/prisma"
 
-await setup({ dev: true, server: true, browser: false, env: nuxtTestEnv })
+// Зона device-автоматизации выключена по умолчанию — этот suite её проверяет, поэтому включает явно.
+await setup({ dev: true, server: true, browser: false, env: { ...nuxtTestEnv, LEGACY_DEVICE_AUTOMATION_ENABLED: "true" } })
 
 async function createTestVideo(appId: number) {
   return prisma.video.create({

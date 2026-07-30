@@ -5,6 +5,11 @@
 
 import type { AlertReason } from "../utils/proxy/alert-dedup"
 import { refreshDriveFileMetadata } from "../utils/google-drive/sync"
+import {
+  isGoogleDriveSchedulerEnabled,
+  isPostingWorkerEnabled,
+  isProxyHealthCheckEnabled,
+} from "../utils/legacy-scheduler"
 
 export default defineNitroPlugin((nitro) => {
   // Глобальный гейт scheduler'ов. Используется тестовой инфраструктурой
@@ -13,9 +18,10 @@ export default defineNitroPlugin((nitro) => {
   if (process.env.SCHEDULERS_ENABLED === "false") return
 
   const enableSocialPosting = process.env.ENABLE_SOCIAL_POSTING === "true"
-  const proxyHealthCheckEnabled = process.env.PROXY_HEALTH_CHECK_ENABLED !== "false"
-  const postingWorkerEnabled = process.env.POSTING_WORKER_ENABLED !== "false"
-  const googleDriveSchedulerEnabled = process.env.GOOGLE_DRIVE_SCHEDULER_ENABLED !== "false"
+  // Воркеры унаследованных зон стартуют только внутри включённой зоны.
+  const proxyHealthCheckEnabled = isProxyHealthCheckEnabled(process.env)
+  const postingWorkerEnabled = isPostingWorkerEnabled(process.env)
+  const googleDriveSchedulerEnabled = isGoogleDriveSchedulerEnabled(process.env)
 
   const uploadIntervalMs = Number(process.env.SCHEDULER_UPLOAD_INTERVAL_MS) || 300000
   const metricsIntervalMs = Number(process.env.SCHEDULER_METRICS_INTERVAL_MS) || 3600000

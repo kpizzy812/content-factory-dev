@@ -21,7 +21,17 @@ import {
 import { createTestVideoWithScenario } from "./_helpers/video-factory"
 import { prisma } from "../../server/utils/prisma"
 
-await setup({ dev: true, server: true, browser: false, env: nuxtTestEnv })
+// Зоны device-автоматизации и прокси выключены по умолчанию — этот suite их проверяет.
+await setup({
+  dev: true,
+  server: true,
+  browser: false,
+  env: {
+    ...nuxtTestEnv,
+    LEGACY_DEVICE_AUTOMATION_ENABLED: "true",
+    LEGACY_PROXY_POOL_ENABLED: "true",
+  },
+})
 
 async function createTestVideo(appId: number) {
   const bundle = await createTestVideoWithScenario({ appId })
