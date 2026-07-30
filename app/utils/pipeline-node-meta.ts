@@ -5,7 +5,9 @@
 
 export const nodeTypeLabels: Record<string, string> = {
   trendwatcher: 'Трендвотчер',
+  content_strategy: 'Контент-стратегия',
   scenario: 'Генератор сценариев',
+  quality_gate: 'Контроль качества',
   video: 'Генерация видео',
   caption_generator: 'Генератор описаний',
   upload: 'Загрузка в соцсети',
@@ -30,7 +32,9 @@ export const nodeTypeLabels: Record<string, string> = {
 
 export const nodeTypeDescriptions: Record<string, string> = {
   trendwatcher: 'Ищет вирусные ролики по заданным критериям и анализирует их через AI.',
+  content_strategy: 'Создаёт уникальную контент-гипотезу, лид-магнит и CTA на основе трендов, статистики и выбранной воронки.',
   scenario: 'Генерирует сценарии для видео на основе тренда или идеи.',
+  quality_gate: 'Проверяет сценарий или готовое видео перед следующим этапом и блокирует публикацию при критических ошибках.',
   video: 'Создаёт видеоролик из сценария: изображения, клипы, музыка, субтитры.',
   caption_generator: 'Генерирует viral title, description и хэштеги под TikTok / YouTube Shorts / Instagram Reels с учётом контекста сценария и приложения. Подменяют placeholder в Upload при approve.',
   upload: 'Загружает готовое видео в аккаунты соцсетей, привязанные к приложению.',
@@ -64,7 +68,9 @@ export const nodeTypesWithCustomAiAutofill = new Set<string>([
 
 export const nodeTypeIcons: Record<string, string> = {
   trendwatcher: 'mingcute:eye-line',
+  content_strategy: 'mingcute:target-line',
   scenario: 'mingcute:document-line',
+  quality_gate: 'mingcute:shield-check-line',
   video: 'mingcute:video-line',
   caption_generator: 'mingcute:hashtag-line',
   upload: 'mingcute:upload-3-line',

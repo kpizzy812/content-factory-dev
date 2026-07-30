@@ -79,7 +79,9 @@ onUnmounted(() => {
 
 const nodeColorMap: Record<string, { icon: string; color: string }> = {
   trendwatcher: { icon: 'mingcute:eye-line', color: 'bg-info/20 border-info' },
+  content_strategy: { icon: 'mingcute:target-line', color: 'bg-primary/20 border-primary' },
   scenario: { icon: 'mingcute:document-line', color: 'bg-warning/20 border-warning' },
+  quality_gate: { icon: 'mingcute:shield-check-line', color: 'bg-success/20 border-success' },
   video: { icon: 'mingcute:video-line', color: 'bg-accent/20 border-accent' },
   upload: { icon: 'mingcute:upload-3-line', color: 'bg-success/20 border-success' },
   analytics: { icon: 'mingcute:chart-bar-line', color: 'bg-secondary/20 border-secondary' },

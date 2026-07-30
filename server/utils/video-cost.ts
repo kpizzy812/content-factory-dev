@@ -37,7 +37,7 @@ export interface VideoCostConfig {
   voiceoverModelId?: string | null
   /** Список character-count каждой voiceover line — для точного биллинга */
   voiceoverLines?: number[]
-  /** Lip-sync включён (premium) — добавляет +$/sec за каждую spokenLine-сцену */
+  /** Lip-sync включён — добавляет стоимость обработки каждой spokenLine-сцены */
   lipSyncEnabled?: boolean
   /** Lip-sync модель id (если не указана — getDefaultLipSyncModel) */
   lipSyncModelId?: string | null
@@ -309,7 +309,7 @@ export function estimateVideoCost(config: VideoCostConfig): CostEstimate {
     }
   }
 
-  // 4c. Lip-sync (premium) — обработка готовых клипов через kling/sync
+  // 4c. Lip-sync — обработка готовых клипов через Kling (Replicate) или fal fallback
   let lipSyncModel: ModelMeta | null = null
   if (config.lipSyncEnabled) {
     const preferredLs = config.lipSyncModelId ? getModel(config.lipSyncModelId) : null
@@ -326,7 +326,7 @@ export function estimateVideoCost(config: VideoCostConfig): CostEstimate {
       const lipSyncCost = lipSyncSeconds * lipSyncModel.pricing.base
       breakdown.push({
         stage: "lip_sync",
-        label: `Lip-sync (premium): ${config.lipSyncSceneDurations?.length ?? Math.ceil(effectiveSceneCount / 2)} сцен`,
+        label: `Lip-sync: ${config.lipSyncSceneDurations?.length ?? Math.ceil(effectiveSceneCount / 2)} сцен`,
         units: lipSyncSeconds,
         unitLabel: "сек",
         unitPrice: lipSyncModel.pricing.base,

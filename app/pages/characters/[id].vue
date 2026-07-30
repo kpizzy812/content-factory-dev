@@ -307,6 +307,18 @@ function onReferenceGenerated() {
           </div>
         </div>
       </section>
+
+      <section class="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
+        <div class="card-body space-y-3">
+          <div>
+            <h2 class="card-title text-base">Видеоисходники для lip-sync</h2>
+            <p class="text-xs text-base-content/60 mt-1">
+              Реальные фрагменты ведущего 2–10 секунд. Из них Replicate собирает липсинк-сцены.
+            </p>
+          </div>
+          <CharacterPresenterSourceClips :character-id="character.id" />
+        </div>
+      </section>
     </div>
 
     <GenerateAgainModal

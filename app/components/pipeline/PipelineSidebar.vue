@@ -12,9 +12,11 @@ const categories = [
     name: 'Контент',
     blocks: [
       { type: 'trendwatcher', label: 'Трендвотчер', icon: 'mingcute:eye-line', color: 'badge-info', description: 'Поиск трендов' },
+      { type: 'content_strategy', label: 'Контент-стратегия', icon: 'mingcute:target-line', color: 'badge-primary', description: 'Гипотеза, лид-магнит и CTA' },
       { type: 'character', label: 'Персонаж', icon: 'mingcute:user-3-line', color: 'badge-primary', description: 'Герой из библиотеки в pipeline' },
       { type: 'scene_composer', label: 'Сцена-блок', icon: 'mingcute:layers-line', color: 'badge-secondary', description: 'Готовая сцена из композитора' },
       { type: 'scenario', label: 'Сценарии', icon: 'mingcute:document-line', color: 'badge-warning', description: 'Генерация сценариев' },
+      { type: 'quality_gate', label: 'Контроль качества', icon: 'mingcute:shield-check-line', color: 'badge-success', description: 'Проверка сценария или видео' },
       { type: 'video', label: 'Видео', icon: 'mingcute:video-line', color: 'badge-accent', description: 'Генерация видео' },
       { type: 'video_analyzer', label: 'Анализ видео', icon: 'mingcute:scan-2-line', color: 'badge-primary', description: 'Marketing-разбор кадров' },
       { type: 'caption_generator', label: 'Описания', icon: 'mingcute:hashtag-line', color: 'badge-secondary', description: 'AI captions для соцсетей' },

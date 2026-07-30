@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import type { PipelineExport } from '~~/shared/types/pipeline'
 import { getPipelineColorClasses } from '~~/shared/utils/pipeline-meta'
-
-const KNOWN_NODE_TYPES = [
-  'trendwatcher', 'scenario', 'video', 'upload', 'idea',
-  'analytics', 'filter', 'notification', 'http_request',
-  'code', 'set', 'if_switch', 'loop', 'wait', 'sub_pipeline',
-  'note',
-]
+// Единственный источник правды по типам блоков — реестр, а не локальная копия списка.
+import { isKnownNodeType } from '~~/shared/utils/pipeline-node-registry'
 
 const emit = defineEmits<{
   imported: [id: number]
@@ -83,7 +78,7 @@ function validateExport(data: any): data is PipelineExport {
   const warnings: string[] = []
   const unknownTypes = gd.nodes
     .map((n: any) => n?.data?.type)
-    .filter((t: any) => t && !KNOWN_NODE_TYPES.includes(t))
+    .filter((t: any) => t && !isKnownNodeType(String(t)))
   if (unknownTypes.length > 0) {
     warnings.push(`Неизвестные типы блоков: ${[...new Set(unknownTypes)].join(', ')}`)
   }
@@ -227,7 +222,7 @@ defineExpose({ open })
               v-for="[type, count] in nodeTypeSummary"
               :key="type"
               class="badge badge-xs"
-              :class="KNOWN_NODE_TYPES.includes(type) ? 'badge-ghost' : 'badge-warning'"
+              :class="isKnownNodeType(String(type)) ? 'badge-ghost' : 'badge-warning'"
             >
               {{ type }} &times;{{ count }}
             </span>

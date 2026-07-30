@@ -53,6 +53,35 @@ export interface CharacterReferenceImage {
   generationCostUsd?: number | string | null
 }
 
+/**
+ * Реальный talking-head фрагмент ведущего из библиотеки исходников.
+ * Кандидат для lip-sync: pipeline берёт наименее использованный клип подходящей длины.
+ */
+export interface PresenterSourceClip {
+  id: string
+  characterId: string
+  name?: string | null
+  fileUrl: string
+  storageKey?: string | null
+  storageProvider: string
+  sha1: string
+  mimeType?: string | null
+  bytes?: number | null
+  /** Длительность исходника. Kling принимает только 2-10 секунд. */
+  durationSec: number
+  width?: number | null
+  height?: number | null
+  tags: string[]
+  outfit?: string | null
+  background?: string | null
+  gesture?: string | null
+  isActive: boolean
+  usageCount: number
+  lastUsedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Character {
   id: string
   appId: number
@@ -67,6 +96,7 @@ export interface Character {
   createdAt: string
   updatedAt: string
   referenceImages?: CharacterReferenceImage[]
+  sourceClips?: PresenterSourceClip[]
 }
 
 /** Payload для POST /api/characters */
