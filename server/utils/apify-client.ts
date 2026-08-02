@@ -128,6 +128,9 @@ export function isInstagramScraperActor(actorId: string): boolean {
   return INSTAGRAM_SCRAPER_IDS.has(actorId.trim().toLowerCase())
 }
 
+/** Что собирать в Instagram: вертикальные Reels или ленту целиком. */
+export type ContentFormat = "reels" | "posts"
+
 /**
  * Превращает ключевое слово в Instagram-URL для directUrls.
  *
@@ -159,14 +162,16 @@ function instagramKeywordToUrl(keyword: string): string {
  */
 export function buildKeywordSearchInput(
   actorId: string,
-  input: { keywords: string[]; maxItems?: number },
+  input: { keywords: string[]; maxItems?: number; contentFormat?: ContentFormat | null },
 ): Record<string, unknown> {
   const maxItems = input.maxItems ?? 20
 
   if (isInstagramScraperActor(actorId)) {
     return {
       directUrls: input.keywords.map(instagramKeywordToUrl),
-      resultsType: "posts",
+      // Фабрика производит вертикальные ролики, поэтому в трендах интересны
+      // Reels, а не карусели и фото: у последних просмотров нет вовсе.
+      resultsType: input.contentFormat === "posts" ? "posts" : "reels",
       resultsLimit: maxItems,
       addParentData: false,
     }
@@ -190,7 +195,7 @@ export function buildKeywordSearchInput(
  */
 export async function runApifyActor(
   actorId: string,
-  input: { keywords: string[]; maxItems?: number },
+  input: { keywords: string[]; maxItems?: number; contentFormat?: ContentFormat | null },
 ): Promise<string> {
   return runApifyActorRaw(actorId, buildKeywordSearchInput(actorId, input))
 }
@@ -369,9 +374,11 @@ export function mapApifyToTrend(
     authorName: extractAuthorName(item),
     thumbnailUrl: extractThumbnailUrl(item) ?? (item.displayUrl ? String(item.displayUrl) : null),
     videoUrl: item.videoUrl ? String(item.videoUrl) : null,
-    // videoViewCount/videoPlayCount и likesCount/commentsCount — Instagram.
+    // videoPlayCount/likesCount/commentsCount — Instagram. У Reels
+    // videoViewCount приходит бессмысленно маленьким (13 просмотров при 949
+    // лайках), поэтому videoPlayCount идёт первым, а не наоборот.
     viewCount: toCount(
-      item.playCount || item.viewCount || item.views || item.videoViewCount || item.videoPlayCount || 0,
+      item.playCount || item.viewCount || item.views || item.videoPlayCount || item.videoViewCount || 0,
     ),
     likeCount: toCount(item.diggCount || item.likeCount || item.likes || item.likesCount || 0),
     commentCount: toCount(item.commentCount || item.comments || item.commentsCount || 0),

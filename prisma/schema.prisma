@@ -2110,6 +2110,7 @@ model TrendwatcherProfile {
   app                 App               @relation(fields: [appId], references: [id])
   name                String
   actorId             String            @default("clockworks/tiktok-scraper")
+  contentFormat       String            @default("reels") // reels | posts — что запрашивать у Instagram-актора
   keywords            String[]
   platforms           Platform[]
   language            String?

@@ -5,7 +5,7 @@
  */
 
 import type { TrendwatcherRunStatus } from "../../app/generated/prisma/client"
-import type { ApifyRunInfo, ApifyValidationResult } from "./apify-client"
+import type { ApifyRunInfo, ApifyValidationResult, ContentFormat } from "./apify-client"
 
 interface RunContext {
   runId: number
@@ -361,6 +361,7 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
       externalRunId = await runApifyActor(profile.actorId, {
         keywords: profile.keywords,
         maxItems: profile.maxItems,
+        contentFormat: profile.contentFormat as ContentFormat | null,
       })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Ошибка запуска актора"

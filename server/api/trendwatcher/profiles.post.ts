@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
     appId?: number
     name?: string
     actorId?: string
+    contentFormat?: string
     keywords?: string[]
     platforms?: string[]
     language?: string
@@ -76,6 +77,9 @@ export default defineEventHandler(async (event) => {
       appId: body.appId,
       name: body.name.trim(),
       actorId: body.actorId?.trim() || "clockworks/tiktok-scraper",
+      // Неизвестное значение не роняет запрос, а откатывается к Reels —
+      // вертикальный ролик и есть продукт фабрики.
+      contentFormat: body.contentFormat === "posts" ? "posts" : "reels",
       keywords,
       platforms: platforms as Array<"tiktok" | "instagram" | "youtube">,
       language: body.language?.trim() || null,

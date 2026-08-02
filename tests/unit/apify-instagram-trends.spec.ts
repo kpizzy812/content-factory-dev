@@ -78,7 +78,6 @@ describe("buildKeywordSearchInput", () => {
     })
 
     expect(input.searchQueries).toBeUndefined()
-    expect(input.resultsType).toBe("posts")
     expect(input.resultsLimit).toBe(25)
     expect(input.directUrls).toEqual([
       "https://www.instagram.com/explore/tags/fitness/",
@@ -111,7 +110,7 @@ describe("mapApifyToTrend — Instagram", () => {
 
     expect(trend.platform).toBe("instagram")
     expect(trend.sourceUrl).toBe("https://www.instagram.com/p/DbiTJJvomA1/")
-    expect(trend.viewCount).toBe(1026795)
+    expect(trend.viewCount).toBe(2292302) // videoPlayCount, а не videoViewCount
     expect(trend.likeCount).toBe(107413)
     expect(trend.commentCount).toBe(960)
     expect(trend.authorName).toBe("Humans of New York")
@@ -142,11 +141,79 @@ describe("mapApifyToTrend — Instagram", () => {
   })
 })
 
+describe("просмотры Reels", () => {
+  // У Reels videoViewCount приходит бессмысленно маленьким (13 просмотров при
+  // 949 лайках), реальные показы лежат в videoPlayCount. Проверено на живом
+  // акторе, resultsType=reels.
+  it("берёт videoPlayCount, а не videoViewCount", () => {
+    const reel = {
+      url: "https://www.instagram.com/reel/DZzjJ0QCM_U/",
+      type: "Video",
+      caption: "This is what awakening looks like",
+      videoPlayCount: 14030,
+      videoViewCount: 13,
+      likesCount: 949,
+      commentsCount: 12,
+      videoDuration: 13.071,
+      ownerUsername: "victoria.tropacheva",
+      timestamp: "2026-07-20T10:00:00.000Z",
+    }
+
+    const trend = mapApifyToTrend(reel, IG_PROFILE)
+
+    expect(trend.viewCount).toBe(14030)
+  })
+
+  it("не теряет просмотры, когда есть только videoViewCount", () => {
+    const post = { ...instagramPosts[0]!, videoPlayCount: undefined }
+    const trend = mapApifyToTrend(post, IG_PROFILE)
+
+    expect(trend.viewCount).toBe(1026795)
+  })
+})
+
+describe("формат выдачи Instagram", () => {
+  it("по умолчанию просит Reels — фабрика делает вертикальные видео", () => {
+    const input = buildKeywordSearchInput("apify/instagram-scraper", {
+      keywords: ["@somebody"],
+      maxItems: 10,
+    })
+
+    expect(input.resultsType).toBe("reels")
+  })
+
+  it("умеет переключиться на обычные посты", () => {
+    const input = buildKeywordSearchInput("apify/instagram-scraper", {
+      keywords: ["@somebody"],
+      maxItems: 10,
+      contentFormat: "posts",
+    })
+
+    expect(input.resultsType).toBe("posts")
+  })
+
+  it("формат не влияет на TikTok-актор", () => {
+    const input = buildKeywordSearchInput("clockworks/tiktok-scraper", {
+      keywords: ["fitness"],
+      maxItems: 10,
+      contentFormat: "posts",
+    })
+
+    expect(input.resultsType).toBeUndefined()
+    expect(input.searchQueries).toEqual(["fitness"])
+  })
+})
+
 describe("скрытые лайки", () => {
   // Instagram отдаёт -1 вместо количества, когда автор скрыл лайки.
   // В базе это превращалось в тренд с likeCount = -1 и ломало сортировку.
   it("превращает -1 в ноль, а не тащит минус в базу", () => {
-    const hidden = { ...instagramPosts[0]!, likesCount: -1, videoViewCount: -1 }
+    const hidden = {
+      ...instagramPosts[0]!,
+      likesCount: -1,
+      videoPlayCount: -1,
+      videoViewCount: -1,
+    }
     const trend = mapApifyToTrend(hidden, IG_PROFILE)
 
     expect(trend.likeCount).toBe(0)

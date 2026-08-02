@@ -127,7 +127,7 @@ async function stepTrends(cycleId: number, appId: number): Promise<number> {
         })
 
         try {
-          const externalRunId = await runApifyActor(profile.actorId, { keywords: profile.keywords, maxItems: profile.maxItems })
+          const externalRunId = await runApifyActor(profile.actorId, { keywords: profile.keywords, maxItems: profile.maxItems, contentFormat: profile.contentFormat as "reels" | "posts" | null })
           await prisma.trendwatcherRun.update({
             where: { id: twRun.id },
             data: { externalRunId, status: "running" },
