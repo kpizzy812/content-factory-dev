@@ -137,6 +137,8 @@ async function stepTrends(cycleId: number, appId: number): Promise<number> {
 
           let imported = 0
           for (const item of items.slice(0, profile.maxItems)) {
+            if (!isImportableApifyItem(item as Record<string, unknown>)) continue
+
             const data = mapApifyToTrend(item as Record<string, unknown>, {
               appId: profile.appId,
               keywords: profile.keywords,

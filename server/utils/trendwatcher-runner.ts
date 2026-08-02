@@ -448,11 +448,18 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
     let imported = 0
     let dedupSkipped = 0
     let viewCountSkipped = 0
+    let nonPostSkipped = 0
     let warnings = 0
     let firstItemError: string | null = null
 
     for (const item of items) {
       try {
+        // Заглушка пустого прогона постом не является — молча пропускаем.
+        if (!isImportableApifyItem(item as Record<string, unknown>)) {
+          nonPostSkipped++
+          continue
+        }
+
         const data = mapApifyToTrend(item as Record<string, unknown>, profileData)
 
         // Фильтрация по viewCount, если настроено
@@ -510,7 +517,7 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
       }
     }
 
-    const skipped = dedupSkipped + viewCountSkipped + warnings
+    const skipped = dedupSkipped + viewCountSkipped + nonPostSkipped + warnings
     await prisma.trendwatcherRun.update({
       where: { id: runId },
       data: {

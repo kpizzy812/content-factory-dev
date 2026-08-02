@@ -316,6 +316,28 @@ export function extractThumbnailUrl(item: Record<string, unknown>): string | nul
 }
 
 /**
+ * Счётчик публикации: отрицательных значений быть не может.
+ * Instagram присылает -1, когда автор скрыл лайки, — в базе это превращалось
+ * в тренд с likeCount = -1 и портило сортировку.
+ */
+function toCount(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) return 0
+  return parsed
+}
+
+/**
+ * Отсеивает элементы, которые постом не являются.
+ * На пустом прогоне Apify кладёт в dataset не пустой массив, а одну заглушку
+ * вида `{ error: "no_items" }` — без фильтра она приезжала в тренды пустой
+ * строкой вместо публикации.
+ */
+export function isImportableApifyItem(item: Record<string, unknown>): boolean {
+  if (item.error) return false
+  return Boolean(item.url || item.webVideoUrl || item.shortUrl)
+}
+
+/**
  * Достаёт имя автора из разных форматов акторов.
  * TikTok кладёт его в authorMeta.name, Instagram — в ownerFullName,
  * а если полного имени у аккаунта нет, остаётся username.
@@ -348,11 +370,11 @@ export function mapApifyToTrend(
     thumbnailUrl: extractThumbnailUrl(item) ?? (item.displayUrl ? String(item.displayUrl) : null),
     videoUrl: item.videoUrl ? String(item.videoUrl) : null,
     // videoViewCount/videoPlayCount и likesCount/commentsCount — Instagram.
-    viewCount: Number(
+    viewCount: toCount(
       item.playCount || item.viewCount || item.views || item.videoViewCount || item.videoPlayCount || 0,
     ),
-    likeCount: Number(item.diggCount || item.likeCount || item.likes || item.likesCount || 0),
-    commentCount: Number(item.commentCount || item.comments || item.commentsCount || 0),
+    likeCount: toCount(item.diggCount || item.likeCount || item.likes || item.likesCount || 0),
+    commentCount: toCount(item.commentCount || item.comments || item.commentsCount || 0),
     hashtags: Array.isArray(item.hashtags)
       ? (item.hashtags as Array<Record<string, unknown>>).map((h) => String(h.name || h)).slice(0, 30)
       : [],

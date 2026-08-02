@@ -14,6 +14,7 @@ import { describe, it, expect } from "vitest"
 import instagramPosts from "./fixtures/apify/instagram-posts-sample.json"
 import {
   buildKeywordSearchInput,
+  isImportableApifyItem,
   isInstagramScraperActor,
   mapApifyToTrend,
 } from "../../server/utils/apify-client"
@@ -138,6 +139,42 @@ describe("mapApifyToTrend — Instagram", () => {
     const trend = mapApifyToTrend(anonymous, IG_PROFILE)
 
     expect(trend.authorName).toBe("jacopo19949")
+  })
+})
+
+describe("скрытые лайки", () => {
+  // Instagram отдаёт -1 вместо количества, когда автор скрыл лайки.
+  // В базе это превращалось в тренд с likeCount = -1 и ломало сортировку.
+  it("превращает -1 в ноль, а не тащит минус в базу", () => {
+    const hidden = { ...instagramPosts[0]!, likesCount: -1, videoViewCount: -1 }
+    const trend = mapApifyToTrend(hidden, IG_PROFILE)
+
+    expect(trend.likeCount).toBe(0)
+    expect(trend.viewCount).toBe(0)
+  })
+})
+
+describe("isImportableApifyItem", () => {
+  // Пустой прогон возвращает не пустой массив, а один элемент-заглушку.
+  it("отбрасывает служебный элемент об отсутствии данных", () => {
+    expect(
+      isImportableApifyItem({
+        error: "no_items",
+        errorDescription: "Empty or private data for provided input",
+      }),
+    ).toBe(false)
+  })
+
+  it("отбрасывает элемент без ссылки на публикацию", () => {
+    expect(isImportableApifyItem({ caption: "текст без ссылки" })).toBe(false)
+    expect(isImportableApifyItem({})).toBe(false)
+  })
+
+  it("пропускает нормальные посты обеих платформ", () => {
+    expect(isImportableApifyItem(instagramPosts[0]!)).toBe(true)
+    expect(
+      isImportableApifyItem({ webVideoUrl: "https://www.tiktok.com/@a/video/1" }),
+    ).toBe(true)
   })
 })
 
