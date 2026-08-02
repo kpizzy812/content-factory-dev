@@ -115,6 +115,75 @@ export async function runApifyActorRaw(
 }
 
 /**
+ * Instagram-скрапер Apify: slug и внутренний id одного и того же актора.
+ * Профиль трендвотчера хранит то, что ввёл пользователь, поэтому сверяемся с обоими.
+ */
+const INSTAGRAM_SCRAPER_IDS = new Set([
+  "apify/instagram-scraper",
+  "apify~instagram-scraper",
+  "shu8hvrxbjby3eb9w",
+])
+
+export function isInstagramScraperActor(actorId: string): boolean {
+  return INSTAGRAM_SCRAPER_IDS.has(actorId.trim().toLowerCase())
+}
+
+/**
+ * Превращает ключевое слово в Instagram-URL для directUrls.
+ *
+ * Актор не умеет искать посты по произвольному запросу: режим `search` отдаёт
+ * найденные хэштеги и аккаунты, а сами посты — только по прямой ссылке.
+ * Поэтому keyword трактуем как адрес: `@user` и ссылка — аккаунт, всё
+ * остальное — хэштег.
+ */
+function instagramKeywordToUrl(keyword: string): string {
+  const raw = keyword.trim()
+
+  if (/^https?:\/\//i.test(raw)) return raw
+
+  if (raw.startsWith("@")) {
+    return `https://www.instagram.com/${raw.slice(1).toLowerCase()}/`
+  }
+
+  // Хэштег не может содержать пробелы и решётку.
+  const tag = raw.replace(/^#/, "").replace(/\s+/g, "").toLowerCase()
+  return `https://www.instagram.com/explore/tags/${tag}/`
+}
+
+/**
+ * Строит input актора под его собственный формат.
+ *
+ * TikTok-скрапер принимает `searchQueries` + `maxItems`, Instagram-скрапер —
+ * `directUrls` + `resultsLimit`. Один формат на оба актора не работает:
+ * лишние поля Instagram-скрапер игнорирует и возвращает пустой dataset.
+ */
+export function buildKeywordSearchInput(
+  actorId: string,
+  input: { keywords: string[]; maxItems?: number },
+): Record<string, unknown> {
+  const maxItems = input.maxItems ?? 20
+
+  if (isInstagramScraperActor(actorId)) {
+    return {
+      directUrls: input.keywords.map(instagramKeywordToUrl),
+      resultsType: "posts",
+      resultsLimit: maxItems,
+      addParentData: false,
+    }
+  }
+
+  // resultsPerPage — лимит на один поисковый запрос. Без него актор отдаёт
+  // считанные единицы: два слова с maxItems=10 вернули 2 видео вместо 20.
+  const perQuery = Math.max(1, Math.ceil(maxItems / Math.max(1, input.keywords.length)))
+
+  return {
+    searchQueries: input.keywords,
+    maxItems,
+    resultsPerPage: perQuery,
+  }
+}
+
+/**
  * Запускает Apify-актор в keyword-режиме (поиск по запросам) и возвращает runId.
  * Сигнатура зафиксирована — используется существующими call sites
  * (cycle-orchestrator, trendwatcher-runner). Делегирует в runApifyActorRaw.
@@ -123,10 +192,7 @@ export async function runApifyActor(
   actorId: string,
   input: { keywords: string[]; maxItems?: number },
 ): Promise<string> {
-  return runApifyActorRaw(actorId, {
-    searchQueries: input.keywords,
-    maxItems: input.maxItems ?? 20,
-  })
+  return runApifyActorRaw(actorId, buildKeywordSearchInput(actorId, input))
 }
 
 /**
@@ -250,6 +316,20 @@ export function extractThumbnailUrl(item: Record<string, unknown>): string | nul
 }
 
 /**
+ * Достаёт имя автора из разных форматов акторов.
+ * TikTok кладёт его в authorMeta.name, Instagram — в ownerFullName,
+ * а если полного имени у аккаунта нет, остаётся username.
+ */
+function extractAuthorName(item: Record<string, unknown>): string | null {
+  const meta = item.authorMeta as Record<string, unknown> | undefined
+  if (meta?.name) return String(meta.name)
+  if (item.author) return String(item.author)
+  if (item.ownerFullName) return String(item.ownerFullName)
+  if (item.ownerUsername) return String(item.ownerUsername)
+  return null
+}
+
+/**
  * Маппит элемент Apify-ответа в Prisma TrendCreateInput.
  */
 export function mapApifyToTrend(
@@ -264,21 +344,24 @@ export function mapApifyToTrend(
     sourceUrl: String(item.url || item.webVideoUrl || item.shortUrl || ""),
     title: String(item.text || item.title || item.caption || "Без названия").slice(0, 500),
     description: item.description ? String(item.description).slice(0, 2000) : null,
-    authorName: item.authorMeta
-      ? String((item.authorMeta as Record<string, unknown>).name || "")
-      : (item.author ? String(item.author) : null),
-    thumbnailUrl: extractThumbnailUrl(item),
+    authorName: extractAuthorName(item),
+    thumbnailUrl: extractThumbnailUrl(item) ?? (item.displayUrl ? String(item.displayUrl) : null),
     videoUrl: item.videoUrl ? String(item.videoUrl) : null,
-    viewCount: Number(item.playCount || item.viewCount || item.views || 0),
-    likeCount: Number(item.diggCount || item.likeCount || item.likes || 0),
-    commentCount: Number(item.commentCount || item.comments || 0),
+    // videoViewCount/videoPlayCount и likesCount/commentsCount — Instagram.
+    viewCount: Number(
+      item.playCount || item.viewCount || item.views || item.videoViewCount || item.videoPlayCount || 0,
+    ),
+    likeCount: Number(item.diggCount || item.likeCount || item.likes || item.likesCount || 0),
+    commentCount: Number(item.commentCount || item.comments || item.commentsCount || 0),
     hashtags: Array.isArray(item.hashtags)
       ? (item.hashtags as Array<Record<string, unknown>>).map((h) => String(h.name || h)).slice(0, 30)
       : [],
     shareCount: Number(item.shareCount || item.shares || 0),
     publishedAt: item.createTime
       ? new Date(Number(item.createTime) * 1000)
-      : (item.publishedAt ? new Date(String(item.publishedAt)) : null),
+      : (item.publishedAt
+        ? new Date(String(item.publishedAt))
+        : (item.timestamp ? new Date(String(item.timestamp)) : null)),
     language: profile.language || null,
     geo: profile.geo || null,
     status: "new",

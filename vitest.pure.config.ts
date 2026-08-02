@@ -33,6 +33,7 @@ export default defineConfig({
       "tests/unit/presenter-segment-planner.spec.ts",
       "tests/unit/presenter-perceptual-hash.spec.ts",
       "tests/unit/presenter-ingest-runner.spec.ts",
+      "tests/unit/apify-instagram-trends.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },
