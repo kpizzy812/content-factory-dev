@@ -118,8 +118,10 @@ export async function runApifyActorRaw(
  * Instagram-скрапер Apify: slug и внутренний id одного и того же актора.
  * Профиль трендвотчера хранит то, что ввёл пользователь, поэтому сверяемся с обоими.
  */
+const INSTAGRAM_SCRAPER_ACTOR = "apify/instagram-scraper"
+
 const INSTAGRAM_SCRAPER_IDS = new Set([
-  "apify/instagram-scraper",
+  INSTAGRAM_SCRAPER_ACTOR,
   "apify~instagram-scraper",
   "shu8hvrxbjby3eb9w",
 ])
@@ -186,6 +188,132 @@ export function buildKeywordSearchInput(
     maxItems,
     resultsPerPage: perQuery,
   }
+}
+
+/** Аккаунт ниши, найденный разведкой. */
+export interface DiscoveredAccount {
+  username: string
+  fullName: string | null
+  followers: number
+  /** Готовое ключевое слово для профиля сбора. */
+  keyword: string
+}
+
+const MAX_ACCOUNT_SEARCH_LIMIT = 50
+
+/**
+ * Input для поиска аккаунтов ниши.
+ * Режим search бесполезен для постов, но именно он умеет искать профили и
+ * отдавать их статистику — на ней строится выбор, за кем следить.
+ */
+export function buildAccountSearchInput(
+  keyword: string,
+  limit: number,
+): Record<string, unknown> {
+  const searchLimit = Math.min(MAX_ACCOUNT_SEARCH_LIMIT, Math.max(1, Math.floor(limit) || 1))
+
+  return {
+    search: keyword.trim(),
+    searchType: "user",
+    searchLimit,
+    resultsType: "details",
+    resultsLimit: 1,
+  }
+}
+
+/**
+ * Отбирает аккаунты, за которыми имеет смысл следить: самые крупные,
+ * открытые и с известной аудиторией. Закрытый профиль отдать ленту не может,
+ * а без числа подписчиков не посчитать виральность.
+ */
+export function pickTopAccounts(
+  items: Array<Record<string, unknown>>,
+  limit: number,
+): DiscoveredAccount[] {
+  return items
+    .filter((item) => !item.private && Number(item.followersCount) > 0 && item.username)
+    .map((item) => ({
+      username: String(item.username),
+      fullName: item.fullName ? String(item.fullName) : null,
+      followers: Number(item.followersCount),
+      keyword: `@${String(item.username)}`,
+    }))
+    .sort((a, b) => b.followers - a.followers)
+    .slice(0, Math.max(0, limit))
+}
+
+/** Карта «логин → подписчики» для расчёта виральности собранных роликов. */
+export function extractFollowerCounts(
+  items: Array<Record<string, unknown>>,
+): Map<string, number> {
+  const map = new Map<string, number>()
+
+  for (const item of items) {
+    const username = item.username ? String(item.username).toLowerCase() : ""
+    const followers = Number(item.followersCount)
+    if (!username || !Number.isFinite(followers) || followers <= 0) continue
+    map.set(username, followers)
+  }
+
+  return map
+}
+
+/**
+ * Во сколько раз ролик перекрыл аудиторию автора.
+ *
+ * Абсолютные просмотры сравнивают аккаунты, а не ролики: 115 394 просмотра у
+ * блогера с 690 983 подписчиками — провал, тогда как 40 026 у автора с 11 780
+ * подписчиками — заметный рост. null означает «посчитать нечем».
+ */
+export function calcVirality(
+  viewCount: number,
+  followers: number | null | undefined,
+): number | null {
+  const audience = Number(followers)
+  if (!Number.isFinite(audience) || audience <= 0) return null
+  if (!Number.isFinite(viewCount) || viewCount <= 0) return null
+
+  return viewCount / audience
+}
+
+/**
+ * Ищет аккаунты ниши по ключевому слову и возвращает самые крупные.
+ * Один запуск актора, дешёвый: по одному результату на аккаунт.
+ */
+export async function discoverNicheAccounts(
+  keyword: string,
+  limit = 20,
+): Promise<DiscoveredAccount[]> {
+  const runId = await runApifyActorRaw(
+    INSTAGRAM_SCRAPER_ACTOR,
+    buildAccountSearchInput(keyword, limit),
+  )
+  await waitForApifyRun(runId)
+  const items = await getApifyResults(runId)
+
+  return pickTopAccounts(items as Array<Record<string, unknown>>, limit)
+}
+
+/**
+ * Догружает статистику аккаунтов, чьи ролики только что собраны.
+ * Отдельный прогон актора: в режиме reels число подписчиков не приходит.
+ */
+export async function fetchAccountFollowers(
+  keywords: string[],
+): Promise<Map<string, number>> {
+  const directUrls = keywords.map(instagramKeywordToUrl).filter((url) => !url.includes("/explore/tags/"))
+  if (directUrls.length === 0) return new Map()
+
+  const runId = await runApifyActorRaw(INSTAGRAM_SCRAPER_ACTOR, {
+    directUrls,
+    resultsType: "details",
+    resultsLimit: 1,
+    addParentData: false,
+  })
+  await waitForApifyRun(runId)
+  const items = await getApifyResults(runId)
+
+  return extractFollowerCounts(items as Array<Record<string, unknown>>)
 }
 
 /**

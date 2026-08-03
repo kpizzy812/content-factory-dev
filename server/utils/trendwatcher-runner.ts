@@ -446,6 +446,20 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
       geo: profile.geo,
     }
 
+    // Число подписчиков в ленте роликов не приходит, поэтому статистику
+    // аккаунтов догружаем отдельным прогоном — без неё виральность не
+    // посчитать, а по абсолютным просмотрам крупный аккаунт всегда «выигрывает».
+    let followersByAuthor = new Map<string, number>()
+    if (isInstagramScraperActor(profile.actorId)) {
+      try {
+        followersByAuthor = await fetchAccountFollowers(profile.keywords)
+        await runLog(runId, "info", `Статистика аккаунтов: ${followersByAuthor.size}`, "importing")
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        await runLog(runId, "warn", `Не удалось догрузить подписчиков: ${msg}`, "importing")
+      }
+    }
+
     let imported = 0
     let dedupSkipped = 0
     let viewCountSkipped = 0
@@ -493,10 +507,15 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
           ? rawItem.searchQuery
           : profile.keywords[0] || null
 
+        const author = rawItem.ownerUsername ? String(rawItem.ownerUsername).toLowerCase() : ""
+        const followers = followersByAuthor.get(author) ?? null
+
         await prisma.trend.create({
           data: {
             ...data,
             keyword,
+            authorFollowers: followers,
+            viralityScore: calcVirality(Number(data.viewCount ?? 0), followers),
             // Если trendwatcher запущен из pipeline-экзекутора — привязываем
             // тренд к WorkflowRun и Pipeline через relation connect, чтобы
             // фильтр «К юниту» видел тренды именно этого запуска.

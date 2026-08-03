@@ -5,6 +5,10 @@ export interface ZavodTrendPayload {
   title: string
   description?: string
   authorName?: string
+  /** Аудитория автора на момент сбора. */
+  authorFollowers?: number
+  /** Во сколько раз просмотры перекрыли аудиторию автора. */
+  viralityScore?: number
   thumbnailUrl?: string
   videoUrl?: string
   viewCount?: number

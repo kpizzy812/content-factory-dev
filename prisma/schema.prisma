@@ -486,6 +486,10 @@ model Trend {
   title          String
   description    String?
   authorName     String?
+  // Аудитория автора на момент сбора и во сколько раз ролик её перекрыл.
+  // Абсолютные просмотры сравнивают аккаунты, виральность — сами ролики.
+  authorFollowers Int?
+  viralityScore   Float?
   thumbnailUrl   String?
   videoUrl       String?
   viewCount      Int            @default(0)
@@ -519,6 +523,7 @@ model Trend {
   @@index([geo])
   @@index([runId])
   @@index([pipelineId])
+  @@index([viralityScore(sort: Desc)])
 }
 
 enum VideoStatus {

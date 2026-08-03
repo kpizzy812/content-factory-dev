@@ -1,6 +1,6 @@
 import type { TrendListMeta } from "../../../shared/types/trend"
 
-const VALID_SORT_FIELDS = ["importedAt", "viewCount"] as const
+const VALID_SORT_FIELDS = ["importedAt", "viewCount", "viralityScore"] as const
 const VALID_STATUSES = ["new", "reviewed", "in_work", "completed", "dismissed"] as const
 const VALID_PLATFORMS = ["tiktok", "instagram", "youtube"] as const
 
@@ -18,7 +18,10 @@ export default defineEventHandler(async (event) => {
   const sortBy = VALID_SORT_FIELDS.includes(query.sort as typeof VALID_SORT_FIELDS[number])
     ? (query.sort as string)
     : "importedAt"
-  const orderBy = { [sortBy]: "desc" as const }
+  // У старых трендов виральности нет — они уходят в конец списка, а не в начало.
+  const orderBy = sortBy === "viralityScore"
+    ? { viralityScore: { sort: "desc" as const, nulls: "last" as const } }
+    : { [sortBy]: "desc" as const }
 
   // Filters
   const where: Record<string, unknown> = {
