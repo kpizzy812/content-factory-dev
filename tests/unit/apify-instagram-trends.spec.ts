@@ -273,4 +273,34 @@ describe("mapApifyToTrend — TikTok не сломан", () => {
     expect(trend.hashtags).toEqual(["motivation", "fitness"])
     expect(trend.thumbnailUrl).toBe("https://p16.tiktokcdn.com/cover.jpg")
   })
+
+  // У TikTok аудитория автора приходит прямо в ответе (authorMeta.fans),
+  // поэтому виральность считается без дополнительного прогона актора.
+  it("берёт аудиторию автора из authorMeta.fans и считает виральность", () => {
+    const trend = mapApifyToTrend(
+      {
+        webVideoUrl: "https://www.tiktok.com/@big.borodach/video/7662",
+        authorMeta: { name: "big.borodach", fans: 92600 },
+        playCount: 517700,
+      },
+      { ...IG_PROFILE, platforms: ["tiktok"] },
+    )
+
+    expect(trend.authorFollowers).toBe(92600)
+    expect(trend.viralityScore).toBeCloseTo(5.59, 2)
+  })
+
+  it("оставляет виральность пустой, когда аудитория неизвестна", () => {
+    const trend = mapApifyToTrend(
+      {
+        webVideoUrl: "https://www.tiktok.com/@nobody/video/1",
+        authorMeta: { name: "nobody" },
+        playCount: 1000,
+      },
+      { ...IG_PROFILE, platforms: ["tiktok"] },
+    )
+
+    expect(trend.authorFollowers).toBeNull()
+    expect(trend.viralityScore).toBeNull()
+  })
 })

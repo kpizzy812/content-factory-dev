@@ -493,7 +493,19 @@ export function mapApifyToTrend(
 ): Prisma.TrendCreateInput {
   const platform = profile.platforms[0] ?? "tiktok"
 
+  // TikTok отдаёт аудиторию автора прямо в ответе. У Instagram её здесь нет —
+  // там подписчиков догружает trendwatcher-runner отдельным прогоном.
+  const authorMeta = item.authorMeta as Record<string, unknown> | undefined
+  const fans = Number(authorMeta?.fans)
+  const authorFollowers = Number.isFinite(fans) && fans > 0 ? fans : null
+
+  const viewCount = toCount(
+    item.playCount || item.viewCount || item.views || item.videoPlayCount || item.videoViewCount || 0,
+  )
+
   return {
+    authorFollowers,
+    viralityScore: calcVirality(viewCount, authorFollowers),
     app: profile.appId ? { connect: { id: profile.appId } } : undefined,
     platform: platform as "tiktok" | "instagram" | "youtube",
     sourceUrl: String(item.url || item.webVideoUrl || item.shortUrl || ""),
@@ -505,9 +517,7 @@ export function mapApifyToTrend(
     // videoPlayCount/likesCount/commentsCount — Instagram. У Reels
     // videoViewCount приходит бессмысленно маленьким (13 просмотров при 949
     // лайках), поэтому videoPlayCount идёт первым, а не наоборот.
-    viewCount: toCount(
-      item.playCount || item.viewCount || item.views || item.videoPlayCount || item.videoViewCount || 0,
-    ),
+    viewCount,
     likeCount: toCount(item.diggCount || item.likeCount || item.likes || item.likesCount || 0),
     commentCount: toCount(item.commentCount || item.comments || item.commentsCount || 0),
     hashtags: Array.isArray(item.hashtags)

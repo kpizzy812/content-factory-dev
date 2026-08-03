@@ -507,8 +507,10 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
           ? rawItem.searchQuery
           : profile.keywords[0] || null
 
+        // Instagram: подписчиков в ленте нет, берём из догруженной статистики.
+        // TikTok: mapApifyToTrend уже проставил их из authorMeta.fans.
         const author = rawItem.ownerUsername ? String(rawItem.ownerUsername).toLowerCase() : ""
-        const followers = followersByAuthor.get(author) ?? null
+        const followers = followersByAuthor.get(author) ?? data.authorFollowers ?? null
 
         await prisma.trend.create({
           data: {
