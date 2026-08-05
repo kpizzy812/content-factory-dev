@@ -40,46 +40,28 @@ watch(searchDebounced, (v) => {
 </script>
 
 <template>
-  <div class="card bg-base-100 border border-base-300 shadow-sm">
-    <div class="card-body p-3 gap-2">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-xs">Приложение</legend>
-          <select
-            v-model="appIdValue"
-            class="select select-sm w-full"
-          >
-            <option value="all">Все</option>
-            <option value="null">Универсальные</option>
-            <option
-              v-for="a in apps"
-              :key="a.id"
-              :value="String(a.id)"
-            >
-              {{ a.name }}
-            </option>
-          </select>
-        </fieldset>
+  <div class="grid gap-2 sm:grid-cols-3">
+    <UiField label="Приложение">
+      <UiSelect
+        v-model="appIdValue"
+        :options="[
+          { value: 'all', label: 'Все' },
+          { value: 'null', label: 'Универсальные' },
+          ...apps.map(a => ({ value: String(a.id), label: a.name })),
+        ]"
+      />
+    </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-xs">Теги</legend>
-          <SharedTagInput
-            :model-value="filters.tags"
-            placeholder="Enter чтобы добавить"
-            @update:model-value="(v) => filters.setTags(v)"
-          />
-        </fieldset>
+    <UiField label="Теги">
+      <SharedTagInput
+        :model-value="filters.tags"
+        placeholder="Enter чтобы добавить"
+        @update:model-value="(v) => filters.setTags(v)"
+      />
+    </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-xs">Поиск</legend>
-          <input
-            v-model="searchDebounced"
-            type="text"
-            class="input input-sm w-full"
-            placeholder="В тексте и заметках"
-          />
-        </fieldset>
-      </div>
-    </div>
+    <UiField label="Поиск">
+      <UiInput v-model="searchDebounced" placeholder="В тексте и заметках" />
+    </UiField>
   </div>
 </template>

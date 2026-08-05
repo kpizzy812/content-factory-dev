@@ -110,48 +110,41 @@ onUnmounted(stopPolling)
 </script>
 
 <template>
-  <div class="space-y-4">
-    <h1 class="text-2xl font-bold text-base-content flex items-center gap-2">
-      <Icon name="mingcute:star-line" class="text-warning" />
-      Лучшие промты
-    </h1>
-
-    <SharedPageGuide
-      guide-key="prompts-library"
-      :title="pageGuides['prompts-library'].title"
-      :steps="pageGuides['prompts-library'].steps"
-      :tips="pageGuides['prompts-library'].tips"
-    />
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Лучшие промты</h1>
+      <span class="tnum text-sm text-subtle">{{ meta.total }}</span>
+      <span class="flex-1" />
+      <UiButton @click="refresh()">
+        <Icon name="mingcute:refresh-2-line" />
+        Обновить
+      </UiButton>
+    </div>
 
     <FavoritePromptFilters />
 
-    <div v-if="deleteError" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:alert-line" />
-      <span>{{ deleteError }}</span>
-    </div>
+    <p v-if="deleteError" class="rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+      {{ deleteError }}
+    </p>
 
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
+    <UiSkeleton v-if="pending && !items.length" variant="cards" :count="6" />
 
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
-
-    <!-- Empty -->
-    <SharedEmptyState
-      v-else-if="items.length === 0"
-      icon="mingcute:star-line"
-      title="Библиотека пуста"
-      description="Отметьте промты звездой на странице видео в блоке Промпты — они появятся здесь."
+    <UiErrorState
+      v-else-if="error"
+      message="Не удалось загрузить библиотеку."
+      :details="error.message"
+      @retry="refresh()"
     />
 
-    <!-- Grid -->
+    <UiEmptyState
+      v-else-if="!items.length"
+      variant="first"
+      title="Библиотека пуста"
+      description="Отметьте промт звездой на вкладке «Кадры» готового ролика — он появится здесь."
+    />
+
     <template v-else>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <FavoritePromptCard
           v-for="item in items"
           :key="item.id"
@@ -162,12 +155,13 @@ onUnmounted(stopPolling)
         />
       </div>
 
-      <SharedPagination
-        v-if="meta.totalPages > 1"
+      <ListPagination
         :page="meta.page"
         :total-pages="meta.totalPages"
         :total="meta.total"
+        :per-page="meta.perPage"
         @update:page="onPageUpdate"
+        @update:per-page="filtersStore.perPage = $event; filtersStore.resetPage()"
       />
     </template>
 

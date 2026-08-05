@@ -64,45 +64,49 @@ function focusInput() {
 <template>
   <div class="w-full">
     <div
-      class="input input-sm w-full flex flex-wrap gap-1 items-start cursor-text min-h-8 h-auto max-h-24 overflow-y-auto py-1 content-start"
+      class="flex max-h-24 min-h-8 w-full cursor-text flex-wrap content-start items-start gap-1 overflow-y-auto rounded-md border border-border bg-card px-2 py-1 focus-within:border-accent"
       @click="focusInput"
     >
       <span
         v-for="(tag, i) in modelValue"
         :key="tag"
-        class="badge badge-neutral badge-sm gap-1 shrink-0"
+        class="inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm border border-border bg-panel pr-1 pl-2 text-sm text-muted"
       >
         {{ tag }}
         <button
           type="button"
-          class="text-neutral-content/70 hover:text-neutral-content"
+          class="cursor-pointer text-subtle hover:text-danger"
+          :aria-label="`Убрать тег ${tag}`"
           @click.stop="removeTag(i)"
         >
-          &times;
+          <Icon name="mingcute:close-line" />
         </button>
       </span>
       <input
         ref="inputRef"
         v-model="inputText"
         type="text"
-        class="flex-1 min-w-20 bg-transparent outline-none text-sm"
+        class="min-w-20 flex-1 bg-transparent text-base outline-none"
         :placeholder="modelValue.length ? '' : placeholder"
         @keydown="onKeydown"
         @input="onInput"
-      />
+      >
     </div>
-    <div class="flex items-center justify-between mt-0.5">
-      <span v-if="modelValue.length > 0" class="text-[10px] text-base-content/40">
-        {{ modelValue.length }} {{ modelValue.length === 1 ? 'тег' : 'тегов' }}
+
+    <div class="mt-0.5 flex items-center gap-2">
+      <span v-if="modelValue.length" class="tnum font-mono text-micro text-subtle">
+        {{ modelValue.length }} тегов
       </span>
-      <button
+      <UiButton
         v-if="showAiButton"
-        type="button"
-        class="btn btn-ghost btn-xs ml-auto"
+        icon-only
+        variant="ghost"
+        class="ml-auto"
+        aria-label="Предложить теги моделью"
         @click.stop="emit('ai-suggest')"
       >
-        <Icon name="mingcute:sparkles-2-line" class="text-sm" />
-      </button>
+        <Icon name="mingcute:magic-1-line" />
+      </UiButton>
     </div>
   </div>
 </template>

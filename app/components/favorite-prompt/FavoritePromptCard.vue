@@ -67,147 +67,86 @@ async function onReanalyze() {
 </script>
 
 <template>
-  <div class="card bg-base-100 border border-base-300 shadow-sm">
-    <div class="card-body p-4 gap-2">
-      <!-- Заголовок: badge приложения + usageCount -->
-      <div class="flex items-center justify-between gap-2 flex-wrap">
-        <span
-          class="badge badge-sm"
-          :class="item.app ? 'badge-primary' : 'badge-ghost'"
-        >
-          <Icon
-            :name="item.app ? 'mingcute:apps-line' : 'mingcute:global-line'"
-            class="text-xs"
-          />
-          {{ item.app?.name ?? 'Универсальный' }}
-        </span>
-        <div class="flex items-center gap-2 text-xs text-base-content/60">
-          <span class="inline-flex items-center gap-1" :title="`Использовано ${item.usageCount} раз`">
-            <Icon name="mingcute:fire-line" class="text-xs" />
-            {{ item.usageCount }}
-          </span>
-          <span :title="formattedDate">{{ formattedDate }}</span>
-        </div>
-      </div>
-
-      <!-- Превью промта -->
-      <p class="text-xs text-base-content/80 whitespace-pre-line">{{ preview }}</p>
-
-      <!-- AI Pattern: status + badges -->
-      <div
-        v-if="analysisStatus === 'ready' && item.aiPatternAnalysis"
-        class="flex flex-wrap gap-1"
+  <div class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <span
+        class="rounded-sm border px-1.5 text-micro"
+        :class="item.app ? 'border-accent-border bg-accent-bg text-accent-text' : 'border-border bg-panel text-subtle'"
       >
-        <span class="badge badge-info badge-xs gap-1" :title="`Камера: ${item.aiPatternAnalysis.camera}`">
-          <Icon name="mingcute:camera-line" class="text-[9px]" />
-          {{ truncate(item.aiPatternAnalysis.camera, 18) }}
-        </span>
-        <span class="badge badge-info badge-xs gap-1" :title="`Свет: ${item.aiPatternAnalysis.lighting}`">
-          <Icon name="mingcute:light-line" class="text-[9px]" />
-          {{ truncate(item.aiPatternAnalysis.lighting, 18) }}
-        </span>
-        <span class="badge badge-info badge-xs gap-1" :title="`Настроение: ${item.aiPatternAnalysis.mood}`">
-          <Icon name="mingcute:emoji-line" class="text-[9px]" />
-          {{ truncate(item.aiPatternAnalysis.mood, 18) }}
-        </span>
-        <span class="badge badge-info badge-xs" :title="`Интенсивность движения: ${item.aiPatternAnalysis.motionIntensity}`">
-          intensity {{ item.aiPatternAnalysis.motionIntensity }}
-        </span>
-      </div>
-      <div
-        v-else-if="analysisStatus === 'pending'"
-        class="flex items-center gap-1 text-xs text-base-content/50"
+        {{ item.app?.name ?? 'Универсальный' }}
+      </span>
+      <span class="flex-1" />
+      <span class="tnum flex items-center gap-1 font-mono text-micro text-subtle" title="Сколько раз использован">
+        <Icon name="mingcute:fire-line" />
+        {{ item.usageCount }}
+      </span>
+      <span class="tnum font-mono text-micro text-subtle">{{ formattedDate }}</span>
+    </div>
+
+    <p class="text-sm whitespace-pre-line text-muted">{{ preview }}</p>
+
+    <!-- Разбор паттерна моделью: четыре свойства кадра, по которым промт ищут -->
+    <div v-if="analysisStatus === 'ready' && item.aiPatternAnalysis" class="flex flex-wrap gap-1">
+      <span
+        v-for="chip in [
+          { title: `Камера: ${item.aiPatternAnalysis.camera}`, text: truncate(item.aiPatternAnalysis.camera, 18) },
+          { title: `Свет: ${item.aiPatternAnalysis.lighting}`, text: truncate(item.aiPatternAnalysis.lighting, 18) },
+          { title: `Настроение: ${item.aiPatternAnalysis.mood}`, text: truncate(item.aiPatternAnalysis.mood, 18) },
+          { title: `Интенсивность движения: ${item.aiPatternAnalysis.motionIntensity}`, text: `движение ${item.aiPatternAnalysis.motionIntensity}` },
+        ]"
+        :key="chip.title"
+        :title="chip.title"
+        class="rounded-sm border border-info-border bg-info-bg px-1.5 text-micro text-info"
       >
-        <span class="loading loading-spinner loading-xs" />
-        <span>AI анализирует паттерн…</span>
-      </div>
-      <div
-        v-else-if="analysisStatus === 'failed'"
-        class="flex items-center gap-1 text-xs text-error flex-wrap"
+        {{ chip.text }}
+      </span>
+    </div>
+
+    <p v-else-if="analysisStatus === 'pending'" class="flex items-center gap-1.5 text-sm text-subtle">
+      <Icon name="mingcute:loading-line" class="animate-spin" />
+      Модель разбирает паттерн
+    </p>
+
+    <div v-else-if="analysisStatus === 'failed'" class="flex flex-wrap items-center gap-1.5 text-sm text-danger">
+      <span :title="item.aiAnalysisError ?? 'Причина неизвестна'">Разбор не удался</span>
+      <UiButton variant="ghost" :loading="reanalysisPending" @click="onReanalyze">Повторить</UiButton>
+    </div>
+
+    <p v-if="reanalyzeError" class="text-micro text-danger">{{ reanalyzeError }}</p>
+
+    <div v-if="item.tags.length" class="flex flex-wrap gap-1">
+      <span
+        v-for="t in item.tags"
+        :key="t"
+        class="rounded-sm border border-border bg-panel px-1.5 text-micro text-subtle"
       >
-        <Icon name="mingcute:warning-line" class="text-xs" />
-        <span :title="item.aiAnalysisError ?? 'Не удалось проанализировать'">Анализ не удался</span>
-        <button
-          type="button"
-          class="btn btn-ghost btn-xs"
-          :disabled="reanalysisPending"
-          @click="onReanalyze"
-        >
-          <span v-if="reanalysisPending" class="loading loading-spinner loading-xs" />
-          <span v-else>Повторить</span>
-        </button>
-      </div>
+        {{ t }}
+      </span>
+    </div>
 
-      <!-- Reanalyze error -->
-      <div v-if="reanalyzeError" class="text-[10px] text-error">
-        {{ reanalyzeError }}
-      </div>
+    <p v-if="item.notes" class="rounded-sm bg-surface p-1.5 text-micro text-subtle">{{ item.notes }}</p>
 
-      <!-- Теги -->
-      <div v-if="item.tags.length > 0" class="flex flex-wrap gap-1">
-        <span
-          v-for="t in item.tags"
-          :key="t"
-          class="badge badge-outline badge-xs"
-        >
-          {{ t }}
-        </span>
-      </div>
-
-      <!-- Заметки -->
-      <div v-if="item.notes" class="text-[10px] text-base-content/50 italic bg-base-200/50 rounded p-1.5">
-        {{ item.notes }}
-      </div>
-
-      <!-- Действия -->
-      <div class="card-actions justify-end gap-1 pt-1">
-        <NuxtLink
-          v-if="sourceVideoId"
-          :to="`/videos/${sourceVideoId}`"
-          class="btn btn-ghost btn-xs"
-          title="К исходному видео"
-        >
-          <Icon name="mingcute:link-2-line" class="text-xs" />
+    <div class="flex flex-wrap items-center justify-end gap-1">
+      <NuxtLink v-if="sourceVideoId" :to="`/videos/${sourceVideoId}`" class="mr-auto">
+        <UiButton variant="ghost">
+          <Icon name="mingcute:link-2-line" />
           К источнику
-        </NuxtLink>
-        <span
-          v-else
-          class="badge badge-ghost badge-xs"
-          title="Источник не указан"
-        >
-          без источника
-        </span>
-        <button
-          v-if="analysisStatus === 'ready'"
-          type="button"
-          class="btn btn-ghost btn-xs"
-          :disabled="reanalysisPending"
-          title="Перезапустить AI-анализ паттерна"
-          @click="onReanalyze"
-        >
-          <Icon
-            name="mingcute:refresh-3-line"
-            class="text-xs"
-            :class="reanalysisPending ? 'animate-spin' : ''"
-          />
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost btn-xs"
-          @click="emit('edit', item.id)"
-        >
-          <Icon name="mingcute:edit-2-line" class="text-xs" />
-          Изменить
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost btn-xs text-error"
-          @click="emit('delete', item.id)"
-        >
-          <Icon name="mingcute:delete-2-line" class="text-xs" />
-          Удалить
-        </button>
-      </div>
+        </UiButton>
+      </NuxtLink>
+      <span v-else class="mr-auto text-micro text-subtle">источник не указан</span>
+
+      <UiButton
+        v-if="analysisStatus === 'ready'"
+        icon-only
+        variant="ghost"
+        :loading="reanalysisPending"
+        aria-label="Разобрать паттерн заново"
+        @click="onReanalyze"
+      >
+        <Icon v-if="!reanalysisPending" name="mingcute:refresh-3-line" />
+      </UiButton>
+      <UiButton variant="ghost" @click="emit('edit', item.id)">Изменить</UiButton>
+      <UiButton variant="ghost" class="text-danger" @click="emit('delete', item.id)">Удалить</UiButton>
     </div>
   </div>
 </template>
