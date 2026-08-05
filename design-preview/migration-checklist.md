@@ -21,20 +21,20 @@
 | | Файл | Заметки |
 | --- | --- | --- |
 | `+` | `trends/index.vue` | эталон, проверен на живой базе (SSR); табы «Профили» и «Запуски» ещё на старых компонентах |
-| `—` | `scenarios/index.vue` | |
-| `—` | `ideas/index.vue` | |
-| `—` | `videos/index.vue` | |
-| `—` | `uploads/index.vue` | |
+| `+` | `scenarios/index.vue` | сортировки нет — API её не принимает |
+| `+` | `ideas/index.vue` | форма добавления и панель синхронизации переписаны |
+| `+` | `videos/index.vue` | факт стоимости, оценка только пока факта нет |
+| `+` | `uploads/index.vue` | ошибка публикации подсказкой в строке |
 | `—` | `accounts/index.vue` | колонки лимитов — см. макет 06 |
 | `—` | `posting-jobs/index.vue` | |
-| `—` | `characters/index.vue` | |
-| `—` | `scenes/index.vue` | |
-| `—` | `creatives/index.vue` | режим карточек по умолчанию |
-| `—` | `prompts-library/index.vue` | |
-| `—` | `proxies/index.vue` | |
-| `—` | `devices/index.vue` | |
-| `—` | `references/index.vue` | режим карточек по умолчанию |
-| `—` | `google-drive/index.vue` | |
+| `+` | `characters/index.vue` | галерея, превью 4:3 |
+| `+` | `scenes/index.vue` | галерея, превью собранного промпта |
+| `+` | `creatives/index.vue` | карточки; три сущности в одном списке |
+| `+` | `prompts-library/index.vue` | карточка промта, теги, подтверждение удаления |
+| `+` | `proxies/index.vue` | зона выключена — пишем, какой флаг включает |
+| `+` | `devices/index.vue` | зона выключена — пишем, какой флаг включает |
+| `+` | `references/index.vue` | карточки |
+| `+` | `google-drive/index.vue` | зона выключена; свои тосты заменены общими |
 | `—` | `pipeline/index.vue` | |
 | `—` | `admin/apps/index.vue` | |
 | `—` | `admin/users/index.vue` | |
@@ -100,7 +100,17 @@ curl -s -b cookies.txt http://127.0.0.1:3214/trends
 ```
 
 В базе один пользователь: `dev@contentfactory.local`, preset `admin`, все модули.
-Данных почти нет, поэтому страницы показывают пустые состояния — это тоже проверка.
+
+Демо-данные для проверки глазами (только тестовая БД):
+
+```
+bun run scripts/seed-videos-demo.ts     # тренды → сценарии → ролики в трёх состояниях
+bun run scripts/seed-accounts-demo.ts   # три аккаунта, один намеренно не готов публиковать
+```
+
+Разделы `proxies`, `devices`, `google-drive` и `posting-jobs` относятся к
+унаследованному контуру: без `LEGACY_*_ENABLED` их API отдаёт 404, и страницы
+показывают «зона выключена». Это ожидаемое состояние, а не поломка.
 
 **Кириллицу в теле запроса передавать файлом**, а не аргументом `-d`: оболочка на
 Windows ломает её в U+FFFD, и получается ложный вывод о битой кодировке в приложении.
