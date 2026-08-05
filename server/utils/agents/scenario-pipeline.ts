@@ -129,6 +129,18 @@ export interface ScenarioInput {
     analyzedAt: string | null
   }>
 
+  /**
+   * Библиотека живых исходников ведущего, если она наполнена. Когда поле задано,
+   * планировщик обязан отметить сцены с ведущей в кадре полем spokenLine — по ним
+   * пойдёт lip-sync вместо генерации клипа. Пусто — сценарий полностью B-roll'овый.
+   */
+  presenter?: {
+    name: string
+    clipCount: number
+    minClipSec: number
+    maxClipSec: number
+  } | null
+
   profileSettings?: Partial<ScenarioGenerationProfileData> | null
   appId?: number | null
   // Reference-driven generation (v3.1)
@@ -162,6 +174,40 @@ function contentLanguageLabel(raw: string | null | undefined): string {
   if (value === 'es' || value.startsWith('es-') || value === 'spanish') return 'Spanish'
   if (value === 'de' || value.startsWith('de-') || value === 'german') return 'German'
   return raw!.trim()
+}
+
+// --- Presenter (live footage) Context Builder ---
+
+/**
+ * Блок про ведущую в кадре. Без него планировщик оставляет spokenLine пустым,
+ * lip-sync шаг пропускает все сцены, и живая ведущая в ролик не попадает вовсе.
+ */
+function buildPresenterPromptBlock(
+  presenter: ScenarioInput['presenter'],
+  contentLanguage: string,
+): string {
+  if (!presenter || presenter.clipCount <= 0) {
+    return `## Ведущий в кадре
+Библиотека живых исходников пуста, поэтому НИ ОДНА сцена не может показать говорящего ведущего.
+Поле spokenLine у всех сцен = null. Речь идёт только закадровым голосом (voiceoverLine).`
+  }
+
+  const minSec = Math.ceil(presenter.minClipSec)
+  const maxSec = Math.floor(presenter.maxClipSec)
+
+  return `## Ведущий в кадре (spokenLine) — ОБЯЗАТЕЛЬНЫЙ БЛОК
+В системе есть библиотека живых фрагментов ведущей (${presenter.name}, ${presenter.clipCount} фрагментов по ${minSec}-${maxSec} секунд).
+Сцена, у которой заполнен spokenLine, снимается НЕ нейросетью: берётся реальный фрагмент ведущей и её губы синхронизируются с этой репликой.
+
+Правила распределения:
+1. Ведущая ведёт ОПОРНЫЕ точки ролика, а не весь хронометраж: хук (сцена 1), один-два ключевых тезиса в середине и финальный CTA.
+2. Всего сцен со spokenLine — от 3 до 4. Остальные сцены иллюстративные: spokenLine = null.
+3. Если у сцены заполнен spokenLine, её voiceoverLine ОБЯЗАН быть null. Иначе на одном отрезке звучат два голоса одновременно.
+4. Если spokenLine = null, речь этой сцены идёт закадром через voiceoverLine, как обычно.
+5. Длительность сцены со spokenLine — строго от ${minSec} до ${maxSec} секунд: фрагмент ведущей длиннее не бывает.
+6. spokenLine — живая устная фраза на языке ${contentLanguage}, от 60 до 120 символов, без эмодзи и спецсимволов. Это то, что человек реально успевает сказать за длительность сцены.
+7. subtitleCopy сцены со spokenLine передаёт ту же мысль — это субтитры к словам ведущей, а не отдельный текст.
+8. setting и action такой сцены описывают живую съёмку ведущей (говорит на камеру), а не сгенерированный визуал.`
 }
 
 // --- Account Style Context Builder ---
@@ -629,12 +675,15 @@ ${(() => {
 - appScreenRef: объект { imageId, intent } или null. Заполняй ТОЛЬКО когда сцена показывает экран приложения и imageId взят из списка "ДОСТУПНЫЕ СКРИНШОТЫ" выше. Если списка нет или сцена не про UI — null.
 - subtitleCopy: текст субтитров на языке ${contentLanguage} (1-2 строки максимум, без эмодзи и спецсимволов)
 - subtitlePlacement: { position: "top"|"center"|"bottom", alignment: "left"|"center"|"right", avoidZones: [] }
-- voiceoverLine: строка для озвучки на языке ${contentLanguage} или null
+- voiceoverLine: строка закадровой озвучки на языке ${contentLanguage} или null
+- spokenLine: реплика, которую ведущая произносит В КАДРЕ, или null (правила ниже)
 - continuityNotes: заметки по непрерывности с предыдущей сценой
 - duration: длительность ("3s"-"10s")
 - cameraAngle: ракурс камеры
 - props: массив реквизита
 - appliedReferences: массив объектов { favoritePromptId, aspects } или []. Заполняй ТОЛЬКО если применил паттерн из STYLE COMPASS блока (если он был передан). favoritePromptId должен быть из списка [${favoritePromptIds.join(', ') || '—нет эталонов—'}], не выдумывай. aspects — подмножество ["camera","lighting","actionStructure","mood","pacing","composition"].
+
+${buildPresenterPromptBlock(input.presenter, contentLanguage)}
 
 Правила:
 - Каждая сцена УНИКАЛЬНА по содержанию и функции
@@ -1007,6 +1056,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
 
     // Step 2: Scene Planner
     // Модель: anthropicModel (Sonnet) — не указываем tier, чтобы использовалась основная модель.
+    const hasPresenterLibrary = (input.presenter?.clipCount ?? 0) > 0
     const scenes = await callAnthropicAgent({
       systemPrompt: `Ты — Scene Planner, режиссёр-раскадровщик коротких видео.
 Каждая сцена — уникальная карточка с целью, декорацией, действием, эмоцией, камерой, субтитрами.
@@ -1043,6 +1093,18 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
               : (trimmed.length > 120 ? trimmed.slice(0, 120) : trimmed)
           } else {
             s.spokenLine = null
+          }
+
+          // Без библиотеки исходников играть в кадре некому: lip-sync такую сцену
+          // всё равно пропустит, а речь должна остаться — отдаём её закадру.
+          if (s.spokenLine && !hasPresenterLibrary) {
+            if (!s.voiceoverLine) s.voiceoverLine = s.spokenLine
+            s.spokenLine = null
+          }
+          // Ведущая в кадре и закадровый голос на одном отрезке — это два голоса
+          // одновременно. Реплика в кадре важнее: закадровую строку убираем.
+          if (s.spokenLine && s.voiceoverLine) {
+            s.voiceoverLine = null
           }
 
           // appliedReferences: трассировка применённых FavoritePrompt-эталонов.

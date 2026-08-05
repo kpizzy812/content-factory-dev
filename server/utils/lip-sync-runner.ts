@@ -91,10 +91,11 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     return { status: "skipped", clipPaths, syncedSceneCount: 0, totalCostUsd: 0, modelId: null }
   }
 
-  // Idempotency: уже завершён
+  // Idempotency: уже завершён. Длину входного массива с результатом не сверяем —
+  // сцены ведущей приходят сюда без готового клипа, и списки заведомо разной длины.
   if (isStepCompleted(step) && step.outputSnapshot) {
     const cached = step.outputSnapshot as unknown as LipSyncStepResult
-    if (Array.isArray(cached.clipPaths) && cached.clipPaths.length === clipPaths.length) {
+    if (Array.isArray(cached.clipPaths) && cached.clipPaths.length > 0) {
       return cached
     }
   }
@@ -134,16 +135,17 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   await mkdir(assetsDir, { recursive: true })
 
   for (const scene of lipSyncTargets) {
-    // Находим клип для этой сцены через VideoAsset.order = scene.order.
+    // Клип сцены адресуется позицией в плане, а не полем order из сценария:
+    // именно так его записывает clip_generation, и именно так его ждёт сборка.
+    const sceneIndex = sceneUnits.indexOf(scene)
     const clipAsset = await prisma.videoAsset.findFirst({
-      where: { videoId, type: "clip" as never, order: scene.order },
+      where: { videoId, type: "clip" as never, order: sceneIndex },
     })
-    if (!clipAsset?.filePath) {
-      await appendStepLog(step.id, `Scene ${scene.order}: не найден клип в БД, пропускаю`)
-      continue
-    }
 
-    let sourceVideoPath = clipAsset.filePath
+    // Основной путь: исходник берётся из живой библиотеки, а не из платной
+    // генерации. Сгенерированный клип используется только как запасной вариант
+    // для старых видео, где сцена уже была оплачена.
+    let sourceVideoPath: string | null = null
     if (videoConfig.lipSyncCharacterId) {
       const sourceClip = await reservePresenterSourceClip({
         characterId: videoConfig.lipSyncCharacterId,
@@ -152,7 +154,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       if (sourceClip) {
         const sourceExt = extname(sourceClip.name || sourceClip.fileUrl).toLowerCase()
         const safeExt = [".mp4", ".mov", ".webm"].includes(sourceExt) ? sourceExt : ".mp4"
-        const localSourcePath = join(assetsDir, `presenter_${scene.order}_${sourceClip.id}${safeExt}`)
+        const localSourcePath = join(assetsDir, `presenter_${sceneIndex}_${sourceClip.id}${safeExt}`)
         if (sourceClip.storageKey) {
           await getStorageDriver().downloadToFile(sourceClip.storageKey, localSourcePath)
         } else {
@@ -162,8 +164,16 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         sourceCleanup.push(localSourcePath)
         await appendStepLog(step.id, `Scene ${scene.order}: presenter source ${sourceClip.id}`)
       } else {
-        await appendStepLog(step.id, `Scene ${scene.order}: no active presenter source, using generated clip`)
+        await appendStepLog(step.id, `Scene ${scene.order}: нет активных фрагментов ведущего`)
       }
+    }
+    if (!sourceVideoPath) sourceVideoPath = clipAsset?.filePath ?? null
+    if (!sourceVideoPath) {
+      // Сцену снимала ведущая, поэтому клипа под неё не генерировали. Без исходника
+      // в ролике осталась бы дыра — честнее уронить шаг, чем собрать видео без сцены.
+      throw new Error(
+        `Scene ${scene.order}: нет ни фрагмента ведущего, ни сгенерированного клипа — собирать нечего`,
+      )
     }
     // 1. TTS spokenLine — отдельный синтез, не трогает voiceoverPlan (off-screen narrator).
     const audioPath = join(assetsDir, `scene_${scene.order}_spoken.mp3`)
@@ -176,11 +186,13 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         voiceId: videoConfig.voiceoverVoiceId,
         language: videoConfig.voiceoverLanguage,
         pacing: videoConfig.voiceoverPacing,
+        videoId,
       })
       ttsCost = tts.costUsd
       audioCleanup.push(audioPath)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "TTS failed"
+      if (!clipAsset?.filePath) throw new Error(`Scene ${scene.order}: TTS ошибка (${msg})`)
       await appendStepLog(step.id, `Scene ${scene.order}: TTS ошибка (${msg}) — оставляю оригинальный клип`)
       continue
     }
@@ -192,8 +204,8 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     try {
       lipSyncResult = await runLipSync({
         videoId,
-        videoAssetId: clipAsset.id,
-        sceneOrder: scene.order,
+        videoAssetId: clipAsset?.id ?? null,
+        sceneOrder: sceneIndex,
         sourceVideoPath,
         audioPath,
         outputPath: lipSyncedPath,
@@ -202,27 +214,41 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "lip-sync failed"
+      if (!clipAsset?.filePath) throw new Error(`Scene ${scene.order}: lip-sync ошибка (${msg})`)
       await appendStepLog(step.id, `Scene ${scene.order}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
       continue
     }
 
-    // Заливаем lip-synced клип в storage и обновляем VideoAsset.
+    // Заливаем lip-synced клип в storage. Для сцены ведущей записи ещё нет —
+    // clip_generation её не создавал, потому что не генерировал клип.
     const lipSyncStorage = await uploadLocalAsset(
       lipSyncedPath,
       StorageKeys.videoLipSyncClip(videoId, basename(lipSyncedPath)),
       "video/mp4",
     )
-    await prisma.videoAsset.update({
-      where: { id: clipAsset.id },
-      data: {
-        filePath: lipSyncedPath,
-        fileUrl: storageKeyToLegacyUrl(lipSyncStorage.storageKey),
-        ...lipSyncStorage,
-      },
-    })
-
-    const idx = updatedClipPaths.findIndex(p => p === clipAsset.filePath)
-    if (idx >= 0) updatedClipPaths[idx] = lipSyncedPath
+    if (clipAsset) {
+      await prisma.videoAsset.update({
+        where: { id: clipAsset.id },
+        data: {
+          filePath: lipSyncedPath,
+          fileUrl: storageKeyToLegacyUrl(lipSyncStorage.storageKey),
+          ...lipSyncStorage,
+        },
+      })
+    } else {
+      await prisma.videoAsset.create({
+        data: {
+          videoId,
+          type: "clip" as never,
+          prompt: scene.spokenLine!.slice(0, 500),
+          filePath: lipSyncedPath,
+          fileUrl: storageKeyToLegacyUrl(lipSyncStorage.storageKey),
+          order: sceneIndex,
+          duration: sceneSec,
+          ...lipSyncStorage,
+        },
+      })
+    }
 
     const lipSyncCost = lipSyncResult.costUsd
     const service = lipSyncResult.provider === "replicate" ? "replicate" : "fal.ai"
@@ -235,9 +261,20 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   // Cleanup временных аудиофайлов.
   await Promise.allSettled([...audioCleanup, ...sourceCleanup].map(p => unlink(p).catch(() => {})))
 
+  // Итоговый список собираем из БД по порядку сцен, а не правкой входного массива:
+  // клипы сцен ведущей создаются здесь же и во входном массиве их не было.
+  const clipAssets = await prisma.videoAsset.findMany({
+    where: { videoId, type: "clip" as never },
+    orderBy: { order: "asc" },
+    select: { filePath: true },
+  })
+  const orderedClipPaths = clipAssets
+    .map(asset => asset.filePath)
+    .filter((path): path is string => !!path)
+
   const result: LipSyncStepResult = {
     status: "completed",
-    clipPaths: updatedClipPaths,
+    clipPaths: orderedClipPaths.length > 0 ? orderedClipPaths : updatedClipPaths,
     syncedSceneCount,
     totalCostUsd,
     modelId: model.id,

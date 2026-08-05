@@ -127,23 +127,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: `Неизвестный pacing: ${body.voiceoverPacing}` })
   }
 
-  // Preflight: проверяем реальную доступность моделей для текущего FAL_KEY
-  const { falProbeAccessBatch } = await import('~~/server/utils/fal')
-  const modelsToCheck = [
-    body.imageModelId || 'fal-ai/flux/dev',
-    body.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
-  ]
-  const accessResults = await falProbeAccessBatch(modelsToCheck)
-  for (const [endpoint, result] of accessResults) {
-    if (result.status !== 'available') {
-      const modelMeta = getModel(endpoint)
-      throw createError({
-        statusCode: 403,
-        message: `Нет доступа к модели "${modelMeta?.name ?? endpoint}": ${result.reason}`,
-      })
-    }
-  }
-
   // Проверка существования сценария
   const scenario = await prisma.scenario.findUnique({
     where: { id: body.scenarioId },
@@ -239,9 +222,36 @@ export default defineEventHandler(async (event) => {
   }
 
   // Story-driven auto-detection: adjust imageCount to match scene count
-  const storyPlan = acceptedVariant.storyPlan as { scenes?: unknown[] } | null
-  const storySceneCount = storyPlan?.scenes?.length ?? 0
+  const storyPlan = acceptedVariant.storyPlan as { scenes?: Array<{ spokenLine?: string | null }> } | null
+  const storyScenes = storyPlan?.scenes ?? []
+  const storySceneCount = storyScenes.length
   const isStoryDriven = storySceneCount >= 2
+
+  // Ролик целиком из живых фрагментов ведущей не обращается к fal ни за клипами,
+  // ни за превью-кадром, поэтому и доступ к его моделям проверять незачем.
+  const presenterOnly = body.lipSyncEnabled === true
+    && !!resolvedLipSyncCharacterId
+    && storySceneCount > 0
+    && storyScenes.every(scene => !!scene.spokenLine && scene.spokenLine.trim().length > 0)
+
+  // Preflight: проверяем реальную доступность моделей для текущего FAL_KEY
+  if (!presenterOnly) {
+    const { falProbeAccessBatch } = await import('~~/server/utils/fal')
+    const modelsToCheck = [
+      body.imageModelId || 'fal-ai/flux/dev',
+      body.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
+    ]
+    const accessResults = await falProbeAccessBatch(modelsToCheck)
+    for (const [endpoint, result] of accessResults) {
+      if (result.status !== 'available') {
+        const modelMeta = getModel(endpoint)
+        throw createError({
+          statusCode: 403,
+          message: `Нет доступа к модели "${modelMeta?.name ?? endpoint}": ${result.reason}`,
+        })
+      }
+    }
+  }
 
   // В story-driven mode расширяем imageCount до числа сцен чтобы не терять сцены
   const effectiveImageCount = isStoryDriven

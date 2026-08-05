@@ -1,4 +1,4 @@
-export type MediaCapability = "lip_sync"
+export type MediaCapability = "lip_sync" | "tts"
 export type MediaProviderName = "replicate" | "fal"
 
 export type MediaPredictionStatus =
@@ -11,6 +11,28 @@ export type MediaPredictionStatus =
 export interface LipSyncInput {
   videoUrl: string
   audioUrl: string
+}
+
+export interface TtsInput {
+  text: string
+  voiceId: string
+  /** Speaking rate multiplier; 1 = provider default. */
+  speed: number
+  /**
+   * ISO language code hint (ru / en / ...). Providers that need a language switch
+   * to pronounce non-Latin scripts correctly receive it as their own enum value.
+   */
+  language: string
+  /** Emotional hint; ignored by providers without expressivity control. */
+  emotion?: string | null
+}
+
+export interface TtsConstraints {
+  /** Longest text a single request may carry. */
+  maxCharacters: number
+  /** Languages the model can pronounce, as ISO codes. */
+  languages: readonly string[]
+  audioFormat: "mp3" | "wav"
 }
 
 export interface LipSyncConstraints {
@@ -26,16 +48,35 @@ export interface LipSyncConstraints {
   maxAudioBytes: number
 }
 
-export interface MediaModelSpec {
+interface MediaModelBase {
   id: string
   provider: MediaProviderName
   capability: MediaCapability
-  priceUsdPerOutputSecond: number
-  constraints: LipSyncConstraints
   dataProcessor: {
     name: string
     note: string
   } | null
+}
+
+export interface LipSyncModelSpec extends MediaModelBase {
+  capability: "lip_sync"
+  priceUsdPerOutputSecond: number
+  constraints: LipSyncConstraints
+}
+
+export interface TtsModelSpec extends MediaModelBase {
+  capability: "tts"
+  /** TTS is billed per text length, not per second of produced audio. */
+  priceUsdPer1kCharacters: number
+  constraints: TtsConstraints
+}
+
+export type MediaModelSpec = LipSyncModelSpec | TtsModelSpec
+
+/** Narrows a capability literal to the model spec it resolves to. */
+export interface MediaModelSpecByCapability {
+  lip_sync: LipSyncModelSpec
+  tts: TtsModelSpec
 }
 
 export interface NormalizedMediaPrediction {

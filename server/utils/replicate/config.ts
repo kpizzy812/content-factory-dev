@@ -1,4 +1,5 @@
 export const DEFAULT_REPLICATE_LIPSYNC_MODEL = "kwaivgi/kling-lip-sync"
+export const DEFAULT_REPLICATE_TTS_MODEL = "minimax/speech-02-turbo"
 export const REPLICATE_WEBHOOK_PATH = "/api/webhooks/replicate"
 
 type Env = Record<string, string | undefined>
@@ -9,6 +10,7 @@ export interface ReplicateConfig {
   webhookBaseUrl: string | null
   webhookUrl: string | null
   defaultLipSyncModel: string
+  defaultTtsModel: string
   mockMode: boolean
   recoveryEnabled: boolean
   fallbackProvider: "fal" | null
@@ -42,6 +44,8 @@ export function readReplicateConfig(env: Env = process.env): ReplicateConfig {
     webhookUrl: webhookBaseUrl ? `${webhookBaseUrl}${REPLICATE_WEBHOOK_PATH}` : null,
     defaultLipSyncModel: valueOrNull(env.REPLICATE_DEFAULT_LIPSYNC_MODEL)
       ?? DEFAULT_REPLICATE_LIPSYNC_MODEL,
+    defaultTtsModel: valueOrNull(env.REPLICATE_DEFAULT_TTS_MODEL)
+      ?? DEFAULT_REPLICATE_TTS_MODEL,
     mockMode,
     recoveryEnabled: env.REPLICATE_RECOVERY_ENABLED !== "false",
     fallbackProvider,

@@ -460,12 +460,20 @@ export async function runClipGeneration(
   generateAudio: boolean,
   videoPlan?: StoryDrivenVideoPlan | null,
   storyPlan?: StoryPlan | null,
+  /**
+   * Индексы сцен (позиция в videoPlan.scenes), которые снимает живая ведущая.
+   * Их клип собирает lip-sync из библиотеки исходников, поэтому платная
+   * text-to-video генерация для них не запускается вовсе.
+   */
+  presenterSceneIndexes?: ReadonlySet<number>,
 ): Promise<string[]> {
   const step = await ensureStep(videoId, "clip_generation", 2)
 
   if (isStepCompleted(step) && step.outputSnapshot) {
-    const output = step.outputSnapshot as { clipPaths: string[] }
-    if (output.clipPaths?.length > 0) return output.clipPaths
+    const output = step.outputSnapshot as { clipPaths?: string[] }
+    // Пустой массив — законный результат: ролик целиком снят ведущей, генерировать
+    // было нечего. Поэтому проверяем сам факт массива, а не его длину.
+    if (Array.isArray(output.clipPaths)) return output.clipPaths
   }
 
   await updateStep(step.id, {
@@ -595,6 +603,11 @@ export async function runClipGeneration(
     }
 
     for (const scene of scenes) {
+      if (presenterSceneIndexes?.has(scene.order)) {
+        await appendStepLog(step.id, `Сцена ${scene.key}: снимает ведущая, клип соберёт lip-sync — генерацию пропускаю`)
+        continue
+      }
+
       const existingClip = await prisma.videoAsset.findFirst({
         where: { videoId, type: "clip" as never, order: scene.order },
       })
@@ -718,9 +731,15 @@ export async function runClipGeneration(
         effectiveVideoModel: videoModelId,
         generateAudio,
         perSceneDurations: scenes.map(s => ({ key: s.key, durationSec: s.durationSec })),
+        presenterSceneIndexes: presenterSceneIndexes ? [...presenterSceneIndexes] : [],
       },
     })
-    await appendStepLog(step.id, `Все клипы сгенерированы (total: ${scenes.reduce((s, sc) => s + sc.durationSec, 0)}s)`)
+    const generatedSeconds = scenes
+      .filter(s => !presenterSceneIndexes?.has(s.order))
+      .reduce((sum, sc) => sum + sc.durationSec, 0)
+    await appendStepLog(step.id, presenterSceneIndexes?.size
+      ? `Сгенерировано ${clipPaths.length} клипов (${generatedSeconds}s); ${presenterSceneIndexes.size} сцен отданы ведущей`
+      : `Все клипы сгенерированы (total: ${generatedSeconds}s)`)
 
     return clipPaths
   } catch (error) {
@@ -983,6 +1002,7 @@ export async function runVoiceoverGeneration(
           language: videoConfig.voiceoverLanguage,
           pacing: videoConfig.voiceoverPacing,
           emotion: line.emotion,
+          videoId,
         })
       }
     } else {
@@ -1362,6 +1382,8 @@ export async function runAssembly(
     /** Override subtitleStyle. Если задан — используется ВМЕСТО videoPlan.subtitleStyle.
      * Это финальная точка истины для assembly (читается из Video.subtitlesStyle на уровне выше). */
     subtitleStyleOverride?: SubtitleStyleProfile | null
+    /** Отрезки, где звучит закадровый голос — только там глушится звук клипов. */
+    voiceoverIntervals?: Array<{ startSec: number; endSec: number }>
   },
 ): Promise<{ filePath: string; duration: number }> {
   const step = await ensureStep(videoId, "assembly", 5)
@@ -1448,6 +1470,7 @@ export async function runAssembly(
       musicVolume: extras?.musicVolume,
       musicVolumeWithVoiceover: extras?.musicVolumeWithVoiceover,
       clipVolumeWithVoiceover: extras?.clipVolumeWithVoiceover,
+      voiceoverIntervals: extras?.voiceoverIntervals,
     })
 
     await updateStep(step.id, {
