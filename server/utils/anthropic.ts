@@ -40,6 +40,11 @@ interface AppData {
    * трактуют undefined как English и пишут сценарий не на том языке.
    */
   language: string | null
+  /**
+   * Активная воронка юнита. Если задана — CTA зовёт отправить кодовое слово
+   * в директ, а не установить приложение.
+   */
+  funnel?: ScenarioInput['funnel']
   transformationPromise?: string | null
   corePain?: string | null
   coreOutcome?: string | null
@@ -97,6 +102,7 @@ export async function generateScenarios(
     appDescription: app.description,
     appKeywords: app.keywords,
     language: app.language,
+    funnel: app.funnel ?? null,
     variantsCount: variantsCount || 3,
     // v3 extensions
     appId: appId ?? null,

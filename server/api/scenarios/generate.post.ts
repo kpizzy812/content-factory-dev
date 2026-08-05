@@ -88,6 +88,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Активная воронка юнита. Её кодовое слово становится целью CTA: зритель
+  // пишет слово в директ и получает лид-магнит, а не устанавливает приложение.
+  const funnelRecord = await prisma.contentFunnel.findFirst({
+    where: { appId: trend.appId, status: 'active' },
+    orderBy: { updatedAt: 'desc' },
+    select: { keyword: true, leadMagnet: { select: { title: true } } },
+  })
+  const funnel = funnelRecord
+    ? { keyword: funnelRecord.keyword, leadMagnetTitle: funnelRecord.leadMagnet?.title ?? null }
+    : null
+
   // Load profile settings if profileId specified
   let profileSettings = null as Record<string, unknown> | null
   if (body.profileId) {
@@ -140,11 +151,13 @@ export default defineEventHandler(async (event) => {
         name: trend.app.name,
         description: trend.app.description,
         keywords: trend.app.keywords,
+        language: trend.app.language,
         transformationPromise: trend.app.transformationPromise,
         corePain: trend.app.corePain,
         coreOutcome: trend.app.coreOutcome,
         creativeAngles: trend.app.creativeAngles,
         scenarioContext: trend.app.scenarioContext,
+        funnel,
       },
       variantsCount,
       trend.appId,

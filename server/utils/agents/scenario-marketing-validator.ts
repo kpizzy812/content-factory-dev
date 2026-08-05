@@ -25,6 +25,16 @@ const CTA_VERBS = [
   'используй', 'используйте', 'установи', 'установите', 'начни', 'начните', 'напиши', 'напишите',
 ]
 
+/**
+ * Глаголы для воронки с кодовым словом: зритель ничего не устанавливает, он
+ * пишет слово в директ или в комментарии (docs/PROJECT_CONTEXT.md, п.9).
+ */
+const KEYWORD_CTA_VERBS = [
+  'напиши', 'напишите', 'пиши', 'пишите', 'отправь', 'отправьте', 'жми', 'жмите',
+  'коммент', 'комментарий', 'комментарии', 'директ', 'сообщение', 'сообщении',
+  'write', 'send', 'comment', 'dm', 'drop',
+]
+
 function contentLanguageLabel(raw: string | null | undefined): string {
   const value = raw?.trim().toLowerCase()
   if (value === 'ru' || value?.startsWith('ru-') || value === 'russian' || value === 'русский') return 'Russian'
@@ -35,8 +45,20 @@ function contentLanguageLabel(raw: string | null | undefined): string {
 /**
  * Облегчённая проекция App, нужная валидатору.
  */
+/**
+ * Воронка юнита. Её наличие меняет смысл CTA: конверсия идёт через кодовое
+ * слово в Direct, а не через установку приложения, поэтому требовать имя
+ * продукта в кадре незачем.
+ */
+export interface MarketingValidatorFunnel {
+  /** Кодовое слово, которое зритель пишет в директ или в комментарии. */
+  keyword: string
+}
+
 export interface MarketingValidatorApp {
   name: string
+  /** Если задана — проверки идут по кодовому слову, а не по имени приложения. */
+  funnel?: MarketingValidatorFunnel | null
   /** Язык viewer-facing текста, например ru/en. */
   language?: string | null
   /** Если у приложения есть analyzed reference images — валидатор требует, чтобы хотя бы одна сцена использовала appScreenRef. */
@@ -53,8 +75,12 @@ export interface MarketingValidatorIssue {
     | 'cta_missing_app_name'
     | 'no_mid_scene_app_mention'
     | 'final_scene_not_cta_shaped'
+    | 'cta_missing_keyword'
+    | 'final_scene_not_keyword_cta'
     | 'no_app_screen_used'
     | 'subtitle_too_short'
+  /** true — проблема блокирует сохранение варианта. */
+  blocking?: boolean
   /** Чел.чит. описание. */
   message: string
   /** Order сцены, к которой относится. */
@@ -88,6 +114,16 @@ function sceneMentionsApp(scene: SceneCard, appName: string): boolean {
   )
 }
 
+function finalSceneIsKeywordCta(scene: SceneCard, keyword: string): boolean {
+  const text = [scene.subtitleCopy, scene.voiceoverLine, scene.spokenLine]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  if (!text.includes(keyword.toLowerCase())) return false
+  return KEYWORD_CTA_VERBS.some(verb => text.includes(verb))
+}
+
 function finalSceneIsCta(scene: SceneCard, appName: string): boolean {
   if (!sceneMentionsApp(scene, appName)) return false
   const text = [scene.subtitleCopy, scene.voiceoverLine, scene.spokenLine]
@@ -104,7 +140,7 @@ function ctaTextHasApp(cta: string | null | undefined, appName: string): boolean
 /**
  * Прогон всех проверок без AI. Возвращает массив issues (пустой если всё ок).
  */
-function runChecks(
+export function evaluateMarketingChecks(
   storyPlan: StoryPlan,
   cta: string | null | undefined,
   app: MarketingValidatorApp,
@@ -112,32 +148,58 @@ function runChecks(
   const issues: MarketingValidatorIssue[] = []
   const scenes = storyPlan.scenes ?? []
   const appName = app.name.trim()
-
-  // 1. CTA-поле сценария содержит app.name
-  if (!ctaTextHasApp(cta, appName)) {
-    issues.push({
-      code: 'cta_missing_app_name',
-      message: `Поле scenario.cta не содержит "${appName}". Без этого CTA-блок не доносит бренд.`,
-    })
-  }
-
-  // 2. Хотя бы одна сцена упоминает app.name в subtitleCopy/voiceoverLine/spokenLine
-  const mentioned = scenes.some(s => sceneMentionsApp(s, appName))
-  if (!mentioned) {
-    issues.push({
-      code: 'no_mid_scene_app_mention',
-      message: `Ни одна сцена не упоминает "${appName}" в subtitleCopy/voiceoverLine/spokenLine. Зритель не узнает имя приложения.`,
-    })
-  }
-
-  // 3. Финальная сцена — CTA с app.name + CTA verb
+  const keyword = app.funnel?.keyword?.trim() || ''
   const finalScene = scenes[scenes.length - 1]
-  if (finalScene && !finalSceneIsCta(finalScene, appName)) {
-    issues.push({
-      code: 'final_scene_not_cta_shaped',
-      message: `Финальная сцена (order=${finalScene.order}) не CTA-формы — нужно "${appName}" + один из глаголов: ${CTA_VERBS.join(', ')}.`,
-      sceneOrder: finalScene.order,
-    })
+
+  // Воронка с кодовым словом: зритель ничего не устанавливает, он пишет слово
+  // в директ. Проверять имя продукта в кадре здесь незачем.
+  if (keyword) {
+    if (!lowerIncludes(cta, keyword)) {
+      issues.push({
+        code: 'cta_missing_keyword',
+        message: `Поле scenario.cta не содержит кодовое слово "${keyword}". Без него лид не попадёт в воронку.`,
+        blocking: true,
+      })
+    }
+
+    if (finalScene && !finalSceneIsKeywordCta(finalScene, keyword)) {
+      issues.push({
+        code: 'final_scene_not_keyword_cta',
+        message: `Финальная сцена (order=${finalScene.order}) не зовёт отправить кодовое слово — нужно "${keyword}" + один из глаголов: ${KEYWORD_CTA_VERBS.join(', ')}.`,
+        sceneOrder: finalScene.order,
+        blocking: true,
+      })
+    }
+  }
+  else {
+    // 1. CTA-поле сценария содержит app.name
+    if (!ctaTextHasApp(cta, appName)) {
+      issues.push({
+        code: 'cta_missing_app_name',
+        message: `Поле scenario.cta не содержит "${appName}". Без этого CTA-блок не доносит бренд.`,
+        blocking: true,
+      })
+    }
+
+    // 2. Хотя бы одна сцена упоминает app.name в subtitleCopy/voiceoverLine/spokenLine
+    const mentioned = scenes.some(s => sceneMentionsApp(s, appName))
+    if (!mentioned) {
+      issues.push({
+        code: 'no_mid_scene_app_mention',
+        message: `Ни одна сцена не упоминает "${appName}" в subtitleCopy/voiceoverLine/spokenLine. Зритель не узнает имя приложения.`,
+        blocking: true,
+      })
+    }
+
+    // 3. Финальная сцена — CTA с app.name + CTA verb
+    if (finalScene && !finalSceneIsCta(finalScene, appName)) {
+      issues.push({
+        code: 'final_scene_not_cta_shaped',
+        message: `Финальная сцена (order=${finalScene.order}) не CTA-формы — нужно "${appName}" + один из глаголов: ${CTA_VERBS.join(', ')}.`,
+        sceneOrder: finalScene.order,
+        blocking: true,
+      })
+    }
   }
 
   // 4. Если у приложения есть analyzed reference images — хотя бы одна сцена должна использовать appScreenRef
@@ -308,13 +370,8 @@ export async function validateScenarioMarketing(
     return { passed: true, issues: [] }
   }
 
-  const initialIssues = runChecks(storyPlan, cta, app)
-  const blockingCodes: MarketingValidatorIssue['code'][] = [
-    'cta_missing_app_name',
-    'no_mid_scene_app_mention',
-    'final_scene_not_cta_shaped',
-  ]
-  const initialBlocking = initialIssues.filter(i => blockingCodes.includes(i.code))
+  const initialIssues = evaluateMarketingChecks(storyPlan, cta, app)
+  const initialBlocking = initialIssues.filter(i => i.blocking)
 
   if (initialBlocking.length === 0) {
     return { passed: true, issues: initialIssues }
@@ -347,15 +404,16 @@ export async function validateScenarioMarketing(
     return {
       passed: false,
       issues: initialIssues.concat([{
-        code: 'cta_missing_app_name',
+        code: app.funnel?.keyword ? 'cta_missing_keyword' : 'cta_missing_app_name',
         message: `Auto-fix через Haiku упал: ${e instanceof Error ? e.message : 'unknown'}. Сценарий не прошёл marketing-проверку.`,
+        blocking: true,
       }]),
     }
   }
 
   // Re-check after repair
-  const finalIssues = runChecks(storyPlan, cta, app)
-  const finalBlocking = finalIssues.filter(i => blockingCodes.includes(i.code))
+  const finalIssues = evaluateMarketingChecks(storyPlan, cta, app)
+  const finalBlocking = finalIssues.filter(i => i.blocking)
 
   return {
     passed: finalBlocking.length === 0,

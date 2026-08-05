@@ -64,6 +64,14 @@ interface InsightFallback {
   audience?: string | null
 }
 
+/** Воронка юнита в объёме, нужном генератору сценария. */
+export interface ScenarioFunnel {
+  /** Кодовое слово, которое зритель отправляет в директ. */
+  keyword: string
+  /** Что он получает в ответ — помогает агенту сформулировать обещание. */
+  leadMagnetTitle?: string | null
+}
+
 export interface ScenarioInput {
   trendTitle: string
   trendDescription?: string | null
@@ -76,6 +84,11 @@ export interface ScenarioInput {
   appDescription?: string | null
   language?: string | null
   appKeywords: string[]
+  /**
+   * Воронка юнита. Если задана — конверсия идёт через кодовое слово в Direct,
+   * а не через установку приложения: меняются и промпты, и marketing-проверки.
+   */
+  funnel?: ScenarioFunnel | null
   variantsCount?: number
   // v3 extensions
   appContext?: {
@@ -707,14 +720,47 @@ ${accountVisualContext}
 
 // --- Step 5: Build fullScript + humanization ---
 
+/**
+ * Правила про продукт в тексте. Воронка с кодовым словом и продвижение
+ * приложения требуют разного: в первом случае зритель ничего не устанавливает,
+ * он отправляет слово в директ, и навязчивое имя бренда только мешает.
+ */
+function buildFunnelBrief(appName: string, funnel?: ScenarioFunnel | null) {
+  const keyword = funnel?.keyword?.trim()
+
+  if (!keyword) {
+    return {
+      hookRule: `MUST mention "${appName}" or its benefit — otherwise viewer won't understand what the video is about.`,
+      bodyRule: `Mention "${appName}" at least once in the context of solving a problem.`,
+      ctaRule: `The name "${appName}" + an explicit action verb (download, try, open, get) are MANDATORY.`,
+      styleRule: 'CTA — friend\'s advice, not an ad banner, but the app name must be spoken',
+      spellingRule: `Write "${appName}" as-is, no translation or transliteration`,
+    }
+  }
+
+  const magnet = funnel?.leadMagnetTitle?.trim()
+  const magnetPart = magnet ? ` The viewer receives "${magnet}" in return.` : ''
+
+  return {
+    hookRule: 'MUST open with the viewer\'s problem or a surprising fact — no product name needed.',
+    bodyRule: 'Deliver real value on the topic. Do NOT push a product: the viewer is not installing anything.',
+    ctaRule: `MANDATORY: ask the viewer to send the code word "${keyword}" in a direct message or comment, `
+      + `written exactly as "${keyword}", plus an explicit verb (напиши / отправь / write / send).${magnetPart}`,
+    styleRule: 'CTA — friend\'s offer to share a useful file, not an ad banner',
+    spellingRule: `Write the code word "${keyword}" as-is, in capitals, no translation or declension`,
+  }
+}
+
 function buildFullScriptPrompt(
   scenes: SceneCard[],
   storyArc: StoryArc,
   appName: string,
   language?: string | null,
   accountStyle?: AccountStyleProfileData | null,
+  funnel?: ScenarioFunnel | null,
 ): string {
   const contentLanguage = contentLanguageLabel(language)
+  const funnelBrief = buildFunnelBrief(appName, funnel)
   const toneConstraint = accountStyle?.tone.voice
     ? `\n## Account Tone Identity\n- Голос: ${accountStyle.tone.voice}\n- Формальность: ${accountStyle.tone.formality}\n${accountStyle.tone.forbiddenPhrases.length > 0 ? `- ЗАПРЕЩЁННЫЕ фразы: ${accountStyle.tone.forbiddenPhrases.join('; ')}` : ''}\nПиши в стиле этого аккаунта.`
     : ''
@@ -738,9 +784,9 @@ ${scenes.map(s => `${s.order}. [${s.emotionalState}] ${s.subtitleCopy}${s.voiceo
 
 ## Task
 Generate a JSON object with these fields. All viewer-facing text must be in ${contentLanguage}:
-- hook: first 1-3 seconds opener (max 15 words). MUST mention "${appName}" or its benefit — otherwise viewer won't understand what the video is about.
-- body: middle development (3-6 sentences). Mention "${appName}" at least once in the context of solving a problem.
-- cta: call to action (1-2 sentences). The name "${appName}" + an explicit action verb (download, try, open, get) are MANDATORY.
+- hook: first 1-3 seconds opener (max 15 words). ${funnelBrief.hookRule}
+- body: middle development (3-6 sentences). ${funnelBrief.bodyRule}
+- cta: call to action (1-2 sentences). ${funnelBrief.ctaRule}
 - fullScript: full script from hook to CTA (single text for voiceover)
 - title: scenario title (up to 80 characters)
 - toneProfile: tone description (1 sentence)
@@ -749,9 +795,9 @@ Rules:
 - Write like a real human, not a marketing bot
 - Conversational rhythm: short sentences, pauses, questions
 - Don't start with "Imagine", "Did you know", "Don't miss out"
-- CTA — friend's advice, not an ad banner, but the app name must be spoken
+- ${funnelBrief.styleRule}
 - NO EMOJIS OR SPECIAL CHARACTERS (😀, 🚀, ★, ✓ etc.) — only letters, digits, basic punctuation
-- Write "${appName}" as-is, no translation or transliteration
+- ${funnelBrief.spellingRule}
 - ${contentLanguage.toUpperCase()} ONLY for hook/body/cta/fullScript/title
 
 Respond with ONLY a JSON object.`
@@ -1128,7 +1174,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
     // Модель: anthropicModel (Sonnet) — не указываем tier, чтобы использовалась основная модель.
     const scriptResult = await callAnthropicAgent({
       systemPrompt: 'Ты — сценарист коротких вирусных видео. Пишешь тексты, которые звучат как живая речь. Отвечай на русском. СТРОГО JSON.',
-      userPrompt: buildFullScriptPrompt(continuityResult.validatedScenes, storyResult.storyArc, input.appName, input.language, input.accountStyle),
+      userPrompt: buildFullScriptPrompt(continuityResult.validatedScenes, storyResult.storyArc, input.appName, input.language, input.accountStyle, input.funnel),
       maxTokens: SCENARIO_MAX_TOKENS,
       agentName: 'scripter',
       validate: (data: unknown) => {
@@ -1192,6 +1238,8 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
           .some(s => s.hasUI !== false && s.caption && s.analyzedAt),
         corePain: input.appContext?.corePain ?? null,
         appIntegrationStrategy: storyResult.appIntegrationStrategy,
+        // С воронкой проверки идут по кодовому слову, а не по имени продукта.
+        funnel: input.funnel ? { keyword: input.funnel.keyword } : null,
       }
       const validation = await validateScenarioMarketing({
         storyPlan,
@@ -1204,7 +1252,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
       }
       if (!validation.passed) {
         const blockingMessages = validation.issues
-          .filter(i => i.code === 'cta_missing_app_name' || i.code === 'no_mid_scene_app_mention' || i.code === 'final_scene_not_cta_shaped')
+          .filter(i => i.blocking)
           .map(i => i.message)
           .join('; ')
         throw new Error(`Marketing validator REJECTED variant: ${blockingMessages}`)
