@@ -20,6 +20,13 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
+# Claude Code CLI — транспорт LLM через OAuth-подписку (LLM_TRANSPORT=claude_cli).
+# Ставится всегда, включается переменной: без неё контур идёт по API-ключу.
+# Отдельный HOME, чтобы в генерацию не подмешивались чужие CLAUDE.md и хуки.
+RUN bun install -g @anthropic-ai/claude-code \
+ && mkdir -p /app/.claude-home
+ENV CLAUDE_CLI_HOME=/app/.claude-home
+
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000

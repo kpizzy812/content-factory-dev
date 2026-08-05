@@ -7,6 +7,7 @@
  */
 
 import { tryMockAnthropicAgent } from '../mock/anthropic-mock'
+import { ClaudeCliError, callClaudeCli, isClaudeCliTransport } from './claude-cli'
 
 const RETRY_MAX_ATTEMPTS = 3
 const RETRY_BASE_DELAY_MS = 1000
@@ -71,17 +72,62 @@ export async function callAnthropicAgent<T>(options: {
 
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ''
 
+  const haikuModel = process.env.ANTHROPIC_HAIKU_MODEL || 'claude-haiku-4-5-20251001'
+  const sonnetModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+  const modelUsed = options.tier === 'haiku' ? haikuModel : sonnetModel
+  const agentLabel = options.agentName ?? 'unknown-agent'
+
+  // Транспорт через подписку Claude Code. При исчерпанном лимите откатываемся
+  // на обычный API-ключ, если он задан: генерация не должна вставать из-за
+  // сессионного окна подписки.
+  if (isClaudeCliTransport()) {
+    try {
+      const cliResult = await callClaudeCli({
+        systemPrompt: options.systemPrompt,
+        userPrompt: options.userPrompt,
+        model: modelUsed,
+      })
+
+      if (options.onUsage) {
+        try {
+          options.onUsage({
+            model: modelUsed,
+            inputTokens: cliResult.usage.inputTokens,
+            outputTokens: cliResult.usage.outputTokens,
+            cacheReadTokens: cliResult.usage.cacheReadTokens,
+            cacheCreateTokens: cliResult.usage.cacheCreateTokens,
+          })
+        }
+        catch (err) {
+          console.warn(`[claude-cli:${agentLabel}] onUsage callback threw: ${err instanceof Error ? err.message : String(err)}`)
+        }
+      }
+
+      return options.validate(extractJsonFromText(cliResult.text, agentLabel))
+    }
+    catch (err) {
+      const signal = err instanceof ClaudeCliError ? err.signal : 'none'
+      const message = err instanceof Error ? err.message : String(err)
+
+      if (!anthropicApiKey) {
+        throw createError({
+          statusCode: 502,
+          message: `Claude CLI (${agentLabel}) не отработал и запасного ANTHROPIC_API_KEY нет: ${message}`,
+        })
+      }
+
+      console.warn(
+        `[claude-cli:${agentLabel}] ${signal === 'none' ? 'ошибка' : `лимит подписки (${signal})`}: ${message}. Падаю на API-ключ.`,
+      )
+    }
+  }
+
   if (!anthropicApiKey) {
     throw createError({
       statusCode: 500,
       message: 'API-ключ Anthropic не настроен. Установите ANTHROPIC_API_KEY в .env',
     })
   }
-
-  const haikuModel = process.env.ANTHROPIC_HAIKU_MODEL || 'claude-haiku-4-5-20251001'
-  const sonnetModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
-  const modelUsed = options.tier === 'haiku' ? haikuModel : sonnetModel
-  const agentLabel = options.agentName ?? 'unknown-agent'
 
   interface AnthropicResponse {
     content: Array<{ type: string; text?: string }>
