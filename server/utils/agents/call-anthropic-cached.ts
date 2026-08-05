@@ -10,6 +10,8 @@
  * автоматически повторяет без cache_control.
  */
 
+import { ClaudeCliError, callClaudeCli, isClaudeCliTransport } from "./claude-cli"
+
 interface AnthropicResponse {
   content: Array<{ type: string; text?: string }>
   usage?: {
@@ -62,6 +64,50 @@ export async function callAnthropicAgentCached<T>(
   requirePaidApisEnabled("Anthropic Claude API")
 
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ""
+  const agentLabel = options.agentName ?? "cached-agent"
+  const modelUsed = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6"
+
+  // Транспорт через подписку Claude Code — тот же, что и в callAnthropicAgent.
+  // Без этой ветки агенты на кэширующем хелпере (visual-director) уходили в
+  // HTTP мимо подписки и падали на заглушке ключа.
+  if (isClaudeCliTransport()) {
+    try {
+      const cliResult = await callClaudeCli({
+        systemPrompt: options.systemPromptStatic,
+        userPrompt: options.userPrompt,
+        model: modelUsed,
+      })
+
+      return {
+        result: options.validate(extractJsonFromText(cliResult.text)),
+        rawText: cliResult.text,
+        // Кэш держит сам CLI: cache_control сюда не передаётся.
+        cacheHit: cliResult.usage.cacheReadTokens > 0,
+        usage: {
+          input: cliResult.usage.inputTokens,
+          output: cliResult.usage.outputTokens,
+          cacheRead: cliResult.usage.cacheReadTokens,
+          cacheCreate: cliResult.usage.cacheCreateTokens,
+        },
+      }
+    }
+    catch (err) {
+      const signal = err instanceof ClaudeCliError ? err.signal : "none"
+      const message = err instanceof Error ? err.message : String(err)
+
+      if (!anthropicApiKey) {
+        throw createError({
+          statusCode: 502,
+          message: `Claude CLI (${agentLabel}) не отработал и запасного ANTHROPIC_API_KEY нет: ${message}`,
+        })
+      }
+
+      console.warn(
+        `[claude-cli:${agentLabel}] ${signal === "none" ? "ошибка" : `лимит подписки (${signal})`}: ${message}. Падаю на API-ключ.`,
+      )
+    }
+  }
+
   if (!anthropicApiKey) {
     throw createError({
       statusCode: 500,
