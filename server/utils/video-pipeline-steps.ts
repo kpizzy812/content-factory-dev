@@ -181,16 +181,14 @@ export async function runPromptGeneration(
       const scenePrompts = generated.scenes
       promptGenerationDebug = generated.debug
 
-      const legacyPrompts = await generateImagePrompts({
-        hook: variant.hook,
-        body: variant.body,
-        cta: variant.cta,
-        visualStyle: variant.visualStyleText,
-        storyPlan,
-      })
-
+      // Legacy-промпты hook/body/cta в story-driven режиме никто не читает: и
+      // картинки, и клипы берут scenePrompts. При этом старый вызов ходит в
+      // Anthropic напрямую, мимо общего транспорта, и роняет весь шаг с 401,
+      // когда доступ к модели идёт через CLI. Оставляем поля пустыми.
       result = {
-        ...legacyPrompts,
+        hook: '',
+        body: '',
+        cta: '',
         scenePrompts,
         storySceneCount: sceneCount,
         runtimeMode: videoPlan.mode,

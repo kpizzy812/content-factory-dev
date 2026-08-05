@@ -20,6 +20,7 @@ import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildStoryVideoPlan } from "./story-video-planner"
 
 import {
+  type PromptGenerationResult,
   type StepKey,
   STEP_ORDER,
   acquireLock,
@@ -335,16 +336,19 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #3: до генерации промптов ──
     throwIfAborted(signal)
 
-    // 2. Генерация промптов (с полным story context)
-    const prompts = await runPromptGeneration(videoId, variant, videoPlan, {
-      favoritePrompts: enrichmentContext.favoritePrompts,
-      platform: video.targetPlatform,
-      format: video.format as 'portrait' | 'landscape',
-      voiceoverLanguage: video.voiceoverLanguage,
-      videoModelId: effectiveVideoModelId,
-      appId: enrichmentContext.appId,
-      socialAccountId: enrichmentContext.socialAccountId,
-    })
+    // 2. Генерация промптов (с полным story context).
+    // Ролику из живых сцен рисовать нечего — визуальные промпты никто не прочтёт.
+    const prompts = presenterOnly
+      ? await skipPromptGenerationStep(videoId, videoPlan.scenes.length)
+      : await runPromptGeneration(videoId, variant, videoPlan, {
+        favoritePrompts: enrichmentContext.favoritePrompts,
+        platform: video.targetPlatform,
+        format: video.format as 'portrait' | 'landscape',
+        voiceoverLanguage: video.voiceoverLanguage,
+        videoModelId: effectiveVideoModelId,
+        appId: enrichmentContext.appId,
+        socialAccountId: enrichmentContext.socialAccountId,
+      })
 
     // Сохраняем voiceoverPlan и subtitlesStyle из storyPlan в Video.
     // Video.subtitlesStyle — единая точка истины для render и editor; нормализуем
@@ -362,12 +366,14 @@ export async function runVideoPipeline(
         await prisma.video.update({ where: { id: videoId }, data: videoUpdate as any })
       }
     }
-    // Actual cost: prompt generation
-    const promptCost = prompts.scenePrompts ? 0.02 : 0.01
-    const promptStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "prompt_generation" as never } })
-    if (promptStep) {
-      await updateStep(promptStep.id, { actualCost: promptCost })
-      await logStepCost(promptStep.id, "prompt_generation", "anthropic", promptCost, videoId)
+    // Actual cost: prompt generation. Пропущенный шаг ничего не стоил.
+    if (!presenterOnly) {
+      const promptCost = prompts.scenePrompts ? 0.02 : 0.01
+      const promptStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "prompt_generation" as never } })
+      if (promptStep) {
+        await updateStep(promptStep.id, { actualCost: promptCost })
+        await logStepCost(promptStep.id, "prompt_generation", "anthropic", promptCost, videoId)
+      }
     }
 
     // 3. Генерация изображений — story-driven может пропустить этот шаг
@@ -664,6 +670,24 @@ export async function runVideoPipeline(
   } finally {
     await releaseLock(videoId)
   }
+}
+
+/**
+ * Помечает генерацию визуальных промптов пропущенной. В ролике из живых сцен
+ * рисовать нечего, а промпты — это ещё и платный вызов LLM на каждую сцену.
+ */
+async function skipPromptGenerationStep(
+  videoId: number,
+  sceneCount: number,
+): Promise<PromptGenerationResult> {
+  const step = await ensureStep(videoId, "prompt_generation", STEP_ORDER.indexOf("prompt_generation"))
+  await updateStep(step.id, {
+    status: "skipped",
+    finishedAt: new Date(),
+    actualCost: 0,
+    outputSnapshot: { reason: "presenter_only_video", sceneCount },
+  })
+  return { hook: '', body: '', cta: '', storySceneCount: sceneCount }
 }
 
 /**
