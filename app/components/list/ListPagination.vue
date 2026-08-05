@@ -39,6 +39,17 @@ const pages = computed(() => {
   push(last)
   return out
 })
+
+/**
+ * Текущий размер страницы добавляется в список, если его там нет: разделы
+ * приходят со своим значением из стора, и без этого селект показывал бы
+ * чужое число, а строка «Показано 1–12» — своё.
+ */
+const perPageOptions = computed(() => {
+  const base = [25, 50, 100]
+  const values = base.includes(props.perPage) ? base : [props.perPage, ...base].sort((a, b) => a - b)
+  return values.map(v => ({ value: v, label: String(v) }))
+})
 </script>
 
 <template>
@@ -73,11 +84,7 @@ const pages = computed(() => {
       <UiSelect
         :model-value="perPage"
         class="w-20"
-        :options="[
-          { value: 25, label: '25' },
-          { value: 50, label: '50' },
-          { value: 100, label: '100' },
-        ]"
+        :options="perPageOptions"
         @update:model-value="emit('update:perPage', Number($event))"
       />
     </div>
