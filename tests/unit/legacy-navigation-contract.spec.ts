@@ -11,10 +11,18 @@ describe("legacy navigation contract", () => {
   })
 
   it("прячет пункты меню выключенных зон", () => {
+    // Структура навигации переехала из layouts/default.vue в composable —
+    // его читают сайдбар, крошки и командная палитра, поэтому гейт зон
+    // должен стоять именно там, иначе выключенный раздел останется в ⌘K.
+    const nav = file("app/composables/useAppNavigation.ts")
+    expect(nav).toContain("useLegacyModules")
+    expect(nav).toContain("legacyModules.value.deviceAutomation")
+    expect(nav).toContain("legacyModules.value.proxyPool")
+    expect(nav).toContain("legacyModules.value.googleDrive")
+  })
+
+  it("карта зон загружается оболочкой", () => {
     const layout = file("app/layouts/default.vue")
-    expect(layout).toContain("useLegacyModules")
-    expect(layout).toContain("legacyModules.value.deviceAutomation")
-    expect(layout).toContain("legacyModules.value.proxyPool")
-    expect(layout).toContain("legacyModules.value.googleDrive")
+    expect(layout).toContain("loadLegacyModules")
   })
 })

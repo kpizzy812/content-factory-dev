@@ -37,6 +37,10 @@ export default defineConfig({
       "tests/unit/apify-account-discovery.spec.ts",
       "tests/unit/scenario-funnel-cta.spec.ts",
       "tests/unit/claude-cli-transport.spec.ts",
+      // Перестройка фронта: контракты дизайн-системы и чистая логика.
+      "tests/unit/design-system-contract.spec.ts",
+      "tests/unit/entity-status.spec.ts",
+      "tests/unit/saved-views-normalize.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },
