@@ -74,6 +74,38 @@ const emit = defineEmits<{
 type EditorTab = 'style' | 'scenes'
 const activeTab = ref<EditorTab>('style')
 
+const WORDS_PER_LINE_OPTIONS = [
+  { value: 3, label: '3 слова' },
+  { value: 4, label: '4 слова · стандарт TikTok' },
+  { value: 5, label: '5 слов' },
+  { value: 6, label: '6 слов' },
+]
+
+const MAX_LINES_OPTIONS = [
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+]
+
+const CASING_OPTIONS = [
+  { value: 'sentence', label: 'Как в предложении' },
+  { value: 'uppercase', label: 'ВЕРХНИЙ РЕГИСТР' },
+  { value: 'lowercase', label: 'нижний регистр' },
+  { value: 'mixed', label: 'Смешанный' },
+]
+
+const POSITION_OPTIONS = [
+  { value: 'top', label: 'Сверху' },
+  { value: 'center', label: 'По центру' },
+  { value: 'bottom', label: 'Снизу' },
+]
+
+const ALIGNMENT_OPTIONS = [
+  { value: 'left', label: 'Слева' },
+  { value: 'center', label: 'Центр' },
+  { value: 'right', label: 'Справа' },
+]
+
 function clampWords(value: number | undefined | null): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return SUBTITLE_WORDS_PER_LINE_DEFAULT
   return Math.max(
@@ -203,153 +235,106 @@ async function save() {
 </script>
 
 <template>
-  <div class="space-y-3">
-    <p class="text-xs text-base-content/60">
-      Редактирование меняет только субтитры — клипы и аудио переиспользуются. Пересборка
-      бесплатна и занимает 5-15 секунд. После сохранения обновите страницу через 10-20 сек.
+  <div class="flex flex-col gap-3">
+    <p class="text-sm text-muted">
+      Правка меняет только субтитры: клипы и звук переиспользуются, пересборка бесплатна и
+      занимает 5–15 секунд.
     </p>
 
-    <!-- Tabs: Стиль / Текст по сценам -->
-    <div role="tablist" class="tabs tabs-box tabs-sm">
+    <div role="tablist" class="flex gap-0.5 border-b border-divider">
       <button
+        v-for="t in [{ key: 'style', label: 'Стиль' }, { key: 'scenes', label: 'Текст по сценам' }]"
+        :key="t.key"
         type="button"
         role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'style' }"
-        @click="activeTab = 'style'"
+        :aria-selected="activeTab === t.key"
+        class="flex h-8 cursor-pointer items-center border-b-2 px-2.5 text-sm"
+        :class="activeTab === t.key ? 'border-accent font-medium text-fg' : 'border-transparent text-muted hover:text-fg'"
+        @click="activeTab = t.key as EditorTab"
       >
-        <Icon name="mingcute:palette-line" class="text-xs mr-1" />
-        Стиль
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'scenes' }"
-        @click="activeTab = 'scenes'"
-      >
-        <Icon name="mingcute:edit-line" class="text-xs mr-1" />
-        Текст по сценам
+        {{ t.label }}
       </button>
     </div>
 
-    <!-- Tab: Стиль -->
-    <div v-show="activeTab === 'style'" class="space-y-3">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Стиль субтитров</legend>
+    <template v-if="activeTab === 'style'">
+      <UiField label="Пресет">
         <VideoSubtitlePresetPicker v-model="preset" />
-      </fieldset>
+      </UiField>
 
-      <!-- Typography -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend flex items-center gap-1.5">
-          <span>Слов в строке</span>
-          <span
-            class="badge badge-xs"
-            :class="wordsPerLineSource === 'plan' ? 'badge-ghost' : 'badge-warning badge-soft'"
-            :title="wordsPerLineSource === 'plan'
-              ? 'Значение из рекомендации сценария'
-              : 'Значение изменено вручную'"
-          >
-            {{ wordsPerLineSource === 'plan' ? `Из сценария: ${storyPlanWordsPerLine}` : 'Изменено вручную' }}
-          </span>
-        </legend>
-        <select v-model.number="wordsPerLine" class="select select-sm w-full">
-          <option :value="3">3 слова</option>
-          <option :value="4">4 слова (TikTok стандарт)</option>
-          <option :value="5">5 слов</option>
-          <option :value="6">6 слов</option>
-        </select>
-        <button
-          v-if="wordsPerLineSource === 'manual'"
-          type="button"
-          class="btn btn-ghost btn-xs mt-1 self-start"
-          :title="`Вернуть к рекомендации сценария: ${storyPlanWordsPerLine}`"
-          @click="resetToStoryPlan"
+      <div class="grid gap-2 sm:grid-cols-3">
+        <UiField
+          label="Слов в строке"
+          :hint="wordsPerLineSource === 'plan'
+            ? `Как рекомендует сценарий: ${storyPlanWordsPerLine}`
+            : `Изменено вручную, в сценарии ${storyPlanWordsPerLine}`"
         >
-          <Icon name="mingcute:refresh-1-line" />
-          Сбросить к рекомендации
-        </button>
-      </fieldset>
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Макс. строк</legend>
-        <select v-model.number="maxLines" class="select select-sm w-full">
-          <option :value="1">1</option>
-          <option :value="2">2</option>
-          <option :value="3">3</option>
-        </select>
-      </fieldset>
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Регистр</legend>
-          <select v-model="casing" class="select select-sm w-full">
-            <option value="sentence">Sentence case</option>
-            <option value="uppercase">UPPERCASE</option>
-            <option value="lowercase">lowercase</option>
-            <option value="mixed">Mixed</option>
-          </select>
-        </fieldset>
-      </div>
-    </div>
+          <UiSelect
+            :model-value="wordsPerLine"
+            :options="WORDS_PER_LINE_OPTIONS"
+            @update:model-value="wordsPerLine = Number($event)"
+          />
+          <UiButton
+            v-if="wordsPerLineSource === 'manual'"
+            variant="ghost"
+            class="mt-1"
+            @click="resetToStoryPlan"
+          >
+            <Icon name="mingcute:refresh-1-line" />
+            Вернуть рекомендацию
+          </UiButton>
+        </UiField>
 
-    <!-- Tab: Текст по сценам -->
-    <div v-show="activeTab === 'scenes'" class="space-y-2">
-      <div v-if="scenes.length > 0" class="space-y-2">
-      <div class="text-xs font-semibold text-base-content/70">Текст и позиция по сценам</div>
-      <div
-        v-for="scene in scenes"
-        :key="scene.order"
-        class="border border-base-300 rounded-box p-2.5 space-y-1.5"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <span class="badge badge-ghost badge-sm">Сцена {{ scene.order }}</span>
-          <div class="flex gap-1">
-            <select v-model="scene.position" class="select select-xs">
-              <option value="top">Сверху</option>
-              <option value="center">По центру</option>
-              <option value="bottom">Снизу</option>
-            </select>
-            <select v-model="scene.alignment" class="select select-xs">
-              <option value="left">Слева</option>
-              <option value="center">Центр</option>
-              <option value="right">Справа</option>
-            </select>
+        <UiField label="Строк максимум">
+          <UiSelect
+            :model-value="maxLines"
+            :options="MAX_LINES_OPTIONS"
+            @update:model-value="maxLines = Number($event)"
+          />
+        </UiField>
+
+        <UiField label="Регистр">
+          <UiSelect v-model="casing" :options="CASING_OPTIONS" />
+        </UiField>
+      </div>
+    </template>
+
+    <template v-else>
+      <div v-if="scenes.length" class="flex flex-col gap-2">
+        <article
+          v-for="scene in scenes"
+          :key="scene.order"
+          class="flex flex-col gap-1.5 rounded-md border border-border bg-card p-2.5"
+        >
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-micro text-subtle">сцена {{ scene.order }}</span>
+            <span class="flex-1" />
+            <UiSelect v-model="scene.position" :options="POSITION_OPTIONS" class="w-32" />
+            <UiSelect v-model="scene.alignment" :options="ALIGNMENT_OPTIONS" class="w-28" />
           </div>
-        </div>
-        <textarea
-          v-model="scene.subtitleCopy"
-          class="textarea textarea-sm w-full text-xs"
-          rows="2"
-          placeholder="Текст субтитра для сцены"
-        />
+          <UiTextarea v-model="scene.subtitleCopy" :rows="2" placeholder="Текст субтитра" />
+        </article>
       </div>
-    </div>
-      <div v-else class="alert alert-warning alert-soft text-xs py-2">
-        <Icon name="mingcute:warning-line" />
-        <span>У сценария нет storyPlan со сценами — редактирование per-scene недоступно.</span>
-      </div>
-    </div>
 
-    <!-- Status message -->
-    <div
+      <UiEmptyState
+        v-else
+        icon="mingcute:text-line"
+        title="Разбивки по сценам нет"
+        description="У сценария нет плана со сценами, поэтому править текст можно только целиком при перегенерации."
+      />
+    </template>
+
+    <p
       v-if="message"
-      class="alert alert-soft text-xs py-2"
-      :class="message.type === 'success' ? 'alert-success' : 'alert-error'"
+      class="rounded-md border p-2.5 text-sm"
+      :class="message.type === 'success'
+        ? 'border-success-border bg-success-bg text-success'
+        : 'border-danger-border bg-danger-bg text-danger'"
     >
-      <Icon :name="message.type === 'success' ? 'mingcute:check-line' : 'mingcute:close-circle-line'" />
-      <span>{{ message.text }}</span>
-    </div>
+      {{ message.text }}
+    </p>
 
-    <!-- Save -->
-    <button
-      type="button"
-      class="btn btn-primary btn-sm w-full"
-      :disabled="isSaving"
-      @click="save"
-    >
-      <span v-if="isSaving" class="loading loading-spinner loading-xs" />
-      <Icon v-else name="mingcute:save-line" />
-      Применить и пересобрать видео
-    </button>
+    <UiButton variant="primary" :loading="isSaving" @click="save">
+      Применить и пересобрать
+    </UiButton>
   </div>
 </template>

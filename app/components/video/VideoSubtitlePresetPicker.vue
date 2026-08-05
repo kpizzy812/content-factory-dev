@@ -1,12 +1,10 @@
 <script setup lang="ts">
 /**
- * Picker пресетов субтитров. Grid карточек, при клике эмитит update:modelValue.
- * Используется в VideoSubtitleEditor (per-video) и в pipeline-config (на контейнере).
+ * Выбор пресета субтитров. Сетка карточек; компактный режим — для боковых панелей.
  *
- * compact prop включает узкий режим карточек — для встраивания в боковые панели где места
- * мало.
+ * Предупреждение про платный анализ ключевых слов появляется только у тех
+ * пресетов, которым он нужен, и сразу под выбором: решение денежное.
  */
-
 import type { SubtitlePresetKey } from '~~/shared/types/subtitle-preset'
 
 const props = defineProps<{
@@ -14,28 +12,23 @@ const props = defineProps<{
   compact?: boolean
 }>()
 
-const emit = defineEmits<{
-  'update:modelValue': [value: SubtitlePresetKey]
-}>()
+const emit = defineEmits<{ 'update:modelValue': [value: SubtitlePresetKey] }>()
 
 const { presets, loading, error, getPreset } = useSubtitlePresets()
 
 const selectedPreset = computed(() => getPreset(props.modelValue))
-
-function pick(key: SubtitlePresetKey) {
-  emit('update:modelValue', key)
-}
 </script>
 
 <template>
-  <div class="space-y-2">
-    <div v-if="loading" class="flex justify-center py-4">
-      <span class="loading loading-spinner loading-md" />
-    </div>
-    <div v-else-if="error" class="alert alert-error alert-soft text-xs py-2">
-      <Icon name="mingcute:close-circle-line" />
-      <span>Не удалось загрузить пресеты: {{ error.message ?? 'unknown' }}</span>
-    </div>
+  <div class="flex flex-col gap-2">
+    <UiSkeleton v-if="loading" variant="cards" :count="4" />
+
+    <UiErrorState
+      v-else-if="error"
+      title="Не удалось загрузить пресеты"
+      :message="error.message ?? 'Причина неизвестна'"
+    />
+
     <div
       v-else
       class="grid gap-2"
@@ -47,20 +40,16 @@ function pick(key: SubtitlePresetKey) {
         :preset="preset"
         :selected="modelValue === preset.key"
         :compact="compact"
-        @select="pick(preset.key)"
+        @select="emit('update:modelValue', preset.key)"
       />
     </div>
 
-    <div
+    <p
       v-if="selectedPreset?.needsKeywordDetection"
-      class="alert alert-info alert-soft text-xs py-1.5"
+      class="rounded-md border border-info-border bg-info-bg p-2 text-sm text-muted"
     >
-      <Icon name="mingcute:sparkles-2-line" />
-      <span>
-        Для пресета <span class="font-semibold">{{ selectedPreset.label }}</span> при сборке
-        запускается AI-анализ ключевых слов (~$0.001 за видео). Можно отключить вручную в
-        Pipeline-настройках.
-      </span>
-    </div>
+      Пресет «{{ selectedPreset.label }}» при сборке запускает разбор ключевых слов моделью —
+      около $0.001 за ролик. Отключается в настройках конвейера.
+    </p>
   </div>
 </template>

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * Секция captions на странице /videos/[id].
+ * Описания и хэштеги ролика — по одному набору на платформу.
  *
- * Показывает per-platform tabs (TikTok / YouTube / Instagram), позволяет
- * редактировать title/description/hashtags, перегенерировать через AI,
- * утверждать для постинга. При approved+fitsLimits Upload-нода подменит
- * placeholder на эти значения.
+ * Счётчики лимитов стоят у самих полей, а не общей плашкой сверху: правят
+ * конкретное поле, и знать, сколько в нём осталось, нужно в момент правки.
+ *
+ * Утвердить можно только то, что укладывается в лимиты — иначе нода публикации
+ * возьмёт заведомо обрезаемый текст.
  */
-
 import type { SocialPlatform } from '~~/shared/types/caption'
 
 interface CaptionRow {
@@ -25,32 +25,39 @@ interface CaptionRow {
   updatedAt: string
 }
 
-const props = defineProps<{
-  videoId: number
-}>()
+const props = defineProps<{ videoId: number }>()
 
-const PLATFORMS: Array<{ value: SocialPlatform; label: string; icon: string }> = [
-  { value: 'tiktok', label: 'TikTok', icon: 'mingcute:tiktok-line' },
-  { value: 'youtube', label: 'YouTube', icon: 'mingcute:youtube-line' },
-  { value: 'instagram', label: 'Instagram', icon: 'mingcute:ins-line' },
+const PLATFORMS: Array<{ value: SocialPlatform, label: string }> = [
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'instagram', label: 'Instagram' },
 ]
 
-const PLATFORM_LIMITS: Record<SocialPlatform, { title: number; hashtagsBudget: number; hashtagsCount?: number }> = {
+const LIMITS: Record<SocialPlatform, { title: number, hashtagsBudget: number, hashtagsCount?: number }> = {
   tiktok: { title: 150, hashtagsBudget: 100, hashtagsCount: 5 },
   youtube: { title: 100, hashtagsBudget: 500, hashtagsCount: 15 },
   instagram: { title: 125, hashtagsBudget: 100, hashtagsCount: 30 },
 }
+
+const toast = useToast()
 
 const captions = ref<CaptionRow[]>([])
 const loading = ref(false)
 const generating = ref(false)
 const errorMessage = ref<string | null>(null)
 const activePlatform = ref<SocialPlatform>('tiktok')
-const newHashtagInput = ref<Record<SocialPlatform, string>>({
-  tiktok: '',
-  youtube: '',
-  instagram: '',
-})
+const newHashtag = ref<Record<SocialPlatform, string>>({ tiktok: '', youtube: '', instagram: '' })
+const pendingDelete = ref<CaptionRow | null>(null)
+
+const byPlatform = computed(() => new Map(captions.value.map(c => [c.platform, c])))
+const hasAny = computed(() => captions.value.length > 0)
+const active = computed(() => byPlatform.value.get(activePlatform.value) ?? null)
+const missing = computed(() => PLATFORMS.filter(p => !byPlatform.value.has(p.value)))
+
+function fail(e: unknown, fallback: string) {
+  errorMessage.value = (e as { statusMessage?: string, message?: string })?.statusMessage
+    ?? (e instanceof Error ? e.message : fallback)
+}
 
 async function load() {
   loading.value = true
@@ -58,29 +65,37 @@ async function load() {
   try {
     const res = await $fetch<{ data: CaptionRow[] }>(`/api/videos/${props.videoId}/captions`)
     captions.value = res.data
-    if (captions.value.length > 0) {
-      const first = captions.value[0]?.platform
-      if (first) activePlatform.value = first
-    }
-  } catch (e: any) {
-    errorMessage.value = e?.statusMessage ?? e?.message ?? 'Не удалось загрузить captions'
-  } finally {
-    loading.value = false
+    const first = captions.value[0]?.platform
+    if (first && !byPlatform.value.has(activePlatform.value)) activePlatform.value = first
   }
+  catch (e) { fail(e, 'Не удалось загрузить описания') }
+  finally { loading.value = false }
 }
 
-const captionByPlatform = computed(() => {
-  const map = new Map<SocialPlatform, CaptionRow>()
-  for (const c of captions.value) map.set(c.platform, c)
-  return map
+function hashtagsLength(tags: string[]): number {
+  return tags.length ? tags.map(h => `#${h}`).join(' ').length : 0
+}
+
+// Счётчики живут подсказкой под полем и краснеют ошибкой при переполнении —
+// отдельной плашки сверху для этого не нужно.
+const titleOverflow = computed(() =>
+  !!active.value && active.value.title.length > LIMITS[active.value.platform].title)
+
+const titleCounter = computed(() => {
+  if (!active.value) return undefined
+  return `${active.value.title.length} из ${LIMITS[active.value.platform].title}`
 })
 
-const hasAnyCaption = computed(() => captions.value.length > 0)
+const hashtagOverflow = computed(() =>
+  !!active.value && hashtagsLength(active.value.hashtags) > LIMITS[active.value.platform].hashtagsBudget)
 
-function calcHashtagsLength(tags: string[]): number {
-  if (tags.length === 0) return 0
-  return tags.map((h) => `#${h}`).join(' ').length
-}
+const hashtagCounter = computed(() => {
+  const c = active.value
+  if (!c) return undefined
+  const limit = LIMITS[c.platform]
+  const count = limit.hashtagsCount ? `${c.hashtags.length} из ${limit.hashtagsCount}` : `${c.hashtags.length}`
+  return `${count} · ${hashtagsLength(c.hashtags)} из ${limit.hashtagsBudget} символов`
+})
 
 async function generateAll() {
   generating.value = true
@@ -91,11 +106,9 @@ async function generateAll() {
       body: { platforms: ['tiktok', 'youtube', 'instagram'], styleVariant: 'viral' },
     })
     await load()
-  } catch (e: any) {
-    errorMessage.value = e?.statusMessage ?? e?.message ?? 'Не удалось сгенерировать captions'
-  } finally {
-    generating.value = false
   }
+  catch (e) { fail(e, 'Не удалось сгенерировать описания') }
+  finally { generating.value = false }
 }
 
 async function regenerateOne(platform: SocialPlatform) {
@@ -107,39 +120,31 @@ async function regenerateOne(platform: SocialPlatform) {
       body: { platforms: [platform] },
     })
     await load()
-  } catch (e: any) {
-    errorMessage.value = e?.statusMessage ?? e?.message ?? 'Не удалось перегенерировать'
-  } finally {
-    generating.value = false
   }
+  catch (e) { fail(e, 'Не удалось перегенерировать') }
+  finally { generating.value = false }
 }
 
 async function saveCaption(c: CaptionRow) {
   try {
     await $fetch(`/api/videos/${props.videoId}/captions/${c.platform}`, {
       method: 'PUT',
-      body: {
-        title: c.title,
-        description: c.description,
-        hashtags: c.hashtags,
-      },
+      body: { title: c.title, description: c.description, hashtags: c.hashtags },
     })
     await load()
-  } catch (e: any) {
-    errorMessage.value = e?.statusMessage ?? e?.message ?? 'Не удалось сохранить'
   }
+  catch (e) { fail(e, 'Не удалось сохранить') }
 }
 
-async function deleteCaption(c: CaptionRow) {
-  if (!confirm(`Удалить caption для ${c.platform}? Upload вернётся к placeholder.`)) return
+async function confirmDelete() {
+  const c = pendingDelete.value
+  if (!c) return
+  pendingDelete.value = null
   try {
-    await $fetch(`/api/videos/${props.videoId}/captions/${c.platform}`, {
-      method: 'DELETE',
-    })
+    await $fetch(`/api/videos/${props.videoId}/captions/${c.platform}`, { method: 'DELETE' })
     await load()
-  } catch (e: any) {
-    errorMessage.value = e?.statusMessage ?? e?.message ?? 'Не удалось удалить'
   }
+  catch (e) { fail(e, 'Не удалось удалить') }
 }
 
 async function toggleApprove(c: CaptionRow) {
@@ -149,282 +154,196 @@ async function toggleApprove(c: CaptionRow) {
       body: { platform: c.platform, approve: !c.approvedAt },
     })
     await load()
-  } catch (e: any) {
-    errorMessage.value = e?.statusMessage ?? e?.message ?? 'Не удалось обновить статус утверждения'
   }
+  catch (e) { fail(e, 'Не удалось изменить утверждение') }
 }
 
-function addHashtag(c: CaptionRow) {
-  const raw = newHashtagInput.value[c.platform].trim().replace(/^#+/, '')
-  if (!raw || raw.includes(' ')) return
-  if (c.hashtags.includes(raw)) return
+async function addHashtag(c: CaptionRow) {
+  const raw = newHashtag.value[c.platform].trim().replace(/^#+/, '')
+  if (!raw || raw.includes(' ') || c.hashtags.includes(raw)) return
   c.hashtags = [...c.hashtags, raw]
-  newHashtagInput.value[c.platform] = ''
-}
-
-function removeHashtag(c: CaptionRow, h: string) {
-  c.hashtags = c.hashtags.filter((x) => x !== h)
-}
-
-async function addHashtagAndSave(c: CaptionRow) {
-  addHashtag(c)
+  newHashtag.value[c.platform] = ''
   await saveCaption(c)
 }
 
-async function removeHashtagAndSave(c: CaptionRow, h: string) {
-  removeHashtag(c, h)
+async function removeHashtag(c: CaptionRow, h: string) {
+  c.hashtags = c.hashtags.filter(x => x !== h)
   await saveCaption(c)
 }
 
 function copyAll(c: CaptionRow) {
-  const text = [
-    c.title,
-    c.description ?? '',
-    '',
-    c.hashtags.map((h) => `#${h}`).join(' '),
-  ]
+  const text = [c.title, c.description ?? '', '', c.hashtags.map(h => `#${h}`).join(' ')]
     .filter(Boolean)
     .join('\n')
-  if (typeof navigator !== 'undefined' && navigator.clipboard) {
-    navigator.clipboard.writeText(text).catch(() => {})
-  }
+  navigator.clipboard?.writeText(text).then(
+    () => toast.success('Описание скопировано'),
+    () => {},
+  )
 }
 
-onMounted(() => {
-  load()
-})
+/** Статус набора в общем словаре: утверждён, не влезает, просто есть. */
+function statusOf(c: CaptionRow) {
+  if (c.approvedAt) return 'done' as const
+  return c.fitsLimits ? ('draft' as const) : ('failed' as const)
+}
+
+onMounted(load)
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 space-y-3">
-      <div class="flex items-center justify-between gap-2 flex-wrap">
-        <h2 class="card-title text-base flex items-center gap-2">
-          <Icon name="mingcute:hashtag-line" class="text-secondary" />
-          Описания и хэштеги
-        </h2>
-        <div class="flex gap-2 items-center">
-          <button
-            v-if="!hasAnyCaption"
-            class="btn btn-sm btn-primary gap-1"
-            :disabled="generating"
-            @click="generateAll"
-          >
-            <span v-if="generating" class="loading loading-spinner loading-xs"></span>
-            <Icon v-else name="mingcute:ai-line" />
-            Сгенерировать AI
-          </button>
-        </div>
-      </div>
+  <div class="flex flex-col gap-3">
+    <UiErrorState v-if="errorMessage" title="Описания" :message="errorMessage" @retry="load" />
 
-      <div v-if="errorMessage" role="alert" class="alert alert-error py-2 text-xs">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ errorMessage }}</span>
-      </div>
+    <UiSkeleton v-if="loading && !hasAny" variant="details" :count="5" />
 
-      <div v-if="loading" class="flex justify-center py-4">
-        <span class="loading loading-spinner loading-md"></span>
-      </div>
+    <UiEmptyState
+      v-else-if="!hasAny"
+      icon="mingcute:hashtag-line"
+      title="Описаний ещё нет"
+      description="Модель соберёт заголовок и хэштеги под каждую площадку из сценария ролика."
+    >
+      <UiButton variant="primary" :loading="generating" @click="generateAll">
+        Сгенерировать
+      </UiButton>
+    </UiEmptyState>
 
-      <div v-else-if="!hasAnyCaption" class="text-center py-6 text-sm text-base-content/60">
-        Captions ещё не сгенерированы. Запустите AI, чтобы получить viral title и хэштеги для соцсетей.
-      </div>
-
-      <div v-else>
-        <!-- Tabs -->
-        <div role="tablist" class="tabs tabs-boxed bg-base-200 mb-3 w-fit">
-          <button
-            v-for="p in PLATFORMS"
-            :key="p.value"
-            role="tab"
-            class="tab gap-1.5"
-            :class="activePlatform === p.value ? 'tab-active' : ''"
-            :disabled="!captionByPlatform.has(p.value)"
-            @click="activePlatform = p.value"
-          >
-            <Icon :name="p.icon" class="text-xs" />
-            <span class="text-xs">{{ p.label }}</span>
-            <span
-              v-if="captionByPlatform.has(p.value)"
-              class="badge badge-xs"
-              :class="
-                captionByPlatform.get(p.value)?.approvedAt
-                  ? 'badge-success'
-                  : captionByPlatform.get(p.value)?.fitsLimits
-                    ? 'badge-ghost'
-                    : 'badge-error'
-              "
-            >
-              {{
-                captionByPlatform.get(p.value)?.approvedAt
-                  ? '✓'
-                  : captionByPlatform.get(p.value)?.fitsLimits
-                    ? '–'
-                    : '!'
-              }}
-            </span>
-          </button>
-        </div>
-
-        <!-- Per-platform editor -->
-        <template v-for="c in captions" :key="c.id">
-          <div v-show="activePlatform === c.platform" class="space-y-3">
-            <!-- Limits warning -->
-            <div v-if="!c.fitsLimits" role="alert" class="alert alert-warning py-2 text-xs">
-              <Icon name="mingcute:alert-fill" />
-              <span>
-                Не укладывается в лимиты {{ c.platform.toUpperCase() }}: title {{ c.charsTitle }}/{{
-                  PLATFORM_LIMITS[c.platform].title
-                }}, хэштеги {{ c.charsHashtagsTotal }}/{{ PLATFORM_LIMITS[c.platform].hashtagsBudget }}
-                символов.
-              </span>
-            </div>
-
-            <!-- Title -->
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend flex items-center justify-between">
-                <span>Title</span>
-                <span
-                  class="text-[10px]"
-                  :class="c.title.length > PLATFORM_LIMITS[c.platform].title ? 'text-error' : 'text-base-content/50'"
-                >
-                  {{ c.title.length }} / {{ PLATFORM_LIMITS[c.platform].title }}
-                </span>
-              </legend>
-              <input
-                v-model="c.title"
-                class="input input-sm w-full"
-                @blur="saveCaption(c)"
-              />
-            </fieldset>
-
-            <!-- Description (для YT/IG) -->
-            <fieldset v-if="c.platform !== 'tiktok'" class="fieldset">
-              <legend class="fieldset-legend">Description</legend>
-              <textarea
-                v-model="c.description"
-                class="textarea textarea-sm w-full"
-                rows="3"
-                placeholder="Опционально"
-                @blur="saveCaption(c)"
-              ></textarea>
-            </fieldset>
-
-            <!-- Hashtags -->
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend flex items-center justify-between">
-                <span>Хэштеги</span>
-                <span
-                  class="text-[10px]"
-                  :class="
-                    calcHashtagsLength(c.hashtags) > PLATFORM_LIMITS[c.platform].hashtagsBudget
-                      ? 'text-error'
-                      : 'text-base-content/50'
-                  "
-                >
-                  {{ c.hashtags.length }}{{
-                    PLATFORM_LIMITS[c.platform].hashtagsCount
-                      ? ` / ${PLATFORM_LIMITS[c.platform].hashtagsCount}`
-                      : ''
-                  }}
-                  · {{ calcHashtagsLength(c.hashtags) }}/{{ PLATFORM_LIMITS[c.platform].hashtagsBudget }} символов
-                </span>
-              </legend>
-              <div class="flex flex-wrap gap-1.5 mb-2">
-                <span
-                  v-for="h in c.hashtags"
-                  :key="h"
-                  class="badge badge-ghost gap-0.5 pr-0.5"
-                >
-                  #{{ h }}
-                  <button
-                    class="size-6 rounded-full inline-flex items-center justify-center text-base-content/40 hover:text-error hover:bg-base-300"
-                    :aria-label="`Удалить хэштег #${h}`"
-                    @click="removeHashtagAndSave(c, h)"
-                  >
-                    <Icon name="mingcute:close-line" class="text-sm" />
-                  </button>
-                </span>
-              </div>
-              <div class="flex gap-2">
-                <input
-                  v-model="newHashtagInput[c.platform]"
-                  type="text"
-                  class="input input-sm flex-1"
-                  placeholder="без # и пробелов"
-                  @keydown.enter.prevent="addHashtagAndSave(c)"
-                />
-                <button
-                  class="btn btn-sm btn-primary"
-                  :disabled="!newHashtagInput[c.platform].trim()"
-                  @click="addHashtagAndSave(c)"
-                >
-                  Добавить
-                </button>
-              </div>
-            </fieldset>
-
-            <!-- Actions -->
-            <div class="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                class="btn btn-sm gap-1"
-                :class="c.approvedAt ? 'btn-success' : 'btn-outline btn-success'"
-                :disabled="!c.fitsLimits && !c.approvedAt"
-                @click="toggleApprove(c)"
-              >
-                <Icon
-                  :name="c.approvedAt ? 'mingcute:check-fill' : 'mingcute:check-line'"
-                />
-                {{ c.approvedAt ? 'Утверждено' : 'Утвердить для постинга' }}
-              </button>
-              <button
-                class="btn btn-sm btn-ghost gap-1"
-                :disabled="generating"
-                @click="regenerateOne(c.platform)"
-              >
-                <span v-if="generating" class="loading loading-spinner loading-xs"></span>
-                <Icon v-else name="mingcute:refresh-2-line" />
-                Сгенерировать заново
-              </button>
-              <button
-                class="btn btn-sm btn-ghost gap-1"
-                @click="copyAll(c)"
-              >
-                <Icon name="mingcute:copy-2-line" />
-                Скопировать
-              </button>
-              <button
-                class="btn btn-sm btn-ghost text-error gap-1"
-                @click="deleteCaption(c)"
-              >
-                <Icon name="mingcute:delete-2-line" />
-                Удалить
-              </button>
-              <span class="text-[10px] text-base-content/40 ml-auto">
-                {{ c.modelVersion }}
-              </span>
-            </div>
-          </div>
-        </template>
-
-        <!-- Generate missing platforms -->
-        <div
-          v-if="captions.length < 3"
-          class="mt-4 pt-3 border-t border-base-200 flex flex-wrap items-center gap-2"
+    <template v-else>
+      <div role="tablist" class="flex gap-0.5 border-b border-divider">
+        <button
+          v-for="p in PLATFORMS"
+          :key="p.value"
+          type="button"
+          role="tab"
+          :aria-selected="activePlatform === p.value"
+          :disabled="!byPlatform.has(p.value)"
+          class="flex h-8 items-center gap-1.5 border-b-2 px-2.5 text-sm"
+          :class="[
+            activePlatform === p.value ? 'border-accent font-medium text-fg' : 'border-transparent text-muted',
+            byPlatform.has(p.value) ? 'cursor-pointer hover:text-fg' : 'cursor-not-allowed text-subtle',
+          ]"
+          @click="activePlatform = p.value"
         >
-          <span class="text-xs text-base-content/60">Сгенерировать для других платформ:</span>
-          <button
-            v-for="p in PLATFORMS.filter((p) => !captionByPlatform.has(p.value))"
-            :key="p.value"
-            class="btn btn-xs btn-outline gap-1"
-            :disabled="generating"
-            @click="regenerateOne(p.value)"
-          >
-            <Icon :name="p.icon" />
-            {{ p.label }}
-          </button>
-        </div>
+          {{ p.label }}
+          <UiStatusBadge
+            v-if="byPlatform.get(p.value)"
+            :status="statusOf(byPlatform.get(p.value)!)"
+            size="xs"
+            dot
+            icon-only
+          />
+        </button>
       </div>
-    </div>
+
+      <template v-if="active">
+        <p
+          v-if="!active.fitsLimits"
+          class="rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm text-warning"
+        >
+          Не укладывается в лимиты {{ PLATFORMS.find(p => p.value === active!.platform)?.label }}:
+          заголовок {{ active.charsTitle }} из {{ LIMITS[active.platform].title }},
+          хэштеги {{ active.charsHashtagsTotal }} из {{ LIMITS[active.platform].hashtagsBudget }} символов.
+          Утвердить такой набор нельзя.
+        </p>
+
+        <UiField
+          label="Заголовок"
+          :hint="titleCounter"
+          :error="titleOverflow ? titleCounter : undefined"
+        >
+          <UiInput v-model="active.title" :invalid="titleOverflow" @blur="saveCaption(active!)" />
+        </UiField>
+
+        <UiField v-if="active.platform !== 'tiktok'" label="Описание">
+          <UiTextarea
+            v-model="active.description"
+            :rows="3"
+            placeholder="Необязательно"
+            @blur="saveCaption(active!)"
+          />
+        </UiField>
+
+        <UiField
+          label="Хэштеги"
+          :hint="hashtagCounter"
+          :error="hashtagOverflow ? hashtagCounter : undefined"
+        >
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              v-for="h in active.hashtags"
+              :key="h"
+              class="inline-flex h-[22px] items-center gap-1 rounded-sm border border-border bg-card pr-1 pl-2 text-sm text-muted"
+            >
+              #{{ h }}
+              <button
+                type="button"
+                class="cursor-pointer text-subtle hover:text-danger"
+                :aria-label="`Удалить хэштег #${h}`"
+                @click="removeHashtag(active!, h)"
+              >
+                <Icon name="mingcute:close-line" />
+              </button>
+            </span>
+            <span v-if="!active.hashtags.length" class="text-sm text-subtle">пока ни одного</span>
+          </div>
+
+          <div class="mt-2 flex gap-2">
+            <UiInput
+              v-model="newHashtag[active.platform]"
+              placeholder="без решётки и пробелов"
+              class="flex-1"
+              @keydown.enter.prevent="addHashtag(active!)"
+            />
+            <UiButton :disabled="!newHashtag[active.platform].trim()" @click="addHashtag(active!)">
+              Добавить
+            </UiButton>
+          </div>
+        </UiField>
+
+        <div class="flex flex-wrap items-center gap-1.5 border-t border-divider pt-2.5">
+          <UiButton
+            :variant="active.approvedAt ? 'primary' : 'secondary'"
+            :disabled="!active.fitsLimits && !active.approvedAt"
+            @click="toggleApprove(active!)"
+          >
+            <Icon name="mingcute:check-line" />
+            {{ active.approvedAt ? 'Утверждено' : 'Утвердить для публикации' }}
+          </UiButton>
+          <UiButton :loading="generating" @click="regenerateOne(active!.platform)">
+            Сгенерировать заново
+          </UiButton>
+          <UiButton variant="ghost" @click="copyAll(active!)">Скопировать</UiButton>
+          <UiButton variant="ghost" @click="pendingDelete = active">Удалить</UiButton>
+          <span class="ml-auto font-mono text-micro text-subtle">{{ active.modelVersion }}</span>
+        </div>
+      </template>
+
+      <div v-if="missing.length" class="flex flex-wrap items-center gap-1.5 border-t border-divider pt-2.5">
+        <span class="text-sm text-muted">Сгенерировать для других площадок:</span>
+        <UiButton
+          v-for="p in missing"
+          :key="p.value"
+          :loading="generating"
+          @click="regenerateOne(p.value)"
+        >
+          {{ p.label }}
+        </UiButton>
+      </div>
+    </template>
+
+    <UiModal
+      :open="pendingDelete !== null"
+      title="Удалить описание?"
+      size="sm"
+      @close="pendingDelete = null"
+    >
+      <p class="text-sm text-muted">
+        Набор для {{ PLATFORMS.find(p => p.value === pendingDelete?.platform)?.label }} будет удалён,
+        и публикация вернётся к заготовке по умолчанию.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="pendingDelete = null">Отмена</UiButton>
+        <UiButton variant="danger" @click="confirmDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>
