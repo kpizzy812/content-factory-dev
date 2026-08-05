@@ -6,11 +6,8 @@ const { user } = useUserSession()
 const colorMode = useColorMode()
 
 const themes = [
-  { value: 'bumblebee', label: 'Bumblebee', dark: false },
-  { value: 'caramelwork', label: 'Caramelwork', dark: false },
-  { value: 'coffee', label: 'Coffee', dark: true },
-  { value: 'nightfly', label: 'Nightfly', dark: true },
-  { value: 'luxury', label: 'Luxury', dark: true },
+  { value: 'dark', label: 'Тёмная', dark: true },
+  { value: 'light', label: 'Светлая', dark: false },
 ]
 
 function setTheme(value: string) {

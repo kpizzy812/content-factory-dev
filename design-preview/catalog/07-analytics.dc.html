@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--color-surface);color:var(--color-text);font-family:var(--font-ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--color-accent-text);text-decoration:none}
+a:hover{color:var(--color-accent-text);text-decoration:underline}
+::selection{background:var(--color-accent-bg)}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+input,button,textarea,select{font:inherit;color:inherit}
+button,select{white-space:nowrap}
+input[type=checkbox],input[type=radio]{accent-color:var(--color-accent)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+:root,[data-theme=dark]{
+--font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+--font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--color-surface:#0c0e10;--color-panel:#111417;--color-card:#16191d;--color-raised:#1d2126;
+--color-border:#272c32;--color-divider:#1e2329;--color-overlay:rgba(4,5,7,.72);
+--color-text:#e7eaed;--color-text-muted:#99a2aa;--color-text-subtle:#69737b;--color-text-inverse:#0c0e10;
+--color-neutral:#99a2aa;--color-neutral-bg:#1b2025;--color-neutral-border:#2b3138;
+--color-info:#74b7e8;--color-info-bg:#11212f;--color-info-border:#21384c;
+--color-success:#5fbe8c;--color-success-bg:#0f2018;--color-success-border:#1e3c2c;
+--color-warning:#e3a944;--color-warning-bg:#241c0d;--color-warning-border:#453419;
+--color-danger:#ec7d70;--color-danger-bg:#26130f;--color-danger-border:#4a231d;
+--radius-sm:3px;--radius-md:5px;--radius-lg:8px;--radius-full:999px;
+--shadow-sm:0 1px 2px rgba(0,0,0,.5);--shadow-md:0 6px 16px rgba(0,0,0,.5);--shadow-lg:0 18px 44px rgba(0,0,0,.55);
+--duration-fast:120ms;--duration-base:160ms;--duration-slow:200ms;
+}
+[data-theme=light]{
+--color-surface:#f5f6f8;--color-panel:#ffffff;--color-card:#ffffff;--color-raised:#ffffff;
+--color-border:#dee2e7;--color-divider:#eaedf0;--color-overlay:rgba(18,22,26,.38);
+--color-text:#15191d;--color-text-muted:#586269;--color-text-subtle:#848d95;--color-text-inverse:#ffffff;
+--color-neutral:#586269;--color-neutral-bg:#eef0f2;--color-neutral-border:#dbdfe3;
+--color-info:#1b6ca4;--color-info-bg:#e9f2fa;--color-info-border:#c3dcef;
+--color-success:#1b7549;--color-success-bg:#e7f4ec;--color-success-border:#c0e1cf;
+--color-warning:#8a5a08;--color-warning-bg:#fbf1dc;--color-warning-border:#eedab0;
+--color-danger:#b03a2b;--color-danger-bg:#fbeae7;--color-danger-border:#f0ccc6;
+--shadow-sm:0 1px 2px rgba(16,22,28,.08);--shadow-md:0 6px 16px rgba(16,22,28,.1);--shadow-lg:0 18px 44px rgba(16,22,28,.16);
+}
+[data-accent=amber]{--color-accent:#f0a63c;--color-accent-hover:#f8b757;--color-accent-active:#d68f2a;--color-accent-bg:#2a2010;--color-accent-border:#4c3818;--color-on-accent:#171003;--color-accent-text:#f0a63c}
+[data-accent=cyan]{--color-accent:#3fb3d6;--color-accent-hover:#5cc5e5;--color-accent-active:#2f9bbb;--color-accent-bg:#0f2530;--color-accent-border:#1c4557;--color-on-accent:#03151c;--color-accent-text:#3fb3d6}
+[data-accent=pine]{--color-accent:#46b384;--color-accent-hover:#5fc699;--color-accent-active:#369a6f;--color-accent-bg:#10251c;--color-accent-border:#1d4433;--color-on-accent:#03150d;--color-accent-text:#46b384}
+[data-theme=light][data-accent=amber]{--color-accent:#c47a08;--color-accent-hover:#ab6a05;--color-accent-active:#8f5804;--color-accent-bg:#fbf0d9;--color-accent-border:#ecd6a8;--color-on-accent:#1a1103;--color-accent-text:#a1660a}
+[data-theme=light][data-accent=cyan]{--color-accent:#1189ad;--color-accent-hover:#0d7191;--color-accent-active:#0a5d78;--color-accent-bg:#e5f2f7;--color-accent-border:#b8dae6;--color-on-accent:#02171e;--color-accent-text:#0d6c8a}
+[data-theme=light][data-accent=pine]{--color-accent:#1d9366;--color-accent-hover:#177853;--color-accent-active:#126345;--color-accent-bg:#e6f4ee;--color-accent-border:#bce0cf;--color-on-accent:#03160f;--color-accent-text:#177650}
+@keyframes cf-sk{0%,100%{opacity:.55}50%{opacity:.95}}
+@keyframes cf-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-surface);color:var(--color-text);padding-bottom:60px">
+
+<div style="position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 24px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+  <div style="display:flex;align-items:center;gap:9px;white-space:nowrap">
+    <div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+    <span style="font-size:14px;font-weight:600">Аналитика и атрибуция</span>
+    <span style="font-size:12px;color:var(--color-text-subtle)">Задача 8</span>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <a href="#n1" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Экран</a>
+    <a href="#n2" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Что сработало</a>
+    <a href="#n3" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Динамика</a>
+    <a href="#n4" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Разбор публикации</a>
+    <a href="#n5" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Состояния</a>
+    <a href="#n6" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Адаптив</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+    <button onClick="{{ setDark }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tDarkBg }};color:{{ tDarkFg }}">Тёмная</button>
+    <button onClick="{{ setLight }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tLightBg }};color:{{ tLightFg }}">Светлая</button>
+  </div>
+</div>
+
+<section id="n1" style="padding:24px;overflow-x:auto">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">1440 × 900</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:900px">Воронка — центральный элемент: восемь стадий от тренда до продажи, у каждой абсолют и конверсия к предыдущей. Проваленная конверсия выделена. Клик по стадии проваливается в список объектов этой стадии с уже применённым фильтром.</span>
+  </div>
+
+  <div style="display:flex;width:1440px;flex:none;height:900px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <!-- component: Sidebar — активная группа раскрыта, остальные свёрнуты -->
+    <div style="width:240px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:9px;height:44px;padding:0 12px;border-bottom:1px solid var(--color-divider);flex:none">
+        <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+        <span style="font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap">ContentFactory</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text-muted);font-size:13px;font-weight:500;margin-bottom:4px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <!-- icon: mingcute:dashboard-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M12 12l4-3"/></svg>
+          Сейчас
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-weight:500" style-hover="background:var(--color-card)">
+          <!-- icon: mingcute:git-branch-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+          Конвейер<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-info);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">7</span>
+        </a>
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:8px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Производство<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+          Тренды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">240</span>
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M9.5 18h5M11 21h2M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>
+          Идеи
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M6 4h8l4 4v12H6zM14 4v4h4"/></svg>
+          Сценарии<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">12</span>
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="9" r="3.2"/><path d="M6 19a6 6 0 0 1 12 0"/></svg>
+          Персонажи
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4l8 4-8 4-8-4 8-4ZM4 13l8 4 8-4"/></svg>
+          Композитор сцен
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m6 17 4-5 3 3 2-2 3 4"/></svg>
+          Креативы
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 7h5l2 2h9v9H4z"/></svg>
+          Google Drive
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="m12 4 2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/></svg>
+          Лучшие промты
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Медиа<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>
+          Видео<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">3</span>
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 18V8m0 0-4 4m4-4 4 4M5 5h14"/></svg>
+          Загрузки
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 12 20 5l-7 15-2-6z"/></svg>
+          Постинг<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">8</span>
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="9" cy="9" r="3"/><path d="M4 19a5 5 0 0 1 10 0M15 7a3 3 0 0 1 0 6"/></svg>
+          Аккаунты<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">2</span>
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="6" rx="2"/><rect x="4" y="13" width="16" height="6" rx="2"/></svg>
+          Прокси
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>
+          Устройства
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Аналитика<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;font-weight:500;position:relative">
+          <div style="position:absolute;left:-8px;top:5px;bottom:5px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+          <!-- icon: mingcute:chart-bar-line -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M5 19V10M12 19V5m7 14v-7"/></svg>
+          Аналитика публикаций
+        </a>
+        <a href="#n1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <!-- icon: mingcute:bookmark-line -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M7 4h10v16l-5-4-5 4z"/></svg>
+          Референсы
+        </a>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Настройки<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">4</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Админ<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">9</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--color-divider);padding:8px">
+        <div style="display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)">
+          <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--font-mono);color:var(--color-text-muted)">ДК</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Дмитрий Кузнецов</div>
+            <div style="font-size:10.5px;color:var(--color-text-subtle)">Оператор</div>
+          </div>
+          <button title="Светлая тема" onClick="{{ setLight }}" style="width:24px;height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <!-- component: TopBar -->
+      <div style="flex:none;display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+        <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;flex:none;white-space:nowrap"><span style="color:var(--color-text-subtle)">Аналитика</span><span style="color:var(--color-text-subtle)">/</span><span style="font-weight:500">Аналитика публикаций</span></div>
+        <div style="flex:0 1 320px;position:relative;cursor:text">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:7px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <div style="height:29px;padding:0 10px 0 30px;display:flex;align-items:center;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--color-text-subtle)">Поиск и команды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;padding:1px 5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface)">⌘K</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:8px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-text-muted)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">7</span> запусков</span>
+          <span style="width:1px;height:14px;background:var(--color-border)"></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-danger)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3</span> алерта</span>
+        </div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:6px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="font-size:11.5px;color:var(--color-text-subtle)">за сутки</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">12 480 ₽</span>
+        </div>
+        <button title="Подсказка по странице" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-size:12.5px">?</button>
+        <button title="Уведомления" style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15zM10.5 19.5a2 2 0 0 0 3 0"/></svg>
+          <span style="position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--color-danger);color:var(--color-text-inverse);font-size:9.5px;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center">4</span>
+        </button>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:12px 18px 18px;display:flex;flex-direction:column;gap:12px">
+
+        <div style="display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap">
+          <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em">Аналитика</h1>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">29 июл — 5 авг</span>
+          <div style="flex:1"></div>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Экспорт</button>
+        </div>
+
+        <!-- component: AnalyticsFilters · период и разрезы -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none">
+          <div style="display:flex;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+            <button style="height:24px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);font-size:11.5px;cursor:pointer">24 ч</button>
+            <button style="height:24px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);font-size:11.5px;cursor:pointer">7 дней</button>
+            <button style="height:24px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);font-size:11.5px;cursor:pointer">30 дней</button>
+            <button style="height:24px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);font-size:11.5px;cursor:pointer">Период…</button>
+          </div>
+          <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Платформа</button>
+          <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Аккаунт</button>
+          <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;cursor:pointer">Язык: RU</button>
+          <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Конвейер</button>
+          <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Приложение</button>
+          <button style="height:30px;padding:0 9px;border:0;background:transparent;color:var(--color-accent-text);font-size:12.5px;cursor:pointer">Сбросить</button>
+        </div>
+
+        <!-- component: AttributionFunnel · сквозная атрибуция по tracking token -->
+        <div style="flex:none;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:9px;padding:9px 14px;background:var(--color-card);border-bottom:1px solid var(--color-border);flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:600">Воронка производства и продаж</span>
+            <span style="font-size:11.5px;color:var(--color-text-subtle)">атрибуция по tracking token · клик по стадии открывает её список</span>
+            <span style="flex:1"></span>
+            <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">1 420 трендов → 118 продаж</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:0;padding:12px 14px 14px">
+            <div style="padding:0 10px 0 0;border-right:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Тренды</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">1 420</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:100%;background:var(--color-neutral-bg);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-subtle);margin-top:5px">импортировано</div>
+            </div>
+            <div style="padding:0 10px;border-right:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Сценарии</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">486</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:34%;background:var(--color-neutral-bg);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-muted);margin-top:5px;font-variant-numeric:tabular-nums">34% трендов</div>
+            </div>
+            <div style="padding:0 10px;border-right:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Ролики</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">1 284</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:90%;background:var(--color-neutral-bg);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-muted);margin-top:5px;font-variant-numeric:tabular-nums">×2,6 варианта</div>
+            </div>
+            <div style="padding:0 10px;border-right:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Публикации</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">1 178</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:83%;background:var(--color-neutral-bg);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-muted);margin-top:5px;font-variant-numeric:tabular-nums">92% роликов</div>
+            </div>
+            <div style="padding:0 10px;border-right:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Просмотры</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">8,4 млн</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:70%;background:var(--color-neutral-bg);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-muted);margin-top:5px;font-variant-numeric:tabular-nums">7 132 на ролик</div>
+            </div>
+            <div style="padding:0 10px;border-right:1px solid var(--color-divider);cursor:pointer;background:var(--color-danger-bg);border-radius:var(--radius-sm)">
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v13m0 0 5-5m-5 5-5-5"/></svg>Переходы</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">24 618</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:14%;background:var(--color-danger);border-radius:2px 2px 0 0;opacity:.8"></span></div>
+              <div style="font-size:10.5px;color:var(--color-danger);margin-top:5px;font-variant-numeric:tabular-nums">CTR 0,29% · норма 0,8%</div>
+            </div>
+            <div style="padding:0 10px;border-right:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Заявки</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">1 042</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:9%;background:var(--color-neutral-bg);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-muted);margin-top:5px;font-variant-numeric:tabular-nums">4,2% переходов</div>
+            </div>
+            <div style="padding:0 0 0 10px;cursor:pointer" style-hover="background:var(--color-card)">
+              <div style="font-size:11px;color:var(--color-text-muted)">Продажи</div>
+              <div style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0 6px">118</div>
+              <div style="height:44px;display:flex;align-items:flex-end"><span style="width:100%;height:6%;background:var(--color-success);border-radius:2px 2px 0 0"></span></div>
+              <div style="font-size:10.5px;color:var(--color-text-muted);margin-top:5px;font-variant-numeric:tabular-nums">11,3% заявок</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;margin:0 14px 12px;padding:9px 11px;background:var(--color-danger-bg);border:1px solid var(--color-danger-border);border-radius:var(--radius-md)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            <div style="font-size:12.5px">Провал на переходах: CTR 0,29% при норме 0,8%. Разрез по хукам ниже показывает, что просели ролики без вопроса в первых 3 секундах — 0,11% против 0,54% у роликов с хуком-болью.</div>
+          </div>
+        </div>
+
+        <!-- component: SummaryKpis · дельта к прошлому периоду -->
+        <div style="flex:none;display:grid;grid-template-columns:repeat(7,1fr);background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+          <div style="padding:10px 12px;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-text-muted)">Опубликовано</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0">1 178</div><div style="font-size:11px;color:var(--color-success);font-variant-numeric:tabular-nums">+11%</div></div>
+          <div style="padding:10px 12px;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-text-muted)">Просмотры</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0">8,4 млн</div><div style="font-size:11px;color:var(--color-success);font-variant-numeric:tabular-nums">+24%</div></div>
+          <div style="padding:10px 12px;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-text-muted)">Средний CTR</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0;color:var(--color-danger)">0,29%</div><div style="font-size:11px;color:var(--color-danger);font-variant-numeric:tabular-nums">−0,14 пп</div></div>
+          <div style="padding:10px 12px;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-text-muted)">Переходы</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0">24 618</div><div style="font-size:11px;color:var(--color-success);font-variant-numeric:tabular-nums">+6%</div></div>
+          <div style="padding:10px 12px;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-text-muted)">Заявки</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0">1 042</div><div style="font-size:11px;color:var(--color-success);font-variant-numeric:tabular-nums">+9%</div></div>
+          <div style="padding:10px 12px;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-text-muted)">Стоимость заявки</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0">46,80 ₽</div><div style="font-size:11px;color:var(--color-success);font-variant-numeric:tabular-nums">−8%</div></div>
+          <div style="padding:10px 12px"><div style="font-size:11px;color:var(--color-text-muted)">Стоимость ролика</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;margin:2px 0">38,20 ₽</div><div style="font-size:11px;color:var(--color-warning);font-variant-numeric:tabular-nums">+3%</div></div>
+          <div style="grid-column:1 / -1;padding:6px 12px;border-top:1px solid var(--color-divider);font-size:11px;color:var(--color-text-subtle)">Заявки и продажи — по последнему касанию: сходится с CRM. Рейтинги ниже по умолчанию считаются по первому.</div>
+        </div>
+
+        <!-- component: TopVideos + разрез по аккаунтам -->
+        <div style="flex:none;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;align-items:start">
+          <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border)"><span style="font-size:13px;font-weight:600">Топ роликов по заявкам</span><span style="flex:1"></span><a href="#n2" style="font-size:11.5px">Все рейтинги</a></div>
+            <div style="display:grid;grid-template-columns:26px 36px minmax(0,1fr) 84px 74px 64px;column-gap:10px;align-items:center;height:40px;padding:0 12px;border-bottom:1px solid var(--color-divider)">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">1</span>
+              <span style="width:30px;height:30px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px)"></span>
+              <span style="min-width:0"><span style="display:block;font-size:12px;overflow:hidden;white-space:nowrap;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф в нишу за 30 секунд · вариант B</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">vid_10842 · @zavod.mebel.ru</span></span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">118 044</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">384</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">31</span>
+            </div>
+            <div style="display:grid;grid-template-columns:26px 36px minmax(0,1fr) 84px 74px 64px;column-gap:10px;align-items:center;height:40px;padding:0 12px;border-bottom:1px solid var(--color-divider)">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">2</span>
+              <span style="width:30px;height:30px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px)"></span>
+              <span style="min-width:0"><span style="display:block;font-size:12px;overflow:hidden;white-space:nowrap;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">3 ошибки при замере кухни</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">vid_10839 · @kuhni.optom</span></span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">96 210</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">352</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">27</span>
+            </div>
+            <div style="display:grid;grid-template-columns:26px 36px minmax(0,1fr) 84px 74px 64px;column-gap:10px;align-items:center;height:40px;padding:0 12px;border-bottom:1px solid var(--color-divider)">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">3</span>
+              <span style="width:30px;height:30px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px)"></span>
+              <span style="min-width:0"><span style="display:block;font-size:12px;overflow:hidden;white-space:nowrap;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф под лестницей: замер по месту</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">vid_10804 · @mebel_pro</span></span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">88 460</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">296</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">19</span>
+            </div>
+            <div style="display:grid;grid-template-columns:26px 36px minmax(0,1fr) 84px 74px 64px;column-gap:10px;align-items:center;height:28px;padding:0 12px;background:var(--color-card);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)"><span></span><span></span><span></span><span style="text-align:right">просмотры</span><span style="text-align:right">переходы</span><span style="text-align:right">заявки</span></div>
+          </div>
+          <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border)"><span style="font-size:13px;font-weight:600">Заявки по аккаунтам</span><span style="flex:1"></span><span style="font-size:11px;color:var(--color-text-subtle)">за 7 дней</span></div>
+            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 44px;column-gap:10px;align-items:center;font-size:12px"><span style="font-family:var(--font-mono);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">@zavod.mebel.ru</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:100%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">402</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 44px;column-gap:10px;align-items:center;font-size:12px"><span style="font-family:var(--font-mono);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">@kuhni.optom</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:78%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">314</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 44px;column-gap:10px;align-items:center;font-size:12px"><span style="font-family:var(--font-mono);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">@mebel.optom</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:52%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">208</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 44px;column-gap:10px;align-items:center;font-size:12px"><span style="font-family:var(--font-mono);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">@mebel.shorts</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:29%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">118</span></div>
+              <div style="height:1px;background:var(--color-divider);margin:2px 0"></div>
+              <div style="display:flex;gap:12px;font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;flex-wrap:wrap"><span>RU · 894 заявки</span><span>KZ · 102</span><span>BY · 46</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="n2" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Что сработало · рейтинги</h2>
+    <div style="display:flex;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+      <button style="height:22px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);font-size:11.5px;cursor:pointer">По первому касанию</button>
+      <button style="height:22px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:11.5px;cursor:pointer">По последнему</button>
+    </div>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">Рейтинги хуков, трендов и источников — по первому касанию: last touch перекладывает заслугу на пост с лид-магнитом и занижает хук, который человека привёл. Деньги в KPI — по последнему, как в CRM.</span>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:13px;font-weight:600">Топ хуков и сценарных приёмов</div>
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:9px">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 108px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Боль с доставкой, вопрос в лоб</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:100%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,54%</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 108px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Цена против цены (40 тыс / 400 тыс)</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:76%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,41%</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 108px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Ошибка, из-за которой переделывают</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:63%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,34%</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 108px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Таймлапс сборки без слов</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:33%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,18%</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 108px 58px;column-gap:10px;align-items:center;font-size:12px;color:var(--color-danger)"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Без хука в первых 3 секундах</span><span style="height:8px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:20%;height:100%;background:var(--color-danger)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,11%</span></div>
+        <div style="font-size:11px;color:var(--color-text-subtle);padding-top:3px;border-top:1px solid var(--color-divider)">CTR перехода по токену · один цвет, отклонение — красным</div>
+      </div>
+    </div>
+
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:13px;font-weight:600">Топ источников трендов</div>
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:9px">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 76px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">TikTok RU · ниша мебель</span><span style="text-align:right;font-family:var(--font-mono);color:var(--color-text-muted);font-variant-numeric:tabular-nums">468 трендов</span><span style="text-align:right;font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums">61 продажа</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 76px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Instagram Reels · кухни</span><span style="text-align:right;font-family:var(--font-mono);color:var(--color-text-muted);font-variant-numeric:tabular-nums">392</span><span style="text-align:right;font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums">34</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 76px 58px;column-gap:10px;align-items:center;font-size:12px"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">YouTube Shorts · обзоры</span><span style="text-align:right;font-family:var(--font-mono);color:var(--color-text-muted);font-variant-numeric:tabular-nums">324</span><span style="text-align:right;font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums">17</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 76px 58px;column-gap:10px;align-items:center;font-size:12px;color:var(--color-text-muted)"><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Внутренняя статистика · повторы</span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">236</span><span style="text-align:right;font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums">6</span></div>
+        <div style="font-size:11px;color:var(--color-text-subtle);padding-top:3px;border-top:1px solid var(--color-divider)">Сортировка по продажам, не по числу трендов: 468 трендов дали 61 продажу, 236 — только 6</div>
+      </div>
+    </div>
+
+    <!-- component: AbCompare · отдельная ценность продукта -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-accent-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--color-accent-bg);border-bottom:1px solid var(--color-accent-border)"><span style="font-size:13px;font-weight:600">A/B · сценарий scr_4471</span><span style="flex:1"></span><span style="font-size:11px;color:var(--color-text-muted)">Шкаф в нишу за 30 секунд</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--color-divider)">
+        <div style="padding:10px 12px;border-right:1px solid var(--color-divider)">
+          <div style="display:flex;align-items:center;gap:7px"><span style="font-family:var(--font-mono);font-size:12px;font-weight:600">A</span><span style="font-size:11px;color:var(--color-text-muted)">хук: инструкция не нужна</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:12px">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--color-text-muted)">Просмотры</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">64 020</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--color-text-muted)">CTR</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,22%</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--color-text-muted)">Заявки</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">9</span></div>
+          </div>
+        </div>
+        <div style="padding:10px 12px;background:var(--color-success-bg)">
+          <div style="display:flex;align-items:center;gap:7px"><span style="font-family:var(--font-mono);font-size:12px;font-weight:600">B</span><span style="font-size:11px;color:var(--color-text-muted)">хук: боль с доставкой</span><span style="flex:1"></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></div>
+          <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:12px">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--color-text-muted)">Просмотры</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">118 044</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--color-text-muted)">CTR</span><span style="font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums">0,33%</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--color-text-muted)">Заявки</span><span style="font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums">31</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:9px 12px;font-size:11.5px;color:var(--color-text-muted)">B даёт в 3,4 раза больше заявок при равных условиях показа. Различие только в хуке — обе версии на одном тренде, персонаже и аккаунтах.</div>
+    </div>
+  </div>
+</section>
+
+<section id="n3" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Динамика во времени</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">Один показатель на графике, переключение сверху. Отметки под осью — дни с массовыми публикациями: всплеск просмотров читается вместе со своей причиной.</span>
+  </div>
+  <div style="max-width:1180px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);flex-wrap:wrap">
+      <div style="display:flex;padding:2px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+        <button style="height:22px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);font-size:11.5px;cursor:pointer">Просмотры</button>
+        <button style="height:22px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Переходы</button>
+        <button style="height:22px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Заявки</button>
+        <button style="height:22px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Стоимость заявки</button>
+      </div>
+      <span style="flex:1"></span>
+      <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:11px;color:var(--color-text-muted)"><span style="width:10px;height:8px;border-radius:2px;background:var(--color-accent)"></span>просмотры, тыс.<span style="width:8px;height:8px;border-radius:50%;background:var(--color-info);margin-left:8px"></span>публикации за день</span>
+    </div>
+    <div style="padding:14px 16px 10px">
+      <div style="display:flex;gap:8px">
+        <div style="display:flex;flex-direction:column;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:right;padding:0 2px 22px 0;font-variant-numeric:tabular-nums"><span>1 600</span><span>1 200</span><span>800</span><span>400</span><span>0</span></div>
+        <div style="flex:1;display:flex;align-items:stretch;gap:6px;height:180px">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:0"><span title="29 июл · 918 тыс" style="height:57%;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.55"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">29</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info);opacity:.5"></span></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><span title="30 июл · 1 040 тыс" style="height:65%;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.55"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">30</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info);opacity:.5"></span></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><span title="31 июл · 872 тыс" style="height:54%;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.55"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">31</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info);opacity:.3"></span></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><span title="1 авг · 1 210 тыс" style="height:76%;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.55"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">1</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><span title="2 авг · 1 480 тыс" style="height:92%;background:var(--color-accent);border-radius:2px 2px 0 0"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">2</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+            <span style="position:absolute;top:-4px;left:50%;transform:translateX(-50%);padding:3px 7px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);font-family:var(--font-mono);font-size:10.5px;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:3">3 авг · 1 590 тыс · 212 публ.</span>
+            <span title="3 авг · 1 590 тыс" style="height:99%;background:var(--color-accent);border-radius:2px 2px 0 0"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text)">3</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span></span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><span title="4 авг · 1 310 тыс" style="height:82%;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.55"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">4</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info);opacity:.5"></span></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><span title="5 авг · 986 тыс, день не закончен" style="height:61%;background:repeating-linear-gradient(135deg,var(--color-accent) 0 5px,transparent 5px 9px);border-radius:2px 2px 0 0;opacity:.55"></span><span style="height:22px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle)">5</span><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info);opacity:.4"></span></span></div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--color-text-subtle);margin-top:6px">Сегодняшний день заштрихован — данные неполные. Значение и число публикаций — при наведении на столбец.</div>
+    </div>
+  </div>
+</section>
+
+<section id="n4" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Разбор одной публикации</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">Полная цепочка происхождения от тренда до продажи. Открывается кликом по ролику в любом рейтинге.</span>
+  </div>
+  <div style="max-width:1180px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--color-card);border-bottom:1px solid var(--color-border);flex-wrap:wrap">
+      <span style="font-size:13.5px;font-weight:600;min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф в нишу за 30 секунд · вариант B · Reels</span>
+      <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:22px;padding:0 8px;border-radius:var(--radius-sm);background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text-muted);font-family:var(--font-mono);font-size:11.5px;cursor:pointer">tt_9f42c1a8b7<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg></span>
+      <span style="flex:1"></span>
+      <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">опубликовано 2 авг, 14:02</span>
+    </div>
+    <!-- component: TouchChain · сшивка по messengerUserId, нижняя оценка -->
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--color-divider);background:var(--color-card);flex-wrap:wrap;font-size:12px">
+      <span style="color:var(--color-text-muted)">Касаний до заявки:</span>
+      <span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3</span>
+      <span style="color:var(--color-text-subtle)">·</span>
+      <span style="color:var(--color-text-muted)">первое</span><span style="font-variant-numeric:tabular-nums">28 июл, тренд «Как за 30 секунд собрать шкаф»</span>
+      <span style="color:var(--color-text-subtle)">·</span>
+      <span style="color:var(--color-text-muted)">последнее</span><span style="font-variant-numeric:tabular-nums">2 авг, эта публикация</span>
+      <button style="height:22px;padding:0 8px;border:0;background:transparent;color:var(--color-accent-text);font-size:12px;cursor:pointer">Развернуть цепочку</button>
+      <span style="flex:1"></span>
+      <span style="font-size:11px;color:var(--color-text-subtle)">нижняя оценка: сшивается только опознанный messengerUserId</span>
+    </div>
+    <!-- component: OriginChain -->
+    <div style="display:flex;align-items:stretch;gap:8px;padding:12px 14px;overflow-x:auto;border-bottom:1px solid var(--color-divider)">
+      <div style="min-width:150px;flex:1;padding:9px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer" style-hover="border-color:var(--color-text-subtle)">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Тренд</div>
+        <div style="font-size:12px;margin-top:3px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Как за 30 секунд собрать шкаф</div>
+        <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px;font-variant-numeric:tabular-nums">TikTok · virality 84</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none;align-self:center"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+      <div style="min-width:150px;flex:1;padding:9px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer" style-hover="border-color:var(--color-text-subtle)">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Сценарий</div>
+        <div style="font-size:12px;margin-top:3px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">scr_4471 · вариант B</div>
+        <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px;font-variant-numeric:tabular-nums">хук: боль с доставкой · критик 7,2</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none;align-self:center"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+      <div style="min-width:150px;flex:1;padding:9px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer" style-hover="border-color:var(--color-text-subtle)">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Ролик</div>
+        <div style="font-size:12px;margin-top:3px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">vid_10842 · 82 сек</div>
+        <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px;font-variant-numeric:tabular-nums">Мастер Игорь · 41,20 ₽</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none;align-self:center"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+      <div style="min-width:150px;flex:1;padding:9px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer" style-hover="border-color:var(--color-text-subtle)">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Публикация</div>
+        <div style="font-size:12px;margin-top:3px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">@zavod.mebel.ru · Reels</div>
+        <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px;font-variant-numeric:tabular-nums">118 044 просм. · 384 перехода</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none;align-self:center"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+      <div style="min-width:150px;flex:1;padding:9px 10px;background:var(--color-success-bg);border:1px solid var(--color-success-border);border-radius:var(--radius-md);cursor:pointer">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-success)">Результат</div>
+        <div style="font-size:12px;margin-top:3px">31 заявка · 4 продажи</div>
+        <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px;font-variant-numeric:tabular-nums">лид-магнит: Чек-лист замера</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:0">
+      <div style="padding:12px 14px;border-right:1px solid var(--color-divider)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:8px">Метрики по дням после публикации</div>
+        <div style="display:flex;align-items:flex-end;gap:5px;height:88px">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><span style="height:78px;background:var(--color-accent);border-radius:2px 2px 0 0"></span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center">2</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><span style="height:52px;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.7"></span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center">3</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><span style="height:26px;background:var(--color-accent);border-radius:2px 2px 0 0;opacity:.55"></span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center">4</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px"><span style="height:12px;background:repeating-linear-gradient(135deg,var(--color-accent) 0 4px,transparent 4px 7px);border-radius:2px 2px 0 0;opacity:.55"></span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center">5</span></div>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;flex-wrap:wrap"><span>80% просмотров — в первые 36 часов</span><span>последняя заявка — 5 авг, 09:12</span></div>
+      </div>
+      <div style="padding:12px 14px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:8px">Комментарии и Direct</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;gap:9px;font-size:12px"><span style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border)"></span><span><span style="color:var(--color-text-muted);font-family:var(--font-mono);font-size:11px">@irina.k</span> · А в нишу 82 см встанет? Сколько ждать?</span></div>
+          <div style="display:flex;gap:9px;font-size:12px"><span style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border)"></span><span><span style="color:var(--color-text-muted);font-family:var(--font-mono);font-size:11px">Direct · bot</span> · Отдали чек-лист замера, взяли телефон → заявка #1042 <span style="display:inline-flex;align-items:center;white-space:nowrap;height:17px;padding:0 5px;border-radius:var(--radius-sm);font-size:10.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success);vertical-align:-3px">продажа</span></span></div>
+          <div style="display:flex;gap:9px;font-size:12px;color:var(--color-text-muted)"><span style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border)"></span><span><span style="font-family:var(--font-mono);font-size:11px">@dmitry_v</span> · Цена вопроса?</span></div>
+          <a href="#n4" style="font-size:11.5px">Все 96 комментариев и 14 диалогов</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="n5" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Состояния графиков</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Недостаточно данных</div>
+      <div style="padding:22px 16px;text-align:center">
+        <div style="display:flex;align-items:flex-end;gap:4px;height:44px;width:110px;margin:0 auto 12px;opacity:.35"><span style="flex:1;height:30%;background:var(--color-neutral-bg);border-radius:2px"></span><span style="flex:1;height:55%;background:var(--color-neutral-bg);border-radius:2px"></span><span style="flex:1;height:20%;background:var(--color-neutral-bg);border-radius:2px"></span><span style="flex:1;height:0"></span><span style="flex:1;height:0"></span><span style="flex:1;height:0"></span></div>
+        <div style="font-size:13px;font-weight:500">Мало данных для графика</div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin:4px auto 0;max-width:320px">По фильтру «KZ + YouTube» всего 3 публикации за период. График появится от 7 точек — расширьте период или снимите фильтр платформы.</div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Загрузка · скелетон блоков</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px;animation:cf-sk 1.4s ease-in-out infinite"><span style="flex:1;height:52px;border-radius:var(--radius-sm);background:var(--color-card)"></span><span style="flex:1;height:52px;border-radius:var(--radius-sm);background:var(--color-card)"></span><span style="flex:1;height:52px;border-radius:var(--radius-sm);background:var(--color-card)"></span><span style="flex:1;height:52px;border-radius:var(--radius-sm);background:var(--color-card)"></span></div>
+        <div style="height:110px;border-radius:var(--radius-sm);background:var(--color-card);animation:cf-sk 1.4s ease-in-out .15s infinite"></div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle)">Каждый блок грузится отдельно: воронка не ждёт рейтингов.</div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-warning-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-warning-bg);border-bottom:1px solid var(--color-warning-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-warning)">Частичная ошибка</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:9px">
+        <div style="font-size:12.5px">Продажи из CRM не загрузились: amoCRM вернул 502. Воронка показана до стадии «Заявки», стадия «Продажи» помечена, остальные блоки актуальны.</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+          <span style="font-size:11px;color:var(--color-text-muted)">Продажи</span>
+          <span style="font-family:var(--font-mono);font-size:14px;color:var(--color-text-subtle)">—</span>
+          <span style="flex:1"></span>
+          <button style="height:24px;padding:0 9px;border:1px solid var(--color-warning-border);border-radius:var(--radius-sm);background:var(--color-panel);color:var(--color-text);font-size:11.5px;cursor:pointer">Повторить только CRM</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle)">Числа из недоступного источника не подменяются нулями — ноль и «нет данных» значат разное.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="n6" style="padding:24px 24px 40px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Планшет 1024 и телефон 390</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">На 1024 воронка 8 стадий скроллится горизонтально внутри своего блока, KPI переносятся в две строки. На 390 воронка становится вертикальным списком стадий — руководитель смотрит с телефона именно её.</span>
+  </div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">390 · воронка вертикально</div>
+      <div style="width:390px;height:560px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;gap:9px;height:48px;padding:0 12px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+          <button title="Меню" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <span style="font-size:14px;font-weight:600;flex:1">Аналитика</span>
+          <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-subtle)">7 дней</span>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none">
+            <div style="padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md)"><div style="font-size:10.5px;color:var(--color-text-muted)">Заявки</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums">1 042</div><div style="font-size:10.5px;color:var(--color-success);font-variant-numeric:tabular-nums">+9%</div></div>
+            <div style="padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md)"><div style="font-size:10.5px;color:var(--color-text-muted)">Стоимость заявки</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums">46,80 ₽</div><div style="font-size:10.5px;color:var(--color-success);font-variant-numeric:tabular-nums">−8%</div></div>
+          </div>
+          <div style="flex:none;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:10px;display:flex;flex-direction:column;gap:6px">
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Тренды</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:100%;height:100%;background:var(--color-neutral-bg)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">1 420</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Сценарии</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:34%;height:100%;background:var(--color-neutral-bg)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">486</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Ролики</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:90%;height:100%;background:var(--color-neutral-bg)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">1 284</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Публикации</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:83%;height:100%;background:var(--color-neutral-bg)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">1 178</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Просмотры</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:70%;height:100%;background:var(--color-neutral-bg)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">8,4 млн</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px;color:var(--color-danger)"><span>Переходы</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:14%;height:100%;background:var(--color-danger)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">24 618</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Заявки</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:9%;height:100%;background:var(--color-neutral-bg)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">1 042</span></div>
+            <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 62px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Продажи</span><span style="height:10px;border-radius:2px;background:var(--color-card);overflow:hidden"><span style="display:block;width:6%;height:100%;background:var(--color-success)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">118</span></div>
+            <div style="font-size:11px;color:var(--color-danger);padding-top:4px;border-top:1px solid var(--color-divider)">Провал: CTR 0,29% при норме 0,8%</div>
+          </div>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);text-align:center;flex:none">Рейтинги и разбор публикации — с компьютера</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:280px;max-width:520px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px;font-size:12px;color:var(--color-text-muted);line-height:1.6">
+      <div style="font-size:13px;font-weight:600;color:var(--color-text);margin-bottom:8px">Правила графиков в системе</div>
+      Максимум пять категориальных цветов; в этом разделе фактически два — акцент для основного показателя и info для наложения публикаций, отклонения красным.
+      <div style="height:8px"></div>
+      Значения — при наведении, оси подписаны, незавершённый день заштрихован. Ноль и «нет данных» никогда не смешиваются: недоступный источник показывает прочерк и кнопку повтора, а не нулевую полосу.
+      <div style="height:8px"></div>
+      Все цвета берутся из статусных токенов — в светлой теме графики перекрашиваются сами и остаются различимыми.
+    </div>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultAccent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amber&quot;,&quot;cyan&quot;,&quot;pine&quot;],&quot;default&quot;:&quot;amber&quot;,&quot;tsType&quot;:&quot;'amber'|'cyan'|'pine'&quot;,&quot;section&quot;:&quot;Тема&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Тема&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.defaultTheme ?? 'dark', accent: this.props.defaultAccent ?? 'amber' };
+  componentDidMount(){ this.apply(); }
+  componentDidUpdate(){ this.apply(); }
+  apply(){
+    const r = document.documentElement;
+    r.dataset.theme = this.state.theme;
+    r.dataset.accent = this.state.accent;
+  }
+  renderVals(){
+    const s = this.state, on = 'var(--color-raised)';
+    return {
+      setDark: () => this.setState({ theme: 'dark' }),
+      setLight: () => this.setState({ theme: 'light' }),
+      tDarkBg: s.theme === 'dark' ? on : 'transparent',
+      tDarkFg: s.theme === 'dark' ? 'var(--color-text)' : 'var(--color-text-muted)',
+      tLightBg: s.theme === 'light' ? on : 'transparent',
+      tLightFg: s.theme === 'light' ? 'var(--color-text)' : 'var(--color-text-muted)'
+    };
+  }
+}
+</script>
+</body>
+</html>

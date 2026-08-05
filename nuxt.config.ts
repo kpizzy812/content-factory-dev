@@ -60,9 +60,12 @@ export default defineNuxtConfig({
     mode: "svg",
   },
 
+  // Одна фирменная тема в двух режимах. Пять тем DaisyUI убраны вместе с ним.
+  // dataValue: "theme" ставит на <html> атрибут data-theme, на который завязаны
+  // токены в app/assets/css/main.css.
   colorMode: {
-    preference: "bumblebee",
-    fallback: "bumblebee",
+    preference: "dark",
+    fallback: "dark",
     dataValue: "theme",
     classSuffix: "",
     storageKey: "nuxt-color-mode",

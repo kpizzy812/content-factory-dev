@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--color-surface);color:var(--color-text);font-family:var(--font-ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--color-accent-text);text-decoration:none}
+a:hover{color:var(--color-accent-text);text-decoration:underline}
+::selection{background:var(--color-accent-bg)}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+input,button,textarea,select{font:inherit;color:inherit}
+button,select{white-space:nowrap}
+input[type=checkbox],input[type=radio]{accent-color:var(--color-accent)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+:root,[data-theme=dark]{
+--font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+--font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--color-surface:#0c0e10;--color-panel:#111417;--color-card:#16191d;--color-raised:#1d2126;
+--color-border:#272c32;--color-divider:#1e2329;--color-overlay:rgba(4,5,7,.72);
+--color-text:#e7eaed;--color-text-muted:#99a2aa;--color-text-subtle:#69737b;--color-text-inverse:#0c0e10;
+--color-neutral:#99a2aa;--color-neutral-bg:#1b2025;--color-neutral-border:#2b3138;
+--color-info:#74b7e8;--color-info-bg:#11212f;--color-info-border:#21384c;
+--color-success:#5fbe8c;--color-success-bg:#0f2018;--color-success-border:#1e3c2c;
+--color-warning:#e3a944;--color-warning-bg:#241c0d;--color-warning-border:#453419;
+--color-danger:#ec7d70;--color-danger-bg:#26130f;--color-danger-border:#4a231d;
+--cat-src:#4a6072;--cat-prod:#5d4c62;--cat-ctrl:#5e563e;--cat-out:#3f5a4d;--cat-util:#4a5057;
+--canvas-dot:#1c2126;
+--radius-sm:3px;--radius-md:5px;--radius-lg:8px;--radius-full:999px;
+--shadow-sm:0 1px 2px rgba(0,0,0,.5);--shadow-md:0 6px 16px rgba(0,0,0,.5);--shadow-lg:0 18px 44px rgba(0,0,0,.55);
+--duration-fast:120ms;--duration-base:160ms;--duration-slow:200ms;
+}
+[data-theme=light]{
+--color-surface:#f5f6f8;--color-panel:#ffffff;--color-card:#ffffff;--color-raised:#ffffff;
+--color-border:#dee2e7;--color-divider:#eaedf0;--color-overlay:rgba(18,22,26,.38);
+--color-text:#15191d;--color-text-muted:#586269;--color-text-subtle:#848d95;--color-text-inverse:#ffffff;
+--color-neutral:#586269;--color-neutral-bg:#eef0f2;--color-neutral-border:#dbdfe3;
+--color-info:#1b6ca4;--color-info-bg:#e9f2fa;--color-info-border:#c3dcef;
+--color-success:#1b7549;--color-success-bg:#e7f4ec;--color-success-border:#c0e1cf;
+--color-warning:#8a5a08;--color-warning-bg:#fbf1dc;--color-warning-border:#eedab0;
+--color-danger:#b03a2b;--color-danger-bg:#fbeae7;--color-danger-border:#f0ccc6;
+--cat-src:#8fa6b6;--cat-prod:#a794ad;--cat-ctrl:#a99b74;--cat-out:#89ab9c;--cat-util:#9aa2ab;
+--canvas-dot:#dfe3e8;
+--shadow-sm:0 1px 2px rgba(16,22,28,.08);--shadow-md:0 6px 16px rgba(16,22,28,.1);--shadow-lg:0 18px 44px rgba(16,22,28,.16);
+}
+[data-accent=amber]{--color-accent:#f0a63c;--color-accent-hover:#f8b757;--color-accent-active:#d68f2a;--color-accent-bg:#2a2010;--color-accent-border:#4c3818;--color-on-accent:#171003;--color-accent-text:#f0a63c}
+[data-accent=cyan]{--color-accent:#3fb3d6;--color-accent-hover:#5cc5e5;--color-accent-active:#2f9bbb;--color-accent-bg:#0f2530;--color-accent-border:#1c4557;--color-on-accent:#03151c;--color-accent-text:#3fb3d6}
+[data-accent=pine]{--color-accent:#46b384;--color-accent-hover:#5fc699;--color-accent-active:#369a6f;--color-accent-bg:#10251c;--color-accent-border:#1d4433;--color-on-accent:#03150d;--color-accent-text:#46b384}
+[data-theme=light][data-accent=amber]{--color-accent:#c47a08;--color-accent-hover:#ab6a05;--color-accent-active:#8f5804;--color-accent-bg:#fbf0d9;--color-accent-border:#ecd6a8;--color-on-accent:#1a1103;--color-accent-text:#a1660a}
+[data-theme=light][data-accent=cyan]{--color-accent:#1189ad;--color-accent-hover:#0d7191;--color-accent-active:#0a5d78;--color-accent-bg:#e5f2f7;--color-accent-border:#b8dae6;--color-on-accent:#02171e;--color-accent-text:#0d6c8a}
+[data-theme=light][data-accent=pine]{--color-accent:#1d9366;--color-accent-hover:#177853;--color-accent-active:#126345;--color-accent-bg:#e6f4ee;--color-accent-border:#bce0cf;--color-on-accent:#03160f;--color-accent-text:#177650}
+@keyframes cf-sk{0%,100%{opacity:.55}50%{opacity:.95}}
+@keyframes cf-run{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+@keyframes cf-spin{to{transform:rotate(360deg)}}
+@keyframes cf-dash{to{stroke-dashoffset:-16}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-surface);color:var(--color-text);padding-bottom:60px">
+
+<div style="position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 24px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+  <div style="display:flex;align-items:center;gap:9px;white-space:nowrap">
+    <div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+    <span style="font-size:14px;font-weight:600">Редактор конвейера</span>
+    <span style="font-size:12px;color:var(--color-text-subtle)">Задача 5</span>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <a href="#p1" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Редактор</a>
+    <a href="#p2" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Категория и статус</a>
+    <a href="#p3" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Панель ноды</a>
+    <a href="#p4" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Пустой канвас</a>
+    <a href="#p5" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Меню и связи</a>
+    <a href="#p6" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Хоткеи</a>
+    <a href="#p7" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Адаптив</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+    <button onClick="{{ setDark }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tDarkBg }};color:{{ tDarkFg }}">Тёмная</button>
+    <button onClick="{{ setLight }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tLightBg }};color:{{ tLightFg }}">Светлая</button>
+  </div>
+</div>
+
+<section id="p1" style="padding:24px;overflow-x:auto">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">1440 × 900 · без внешних отступов</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:900px">Тулбар, палитра нод, канвас, панель конфигурации. Категория ноды — приглушённая полоса слева 3 px и тон иконки в палитре; статус — полная насыщенность на рамке и бейдже, всегда перебивает категорию.</span>
+  </div>
+
+  <!-- component: PipelineEditor -->
+  <div style="width:1440px;flex:none;height:900px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column">
+
+    <!-- component: EditorToolbar -->
+    <div style="flex:none;display:flex;align-items:center;gap:9px;height:46px;padding:0 12px;background:var(--color-panel);border-bottom:1px solid var(--color-border);flex-wrap:nowrap">
+      <button title="К списку конвейеров" style="width:28px;height:28px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></button>
+      <span style="display:inline-flex;align-items:center;gap:7px;min-width:0;flex:1 1 auto;padding:2px 7px;border:1px solid transparent;border-radius:var(--radius-md);cursor:text" style-hover="border-color:var(--color-border);background:var(--color-card)">
+        <span style="font-size:14px;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Тренд → сценарий → видео → Reels</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>
+      </span>
+      <span style="display:flex;gap:5px;flex:none">
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text-muted);font-size:11px">мебель</span>
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text-muted);font-size:11px">RU</span>
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 6px;border-radius:var(--radius-full);border:1px dashed var(--color-border);color:var(--color-text-subtle);font-size:11px;cursor:pointer">＋</span>
+      </span>
+      <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success);flex:none"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>Активен</span>
+      <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);color:var(--color-text);flex:none"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent)"></span>не сохранено</span>
+      <div style="flex:1;min-width:8px"></div>
+      <div style="display:flex;align-items:center;gap:2px;flex:none;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+        <button title="Отменить · Ctrl+Z" style="width:24px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 10h9a4 4 0 0 1 0 8H9m-5-8 4-4m-4 4 4 4"/></svg></button>
+        <button title="Повторить · Ctrl+Shift+Z" style="width:24px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 10h-9a4 4 0 0 0 0 8h4m5-8-4-4m4 4-4 4"/></svg></button>
+      </div>
+      <button style="height:28px;padding:0 10px;flex:none;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Запуски<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-info);margin-left:6px;font-variant-numeric:tabular-nums">2</span></button>
+      <button style="height:28px;padding:0 10px;flex:none;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Расписание</button>
+      <button style="height:28px;padding:0 10px;flex:none;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Версии<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-left:6px;font-variant-numeric:tabular-nums">v14</span></button>
+      <button style="height:28px;padding:0 10px;flex:none;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Вебхук</button>
+      <button style="height:28px;padding:0 12px;flex:none;border:1px solid var(--color-accent-border);border-radius:var(--radius-md);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer">Сохранить<span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-left:7px">⌘S</span></button>
+      <button style="height:28px;padding:0 12px;flex:none;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 6l10 6-10 6z"/></svg>Запустить</button>
+      <button title="Ещё" style="width:28px;height:28px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+    </div>
+
+    <div style="flex:1;min-height:0;display:flex">
+      <!-- component: NodePalette -->
+      <div style="width:240px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--color-divider)">
+          <div style="position:relative;flex:1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:8px;top:7px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+            <input placeholder="Поиск ноды" style="width:100%;height:28px;padding:0 9px 0 28px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px"/>
+          </div>
+          <button title="Свернуть палитру" style="width:26px;height:28px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:8px">
+          <div style="display:flex;align-items:center;gap:7px;height:22px;padding:0 6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-src)"></span>Источники</div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><!-- icon: mingcute:fire-line --><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-src)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg><span style="font-size:12.5px">Трендвотчер</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><!-- icon: mingcute:bulb-line --><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-src)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M9.5 18h5M11 21h2M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg><span style="font-size:12.5px">Идея</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><!-- icon: mingcute:folder-line --><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-src)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M4 7h5l2 2h9v9H4z"/></svg><span style="font-size:12.5px">Сканер Google Drive</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab;position:relative" style-hover="background:var(--color-card)"><!-- icon: mingcute:world-2-line --><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-src)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4a12 12 0 0 1 0 16 12 12 0 0 1 0-16Z"/></svg><span style="font-size:12.5px">HTTP-запрос</span>
+            <div style="position:absolute;left:calc(100% + 8px);top:-4px;width:212px;padding:8px 10px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);z-index:20"><div style="font-size:12px;font-weight:500;margin-bottom:3px">HTTP-запрос</div><div style="font-size:11.5px;color:var(--color-text-muted);line-height:1.5">Забрать данные из внешнего API: GET/POST, заголовки, тело, повтор при 5xx.</div></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:7px;height:22px;padding:0 6px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-prod)"></span>Производство</div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 19V10M12 19V5m7 14v-7"/></svg><span style="font-size:12.5px">Контент-стратегия</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M6 4h8l4 4v12H6zM14 4v4h4"/></svg><span style="font-size:12.5px">Сценарий</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><circle cx="12" cy="9" r="3.2"/><path d="M6 19a6 6 0 0 1 12 0"/></svg><span style="font-size:12.5px">Персонаж</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4l8 4-8 4-8-4 8-4ZM4 13l8 4 8-4"/></svg><span style="font-size:12.5px">Композитор сцен</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg><span style="font-size:12.5px">Видео</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 7h14M5 12h9M5 17h5"/></svg><span style="font-size:12.5px">Генератор подписей</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m6 17 4-5 3 3 2-2 3 4"/></svg><span style="font-size:12.5px">Анализатор видео</span></div>
+
+          <div style="display:flex;align-items:center;gap:7px;height:22px;padding:0 6px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-ctrl)"></span>Контроль</div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-ctrl)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4l7 3v5c0 4-3 6.6-7 8-4-1.4-7-4-7-8V7z"/></svg><span style="font-size:12.5px">Гейт качества</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-ctrl)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M4 7h16M7 12h10M10 17h4"/></svg><span style="font-size:12.5px">Фильтр</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-ctrl)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4v6m0 0-4 4v6m4-10 4 4v2"/></svg><span style="font-size:12.5px">Условие</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-ctrl)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M6 9h9a3 3 0 0 1 0 6H9m0 0 3-3m-3 3 3 3"/></svg><span style="font-size:12.5px">Цикл</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-ctrl)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg><span style="font-size:12.5px">Ожидание</span></div>
+
+          <div style="display:flex;align-items:center;gap:7px;height:22px;padding:0 6px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-out)"></span>Выход</div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-out)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M4 12 20 5l-7 15-2-6z"/></svg><span style="font-size:12.5px">Публикация</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-out)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 18V8m0 0-4 4m4-4 4 4M5 5h14"/></svg><span style="font-size:12.5px">Загрузчик в Drive</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-out)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15z"/></svg><span style="font-size:12.5px">Уведомление</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-out)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 19V10M12 19V5m7 14v-7"/></svg><span style="font-size:12.5px">Аналитика</span></div>
+
+          <div style="display:flex;align-items:center;gap:7px;height:22px;padding:0 6px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-util)"></span>Служебные</div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-util)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="m9 8-4 4 4 4m6-8 4 4-4 4"/></svg><span style="font-size:12.5px">Код</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-util)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 12h6m0 0 3-4v8l-3-4M15 8h4v8h-4"/></svg><span style="font-size:12.5px">Установка значения</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cat-util)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/></svg><span style="font-size:12.5px">Вложенный конвейер</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 7px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 5h14v10l-4 4H5z"/></svg><span style="font-size:12.5px">Заметка</span><span style="flex:1"></span><span style="font-size:10.5px;color:var(--color-text-subtle)">без цвета</span></div>
+          <div style="padding:8px 7px 4px;font-size:11px;color:var(--color-text-subtle);line-height:1.5">Всего 24 типа нод. Тон иконки — категория, наведение показывает описание.</div>
+        </div>
+      </div>
+
+      <!-- component: Canvas -->
+      <div style="flex:1;min-width:0;position:relative;background:var(--color-surface);background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:18px 18px;overflow:hidden">
+
+        <svg width="100%" height="100%" style="position:absolute;inset:0;pointer-events:none">
+          <defs>
+            <marker id="cf-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#4b545d"></path></marker>
+            <marker id="cf-arrow-live" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#74b7e8"></path></marker>
+          </defs>
+          <path d="M194 110 C 202 110, 206 110, 212 110" stroke="#4b545d" stroke-width="1.6" fill="none" marker-end="url(#cf-arrow)"></path>
+          <path d="M394 110 C 402 110, 406 110, 412 110" stroke="#4b545d" stroke-width="1.6" fill="none" marker-end="url(#cf-arrow)"></path>
+          <path d="M594 110 C 602 110, 606 110, 612 110" stroke="#4b545d" stroke-width="1.6" fill="none" marker-end="url(#cf-arrow)"></path>
+          <path d="M798 146 C 856 200, 300 246, 8 314" stroke="#74b7e8" stroke-width="1.8" fill="none" stroke-dasharray="6 4" marker-end="url(#cf-arrow-live)" style="animation:cf-dash 1.4s linear infinite"></path>
+          <path d="M798 168 C 852 168, 852 314, 608 314" stroke="#4b545d" stroke-width="1.6" fill="none" marker-end="url(#cf-arrow)"></path>
+          <path d="M194 314 C 202 314, 206 314, 212 314" stroke="#4b545d" stroke-width="1.6" fill="none" marker-end="url(#cf-arrow)"></path>
+          <path d="M394 314 C 402 314, 406 314, 412 314" stroke="#4b545d" stroke-width="1.6" fill="none" marker-end="url(#cf-arrow)"></path>
+        </svg>
+
+        <!-- component: PipelineNode · Источники / успех · раскладка канваса 878 px -->
+        <div style="position:absolute;left:16px;top:76px;width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-src)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Трендвотчер</span>
+              <span style="flex:1"></span>
+              <span style="width:14px;height:14px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;flex:none"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="3" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">TikTok, RU, 50 шт</div>
+            <div style="display:flex;gap:8px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;padding-top:3px;border-top:1px solid var(--color-divider)"><span>12 с</span><span>4,20 ₽</span><span>50 шт</span></div>
+          </div>
+          <span style="position:absolute;right:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: PipelineNode · Контроль / успех -->
+        <div style="position:absolute;left:216px;top:76px;width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-ctrl)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4l7 3v5c0 4-3 6.6-7 8-4-1.4-7-4-7-8V7z"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Гейт качества</span>
+              <span style="flex:1"></span>
+              <span style="width:14px;height:14px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;flex:none"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="3" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">virality ≥ 70</div>
+            <div style="display:flex;gap:8px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;padding-top:3px;border-top:1px solid var(--color-divider)"><span>0,4 с</span><span>—</span><span>18 из 50</span></div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+          <span style="position:absolute;right:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: PipelineNode · Производство / успех -->
+        <div style="position:absolute;left:416px;top:76px;width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M6 4h8l4 4v12H6zM14 4v4h4"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Сценарий</span>
+              <span style="flex:1"></span>
+              <span style="width:14px;height:14px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;flex:none"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="3" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">2 варианта, критик 7,2</div>
+            <div style="display:flex;gap:8px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;padding-top:3px;border-top:1px solid var(--color-divider)"><span>26 с</span><span>3,60 ₽</span><span>18 шт</span></div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+          <span style="position:absolute;right:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: PipelineNode · Условие, два именованных выхода -->
+        <div style="position:absolute;left:616px;top:76px;width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-ctrl)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 4v6m0 0-4 4v6m4-10 4 4v2"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Условие</span>
+              <span style="flex:1"></span>
+              <span style="width:14px;height:14px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;flex:none"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="3" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">критик ≥ 7,0</div>
+            <div style="display:flex;flex-direction:column;gap:3px;padding-top:3px;border-top:1px solid var(--color-divider)">
+              <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--color-text-subtle)"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-success)"></span>да<span style="flex:1"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">14</span></div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--color-text-subtle)"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-neutral)"></span>нет<span style="flex:1"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">4</span></div>
+            </div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+          <span style="position:absolute;right:-5px;top:66px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-success)"></span>
+          <span style="position:absolute;right:-5px;top:88px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-neutral)"></span>
+        </div>
+        <span style="position:absolute;left:800px;top:128px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-success);background:var(--color-surface);padding:0 4px">да</span>
+        <span style="position:absolute;left:800px;top:170px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);background:var(--color-surface);padding:0 4px">нет</span>
+
+        <!-- component: PipelineNode · выделенная и выполняется -->
+        <div style="position:absolute;left:16px;top:280px;width:176px;background:var(--color-panel);border:1.5px solid var(--color-info);border-radius:var(--radius-md);box-shadow:0 0 0 3px var(--color-info-bg),var(--shadow-md);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Видео</span>
+              <span style="flex:1"></span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-info)" stroke-width="2.6" stroke-linecap="round" style="flex:none;animation:cf-spin 1.2s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Мастер Игорь, 9:16, 80 с</div>
+            <div style="height:4px;border-radius:2px;background:var(--color-info-bg);overflow:hidden;position:relative"><span style="position:absolute;inset:0;width:34%;background:var(--color-info);animation:cf-run 1.6s ease-out infinite"></span></div>
+            <div style="display:flex;gap:8px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-info);font-variant-numeric:tabular-nums"><span>6 из 14</span><span>4 м 12 с</span><span>168,40 ₽</span></div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-info)"></span>
+          <span style="position:absolute;right:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: PipelineNode · Выход / уведомление, ожидает -->
+        <div style="position:absolute;left:616px;top:280px;width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden;opacity:.92">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-out)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15z"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Уведомление</span>
+              <span style="flex:1"></span>
+              <span style="width:14px;height:14px;border-radius:var(--radius-full);border:1px dashed var(--color-border);flex:none"></span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Telegram: цех · «слабый хук»</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);padding-top:3px;border-top:1px solid var(--color-divider)">ожидает</div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: PipelineNode · ошибка конфигурации -->
+        <div style="position:absolute;left:216px;top:280px;width:176px;background:var(--color-panel);border:1px solid var(--color-warning-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M5 7h14M5 12h9M5 17h5"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Генератор подписей</span>
+              <span style="flex:1"></span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.8" stroke-linecap="round" style="flex:none"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-warning);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">не задан язык подписей</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);padding-top:3px;border-top:1px solid var(--color-divider)">не настроена · запуск невозможен</div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-info)"></span>
+          <span style="position:absolute;right:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: PipelineNode · отключена -->
+        <div style="position:absolute;left:416px;top:470px;width:176px;background:var(--color-surface);border:1px dashed var(--color-border);border-radius:var(--radius-md);overflow:hidden;opacity:.6">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod);opacity:.5"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m6 17 4-5 3 3 2-2 3 4"/></svg>
+              <span style="font-size:12.5px;color:var(--color-text-muted);min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Анализатор видео</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:var(--color-text-subtle);white-space:nowrap">выкл</span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">пропускается при запуске</div>
+          </div>
+        </div>
+
+        <!-- component: PipelineNode · Выход / публикация -->
+        <div style="position:absolute;left:416px;top:280px;width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-out)"></div>
+          <div style="padding:7px 9px 6px 12px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M4 12 20 5l-7 15-2-6z"/></svg>
+              <span style="font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Публикация</span>
+              <span style="flex:1"></span>
+              <span style="width:14px;height:14px;border-radius:var(--radius-full);border:1px dashed var(--color-border);flex:none"></span>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">@zavod.mebel.ru · Reels</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);padding-top:3px;border-top:1px solid var(--color-divider)">ожидает · лимит 34 / 50</div>
+          </div>
+          <span style="position:absolute;left:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+          <span style="position:absolute;right:-5px;top:34px;width:9px;height:9px;border-radius:var(--radius-full);background:var(--color-raised);border:1.5px solid var(--color-text-subtle)"></span>
+        </div>
+
+        <!-- component: NoteNode · без категорийного тона и без портов -->
+        <div style="position:absolute;left:16px;top:470px;width:216px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:var(--radius-md);padding:9px 10px">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round"><path d="M5 5h14v10l-4 4H5z"/></svg>
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-warning)">Заметка</span>
+          </div>
+          <div style="font-size:12px;color:var(--color-text);line-height:1.5">Подписи генерим только для Reels — в TikTok их дублирует сама платформа. Не включать анализатор видео: съедает бюджет.</div>
+        </div>
+
+        <!-- component: CanvasControls -->
+        <div style="position:absolute;left:12px;top:12px;display:flex;gap:6px;align-items:center">
+          <div style="display:flex;padding:2px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm)">
+            <button title="Уменьшить" style="width:26px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+            <span style="min-width:44px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11.5px;color:var(--color-text);font-variant-numeric:tabular-nums">80%</span>
+            <button title="Увеличить" style="width:26px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button>
+          </div>
+          <button style="height:28px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-panel);color:var(--color-text);font-size:12px;cursor:pointer;box-shadow:var(--shadow-sm)">Вписать в экран</button>
+          <button style="height:28px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-panel);color:var(--color-text);font-size:12px;cursor:pointer;box-shadow:var(--shadow-sm)">Выровнять по сетке</button>
+          <span style="height:28px;padding:0 10px;display:flex;align-items:center;white-space:nowrap;gap:7px;border:1px solid var(--color-warning-border);border-radius:var(--radius-md);background:var(--color-warning-bg);color:var(--color-warning);font-size:12px;box-shadow:var(--shadow-sm)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>1 нода не настроена</span>
+        </div>
+
+        <!-- component: Minimap -->
+        <div style="position:absolute;right:12px;bottom:12px;width:184px;height:116px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);overflow:hidden">
+          <div style="position:absolute;inset:0;background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:9px 9px;opacity:.6"></div>
+          <span style="position:absolute;left:10px;top:18px;width:26px;height:11px;border-radius:2px;background:var(--cat-src)"></span>
+          <span style="position:absolute;left:44px;top:18px;width:26px;height:11px;border-radius:2px;background:var(--cat-ctrl)"></span>
+          <span style="position:absolute;left:78px;top:18px;width:26px;height:11px;border-radius:2px;background:var(--cat-prod)"></span>
+          <span style="position:absolute;left:112px;top:18px;width:26px;height:11px;border-radius:2px;background:var(--cat-ctrl)"></span>
+          <span style="position:absolute;left:112px;top:52px;width:26px;height:11px;border-radius:2px;background:var(--color-info)"></span>
+          <span style="position:absolute;left:112px;top:82px;width:26px;height:11px;border-radius:2px;background:var(--cat-out)"></span>
+          <span style="position:absolute;left:10px;top:52px;width:26px;height:11px;border-radius:2px;background:var(--cat-prod)"></span>
+          <span style="position:absolute;left:44px;top:52px;width:26px;height:11px;border-radius:2px;background:var(--cat-prod);opacity:.45"></span>
+          <span style="position:absolute;left:78px;top:52px;width:26px;height:11px;border-radius:2px;background:var(--cat-out)"></span>
+          <span style="position:absolute;left:6px;top:10px;width:150px;height:88px;border:1.5px solid var(--color-accent);border-radius:2px;background:rgba(240,166,60,.06)"></span>
+        </div>
+      </div>
+
+      <!-- component: NodeConfigPanel -->
+      <div style="width:320px;flex:none;background:var(--color-panel);border-left:1px solid var(--color-border);display:flex;flex-direction:column;position:relative">
+        <span title="Тянуть, чтобы изменить ширину" style="position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><span style="width:2px;height:28px;border-radius:2px;background:var(--color-border)"></span></span>
+        <div style="flex:none;padding:9px 12px;border-bottom:1px solid var(--color-divider)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:22px;height:22px;flex:none;border-radius:var(--radius-sm);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg></span>
+            <span style="font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Видео</span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info);flex:none">идёт</span>
+            <span style="flex:1"></span>
+            <button title="Отключить ноду" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 4v8M7 7a7 7 0 1 0 10 0"/></svg></button>
+            <button title="Ещё" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+          </div>
+          <div style="display:flex;gap:2px;margin-top:9px">
+            <button style="height:28px;padding:0 10px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer">Настройки</button>
+            <button style="height:28px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer" style-hover="color:var(--color-text)">Тест</button>
+            <button style="height:28px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer" style-hover="color:var(--color-text)">Последний запуск</button>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M9.5 18h5M11 21h2M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>
+            <span style="font-size:12px;flex:1">Заполнить по сценарию и персонажу</span>
+            <button style="height:24px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:var(--color-accent);color:var(--color-on-accent);font-size:11.5px;font-weight:500;cursor:pointer">AI-автозаполнение</button>
+          </div>
+          <div>
+            <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Персонаж</label>
+            <div style="position:relative">
+              <select style="width:100%;height:30px;padding:0 28px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;appearance:none;cursor:pointer"><option>Мастер Игорь</option><option>Дизайнер Аня</option></select>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+            </div>
+            <div style="font-size:11px;color:var(--color-text-subtle);margin-top:4px">Голос и внешность берутся из персонажа, отдельно задавать не нужно.</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:10px">
+            <div>
+              <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Длительность, с</label>
+              <input value="80" style="width:100%;height:30px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;font-family:var(--font-mono)"/>
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Формат</label>
+              <div style="position:relative">
+                <select style="width:100%;height:30px;padding:0 28px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;appearance:none;cursor:pointer"><option>9:16 · 1080×1920</option></select>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Модель lip-sync</label>
+            <div style="position:relative">
+              <select style="width:100%;height:30px;padding:0 28px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;appearance:none;cursor:pointer"><option>replicate/wav2lip</option><option>replicate/video-retalking</option></select>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+            </div>
+            <div style="font-size:11px;color:var(--color-text-subtle);margin-top:4px;font-variant-numeric:tabular-nums">≈ 12 ₽ за ролик · при 14 роликах ≈ 168 ₽ за запуск.</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Уникальных вариантов на сценарий</label>
+            <input value="6" style="width:100%;height:30px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;font-family:var(--font-mono)"/>
+            <div style="font-size:11px;color:var(--color-warning);margin-top:4px;font-variant-numeric:tabular-nums">6 × 14 сценариев = 84 ролика за запуск, это 28% суточной мощности.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer"/>Вшивать субтитры</label>
+            <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer"/>Останавливать шаг при ошибке провайдера</label>
+            <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/>Пропускать сценарии без хука</label>
+          </div>
+          <div style="padding:9px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:11.5px;color:var(--color-text-muted);line-height:1.55">
+            Вход: <span style="font-family:var(--font-mono);color:var(--color-text)">script[]</span> от ноды «Условие · да». Выход: <span style="font-family:var(--font-mono);color:var(--color-text)">video[]</span> с <span style="font-family:var(--font-mono);color:var(--color-text)">tracking_token</span>.
+          </div>
+        </div>
+        <div style="flex:none;display:flex;align-items:center;gap:7px;padding:9px 12px;border-top:1px solid var(--color-divider);background:var(--color-card)">
+          <button style="height:26px;padding:0 9px;display:flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-panel);color:var(--color-text-muted);font-size:12px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg>Сценарий</button>
+          <span style="flex:1"></span>
+          <button style="height:26px;padding:0 9px;display:flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-panel);color:var(--color-text-muted);font-size:12px;cursor:pointer">Публикация<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="p2" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Категория против статуса — контрольный кадр</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">Одна и та же категория «Производство» во всех шести состояниях. Полоса слева даёт понять структуру расфокусированным взглядом, но не конкурирует с рамкой ошибки: насыщенность категорий снижена до уровня фона.</span>
+  </div>
+  <div style="max-width:1180px;display:flex;flex-direction:column;gap:14px">
+    <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:16px;background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:18px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="width:176px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);position:relative;overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 7px 12px"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Видео</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px">обычная · черновик</div></div>
+        </div>
+        <div style="width:176px;background:var(--color-panel);border:1.5px solid var(--color-accent);border-radius:var(--radius-md);position:relative;overflow:hidden;box-shadow:0 0 0 3px var(--color-accent-bg)">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 7px 12px"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Видео</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px">выделена</div></div>
+        </div>
+        <div style="width:176px;background:var(--color-panel);border:1.5px solid var(--color-info);border-radius:var(--radius-md);position:relative;overflow:hidden;box-shadow:0 0 0 3px var(--color-info-bg)">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 7px 12px"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Видео<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-info)" stroke-width="2.6" stroke-linecap="round" style="animation:cf-spin 1.2s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg></div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-info);margin-top:3px">выполняется · 6 из 14</div></div>
+        </div>
+        <div style="width:176px;background:var(--color-panel);border:1px solid var(--color-success-border);border-radius:var(--radius-md);position:relative;overflow:hidden">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 7px 12px"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Видео<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.6" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-success);margin-top:3px">успех · 14 из 14</div></div>
+        </div>
+        <div style="width:176px;background:var(--color-panel);border:1.5px solid var(--color-danger);border-radius:var(--radius-md);position:relative;overflow:hidden;box-shadow:0 0 0 3px var(--color-danger-bg)">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></div>
+          <div style="padding:7px 9px 7px 12px"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Видео<span style="flex:1"></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg></div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-danger);margin-top:3px">ошибка · lip-sync</div></div>
+        </div>
+        <div style="width:176px;background:var(--color-surface);border:1px dashed var(--color-border);border-radius:var(--radius-md);position:relative;overflow:hidden;opacity:.6">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod);opacity:.5"></div>
+          <div style="padding:7px 9px 7px 12px"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--color-text-muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Видео</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);margin-top:3px">отключена</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:10px">Пять категорий · только полоса и иконка</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:3px;height:18px;border-radius:2px;background:var(--cat-src)"></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cat-src)" stroke-width="1.6" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>Источники<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">--cat-src</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:3px;height:18px;border-radius:2px;background:var(--cat-prod)"></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>Производство<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">--cat-prod</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:3px;height:18px;border-radius:2px;background:var(--cat-ctrl)"></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cat-ctrl)" stroke-width="1.6" stroke-linecap="round"><path d="M12 4l7 3v5c0 4-3 6.6-7 8-4-1.4-7-4-7-8V7z"/></svg>Контроль<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">--cat-ctrl</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:3px;height:18px;border-radius:2px;background:var(--cat-out)"></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cat-out)" stroke-width="1.6" stroke-linecap="round"><path d="M4 12 20 5l-7 15-2-6z"/></svg>Выход<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">--cat-out</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px"><span style="width:3px;height:18px;border-radius:2px;background:var(--cat-util)"></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cat-util)" stroke-width="1.6" stroke-linecap="round"><path d="m9 8-4 4 4 4m6-8 4 4-4 4"/></svg>Служебные<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">--cat-util</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--color-text-muted)"><span style="width:3px;height:18px;border-radius:2px;background:transparent;border-left:1px dashed var(--color-border)"></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round"><path d="M5 5h14v10l-4 4H5z"/></svg>Заметка — без категорийного тона</div>
+        </div>
+      </div>
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px;font-size:12px;color:var(--color-text-muted);line-height:1.6">
+        <div style="font-size:13px;font-weight:600;color:var(--color-text);margin-bottom:8px">Где категорийный тон есть, а где его нет</div>
+        Есть: канвас, палитра нод, миникарта, компактная схема конвейера сбоку в мониторе запуска. Там структура пространственная, и цвет несёт информацию, которой больше негде взяться.
+        <div style="height:8px"></div>
+        Нет: хронология шагов в мониторе запуска и диаграмма Ганта. Там порядок задаёт сама последовательность, а цвет означает ровно одно — статус.
+        <div style="height:8px"></div>
+        Проверка на контраст: категорийные тона держатся в диапазоне светлоты фона (разница с панелью меньше 12%), поэтому красная рамка ошибки и синяя рамка «выполняется» читаются первыми даже при взгляде вполоборота.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="p3" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Панель ноды · Тест и Последний запуск</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;gap:2px;padding:0 10px;background:var(--color-card);border-bottom:1px solid var(--color-border)">
+        <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Настройки</button>
+        <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer">Тест</button>
+        <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Последний запуск</button>
+      </div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button style="height:28px;padding:0 11px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Запустить одну ноду</button>
+          <span style="font-size:11.5px;color:var(--color-warning);font-variant-numeric:tabular-nums">спишется ~12 ₽</span>
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:6px">Вход · 1 элемент</div>
+          <pre style="margin:0;padding:9px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--color-text-muted);overflow-x:auto">{
+  "script_id": "scr_4471",
+  "variant": "B",
+  "hook": "боль с доставкой",
+  "character": "Мастер Игорь"
+}</pre>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Выход</span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:19px;padding:0 6px;border-radius:var(--radius-sm);font-size:11px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)">готово · 4 м 08 с</span>
+            <span style="flex:1"></span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text);font-variant-numeric:tabular-nums">11,90 ₽</span>
+          </div>
+          <pre style="margin:0;padding:9px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--color-text-muted);overflow-x:auto">{
+  "video_id": "vid_10851",
+  "duration": 81.4,
+  "tracking_token": "tt_9f42c1a8b7"
+}</pre>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle)">Тест не пишет результат в конвейер и не создаёт публикаций — только показывает данные и списывает стоимость модели.</div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;gap:2px;padding:0 10px;background:var(--color-card);border-bottom:1px solid var(--color-border)">
+        <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Настройки</button>
+        <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Тест</button>
+        <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer">Последний запуск</button>
+      </div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <a href="#p1" style="font-family:var(--font-mono);font-size:12px">run_88213</a>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)">идёт</span>
+          <span style="flex:1"></span>
+          <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">начат 14:26</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--color-text-muted)">Обработано</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">6 из 14</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--color-text-muted)">Средняя длительность</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">4 м 12 с</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--color-text-muted)">Стоимость шага</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">168,40 ₽</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--color-text-muted)">Ошибок</span><span style="font-family:var(--font-mono);color:var(--color-warning);font-variant-numeric:tabular-nums">1 (повтор 1 из 3)</span></div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12px;cursor:pointer">Логи шага</button>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12px;cursor:pointer">Открыть монитор</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="p4" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Пустой канвас нового конвейера</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,1fr);gap:14px;align-items:start">
+    <div style="height:320px;position:relative;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:18px 18px;display:flex;align-items:center;justify-content:center">
+      <div style="text-align:center;max-width:340px">
+        <div style="width:40px;height:40px;margin:0 auto 12px;border-radius:var(--radius-md);border:1px dashed var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/></svg></div>
+        <div style="font-size:14px;font-weight:600">Конвейер пуст</div>
+        <div style="font-size:12.5px;color:var(--color-text-muted);margin:5px 0 12px">Перетащите ноду из палитры слева или начните с пресета — потом можно менять как угодно.</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Выбрать пресет</button>
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Импортировать JSON</button>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Пресеты</div>
+      <div style="padding:6px">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--radius-md);cursor:pointer;background:var(--color-card)"><span style="width:24px;height:24px;flex:none;border-radius:var(--radius-sm);background:var(--color-panel);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cat-src)" stroke-width="1.6" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg></span><span><span style="display:block;font-size:12.5px;font-weight:500">Тренд → сценарий → видео → Reels</span><span style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-top:2px">6 нод · полный цикл до публикации в Instagram</span></span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)"><span style="width:24px;height:24px;flex:none;border-radius:var(--radius-sm);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cat-prod)" stroke-width="1.6" stroke-linecap="round"><path d="M6 4h8l4 4v12H6z"/></svg></span><span><span style="display:block;font-size:12.5px;font-weight:500">Только сценарии на ревью</span><span style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-top:2px">3 ноды · без генерации видео, для проверки хуков</span></span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)"><span style="width:24px;height:24px;flex:none;border-radius:var(--radius-sm);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cat-out)" stroke-width="1.6" stroke-linecap="round"><path d="M4 12 20 5l-7 15-2-6z"/></svg></span><span><span style="display:block;font-size:12.5px;font-weight:500">Публикация из Google Drive</span><span style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-top:2px">4 ноды · готовые ролики в три платформы</span></span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)"><span style="width:24px;height:24px;flex:none;border-radius:var(--radius-sm);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cat-util)" stroke-width="1.6" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/></svg></span><span><span style="display:block;font-size:12.5px;font-weight:500">Копия «Кухни · июль»</span><span style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-top:2px">9 нод · последний запуск 12 минут назад</span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="p5" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Меню, связи, групповое выделение</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:10px">Контекстное меню на ноде</div>
+      <div style="width:236px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:5px">
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;background:var(--color-card)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>Настроить<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">↵</span></div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg>Дублировать<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">⌘D</span></div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 4v8M7 7a7 7 0 1 0 10 0"/></svg>Отключить</div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 6l10 6-10 6z"/></svg>Запустить с этой ноды</div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/></svg>Вынести в подконвейер</div>
+        <div style="height:1px;background:var(--color-divider);margin:4px 0"></div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-danger)" style-hover="background:var(--color-danger-bg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>Удалить<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">⌫</span></div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:10px">На пустом канвасе</div>
+      <div style="width:236px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:5px">
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;background:var(--color-card)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>Добавить ноду…<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">Tab</span></div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 5h14v10l-4 4H5z"/></svg>Добавить заметку</div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg>Вставить<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">⌘V</span></div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4h6M4 4v6m16-6h-6m6 0v6M4 20h6m-6 0v-6m16 6h-6m6 0v-6"/></svg>Вписать в экран</div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h6M4 12h10M4 18h7M18 6v12"/></svg>Разложить по слоям<span style="flex:1"></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg></div>
+        <div style="padding:6px 9px 4px;font-size:11px;color:var(--color-text-subtle);line-height:1.5;border-top:1px solid var(--color-divider);margin-top:4px">«Разложить по слоям» заменяет ручную раскладку: на графе крупнее 15 нод спросим подтверждение. Операция проходит через общую историю — Ctrl+Z возвращает как было.</div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:10px">Несовместимое соединение</div>
+      <div style="height:118px;position:relative;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:16px 16px;overflow:hidden">
+        <div style="position:absolute;left:10px;top:24px;width:104px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:6px 8px;font-size:11.5px">Публикация</div>
+        <div style="position:absolute;right:10px;top:24px;width:104px;background:var(--color-panel);border:1.5px solid var(--color-danger);border-radius:var(--radius-sm);padding:6px 8px;font-size:11.5px">Трендвотчер</div>
+        <svg width="100%" height="100%" style="position:absolute;inset:0"><path d="M120 40 C 150 40, 170 40, 196 40" stroke="#ec7d70" stroke-width="1.8" fill="none" stroke-dasharray="5 4"></path></svg>
+        <div style="position:absolute;left:52px;top:66px;right:12px;padding:6px 9px;background:var(--color-danger-bg);border:1px solid var(--color-danger-border);border-radius:var(--radius-sm);font-size:11.5px;color:var(--color-text)">Трендвотчер — источник, у него нет входа. Соединение невозможно.</div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:10px">Выделение рамкой · 3 ноды</div>
+      <div style="height:156px;position:relative;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:16px 16px;overflow:hidden">
+        <div style="position:absolute;left:14px;top:16px;right:14px;bottom:70px;border:1.5px dashed var(--color-accent);border-radius:var(--radius-sm);background:var(--color-accent-bg);opacity:.85"></div>
+        <div style="position:absolute;left:22px;top:26px;width:88px;background:var(--color-panel);border:1.5px solid var(--color-accent);border-radius:var(--radius-sm);padding:5px 7px;font-size:11px">Сценарий</div>
+        <div style="position:absolute;left:122px;top:26px;width:74px;background:var(--color-panel);border:1.5px solid var(--color-accent);border-radius:var(--radius-sm);padding:5px 7px;font-size:11px">Условие</div>
+        <div style="position:absolute;left:206px;top:26px;width:66px;background:var(--color-panel);border:1.5px solid var(--color-accent);border-radius:var(--radius-sm);padding:5px 7px;font-size:11px">Видео</div>
+        <div style="position:absolute;left:14px;right:14px;bottom:8px;display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--color-raised);border:1px solid var(--color-accent-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);flex-wrap:wrap;overflow-x:auto">
+          <span style="font-size:11.5px;font-weight:500">Выбрано 3</span>
+          <button style="height:22px;padding:0 8px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11px;cursor:pointer">Выровнять</button>
+          <button style="height:22px;padding:0 8px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11px;cursor:pointer">В подконвейер</button>
+          <button style="height:22px;padding:0 8px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11px;cursor:pointer">Отключить</button>
+          <button style="height:22px;padding:0 8px;border:1px solid var(--color-danger-border);border-radius:var(--radius-sm);background:var(--color-danger-bg);color:var(--color-danger);font-size:11px;cursor:pointer">Удалить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="p6" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Хоткеи и защита от потери правок</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,1fr);gap:14px;align-items:start">
+    <div style="background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--color-divider)">
+        <span style="font-size:14px;font-weight:600;flex:1">Горячие клавиши</span>
+        <span style="font-family:var(--font-mono);font-size:11px;padding:2px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);color:var(--color-text-subtle)">?</span>
+        <button title="Закрыть · Escape" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div style="padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:8px">Правка</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘S</span>Сохранить</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘Z</span>Отменить</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘⇧Z</span>Повторить</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘D</span>Дублировать ноду</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘C / ⌘V</span>Копировать и вставить</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌫</span>Удалить выделенное</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:8px">Выделение и навигация</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘A</span>Выделить все ноды</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">Esc</span>Снять выделение</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">Tab</span>Добавить ноду</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">Space</span>Панорамирование</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘0</span>Вписать в экран</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);min-width:82px;text-align:center">⌘↵</span>Запустить конвейер</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:9px 14px;border-top:1px solid var(--color-divider);background:var(--color-card);font-size:11.5px;color:var(--color-text-subtle)">Всё то же работает и на Windows: ⌘ читается как Ctrl. Порядок табуляции совпадает с визуальным: тулбар → палитра → канвас → панель.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="padding:16px;background:var(--color-overlay);border-radius:var(--radius-lg)">
+        <div style="max-width:360px;margin:0 auto;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden">
+          <div style="padding:13px 16px;border-bottom:1px solid var(--color-divider);font-size:14px;font-weight:600">Уйти без сохранения?</div>
+          <div style="padding:13px 16px;font-size:12.5px;color:var(--color-text-muted)">В конвейере 3 несохранённых изменения: добавлена нода «Генератор подписей», изменено условие, сдвинуты две ноды.</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--color-divider);background:var(--color-card);flex-wrap:wrap">
+            <button style="height:30px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Не сохранять</button>
+            <button style="height:30px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Отмена</button>
+            <button style="height:30px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer;outline:2px solid var(--color-accent);outline-offset:2px">Сохранить</button>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px;font-size:12px;color:var(--color-text-muted);line-height:1.6">
+        Фокус по умолчанию на «Сохранить», Escape равен «Отмена». Диалог перечисляет изменения, а не просто предупреждает: оператор часто не помнит, что именно тронул.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="p7" style="padding:24px 24px 40px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Планшет 1024 и телефон 390</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">На 1024 палитра свёрнута в иконки, панель конфигурации — 320 и выезжает поверх канваса. На 390 редактирование графа не поддерживается сознательно: показываем схему и запуски, править предлагаем с компьютера.</span>
+  </div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">1024 × 520</div>
+      <div style="width:1024px;height:520px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;gap:8px;height:42px;padding:0 10px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+          <button style="width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></button>
+          <span style="font-size:13px;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Тренд → сценарий → видео → Reels</span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);color:var(--color-text);flex:none">не сохранено</span>
+          <div style="flex:1"></div>
+          <button style="height:26px;padding:0 10px;flex:none;border:1px solid var(--color-accent-border);border-radius:var(--radius-md);background:var(--color-accent-bg);color:var(--color-text);font-size:12px;cursor:pointer">Сохранить</button>
+          <button style="height:26px;padding:0 10px;flex:none;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12px;font-weight:500;cursor:pointer">Запустить</button>
+          <button title="Ещё" style="width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;display:flex">
+          <div style="width:52px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0">
+            <button title="Поиск ноды" style="width:32px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button>
+            <div style="width:32px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--cat-src)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg></div>
+            <div style="width:32px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--cat-prod)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg></div>
+            <div style="width:32px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--cat-ctrl)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 4l7 3v5c0 4-3 6.6-7 8-4-1.4-7-4-7-8V7z"/></svg></div>
+            <div style="width:32px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--cat-out);position:relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 12 20 5l-7 15-2-6z"/></svg><div style="position:absolute;left:38px;top:2px;padding:3px 7px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);font-size:11px;white-space:nowrap;z-index:5">Выход · 4 ноды</div></div>
+            <div style="width:32px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--cat-util)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m9 8-4 4 4 4m6-8 4 4-4 4"/></svg></div>
+          </div>
+          <div style="flex:1;min-width:0;position:relative;background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);background-size:18px 18px">
+            <div style="position:absolute;left:16px;top:36px;width:150px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:6px 8px 6px 11px;position:absolute;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-src)"></span><div style="font-size:12px;font-weight:500">Трендвотчер</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">TikTok, RU, 50</div></div>
+            <div style="position:absolute;left:190px;top:36px;width:150px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:6px 8px 6px 11px;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-ctrl)"></span><div style="font-size:12px;font-weight:500">Гейт качества</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">virality ≥ 70</div></div>
+            <div style="position:absolute;left:364px;top:36px;width:150px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:6px 8px 6px 11px;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></span><div style="font-size:12px;font-weight:500">Сценарий</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">критик 7,2</div></div>
+            <div style="position:absolute;left:190px;top:150px;width:150px;background:var(--color-panel);border:1.5px solid var(--color-info);border-radius:var(--radius-md);padding:6px 8px 6px 11px;overflow:hidden;box-shadow:0 0 0 3px var(--color-info-bg)"><span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat-prod)"></span><div style="font-size:12px;font-weight:500">Видео</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-info)">6 из 14 · идёт</div></div>
+            <div style="position:absolute;right:12px;bottom:12px;width:140px;height:88px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md)"></div>
+          </div>
+          <div style="width:320px;flex:none;background:var(--color-panel);border-left:1px solid var(--color-border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+            <div style="padding:8px 10px;border-bottom:1px solid var(--color-divider);display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:600">Видео</span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);font-size:11px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)">идёт</span><span style="flex:1"></span><button title="Закрыть" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+            <div style="padding:10px;display:flex;flex-direction:column;gap:9px">
+              <div><label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:4px">Персонаж</label><div style="height:28px;padding:0 9px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12.5px">Мастер Игорь</div></div>
+              <div><label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:4px">Вариантов на сценарий</label><div style="height:28px;padding:0 9px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:12.5px">6</div></div>
+              <div style="font-size:11px;color:var(--color-text-subtle);line-height:1.5">Панель выезжает поверх канваса: на 1024 канвас и панель одновременно не помещаются без сжатия нод.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">390 · только просмотр</div>
+      <div style="width:390px;height:520px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;gap:9px;height:48px;padding:0 12px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+          <button title="Назад" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></button>
+          <span style="font-size:13.5px;font-weight:600;flex:1;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Тренд → сценарий → видео</span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)">Активен</span>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:10px;padding:10px 11px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:var(--radius-md);flex:none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="8"/><path d="M12 8v5m0 3h.01"/></svg>
+            <div style="font-size:12.5px;color:var(--color-text)">Схему конвейера с телефона можно смотреть, но не менять: перетаскивание нод пальцем ломает граф чаще, чем помогает.</div>
+          </div>
+          <div style="flex:none;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+            <div style="padding:8px 10px;border-bottom:1px solid var(--color-divider);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Схема · 9 нод</div>
+            <div style="padding:8px 10px;display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span style="width:3px;height:16px;border-radius:2px;background:var(--cat-src)"></span>Трендвотчер<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.6" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></div>
+              <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span style="width:3px;height:16px;border-radius:2px;background:var(--cat-ctrl)"></span>Гейт качества<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.6" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></div>
+              <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span style="width:3px;height:16px;border-radius:2px;background:var(--cat-prod)"></span>Сценарий<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.6" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></div>
+              <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span style="width:3px;height:16px;border-radius:2px;background:var(--cat-prod)"></span>Видео<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-info);font-variant-numeric:tabular-nums">6 из 14</span></div>
+              <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--color-text-muted)"><span style="width:3px;height:16px;border-radius:2px;background:var(--cat-out)"></span>Публикация<span style="flex:1"></span><span style="font-size:11px;color:var(--color-text-subtle)">ожидает</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex:none">
+            <button style="flex:1;height:40px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:13px;font-weight:500;cursor:pointer">Запустить</button>
+            <button style="flex:1;height:40px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:13px;cursor:pointer">Запуски</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultAccent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amber&quot;,&quot;cyan&quot;,&quot;pine&quot;],&quot;default&quot;:&quot;amber&quot;,&quot;tsType&quot;:&quot;'amber'|'cyan'|'pine'&quot;,&quot;section&quot;:&quot;Тема&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Тема&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.defaultTheme ?? 'dark', accent: this.props.defaultAccent ?? 'amber' };
+  componentDidMount(){ this.apply(); }
+  componentDidUpdate(){ this.apply(); }
+  apply(){
+    const r = document.documentElement;
+    r.dataset.theme = this.state.theme;
+    r.dataset.accent = this.state.accent;
+  }
+  renderVals(){
+    const s = this.state, on = 'var(--color-raised)';
+    return {
+      setDark: () => this.setState({ theme: 'dark' }),
+      setLight: () => this.setState({ theme: 'light' }),
+      tDarkBg: s.theme === 'dark' ? on : 'transparent',
+      tDarkFg: s.theme === 'dark' ? 'var(--color-text)' : 'var(--color-text-muted)',
+      tLightBg: s.theme === 'light' ? on : 'transparent',
+      tLightFg: s.theme === 'light' ? 'var(--color-text)' : 'var(--color-text-muted)'
+    };
+  }
+}
+</script>
+</body>
+</html>

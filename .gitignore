@@ -45,3 +45,6 @@ coverage/
 # Harness: регенерируемый граф (./harness graph пересобирает; зеркалится в SQLite)
 graphify-out/
 graphify-cache/
+
+# Design: архив-исходник, содержимое распаковано в design-preview/catalog
+docs/design/*.zip

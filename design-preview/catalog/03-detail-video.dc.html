@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--color-surface);color:var(--color-text);font-family:var(--font-ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--color-accent-text);text-decoration:none}
+a:hover{color:var(--color-accent-text);text-decoration:underline}
+::selection{background:var(--color-accent-bg)}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+input,button,textarea,select{font:inherit;color:inherit}
+button,select{white-space:nowrap}
+input[type=checkbox],input[type=radio]{accent-color:var(--color-accent)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+:root,[data-theme=dark]{
+--font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+--font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--color-surface:#0c0e10;--color-panel:#111417;--color-card:#16191d;--color-raised:#1d2126;
+--color-border:#272c32;--color-divider:#1e2329;--color-overlay:rgba(4,5,7,.72);
+--color-text:#e7eaed;--color-text-muted:#99a2aa;--color-text-subtle:#69737b;--color-text-inverse:#0c0e10;
+--color-neutral:#99a2aa;--color-neutral-bg:#1b2025;--color-neutral-border:#2b3138;
+--color-info:#74b7e8;--color-info-bg:#11212f;--color-info-border:#21384c;
+--color-success:#5fbe8c;--color-success-bg:#0f2018;--color-success-border:#1e3c2c;
+--color-warning:#e3a944;--color-warning-bg:#241c0d;--color-warning-border:#453419;
+--color-danger:#ec7d70;--color-danger-bg:#26130f;--color-danger-border:#4a231d;
+--radius-sm:3px;--radius-md:5px;--radius-lg:8px;--radius-full:999px;
+--shadow-sm:0 1px 2px rgba(0,0,0,.5);--shadow-md:0 6px 16px rgba(0,0,0,.5);--shadow-lg:0 18px 44px rgba(0,0,0,.55);
+--duration-fast:120ms;--duration-base:160ms;--duration-slow:200ms;
+--row-h-text:36px;--row-h-media:44px;
+}
+[data-theme=light]{
+--color-surface:#f5f6f8;--color-panel:#ffffff;--color-card:#ffffff;--color-raised:#ffffff;
+--color-border:#dee2e7;--color-divider:#eaedf0;--color-overlay:rgba(18,22,26,.38);
+--color-text:#15191d;--color-text-muted:#586269;--color-text-subtle:#848d95;--color-text-inverse:#ffffff;
+--color-neutral:#586269;--color-neutral-bg:#eef0f2;--color-neutral-border:#dbdfe3;
+--color-info:#1b6ca4;--color-info-bg:#e9f2fa;--color-info-border:#c3dcef;
+--color-success:#1b7549;--color-success-bg:#e7f4ec;--color-success-border:#c0e1cf;
+--color-warning:#8a5a08;--color-warning-bg:#fbf1dc;--color-warning-border:#eedab0;
+--color-danger:#b03a2b;--color-danger-bg:#fbeae7;--color-danger-border:#f0ccc6;
+--shadow-sm:0 1px 2px rgba(16,22,28,.08);--shadow-md:0 6px 16px rgba(16,22,28,.1);--shadow-lg:0 18px 44px rgba(16,22,28,.16);
+}
+[data-accent=amber]{--color-accent:#f0a63c;--color-accent-hover:#f8b757;--color-accent-active:#d68f2a;--color-accent-bg:#2a2010;--color-accent-border:#4c3818;--color-on-accent:#171003;--color-accent-text:#f0a63c}
+[data-accent=cyan]{--color-accent:#3fb3d6;--color-accent-hover:#5cc5e5;--color-accent-active:#2f9bbb;--color-accent-bg:#0f2530;--color-accent-border:#1c4557;--color-on-accent:#03151c;--color-accent-text:#3fb3d6}
+[data-accent=pine]{--color-accent:#46b384;--color-accent-hover:#5fc699;--color-accent-active:#369a6f;--color-accent-bg:#10251c;--color-accent-border:#1d4433;--color-on-accent:#03150d;--color-accent-text:#46b384}
+[data-theme=light][data-accent=amber]{--color-accent:#c47a08;--color-accent-hover:#ab6a05;--color-accent-active:#8f5804;--color-accent-bg:#fbf0d9;--color-accent-border:#ecd6a8;--color-on-accent:#1a1103;--color-accent-text:#a1660a}
+[data-theme=light][data-accent=cyan]{--color-accent:#1189ad;--color-accent-hover:#0d7191;--color-accent-active:#0a5d78;--color-accent-bg:#e5f2f7;--color-accent-border:#b8dae6;--color-on-accent:#02171e;--color-accent-text:#0d6c8a}
+[data-theme=light][data-accent=pine]{--color-accent:#1d9366;--color-accent-hover:#177853;--color-accent-active:#126345;--color-accent-bg:#e6f4ee;--color-accent-border:#bce0cf;--color-on-accent:#03160f;--color-accent-text:#177650}
+@keyframes cf-sk{0%,100%{opacity:.55}50%{opacity:.95}}
+@keyframes cf-run{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+@keyframes cf-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-surface);color:var(--color-text);padding-bottom:60px">
+
+<div style="position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 24px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+  <div style="display:flex;align-items:center;gap:9px;white-space:nowrap">
+    <div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+    <span style="font-size:14px;font-weight:600">Эталон детали · Видео</span>
+    <span style="font-size:12px;color:var(--color-text-subtle)">Задача 4</span>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <a href="#v1" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Основной вид</a>
+    <a href="#v2" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Генерация идёт</a>
+    <a href="#v3" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Ошибка</a>
+    <a href="#v4" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Правки и права</a>
+    <a href="#v5" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Загрузка · не найдено</a>
+    <a href="#v6" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Адаптив</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+    <button onClick="{{ setDark }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tDarkBg }};color:{{ tDarkFg }}">Тёмная</button>
+    <button onClick="{{ setLight }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tLightBg }};color:{{ tLightFg }}">Светлая</button>
+  </div>
+</div>
+
+<section id="v1" style="padding:24px;overflow-x:auto">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">1440 × 980</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:900px">Слева содержимое, справа процесс. По этому образцу строятся детали Сценария, Тренда, Идеи, Персонажа, Загрузки, Аккаунта и Устройства: заменяется состав табов, свойств и шагов, каркас остаётся.</span>
+  </div>
+
+  <div style="display:flex;width:1440px;flex:none;height:980px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <!-- component: Sidebar — активная группа раскрыта, остальные свёрнуты -->
+    <div style="width:240px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:9px;height:44px;padding:0 12px;border-bottom:1px solid var(--color-divider);flex:none">
+        <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+        <span style="font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap">ContentFactory</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text-muted);font-size:13px;font-weight:500;margin-bottom:4px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <!-- icon: mingcute:dashboard-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M12 12l4-3"/></svg>
+          Сейчас
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-weight:500" style-hover="background:var(--color-card)">
+          <!-- icon: mingcute:git-branch-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+          Конвейер<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-info);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">7</span>
+        </a>
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:8px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Производство<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+          Тренды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">240</span>
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M9.5 18h5M11 21h2M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>
+          Идеи
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M6 4h8l4 4v12H6zM14 4v4h4"/></svg>
+          Сценарии<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">12</span>
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="9" r="3.2"/><path d="M6 19a6 6 0 0 1 12 0"/></svg>
+          Персонажи
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4l8 4-8 4-8-4 8-4ZM4 13l8 4 8-4"/></svg>
+          Композитор сцен
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m6 17 4-5 3 3 2-2 3 4"/></svg>
+          Креативы
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 7h5l2 2h9v9H4z"/></svg>
+          Google Drive
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="m12 4 2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/></svg>
+          Лучшие промты
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Медиа<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;font-weight:500;position:relative" style-hover="background:var(--color-accent-bg)">
+          <div style="position:absolute;left:-8px;top:5px;bottom:5px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>
+          Видео<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">3</span>
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 18V8m0 0-4 4m4-4 4 4M5 5h14"/></svg>
+          Загрузки
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 12 20 5l-7 15-2-6z"/></svg>
+          Постинг<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">8</span>
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="9" cy="9" r="3"/><path d="M4 19a5 5 0 0 1 10 0M15 7a3 3 0 0 1 0 6"/></svg>
+          Аккаунты<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">2</span>
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="6" rx="2"/><rect x="4" y="13" width="16" height="6" rx="2"/></svg>
+          Прокси
+        </a>
+        <a href="#v1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>
+          Устройства
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Аналитика<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">2</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Настройки<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">4</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Админ<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">9</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--color-divider);padding:8px">
+        <div style="display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)">
+          <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--font-mono);color:var(--color-text-muted)">ДК</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Дмитрий Кузнецов</div>
+            <div style="font-size:10.5px;color:var(--color-text-subtle)">Оператор</div>
+          </div>
+          <button title="Светлая тема" onClick="{{ setLight }}" style="width:24px;height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <!-- component: TopBar -->
+      <div style="flex:none;display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+        <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;flex:none;white-space:nowrap"><span style="color:var(--color-text-subtle)">Медиа</span><span style="color:var(--color-text-subtle)">/</span><a href="#v1" style="color:var(--color-text-muted)">Видео</a><span style="color:var(--color-text-subtle)">/</span><span style="font-weight:500;font-family:var(--font-mono);font-size:12px">vid_10842</span></div>
+        <div style="flex:0 1 320px;position:relative;cursor:text">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:7px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <div style="height:29px;padding:0 10px 0 30px;display:flex;align-items:center;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--color-text-subtle)">Поиск и команды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;padding:1px 5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface)">⌘K</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:8px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-text-muted)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">7</span> запусков</span>
+          <span style="width:1px;height:14px;background:var(--color-border)"></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-danger)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3</span> алерта</span>
+        </div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:6px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="font-size:11.5px;color:var(--color-text-subtle)">за сутки</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">12 480 ₽</span>
+        </div>
+        <button title="Подсказка по странице" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-size:12.5px">?</button>
+        <button title="Уведомления" style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15zM10.5 19.5a2 2 0 0 0 3 0"/></svg>
+          <span style="position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--color-danger);color:var(--color-text-inverse);font-size:9.5px;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center">4</span>
+        </button>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto">
+
+        <!-- component: DetailHeader · липкая, в сжатом виде при скролле -->
+        <div style="position:sticky;top:0;z-index:10;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;flex-wrap:nowrap">
+            <button title="К списку видео" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></button>
+            <!-- заменяемая часть: название сущности, правка на месте -->
+            <span style="display:inline-flex;align-items:center;gap:7px;min-width:0;flex:1 1 auto;padding:2px 7px;margin-left:-4px;border:1px solid transparent;border-radius:var(--radius-md);cursor:text" style-hover="border-color:var(--color-border);background:var(--color-card)">
+              <span style="font-size:20px;font-weight:600;letter-spacing:-.01em;min-width:0;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф в нишу за 30 секунд · вариант B</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>
+            </span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:22px;padding:0 8px;border-radius:var(--radius-sm);background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text-muted);font-family:var(--font-mono);font-size:11.5px;cursor:pointer">vid_10842<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:12px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v5m0 3h.01"/></svg>На ревью</span>
+            <div style="flex:1"></div>
+            <!-- component: DetailHeaderActions · навигация и действия одной неразрывной группой -->
+            <div style="display:flex;align-items:center;gap:8px;flex:none">
+            <div style="display:flex;align-items:center;gap:4px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+              <button title="Предыдущее видео" style="width:24px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg></button>
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;padding:0 2px">14 из 128</span>
+              <button title="Следующее видео" style="width:24px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg></button>
+            </div>
+            <!-- заменяемая часть: основные действия сущности -->
+            <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Отправить на публикацию</button>
+            <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Перегенерировать</button>
+            <button title="Скачать" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14"/></svg></button>
+            <button title="Ещё" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:0 18px 9px;font-size:12px;color:var(--color-text-muted);flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px">Стоимость<span style="font-family:var(--font-mono);color:var(--color-text);font-variant-numeric:tabular-nums">41,20 ₽</span></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px">Создано<span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">5 авг, 14:32</span></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px">Длительность<span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">82 сек</span></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px">Конвейер<a href="#v1">Тренд → сценарий → видео → Reels</a></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px">Запуск<a href="#v1" style="font-family:var(--font-mono)">run_88213</a></span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(560px,1fr) 392px;gap:14px;padding:14px 18px 20px;align-items:start">
+
+          <!-- ЛЕВАЯ КОЛОНКА · содержимое -->
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+              <div style="display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--color-border);background:var(--color-card);flex-wrap:wrap">
+                <button style="height:34px;padding:0 10px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer">Обзор</button>
+                <button style="height:34px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer" style-hover="color:var(--color-text)">Сценарий</button>
+                <button style="height:34px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">Субтитры<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">34</span></button>
+                <button style="height:34px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">Кадры<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">6</span></button>
+                <button style="height:34px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer" style-hover="color:var(--color-text)">История</button>
+              </div>
+              <div style="display:flex;gap:14px;padding:14px">
+                <!-- component: MediaPlayer 9:16 -->
+                <div style="width:236px;flex:none">
+                  <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-md);background:repeating-linear-gradient(135deg,#2c3b46 0 7px,#22303a 7px 14px);border:1px solid var(--color-border);overflow:hidden">
+                    <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:var(--radius-full);background:var(--color-overlay);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M9 6l9 6-9 6z"/></svg></span>
+                    <span style="position:absolute;left:0;right:0;bottom:26px;text-align:center;font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,.5)">превью 9:16 · 1080×1920</span>
+                    <div style="position:absolute;left:0;right:0;bottom:0;padding:7px 8px;background:linear-gradient(to top,rgba(0,0,0,.65),transparent)">
+                      <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.25);overflow:hidden"><div style="width:34%;height:100%;background:var(--color-accent)"></div></div>
+                      <div style="display:flex;justify-content:space-between;margin-top:5px;font-family:var(--font-mono);font-size:10.5px;color:#fff;font-variant-numeric:tabular-nums"><span>00:28</span><span>01:22</span></div>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>1080×1920</span><span>24,8 МБ</span><span>H.264</span></div>
+                </div>
+
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+                  <!-- component: KeyValueBlock · заменяемая часть: свойства сущности -->
+                  <div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:7px">Свойства</div>
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));column-gap:18px">
+                      <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Длительность</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">82 сек</span></div>
+                      <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Язык</span><span style="font-size:12px">Русский</span></div>
+                      <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Персонаж</span><a href="#v1" style="font-size:12px">Мастер Игорь</a></div>
+                      <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Голос</span><span style="font-size:12px">ru_male_2 · ElevenLabs</span></div>
+                      <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Субтитры</span><span style="font-size:12px">34 строки · вшиты</span></div>
+                      <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Хук</span><span style="font-size:12px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">боль с доставкой, вопрос в лоб</span></div>
+                      <div style="display:flex;gap:10px;padding:5px 0"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">tracking token</span><span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px">tt_9f42c1a8b7<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="cursor:pointer"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg></span></div>
+                      <div style="display:flex;gap:10px;padding:5px 0"><span style="width:96px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Формат</span><span style="font-family:var(--font-mono);font-size:12px">9:16 · 30 fps</span></div>
+                    </div>
+                  </div>
+
+                  <!-- component: RelationChips · связи — заметная часть, не подпись -->
+                  <div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:7px">Откуда пришло и куда ушло</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                      <a href="#v1" style="display:inline-flex;align-items:center;white-space:nowrap;gap:7px;height:26px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>Тренд · Как за 30 секунд собрать шкаф</a>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+                      <a href="#v1" style="display:inline-flex;align-items:center;white-space:nowrap;gap:7px;height:26px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round"><path d="M6 4h8l4 4v12H6z"/></svg>Сценарий scr_4471 · вариант B</a>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+                      <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:7px;height:26px;padding:0 10px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-full);font-size:12px;font-weight:500">это видео</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+                      <a href="#v1" style="display:inline-flex;align-items:center;white-space:nowrap;gap:7px;height:26px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)"><span style="width:4px;height:11px;border-radius:2px;background:#d6337f"></span>@zavod.mebel.ru · в очереди</a>
+                      <a href="#v1" style="display:inline-flex;align-items:center;white-space:nowrap;gap:7px;height:26px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)">Лид-магнит · Чек-лист замера</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- component: VariantStrip -->
+              <div style="border-top:1px solid var(--color-divider);padding:11px 14px;background:var(--color-card)">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
+                  <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Уникальные варианты ролика</span>
+                  <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">6</span>
+                  <span style="flex:1"></span>
+                  <span style="font-size:11.5px;color:var(--color-text-subtle)">различаются хуком, первым кадром и посадкой субтитров</span>
+                  <button style="height:24px;padding:0 9px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-panel);color:var(--color-text);font-size:12px;cursor:pointer">Сравнить</button>
+                </div>
+                <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px">
+                  <div style="width:64px;flex:none">
+                    <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 5px,#22303a 5px 10px);border:2px solid var(--color-accent)"><span style="position:absolute;bottom:3px;left:3px;font-family:var(--font-mono);font-size:9.5px;color:#fff;background:var(--color-overlay);padding:0 3px;border-radius:2px">B</span></div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums">41,20 ₽</div>
+                  </div>
+                  <div style="width:64px;flex:none">
+                    <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 5px,#2e2734 5px 10px);border:1px solid var(--color-border)"><span style="position:absolute;bottom:3px;left:3px;font-family:var(--font-mono);font-size:9.5px;color:#fff;background:var(--color-overlay);padding:0 3px;border-radius:2px">A</span></div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums">38,90 ₽</div>
+                  </div>
+                  <div style="width:64px;flex:none">
+                    <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 5px,#233029 5px 10px);border:1px solid var(--color-border)"><span style="position:absolute;bottom:3px;left:3px;font-family:var(--font-mono);font-size:9.5px;color:#fff;background:var(--color-overlay);padding:0 3px;border-radius:2px">C</span></div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums">40,10 ₽</div>
+                  </div>
+                  <div style="width:64px;flex:none">
+                    <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3d3529 0 5px,#302a21 5px 10px);border:1px solid var(--color-border)"><span style="position:absolute;bottom:3px;left:3px;font-family:var(--font-mono);font-size:9.5px;color:#fff;background:var(--color-overlay);padding:0 3px;border-radius:2px">D</span></div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-subtle);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums">39,40 ₽</div>
+                  </div>
+                  <div style="width:64px;flex:none">
+                    <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#43343f 0 5px,#352a33 5px 10px);border:1px solid var(--color-danger-border)"><span style="position:absolute;bottom:3px;left:3px;font-family:var(--font-mono);font-size:9.5px;color:#fff;background:var(--color-overlay);padding:0 3px;border-radius:2px">E</span><span style="position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:var(--radius-full);background:var(--color-danger);display:flex;align-items:center;justify-content:center"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M12 8v5m0 3h.01"/></svg></span></div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-danger);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums">12,40 ₽</div>
+                  </div>
+                  <div style="width:64px;flex:none">
+                    <div style="position:relative;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2f3b45 0 5px,#252f38 5px 10px);border:1px solid var(--color-info-border)"><span style="position:absolute;bottom:3px;left:3px;font-family:var(--font-mono);font-size:9.5px;color:#fff;background:var(--color-overlay);padding:0 3px;border-radius:2px">F</span><span style="position:absolute;top:3px;right:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-info)" stroke-width="2.6" stroke-linecap="round" style="animation:cf-spin 1.2s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg></span></div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-info);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums">идёт</div>
+                  </div>
+                  <div style="width:64px;flex:none;display:flex;align-items:center;justify-content:center;border:1px dashed var(--color-border);border-radius:var(--radius-sm);aspect-ratio:9/16;cursor:pointer;color:var(--color-text-subtle)" style-hover="border-color:var(--color-accent);color:var(--color-accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ПРАВАЯ КОЛОНКА · процесс -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <!-- component: QualityGatePanel -->
+            <div style="background:var(--color-panel);border:1px solid var(--color-warning-border);border-radius:var(--radius-lg);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--color-warning-bg);border-bottom:1px solid var(--color-warning-border)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round"><path d="M12 4l7 3v5c0 4-3 6.6-7 8-4-1.4-7-4-7-8V7z"/></svg>
+                <span style="font-size:13px;font-weight:600">Гейт качества · нужно решение</span>
+                <span style="flex:1"></span>
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-warning);font-variant-numeric:tabular-nums">7,2 / 10</span>
+              </div>
+              <div style="padding:11px 12px;display:flex;flex-direction:column;gap:9px">
+                <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-warning);margin-top:6px;flex:none"></span><span>Первые 2 секунды без движения — критик снизил оценку хука до 6,4.</span></div>
+                <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-warning);margin-top:6px;flex:none"></span><span>Субтитры на 00:41 перекрывают ценник в кадре.</span></div>
+                <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-success);margin-top:6px;flex:none"></span><span>Лип-синк, громкость и длительность — в норме.</span></div>
+                <div style="display:flex;gap:6px;margin-top:2px">
+                  <button style="flex:1;height:28px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Принять</button>
+                  <button style="height:28px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">На доработку</button>
+                  <button style="height:28px;padding:0 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);color:var(--color-danger);font-size:12.5px;cursor:pointer">Отклонить</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- component: GenerationStepper -->
+            <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--color-border)">
+                <span style="font-size:13px;font-weight:600">Шаги генерации</span>
+                <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)">6 из 6</span>
+                <span style="flex:1"></span>
+                <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">11 м 40 с</span>
+              </div>
+              <div style="padding:4px 0">
+                <!-- component: StepRow · бесплатное и локальное — кнопкой в строке, оплачиваемое — через меню с ценой -->
+                <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 62px 26px;column-gap:9px;align-items:start;padding:8px 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span><span style="width:1px;flex:1;min-height:10px;background:var(--color-divider)"></span></span>
+                  <span style="min-width:0">
+                    <span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Подготовка сценария</span>
+                    <span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">claude-sonnet · 12 с</span>
+                  </span>
+                  <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">1,80 ₽</span>
+                  <button title="Действия с шагом" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+                </div>
+                <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 62px 26px;column-gap:9px;align-items:start;padding:8px 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span><span style="width:1px;flex:1;min-height:10px;background:var(--color-divider)"></span></span>
+                  <span style="min-width:0">
+                    <span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Синтез речи</span>
+                    <span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">elevenlabs · ru_male_2 · 34 с</span>
+                  </span>
+                  <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">4,60 ₽</span>
+                  <button title="Действия с шагом" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+                </div>
+                <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 62px 26px;column-gap:9px;align-items:start;padding:8px 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span><span style="width:1px;flex:1;min-height:10px;background:var(--color-divider)"></span></span>
+                  <span style="min-width:0">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12.5px">Lip-sync<span style="display:inline-flex;align-items:center;white-space:nowrap;height:17px;padding:0 5px;border-radius:var(--radius-sm);font-size:10.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-variant-numeric:tabular-nums">попытка 2 из 3</span></span>
+                    <span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">replicate/wav2lip · 4 м 02 с</span>
+                    <span style="display:flex;align-items:center;gap:5px;margin-top:3px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-warning);font-variant-numeric:tabular-nums"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v13m0 0 5-5m-5 5-5-5"/></svg>оценка 12,00 ₽ → факт 18,20 ₽</span>
+                  </span>
+                  <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;color:var(--color-warning);font-variant-numeric:tabular-nums">18,20 ₽</span>
+                  <button title="Действия с шагом" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+                </div>
+                <!-- component: StepMenu · оплачиваемый шаг: подтверждение с суммой -->
+                <div style="margin:0 12px 8px 47px;width:264px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:5px">
+                  <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;background:var(--color-card)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>Повторить шаг<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-warning);font-variant-numeric:tabular-nums">~12 ₽</span></div>
+                  <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h9M5 17h5"/></svg>Логи шага</div>
+                  <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg>Скопировать вход шага</div>
+                  <div style="padding:6px 9px 4px;font-size:11px;color:var(--color-text-subtle);line-height:1.5;border-top:1px solid var(--color-divider);margin-top:4px">Повтор обращается к платной модели — спросим подтверждение с суммой.</div>
+                </div>
+                <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 62px 26px;column-gap:9px;align-items:start;padding:8px 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span><span style="width:1px;flex:1;min-height:10px;background:var(--color-divider)"></span></span>
+                  <span style="min-width:0">
+                    <span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Сборка сцен</span>
+                    <span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">ffmpeg · 6 сцен · 2 м 51 с</span>
+                    <button style="height:22px;margin-top:4px;padding:0 8px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11.5px;cursor:pointer" style-hover="border-color:var(--color-text-subtle)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>Пересобрать</button>
+                  </span>
+                  <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">3,10 ₽</span>
+                  <button title="Действия с шагом" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+                </div>
+                <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 62px 26px;column-gap:9px;align-items:start;padding:8px 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span><span style="width:1px;flex:1;min-height:10px;background:var(--color-divider)"></span></span>
+                  <span style="min-width:0">
+                    <span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Субтитры</span>
+                    <span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">whisper-large · 34 строки · 48 с</span>
+                    <span style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+                      <button style="height:22px;padding:0 8px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11.5px;cursor:pointer" style-hover="border-color:var(--color-text-subtle)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>Править</button>
+                      <button style="height:22px;padding:0 8px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11.5px;cursor:pointer" style-hover="border-color:var(--color-text-subtle)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>Заново</button>
+                    </span>
+                  </span>
+                  <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">2,40 ₽</span>
+                  <button title="Действия с шагом" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+                </div>
+                <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 62px 26px;column-gap:9px;align-items:start;padding:8px 12px" style-hover="background:var(--color-card)">
+                  <span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span></span>
+                  <span style="min-width:0">
+                    <span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Финальный рендер</span>
+                    <span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">ffmpeg · 1080×1920 · 3 м 13 с</span>
+                  </span>
+                  <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">11,10 ₽</span>
+                  <button title="Действия с шагом" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer" style-hover="background:var(--color-raised);color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--color-divider);background:var(--color-card);flex-wrap:wrap">
+                <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-panel);color:var(--color-text);font-size:12px;cursor:pointer">Логи запуска</button>
+                <span style="flex:1"></span>
+                <a href="#v1" style="font-size:12px">Монитор запуска</a>
+                <div style="width:100%;font-size:11px;color:var(--color-text-subtle);line-height:1.5">Бесплатное и локальное — кнопкой в строке (пересборка, субтитры). Оплачиваемое — через меню шага с суммой: речь, lip-sync, генерация видео, рендер. Попытка показывается только со второй, расхождение оценки и факта — только при расхождении.</div>
+              </div>
+            </div>
+
+            <!-- component: CostBreakdown -->
+            <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+              <div style="display:flex;align-items:baseline;gap:9px;padding:10px 12px;border-bottom:1px solid var(--color-border)">
+                <span style="font-size:13px;font-weight:600">Стоимость</span>
+                <span style="flex:1"></span>
+                <span style="font-size:20px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em">41,20 ₽</span>
+              </div>
+              <div style="padding:10px 12px;display:flex;flex-direction:column;gap:7px">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Replicate · lip-sync</span><span style="height:5px;border-radius:2px;background:var(--color-neutral-bg);overflow:hidden"><span style="display:block;width:100%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">18,20 ₽</span></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Рендер и сборка</span><span style="height:5px;border-radius:2px;background:var(--color-neutral-bg);overflow:hidden"><span style="display:block;width:78%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">14,20 ₽</span></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">ElevenLabs · речь</span><span style="height:5px;border-radius:2px;background:var(--color-neutral-bg);overflow:hidden"><span style="display:block;width:25%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">4,60 ₽</span></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Whisper · субтитры</span><span style="height:5px;border-radius:2px;background:var(--color-neutral-bg);overflow:hidden"><span style="display:block;width:13%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">2,40 ₽</span></div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;column-gap:9px;align-items:center;font-size:12px"><span style="color:var(--color-text-muted)">Claude · сценарий</span><span style="height:5px;border-radius:2px;background:var(--color-neutral-bg);overflow:hidden"><span style="display:block;width:10%;height:100%;background:var(--color-accent)"></span></span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">1,80 ₽</span></div>
+                <div style="height:1px;background:var(--color-divider);margin:2px 0"></div>
+                <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums"><span>Средняя по разделу за сутки</span><span style="font-family:var(--font-mono)">38,60 ₽</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums"><span>Потрачено на неудачные попытки</span><span style="font-family:var(--font-mono);color:var(--color-warning)">6,10 ₽</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="v2" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Генерация идёт прямо сейчас</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:840px">Обновление раз в 5 секунд меняет только цифры и текущий шаг: пройденные шаги не перерисовываются, порядок не меняется, высота блока фиксирована — вёрстка не дёргается.</span>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--color-border);flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:600">Шкаф в нишу за 30 секунд · вариант F</span>
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:12px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="animation:cf-spin 1.2s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>Выполняется</span>
+        <span style="flex:1"></span>
+        <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12px;cursor:pointer">Остановить</button>
+      </div>
+      <div style="padding:11px 12px;display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--color-text-muted)">Шаг 3 из 6 · lip-sync</span><span style="font-family:var(--font-mono);color:var(--color-text-muted);font-variant-numeric:tabular-nums">осталось ~2 м 10 с</span></div>
+        <div style="display:flex;gap:3px">
+          <span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span>
+          <span style="flex:1;height:5px;border-radius:2px;background:var(--color-info-bg);position:relative;overflow:hidden"><span style="position:absolute;inset:0;width:34%;background:var(--color-info);animation:cf-run 1.6s ease-out infinite"></span></span>
+          <span style="flex:1;height:5px;border-radius:2px;background:var(--color-neutral-bg)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-neutral-bg)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-neutral-bg)"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 0;border-top:1px solid var(--color-divider)">
+          <span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span></span>
+          <span><span style="display:block;font-size:12.5px">Синтез речи</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">elevenlabs · 34 с</span></span>
+          <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">4,60 ₽</span>
+        </div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 0;background:var(--color-info-bg);border-radius:var(--radius-sm);margin:0 -6px;padding-left:6px;padding-right:6px">
+          <span style="display:flex;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-info)" stroke-width="2.4" stroke-linecap="round" style="animation:cf-spin 1.2s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg></span>
+          <span><span style="display:block;font-size:12.5px">Lip-sync<span style="color:var(--color-info)"> · попытка 1 из 3</span></span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">replicate/wav2lip · 1 м 52 с идёт</span></span>
+          <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;color:var(--color-info);font-variant-numeric:tabular-nums">6,10 ₽</span>
+        </div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 0;opacity:.6">
+          <span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);border:1px dashed var(--color-border)"></span></span>
+          <span><span style="display:block;font-size:12.5px">Сборка сцен</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">ожидает</span></span>
+          <span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-subtle)">~3 ₽</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding-top:4px;border-top:1px solid var(--color-divider);font-size:11.5px;color:var(--color-text-subtle)">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span>обновлено 14:38:02 · накоплено <span style="font-family:var(--font-mono);color:var(--color-text);font-variant-numeric:tabular-nums">10,70 ₽</span>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px;font-size:12px;color:var(--color-text-muted);line-height:1.6">
+      <div style="font-size:13px;font-weight:600;color:var(--color-text);margin-bottom:8px">Что меняется вживую, а что нет</div>
+      Меняются: номер шага, таймер, накопленная стоимость, полоса прогресса, номер попытки. Место под три знака в цифрах зарезервировано.
+      <div style="height:8px"></div>
+      Не меняются: порядок шагов, высота карточки, положение действий в шапке. Кнопки «Отправить на публикацию» и «Скачать» в этом состоянии отключены, а не спрятаны — иначе шапка прыгает при завершении генерации.
+      <div style="height:8px"></div>
+      Ролик в ленте вариантов помечен спиннером на миниатюре: оператор видит, что вариант F ещё считается, не заходя в него.
+      <div style="height:10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button disabled="disabled" style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-neutral-bg);color:var(--color-text-subtle);font-size:12.5px;cursor:not-allowed">Отправить на публикацию</button>
+        <button disabled="disabled" style="height:28px;padding:0 11px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:transparent;color:var(--color-text-subtle);font-size:12.5px;cursor:not-allowed">Скачать</button>
+        <span style="align-self:center;font-size:11.5px">доступны после финального рендера</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="v3" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Генерация упала</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:840px">Не красный бейдж, а разбор: где встало, что это значит по-человечески, сколько уже потрачено и что можно сделать. Stack trace убран под «Технические детали».</span>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:minmax(360px,1.15fr) minmax(300px,1fr);gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-danger-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--color-danger-bg);border-bottom:1px solid var(--color-danger-border);flex-wrap:wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.6" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+        <span style="font-size:13px;font-weight:600">Упало на шаге 3 из 6 · Lip-sync</span>
+        <span style="flex:1"></span>
+        <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">14:33:12</span>
+      </div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:11px">
+        <div style="font-size:13px">Звуковая дорожка короче видео: речь получилась 74,2 секунды, а собранное видео — 82,0. Модель lip-sync требует совпадения длительностей.</div>
+        <div style="font-size:12.5px;color:var(--color-text-muted)">Обычная причина — сценарий сократили после синтеза речи. Помогает повтор с шага «Синтез речи», а не с текущего: иначе речь останется прежней и шаг упадёт снова.</div>
+        <div style="display:flex;align-items:center;gap:14px;padding:9px 11px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--color-text-muted)">Потрачено до падения<span style="font-family:var(--font-mono);color:var(--color-text);font-variant-numeric:tabular-nums;margin-left:7px">10,70 ₽</span></span>
+          <span style="width:1px;height:16px;background:var(--color-border)"></span>
+          <span style="font-size:12px;color:var(--color-text-muted)">Попыток<span style="font-family:var(--font-mono);color:var(--color-text);font-variant-numeric:tabular-nums;margin-left:7px">2 из 3</span></span>
+          <span style="width:1px;height:16px;background:var(--color-border)"></span>
+          <span style="font-size:12px;color:var(--color-text-muted)">Повтор с речи обойдётся<span style="font-family:var(--font-mono);color:var(--color-warning);font-variant-numeric:tabular-nums;margin-left:7px">~24 ₽</span></span>
+        </div>
+        <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--color-card);cursor:pointer;font-size:12px;color:var(--color-text-muted)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 14 6-6 6 6"/></svg>Технические детали
+            <span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px">req_88213_s3</span>
+          </div>
+          <pre style="margin:0;padding:9px 10px;font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--color-text-muted);overflow-x:auto;background:var(--color-surface)">provider=replicate model=wav2lip attempt=2
+audio_duration=74.20s video_duration=82.04s
+error=InputMismatch: audio shorter than video by 7.84s
+cost_charged=6.10 RUB  request_id=r_9f2a41c8</pre>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Повторить с «Синтеза речи» · ~24 ₽</button>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Пропустить шаг</button>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Повторить с этого шага</button>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Повторить всё</button>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Логи</button>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);color:var(--color-danger);font-size:12.5px;cursor:pointer">Отменить ролик</button>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:9px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Шаги в состоянии ошибки</div>
+      <div style="padding:4px 0">
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--color-divider)"><span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span></span><span><span style="display:block;font-size:12.5px">Подготовка сценария</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">12 с</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">1,80 ₽</span></div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--color-divider)"><span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border);display:flex;align-items:center;justify-content:center;color:var(--color-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></span></span><span><span style="display:block;font-size:12.5px">Синтез речи</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">74,2 с речи · 34 с</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">4,60 ₽</span></div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 12px;background:var(--color-danger-bg);border-top:1px solid var(--color-danger-border);border-bottom:1px solid var(--color-danger-border)"><span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-danger);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-inverse)" stroke-width="2.6" stroke-linecap="round"><path d="M12 8v5m0 3h.01"/></svg></span></span><span><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500">Lip-sync<span style="display:inline-flex;align-items:center;white-space:nowrap;height:17px;padding:0 5px;border-radius:var(--radius-sm);font-size:10.5px;background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger);font-variant-numeric:tabular-nums">попытка 3 из 3</span></span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-danger);font-variant-numeric:tabular-nums">автоповторов больше не будет · 4 м 02 с</span><span style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap"><button style="height:22px;padding:0 8px;display:inline-flex;align-items:center;gap:5px;border:0;border-radius:var(--radius-sm);background:var(--color-accent);color:var(--color-on-accent);font-size:11.5px;font-weight:500;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>Повторить</button><button style="height:22px;padding:0 8px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:11.5px;cursor:pointer" style-hover="border-color:var(--color-text-subtle)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 6l6 6-6 6M15 6v12"/></svg>Пропустить</button></span></span><span style="text-align:right;font-family:var(--font-mono);font-size:11.5px;color:var(--color-danger);font-variant-numeric:tabular-nums">6,10 ₽</span></div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 12px;opacity:.55"><span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);border:1px dashed var(--color-border)"></span></span><span><span style="display:block;font-size:12.5px">Сборка сцен</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">не запускался</span></span><span></span></div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 12px;opacity:.55"><span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);border:1px dashed var(--color-border)"></span></span><span><span style="display:block;font-size:12.5px">Субтитры</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">не запускался</span></span><span></span></div>
+        <div style="display:grid;grid-template-columns:26px minmax(0,1fr) 72px;column-gap:9px;align-items:center;padding:7px 12px;opacity:.55"><span style="display:flex;justify-content:center"><span style="width:20px;height:20px;border-radius:var(--radius-full);border:1px dashed var(--color-border)"></span></span><span><span style="display:block;font-size:12.5px">Финальный рендер</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">не запускался</span></span><span></span></div>
+      </div>
+      <div style="padding:9px 12px;border-top:1px solid var(--color-divider);background:var(--color-card);font-size:11.5px;color:var(--color-text-subtle)">Кнопка «Повторить с этого шага» есть у каждого упавшего шага; у пройденных — только в меню, чтобы случайно не пересчитать уже оплаченное.</div>
+    </div>
+  </div>
+</section>
+
+<section id="v4" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Несохранённые правки и только чтение</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Есть несохранённые правки · липкая шапка</div>
+      <div style="padding:0">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--color-accent-border);background:var(--color-accent-bg);flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600">Шкаф в нишу за 30 секунд · вариант B2<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-panel);border:1px solid var(--color-accent-border);color:var(--color-text)">2 правки не сохранены</span>
+          <span style="flex:1"></span>
+          <button style="height:26px;padding:0 11px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12px;font-weight:500;cursor:pointer">Сохранить</button>
+          <button style="height:26px;padding:0 10px;border:0;background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Отменить</button>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">⌘S</span>
+        </div>
+        <div style="padding:11px 12px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:9px;font-size:12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-accent);margin-top:6px;flex:none"></span><span>Название: «вариант B» → «вариант B2»</span></div>
+          <div style="display:flex;gap:9px;font-size:12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--color-accent);margin-top:6px;flex:none"></span><span>Субтитры, строка 12: сдвиг на +0,4 с</span></div>
+          <div style="font-size:11.5px;color:var(--color-text-subtle)">При уходе со страницы — диалог «Сохранить / Не сохранять / Отмена», как в редакторе конвейера. Автосохранения нет: правка субтитров запускает перерендер и стоит денег.</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Только чтение · нет прав на изменение</div>
+      <div style="padding:11px 12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:600;color:var(--color-text-muted)">Шкаф в нишу за 30 секунд · вариант B</span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text-muted)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>только чтение</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--color-text-muted)">Роль «Наблюдатель»: видно всё, включая стоимость и шаги, но изменить нельзя. Правка названия, кнопки «Перегенерировать», «Отправить на публикацию» и решения гейта отсутствуют — не серые, а убраны, кроме «Скачать».</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Скачать</button>
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Запросить права</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle)">Гейт качества показывает результат и замечания, но без кнопок «Принять / Отклонить».</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="v5" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Загрузка и «объект не найден»</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Загрузка · скелетон повторяет форму</div>
+      <div style="padding:12px;display:flex;gap:12px">
+        <div style="width:104px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-md);background:var(--color-card);animation:cf-sk 1.4s ease-in-out infinite"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px;animation:cf-sk 1.4s ease-in-out .1s infinite">
+          <span style="height:14px;width:72%;border-radius:3px;background:var(--color-card)"></span>
+          <span style="height:10px;width:38%;border-radius:3px;background:var(--color-card)"></span>
+          <span style="height:1px;background:var(--color-divider);margin:3px 0"></span>
+          <span style="height:10px;width:88%;border-radius:3px;background:var(--color-card)"></span>
+          <span style="height:10px;width:64%;border-radius:3px;background:var(--color-card)"></span>
+          <span style="height:10px;width:76%;border-radius:3px;background:var(--color-card)"></span>
+          <span style="height:26px;width:70%;border-radius:var(--radius-full);background:var(--color-card);margin-top:4px"></span>
+        </div>
+        <div style="width:150px;flex:none;display:flex;flex-direction:column;gap:7px;animation:cf-sk 1.4s ease-in-out .2s infinite">
+          <span style="height:11px;width:60%;border-radius:3px;background:var(--color-card)"></span>
+          <span style="height:26px;border-radius:var(--radius-sm);background:var(--color-card)"></span>
+          <span style="height:26px;border-radius:var(--radius-sm);background:var(--color-card)"></span>
+          <span style="height:26px;border-radius:var(--radius-sm);background:var(--color-card)"></span>
+          <span style="height:26px;border-radius:var(--radius-sm);background:var(--color-card)"></span>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Объект не найден</div>
+      <div style="padding:24px 16px;text-align:center">
+        <div style="width:36px;height:36px;margin:0 auto 10px;border-radius:var(--radius-md);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg></div>
+        <div style="font-size:13px;font-weight:500">Видео <span style="font-family:var(--font-mono)">vid_10842</span> не найдено</div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin:4px auto 12px;max-width:380px">Ролик удалён 4 августа вместе с циклом производства «Мебель · июль». Файл в хранилище тоже удалён, восстановить нельзя.</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">К списку видео</button>
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Открыть сценарий scr_4471</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:9px">Ссылки на связанные сущности остаются рабочими — оператор попал сюда из чата и должен куда-то уйти.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="v6" style="padding:24px 24px 40px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Планшет 1024 и телефон 390</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:840px">На 1024 колонки сохраняются, правая сжимается до 320. На 390 одна колонка: плеер, статус и шаги — сверху, свойства и связи — ниже; действия собраны в липкую полосу снизу.</span>
+  </div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">1024 · фрагмент: обе колонки сохранены, правая сжата до 240</div>
+      <div style="width:660px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px;display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:12px">
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;gap:10px">
+            <div style="width:88px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-md);background:repeating-linear-gradient(135deg,#2c3b46 0 6px,#22303a 6px 12px);border:1px solid var(--color-border)"></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:13px;font-weight:600;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф в нишу за 30 секунд · вариант B</span>
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">vid_10842 · 82 сек · 41,20 ₽</span>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">
+                <span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span>
+                <a href="#v1" style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-full);font-size:11.5px;background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text)">scr_4471</a>
+                <a href="#v1" style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-full);font-size:11.5px;background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text)">@zavod.mebel.ru</a>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;overflow-x:auto">
+            <span style="width:40px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px);border:2px solid var(--color-accent)"></span>
+            <span style="width:40px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px);border:1px solid var(--color-border)"></span>
+            <span style="width:40px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px);border:1px solid var(--color-border)"></span>
+            <span style="width:40px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3d3529 0 4px,#302a21 4px 8px);border:1px solid var(--color-border)"></span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Шаги · 6 из 6</span>
+          <div style="display:grid;grid-template-columns:18px minmax(0,1fr) 56px;column-gap:7px;align-items:center;font-size:12px"><span style="width:16px;height:16px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border)"></span><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Речь</span><span style="text-align:right;font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums">4,60 ₽</span></div>
+          <div style="display:grid;grid-template-columns:18px minmax(0,1fr) 56px;column-gap:7px;align-items:center;font-size:12px"><span style="width:16px;height:16px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border)"></span><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Lip-sync</span><span style="text-align:right;font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums">18,20 ₽</span></div>
+          <div style="display:grid;grid-template-columns:18px minmax(0,1fr) 56px;column-gap:7px;align-items:center;font-size:12px"><span style="width:16px;height:16px;border-radius:var(--radius-full);background:var(--color-success-bg);border:1px solid var(--color-success-border)"></span><span style="overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Рендер</span><span style="text-align:right;font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums">11,10 ₽</span></div>
+          <div style="height:1px;background:var(--color-divider);margin:2px 0"></div>
+          <button style="height:26px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12px;font-weight:500;cursor:pointer">Принять</button>
+          <button style="height:26px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12px;cursor:pointer">На доработку</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">390 · экран целиком</div>
+      <div style="width:390px;height:640px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;height:48px;padding:0 12px;background:var(--color-panel);border-bottom:1px solid var(--color-border);flex:none">
+          <button title="Назад" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></button>
+          <span style="font-family:var(--font-mono);font-size:12.5px;flex:1">vid_10842</span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span>
+          <button title="Ещё" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:11px">
+          <div style="position:relative;width:100%;aspect-ratio:9/16;max-height:300px;border-radius:var(--radius-md);background:repeating-linear-gradient(135deg,#2c3b46 0 7px,#22303a 7px 14px);border:1px solid var(--color-border);flex:none;overflow:hidden">
+            <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:var(--radius-full);background:var(--color-overlay);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M9 6l9 6-9 6z"/></svg></span>
+            <span style="position:absolute;bottom:8px;right:8px;font-family:var(--font-mono);font-size:11px;color:#fff;background:var(--color-overlay);padding:1px 6px;border-radius:var(--radius-sm);font-variant-numeric:tabular-nums">01:22</span>
+          </div>
+          <div style="font-size:14px;font-weight:600;line-height:1.3;flex:none">Шкаф в нишу за 30 секунд · вариант B</div>
+          <div style="display:flex;gap:14px;font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;flex:none"><span>82 сек</span><span>41,20 ₽</span><span>5 авг, 14:32</span></div>
+          <div style="display:flex;gap:6px;overflow-x:auto;flex:none">
+            <span style="width:44px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px);border:2px solid var(--color-accent)"></span>
+            <span style="width:44px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px);border:1px solid var(--color-border)"></span>
+            <span style="width:44px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px);border:1px solid var(--color-border)"></span>
+            <span style="width:44px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3d3529 0 4px,#302a21 4px 8px);border:1px solid var(--color-border)"></span>
+          </div>
+          <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:10px;flex:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:12.5px;font-weight:600">Шаги генерации</span><span style="flex:1"></span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);font-size:11px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success);font-variant-numeric:tabular-nums">6 из 6</span></div>
+            <div style="display:flex;gap:3px"><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span><span style="flex:1;height:5px;border-radius:2px;background:var(--color-success)"></span></div>
+            <div style="margin-top:8px;font-size:11.5px;color:var(--color-text-muted)">Разбивка стоимости и логи — по тапу</div>
+          </div>
+        </div>
+        <div style="flex:none;display:flex;gap:7px;padding:10px 12px;border-top:1px solid var(--color-border);background:var(--color-panel)">
+          <button style="flex:1;height:40px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:13px;font-weight:500;cursor:pointer">Принять</button>
+          <button style="height:40px;padding:0 14px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:13px;cursor:pointer">На доработку</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultAccent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amber&quot;,&quot;cyan&quot;,&quot;pine&quot;],&quot;default&quot;:&quot;amber&quot;,&quot;tsType&quot;:&quot;'amber'|'cyan'|'pine'&quot;,&quot;section&quot;:&quot;Тема&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Тема&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.defaultTheme ?? 'dark', accent: this.props.defaultAccent ?? 'amber' };
+  componentDidMount(){ this.apply(); }
+  componentDidUpdate(){ this.apply(); }
+  apply(){
+    const r = document.documentElement;
+    r.dataset.theme = this.state.theme;
+    r.dataset.accent = this.state.accent;
+  }
+  renderVals(){
+    const s = this.state, on = 'var(--color-raised)';
+    return {
+      setDark: () => this.setState({ theme: 'dark' }),
+      setLight: () => this.setState({ theme: 'light' }),
+      tDarkBg: s.theme === 'dark' ? on : 'transparent',
+      tDarkFg: s.theme === 'dark' ? 'var(--color-text)' : 'var(--color-text-muted)',
+      tLightBg: s.theme === 'light' ? on : 'transparent',
+      tLightFg: s.theme === 'light' ? 'var(--color-text)' : 'var(--color-text-muted)'
+    };
+  }
+}
+</script>
+</body>
+</html>

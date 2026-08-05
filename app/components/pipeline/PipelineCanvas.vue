@@ -20,7 +20,8 @@ provide('pipelineNodeWarningCounts', nodeWarningCounts)
 // Применяем оранжевую обводку к несовместимым рёбрам (severity=warning, isHint=false).
 // Hint loop'а (compatible+warning) НЕ красим — это легитимный паттерн.
 // Маркируем edge через _validationStyled чтобы корректно снимать стиль при исчезновении issue.
-const WARNING_STROKE = 'oklch(0.79 0.16 70)' // warning из daisyui-tokens (приблизительно)
+// Читаем токен темы, а не хардкодим цвет: значение отличается в dark и light.
+const WARNING_STROKE = 'var(--color-warning)'
 watchEffect(() => {
   for (const edge of store.edges as any[]) {
     if (edge.sourceHandle === 'error') continue // не трогаем error edges (свой style)

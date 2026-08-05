@@ -1,0 +1,129 @@
+    <!-- component: Sidebar — активная группа раскрыта, остальные свёрнуты -->
+    <div style="width:240px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:9px;height:44px;padding:0 12px;border-bottom:1px solid var(--color-divider);flex:none">
+        <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+        <span style="font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap">ContentFactory</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);background:var(--color-accent-bg);border:1px solid var(--color-accent-border);color:var(--color-text);font-size:13px;font-weight:500;position:relative;margin-bottom:4px">
+          <div style="position:absolute;left:0;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+          <!-- icon: mingcute:dashboard-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M12 12l4-3"/></svg>
+          Сейчас
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-weight:500" style-hover="background:var(--color-card)">
+          <!-- icon: mingcute:git-branch-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+          Конвейер<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-info);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">7</span>
+        </a>
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:8px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Производство<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+          Тренды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">240</span>
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M9.5 18h5M11 21h2M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>
+          Идеи
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M6 4h8l4 4v12H6zM14 4v4h4"/></svg>
+          Сценарии<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">12</span>
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="9" r="3.2"/><path d="M6 19a6 6 0 0 1 12 0"/></svg>
+          Персонажи
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4l8 4-8 4-8-4 8-4ZM4 13l8 4 8-4"/></svg>
+          Композитор сцен
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m6 17 4-5 3 3 2-2 3 4"/></svg>
+          Креативы
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 7h5l2 2h9v9H4z"/></svg>
+          Google Drive
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="m12 4 2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/></svg>
+          Лучшие промты
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Медиа<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>
+          Видео<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">3</span>
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 18V8m0 0-4 4m4-4 4 4M5 5h14"/></svg>
+          Загрузки
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 12 20 5l-7 15-2-6z"/></svg>
+          Постинг<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">8</span>
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="9" cy="9" r="3"/><path d="M4 19a5 5 0 0 1 10 0M15 7a3 3 0 0 1 0 6"/></svg>
+          Аккаунты<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">2</span>
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="6" rx="2"/><rect x="4" y="13" width="16" height="6" rx="2"/></svg>
+          Прокси
+        </a>
+        <a href="#d1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>
+          Устройства
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Аналитика<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">2</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Настройки<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">4</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Админ<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">9</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--color-divider);padding:8px">
+        <div style="display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)">
+          <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--font-mono);color:var(--color-text-muted)">ДК</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Дмитрий Кузнецов</div>
+            <div style="font-size:10.5px;color:var(--color-text-subtle)">Оператор</div>
+          </div>
+          <button title="Светлая тема" onClick="{{ setLight }}" style="width:24px;height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+
+@@SPLIT@@
+      <!-- component: TopBar -->
+      <div style="flex:none;display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+        <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;flex:none;white-space:nowrap"><span style="font-weight:500">Сейчас</span><span style="color:var(--color-text-subtle);font-variant-numeric:tabular-nums">5 авг, 14:32 МСК</span></div>
+        <div style="flex:0 1 320px;position:relative;cursor:text">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:7px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <div style="height:29px;padding:0 10px 0 30px;display:flex;align-items:center;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--color-text-subtle)">Поиск и команды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;padding:1px 5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface)">⌘K</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:8px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-text-muted)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">7</span> запусков</span>
+          <span style="width:1px;height:14px;background:var(--color-border)"></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-danger)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3</span> алерта</span>
+        </div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:6px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="font-size:11.5px;color:var(--color-text-subtle)">за сутки</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">12 480 ₽</span>
+        </div>
+        <button title="Подсказка по странице" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-size:12.5px">?</button>
+        <button title="Уведомления" style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15zM10.5 19.5a2 2 0 0 0 3 0"/></svg>
+          <span style="position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--color-danger);color:var(--color-text-inverse);font-size:9.5px;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center">4</span>
+        </button>
+      </div>
+

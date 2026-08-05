@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--color-surface);color:var(--color-text);font-family:var(--font-ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--color-accent-text);text-decoration:none}
+a:hover{color:var(--color-accent-text);text-decoration:underline}
+::selection{background:var(--color-accent-bg)}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+input,button,textarea,select{font:inherit;color:inherit}
+button,select{white-space:nowrap}
+input[type=checkbox],input[type=radio]{accent-color:var(--color-accent)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+:root,[data-theme=dark]{
+--font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+--font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--color-surface:#0c0e10;--color-panel:#111417;--color-card:#16191d;--color-raised:#1d2126;
+--color-border:#272c32;--color-divider:#1e2329;--color-overlay:rgba(4,5,7,.72);
+--color-text:#e7eaed;--color-text-muted:#99a2aa;--color-text-subtle:#69737b;--color-text-inverse:#0c0e10;
+--color-neutral:#99a2aa;--color-neutral-bg:#1b2025;--color-neutral-border:#2b3138;
+--color-info:#74b7e8;--color-info-bg:#11212f;--color-info-border:#21384c;
+--color-success:#5fbe8c;--color-success-bg:#0f2018;--color-success-border:#1e3c2c;
+--color-warning:#e3a944;--color-warning-bg:#241c0d;--color-warning-border:#453419;
+--color-danger:#ec7d70;--color-danger-bg:#26130f;--color-danger-border:#4a231d;
+--radius-sm:3px;--radius-md:5px;--radius-lg:8px;--radius-full:999px;
+--shadow-sm:0 1px 2px rgba(0,0,0,.5);--shadow-md:0 6px 16px rgba(0,0,0,.5);--shadow-lg:0 18px 44px rgba(0,0,0,.55);
+--duration-fast:120ms;--duration-base:160ms;--duration-slow:200ms;
+--row-h-text:36px;--row-h-media:44px;
+}
+[data-theme=light]{
+--color-surface:#f5f6f8;--color-panel:#ffffff;--color-card:#ffffff;--color-raised:#ffffff;
+--color-border:#dee2e7;--color-divider:#eaedf0;--color-overlay:rgba(18,22,26,.38);
+--color-text:#15191d;--color-text-muted:#586269;--color-text-subtle:#848d95;--color-text-inverse:#ffffff;
+--color-neutral:#586269;--color-neutral-bg:#eef0f2;--color-neutral-border:#dbdfe3;
+--color-info:#1b6ca4;--color-info-bg:#e9f2fa;--color-info-border:#c3dcef;
+--color-success:#1b7549;--color-success-bg:#e7f4ec;--color-success-border:#c0e1cf;
+--color-warning:#8a5a08;--color-warning-bg:#fbf1dc;--color-warning-border:#eedab0;
+--color-danger:#b03a2b;--color-danger-bg:#fbeae7;--color-danger-border:#f0ccc6;
+--shadow-sm:0 1px 2px rgba(16,22,28,.08);--shadow-md:0 6px 16px rgba(16,22,28,.1);--shadow-lg:0 18px 44px rgba(16,22,28,.16);
+}
+[data-accent=amber]{--color-accent:#f0a63c;--color-accent-hover:#f8b757;--color-accent-active:#d68f2a;--color-accent-bg:#2a2010;--color-accent-border:#4c3818;--color-on-accent:#171003;--color-accent-text:#f0a63c}
+[data-accent=cyan]{--color-accent:#3fb3d6;--color-accent-hover:#5cc5e5;--color-accent-active:#2f9bbb;--color-accent-bg:#0f2530;--color-accent-border:#1c4557;--color-on-accent:#03151c;--color-accent-text:#3fb3d6}
+[data-accent=pine]{--color-accent:#46b384;--color-accent-hover:#5fc699;--color-accent-active:#369a6f;--color-accent-bg:#10251c;--color-accent-border:#1d4433;--color-on-accent:#03150d;--color-accent-text:#46b384}
+[data-theme=light][data-accent=amber]{--color-accent:#c47a08;--color-accent-hover:#ab6a05;--color-accent-active:#8f5804;--color-accent-bg:#fbf0d9;--color-accent-border:#ecd6a8;--color-on-accent:#1a1103;--color-accent-text:#a1660a}
+[data-theme=light][data-accent=cyan]{--color-accent:#1189ad;--color-accent-hover:#0d7191;--color-accent-active:#0a5d78;--color-accent-bg:#e5f2f7;--color-accent-border:#b8dae6;--color-on-accent:#02171e;--color-accent-text:#0d6c8a}
+[data-theme=light][data-accent=pine]{--color-accent:#1d9366;--color-accent-hover:#177853;--color-accent-active:#126345;--color-accent-bg:#e6f4ee;--color-accent-border:#bce0cf;--color-on-accent:#03160f;--color-accent-text:#177650}
+@keyframes cf-sk{0%,100%{opacity:.55}50%{opacity:.95}}
+@keyframes cf-run{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+@keyframes cf-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-surface);color:var(--color-text);padding-bottom:60px">
+
+<div style="position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 24px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+  <div style="display:flex;align-items:center;gap:9px;white-space:nowrap">
+    <div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+    <span style="font-size:14px;font-weight:600">Эталон списка · Тренды</span>
+    <span style="font-size:12px;color:var(--color-text-subtle)">Задача 3</span>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <a href="#l1" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Таблица</a>
+    <a href="#l8" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Представления</a>
+    <a href="#l2" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Панель деталей</a>
+    <a href="#l3" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Карточки</a>
+    <a href="#l4" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Колонки</a>
+    <a href="#l5" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Пагинация</a>
+    <a href="#l6" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Состояния</a>
+    <a href="#l7" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Адаптив</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+    <button onClick="{{ setDark }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tDarkBg }};color:{{ tDarkFg }}">Тёмная</button>
+    <button onClick="{{ setLight }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tLightBg }};color:{{ tLightFg }}">Светлая</button>
+  </div>
+</div>
+
+<section id="l1" style="padding:24px;overflow-x:auto">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">1440 × 900</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:900px">Структура: шапка → сохранённые представления → фильтры → таблица → массовые действия → пагинация. Всё, что специфично для трендов, помечено в разметке как заменяемая часть — по этому образцу строятся ещё ~20 разделов.</span>
+  </div>
+
+  <div style="display:flex;width:1440px;flex:none;height:900px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <!-- component: Sidebar — активная группа раскрыта, остальные свёрнуты -->
+    <div style="width:240px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:9px;height:44px;padding:0 12px;border-bottom:1px solid var(--color-divider);flex:none">
+        <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+        <span style="font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap">ContentFactory</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-weight:500;margin-bottom:4px" style-hover="background:var(--color-card)">
+          <!-- icon: mingcute:dashboard-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M12 12l4-3"/></svg>
+          Сейчас
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:32px;padding:0 9px;border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-weight:500" style-hover="background:var(--color-card)">
+          <!-- icon: mingcute:git-branch-line -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+          Конвейер<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-info);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">7</span>
+        </a>
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:8px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Производство<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;font-weight:500;position:relative">
+          <div style="position:absolute;left:-8px;top:5px;bottom:5px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+          Тренды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);min-width:24px;text-align:right;font-variant-numeric:tabular-nums">240</span>
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M9.5 18h5M11 21h2M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>
+          Идеи
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M6 4h8l4 4v12H6zM14 4v4h4"/></svg>
+          Сценарии<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">12</span>
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="12" cy="9" r="3.2"/><path d="M6 19a6 6 0 0 1 12 0"/></svg>
+          Персонажи
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 4l8 4-8 4-8-4 8-4ZM4 13l8 4 8-4"/></svg>
+          Композитор сцен
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m6 17 4-5 3 3 2-2 3 4"/></svg>
+          Креативы
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 7h5l2 2h9v9H4z"/></svg>
+          Google Drive
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="m12 4 2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/></svg>
+          Лучшие промты
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer">
+          Медиа<span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg>
+          Видео<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">3</span>
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M12 18V8m0 0-4 4m4-4 4 4M5 5h14"/></svg>
+          Загрузки
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><path d="M4 12 20 5l-7 15-2-6z"/></svg>
+          Постинг<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">8</span>
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="9" cy="9" r="3"/><path d="M4 19a5 5 0 0 1 10 0M15 7a3 3 0 0 1 0 6"/></svg>
+          Аккаунты<span style="flex:1"></span><span style="height:16px;line-height:15px;text-align:center;min-width:24px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-family:var(--font-mono);font-size:10.5px;font-variant-numeric:tabular-nums">2</span>
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="4" y="5" width="16" height="6" rx="2"/><rect x="4" y="13" width="16" height="6" rx="2"/></svg>
+          Прокси
+        </a>
+        <a href="#l1" style="display:flex;align-items:center;gap:9px;height:29px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px" style-hover="background:var(--color-card);color:var(--color-text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>
+          Устройства
+        </a>
+
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;margin-top:6px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Аналитика<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">2</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Настройки<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">4</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;color:var(--color-text-subtle);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;cursor:pointer" style-hover="color:var(--color-text-muted)">
+          Админ<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10px;text-transform:none;letter-spacing:0">9</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--color-divider);padding:8px">
+        <div style="display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:var(--radius-md);cursor:pointer" style-hover="background:var(--color-card)">
+          <div style="width:22px;height:22px;flex:none;border-radius:var(--radius-full);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--font-mono);color:var(--color-text-muted)">ДК</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Дмитрий Кузнецов</div>
+            <div style="font-size:10.5px;color:var(--color-text-subtle)">Оператор</div>
+          </div>
+          <button title="Светлая тема" onClick="{{ setLight }}" style="width:24px;height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <!-- component: TopBar -->
+      <div style="flex:none;display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+        <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;flex:none;white-space:nowrap"><span style="color:var(--color-text-subtle)">Производство</span><span style="color:var(--color-text-subtle)">/</span><span style="font-weight:500">Тренды</span></div>
+        <div style="flex:0 1 320px;position:relative;cursor:text">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:7px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <div style="height:29px;padding:0 10px 0 30px;display:flex;align-items:center;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--color-text-subtle)">Поиск и команды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;padding:1px 5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface)">⌘K</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:8px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-text-muted)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">7</span> запусков</span>
+          <span style="width:1px;height:14px;background:var(--color-border)"></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-danger)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3</span> алерта</span>
+        </div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:6px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer">
+          <span style="font-size:11.5px;color:var(--color-text-subtle)">за сутки</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">12 480 ₽</span>
+        </div>
+        <button title="Подсказка по странице" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-size:12.5px">?</button>
+        <button title="Уведомления" style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15zM10.5 19.5a2 2 0 0 0 3 0"/></svg>
+          <span style="position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--color-danger);color:var(--color-text-inverse);font-size:9.5px;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center">4</span>
+        </button>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 18px 0;gap:10px">
+
+        <!-- component: PageHeader -->
+        <div style="display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap">
+          <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em">Тренды</h1>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">240 найдено · 52 по фильтрам</span>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;white-space:nowrap;gap:6px;font-size:11.5px;color:var(--color-text-subtle)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span>обновлено 14:32:07</div>
+          <div style="display:flex;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+            <button title="Таблица" style="width:28px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+            <button title="Карточки" style="width:28px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
+          </div>
+          <button style="height:28px;padding:0 11px;display:flex;align-items:center;gap:6px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">
+            <!-- icon: mingcute:columns-3-line -->
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14M15 5v14"/></svg>
+            Колонки
+          </button>
+          <!-- заменяемая часть: основное действие сущности -->
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Импортировать тренды</button>
+          <button title="Ещё" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+        </div>
+
+        <!-- component: SavedViews · системные → общие → личные -->
+        <div style="display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--color-border);flex:none;flex-wrap:wrap">
+          <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">Все<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">240</span></button>
+          <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">Новые за 24 ч<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">38</span></button>
+          <span style="width:1px;height:16px;background:var(--color-divider);margin:0 5px"></span>
+          <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">
+            <!-- icon: mingcute:group-2-line · общий вид -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none;opacity:.75"><circle cx="9" cy="10" r="2.6"/><path d="M5 18a4 4 0 0 1 8 0M15 8a2.6 2.6 0 0 1 0 5.2M19 18a4 4 0 0 0-2-3.4"/></svg>
+            Ждут ревью<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-warning);font-variant-numeric:tabular-nums">12</span>
+          </button>
+          <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">
+            <!-- icon: mingcute:group-2-line · общий вид -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none;opacity:.75"><circle cx="9" cy="10" r="2.6"/><path d="M5 18a4 4 0 0 1 8 0M15 8a2.6 2.6 0 0 1 0 5.2M19 18a4 4 0 0 0-2-3.4"/></svg>
+            Готовы к публикации<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">9</span>
+          </button>
+          <span style="width:1px;height:16px;background:var(--color-divider);margin:0 5px"></span>
+          <button style="height:30px;padding:0 8px 0 10px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px">
+            <!-- icon: mingcute:pin-line · открывается по умолчанию у этого пользователя -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.6" stroke-linecap="round" style="flex:none"><path d="M12 14v6M8 4h8l-1.5 6.5 2 3.5H7.5l2-3.5z"/></svg>
+            Высокая виральность<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">52</span>
+            <span title="Меню вида" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);color:var(--color-text-subtle);margin-left:2px" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></span>
+          </button>
+          <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--color-text)">Мебель · RU<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">96</span></button>
+          <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-subtle);font-size:12.5px;cursor:pointer" style-hover="color:var(--color-text)">＋ Сохранить текущий вид</button>
+        </div>
+
+        <!-- component: FilterBar · состояние отражается в URL -->
+        <div style="flex:none;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <div style="position:relative;flex:0 1 240px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:8px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+              <input value="шкаф" style="width:100%;height:30px;padding:0 10px 0 30px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px"/>
+            </div>
+            <!-- заменяемая часть: набор фильтров сущности -->
+            <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;cursor:pointer">Платформа<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-accent-text)">2</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+            <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Статус<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+            <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Источник<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+            <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">4 авг — 5 авг<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+            <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;cursor:pointer;font-variant-numeric:tabular-nums">Виральность 70—100<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+            <div style="flex:1"></div>
+            <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;cursor:pointer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h10M4 12h7M4 17h4M17 5v14m0 0 3-3m-3 3-3-3"/></svg>
+              Виральность ↓
+            </button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">поиск: шкаф<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">TikTok<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">Instagram<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;font-variant-numeric:tabular-nums">виральность 70—100<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+            <button style="height:24px;padding:0 8px;border:0;background:transparent;color:var(--color-accent-text);font-size:12px;cursor:pointer">Сбросить всё</button>
+            <div style="flex:1"></div>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);white-space:nowrap">/trends?q=шкаф&amp;platform=tt,ig&amp;vir=70-100&amp;sort=-vir</span>
+            <button title="Скопировать ссылку на этот вид" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg></button>
+          </div>
+        </div>
+
+        <!-- component: EntityTable -->
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:var(--color-panel);border:1px solid var(--color-border);border-top-left-radius:var(--radius-lg);border-top-right-radius:var(--radius-lg);border-bottom:0;overflow:hidden">
+          <!-- component: EntityTableHead -->
+          <div style="flex:none;display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:32px;padding:0 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">
+            <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+            <span></span>
+            <span style="cursor:pointer;display:flex;align-items:center;gap:4px" style-hover="color:var(--color-text)">Название<span style="opacity:.35">↕</span></span>
+            <span style="cursor:pointer" style-hover="color:var(--color-text)">Платформа</span>
+            <span style="text-align:right;cursor:pointer;display:flex;align-items:center;justify-content:flex-end;gap:4px" style-hover="color:var(--color-text)">Просмотры<span style="opacity:.35">↕</span></span>
+            <span style="text-align:right;cursor:pointer;color:var(--color-text);display:flex;align-items:center;justify-content:flex-end;gap:4px">Виральность<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round"><path d="M12 5v14m0 0 5-5m-5 5-5-5"/></svg></span>
+            <span style="cursor:pointer" style-hover="color:var(--color-text)">Статус</span>
+            <span style="cursor:pointer;display:flex;align-items:center;gap:4px" style-hover="color:var(--color-text)">Импортирован<span style="opacity:.35">↕</span></span>
+            <span style="text-align:right">Действия</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto">
+            <!-- component: EntityTableRow · выделенная -->
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);background:var(--color-accent-bg);cursor:pointer">
+              <span><input type="checkbox" checked="checked" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Как за 30 секунд собрать шкаф без инструкции</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel_pro</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">2 431 902</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:84%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">84</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v5m0 3h.01"/></svg>На ревью</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 14:32</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:2px">
+                <button title="Взять в работу" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);cursor:pointer" style-hover="color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M10.5 9.5l4 2.5-4 2.5z"/></svg></button>
+                <button title="Ещё" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);cursor:pointer" style-hover="color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+              </span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" checked="checked" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Кухня 6 метров: куда девать посудомойку</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@kuhni.optom</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">1 887 340</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:88%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">88</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>В очереди</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 09:41</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Шкаф под лестницей: замер по месту</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel_pro</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">2 018 445</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:86%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">86</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="animation:cf-spin 1.1s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>Выполняется</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 18:30</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#43343f 0 4px,#352a33 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Собираем детскую за один вечер: тайминг</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@detskaya.pro</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">1 566 774</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:81%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">81</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v5m0 3h.01"/></svg>На ревью</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 22:41</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2a3348 0 4px,#222a3a 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Кухня без верхних шкафов: за и против</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@kuhni.spb</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">1 322 690</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:78%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">78</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>Готово</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 16:04</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Диван за 40 тысяч против дивана за 400 тысяч: что внутри</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@sofa.review</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#e34b4b"></span>YouTube</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">1 204 011</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:71%;height:100%;background:var(--color-warning)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">71</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>Готово</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 12:04</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#333f2c 0 4px,#293422 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Столешница из массива через год эксплуатации</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@stoly.dv</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">1 041 220</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:74%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">74</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>В очереди</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 08:03</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3f3a2c 0 4px,#332f24 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Как не купить ДСП вместо массива: три признака</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@stoly.dv</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#e34b4b"></span>YouTube</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">913 088</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:72%;height:100%;background:var(--color-warning)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">72</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>Готово</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 19:58</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">3 ошибки при замере кухни, из-за которых переделывают фасады</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@kuhni.spb</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#d6337f"></span>Instagram</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">918 447</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:76%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">76</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="animation:cf-spin 1.1s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>Выполняется</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 13:58</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2f3b45 0 4px,#252f38 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Проверяем фурнитуру за 10 секунд в магазине</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel.lab</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#d6337f"></span>Instagram</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">774 118</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:69%;height:100%;background:var(--color-warning)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">69</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>Готово</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 09:12</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#452f2c 0 4px,#372623 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Сколько реально стоит «мебель по акции»</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel.optom</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#d6337f"></span>Instagram</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">655 402</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:66%;height:100%;background:var(--color-warning)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">66</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-surface);border:1px dashed var(--color-danger-border);color:var(--color-danger);opacity:.85">Заблокировано</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 21:15</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3d3529 0 4px,#302a21 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Почему шкаф в нишу нельзя заказывать по картинке из интернета</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel_pro</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">642 380</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:63%;height:100%;background:var(--color-warning)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">63</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>Ошибка</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 11:47</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Шкаф-купе против распашного: считаем на реальной квартире</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel_pro</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#e34b4b"></span>YouTube</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">402 655</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:58%;height:100%;background:var(--color-neutral)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">58</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>Черновик</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 08:50</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3b3340 0 4px,#2f2933 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Почему фасады «поехали» через месяц</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@sborka.msk</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#d6337f"></span>Instagram</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">344 771</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:49%;height:100%;background:var(--color-neutral)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">49</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>Черновик</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 17:12</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2a3348 0 4px,#222a3a 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Как понять, что мебель собирали пьяные сборщики</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@sborka.msk</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#d6337f"></span>Instagram</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">318 226</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:41%;height:100%;background:var(--color-neutral)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">41</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:transparent;border:1px solid var(--color-divider);color:var(--color-text-subtle)">Отменено</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 10:12</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#333f2c 0 4px,#293422 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Ошибка в чертеже, из-за которой не закрылась дверца</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel.lab</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#d6337f"></span>Instagram</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">288 903</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:52%;height:100%;background:var(--color-neutral)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">52</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:transparent;border:1px solid var(--color-divider);color:var(--color-text-subtle)">Отменено</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 07:22</span>
+              <span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 40px minmax(240px,1fr) 104px 104px 116px 124px 108px 72px;column-gap:12px;align-items:center;height:36px;padding:0 12px;cursor:pointer" style-hover="background:var(--color-card)">
+              <span><input type="checkbox" style="width:14px;height:14px;cursor:pointer"/></span>
+              <span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2f3b45 0 4px,#252f38 4px 8px)"></span></span>
+              <span style="min-width:0"><a href="#l1" style="display:block;font-size:12.5px;color:var(--color-text);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%);line-height:1.2">Мебель для съёмной квартиры: что не жалко оставить</a><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@detskaya.pro</span></span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;font-size:12px;color:var(--color-text-muted)"><span style="width:5px;height:12px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">271 540</span>
+              <span style="display:flex;align-items:center;justify-content:flex-end;gap:7px"><span style="width:44px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden;flex:none"><span style="display:block;width:38%;height:100%;background:var(--color-neutral)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;width:20px;text-align:right">38</span></span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>Черновик</span></span>
+              <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 15:41</span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- component: BulkActionBar -->
+        <div style="flex:none;display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--color-raised);border:1px solid var(--color-accent-border);box-shadow:var(--shadow-md);flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:7px;font-size:12.5px;font-weight:500"><span style="display:flex;align-items:center;justify-content:center;white-space:nowrap;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-accent);color:var(--color-on-accent);font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">12</span>выбрано из 240</span>
+          <span style="width:1px;height:20px;background:var(--color-border)"></span>
+          <!-- заменяемая часть: массовые действия сущности -->
+          <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Взять в работу</button>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Отправить в конвейер</button>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Пометить</button>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);color:var(--color-danger);font-size:12.5px;cursor:pointer">Удалить</button>
+          <span style="flex:1"></span>
+          <button style="height:26px;padding:0 10px;border:0;background:transparent;color:var(--color-accent-text);font-size:12.5px;cursor:pointer">Выделить все 240</button>
+          <button style="height:26px;padding:0 10px;border:0;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Снять выделение</button>
+        </div>
+
+        <!-- component: Pagination -->
+        <div style="flex:none;display:flex;align-items:center;gap:10px;padding:8px 0 10px;flex-wrap:wrap">
+          <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">Показано 1–50 из 240</span>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-muted)">На странице
+            <div style="display:flex;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+              <button style="height:20px;padding:0 7px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);font-size:11.5px;cursor:pointer;font-family:var(--font-mono)">25</button>
+              <button style="height:20px;padding:0 7px;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);font-size:11.5px;cursor:pointer;font-family:var(--font-mono)">50</button>
+              <button style="height:20px;padding:0 7px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-subtle);font-size:11.5px;cursor:pointer;font-family:var(--font-mono)">100</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:2px">
+            <button style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-subtle);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg></button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-accent-border);border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">1</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">2</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">3</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">4</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">5</button>
+            <button style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:10px;font-size:12px;color:var(--color-text-subtle);max-width:1000px" data-note="density">15 строк видно целиком на 1440×900 вместе с шапкой, вкладками, фильтрами, панелью выделения и пагинацией; 17-я догружена и доступна скроллом внутри таблицы. Миниатюра 28×28 при строке 36 px: 32×32 в такой строке оставляет 2 px на отступы и склеивается — 32×32 живёт в строке 44 px (Аккаунты, Видео).</div>
+</section>
+
+<section id="l8" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Представления: три класса</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:860px">Системные не редактируются никем. Общие — закодированный процесс команды: новый человек открывает раздел и сразу видит, как тут принято работать, вместе с нужным набором колонок. Личные создаются без трения и без последствий.</span>
+  </div>
+  <div style="max-width:1180px;display:flex;flex-direction:column;gap:14px">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:grid;grid-template-columns:150px minmax(240px,1fr) 190px 200px;column-gap:14px;padding:9px 14px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)"><span>Класс</span><span>Примеры</span><span>Кто правит</span><span>Что видит оператор</span></div>
+      <div style="display:grid;grid-template-columns:150px minmax(240px,1fr) 190px 200px;column-gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--color-divider);font-size:12.5px">
+        <span style="font-weight:500">Системные</span>
+        <span style="color:var(--color-text-muted)">Все · Новые за 24 ч</span>
+        <span style="color:var(--color-text-muted)">никто, владельца нет</span>
+        <span style="color:var(--color-text-muted)">идут первыми, без значка</span>
+      </div>
+      <div style="display:grid;grid-template-columns:150px minmax(240px,1fr) 190px 200px;column-gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--color-divider);font-size:12.5px">
+        <span style="font-weight:500;display:flex;align-items:center;gap:7px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round" style="flex:none"><circle cx="9" cy="10" r="2.6"/><path d="M5 18a4 4 0 0 1 8 0M15 8a2.6 2.6 0 0 1 0 5.2M19 18a4 4 0 0 0-2-3.4"/></svg>Общие</span>
+        <span style="color:var(--color-text-muted)">Ждут ревью · Готовы к публикации</span>
+        <span style="color:var(--color-text-muted)">право <span style="font-family:var(--font-mono);font-size:11.5px">canManageSharedViews</span></span>
+        <span style="color:var(--color-text-muted)">значок «общий»; правка — только «Сохранить как свой»</span>
+      </div>
+      <div style="display:grid;grid-template-columns:150px minmax(240px,1fr) 190px 200px;column-gap:14px;align-items:center;padding:10px 14px;font-size:12.5px">
+        <span style="font-weight:500">Личные</span>
+        <span style="color:var(--color-text-muted)">Высокая виральность · Мебель · RU</span>
+        <span style="color:var(--color-text-muted)">владелец</span>
+        <span style="color:var(--color-text-muted)">без значка, создаются в один клик</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start">
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Общий вид покрутили фильтрами</div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--color-border)">
+            <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex:none;opacity:.75"><circle cx="9" cy="10" r="2.6"/><path d="M5 18a4 4 0 0 1 8 0M15 8a2.6 2.6 0 0 1 0 5.2M19 18a4 4 0 0 0-2-3.4"/></svg>Ждут ревью<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">7</span></button>
+            <button style="height:30px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Готовы к публикации</button>
+          </div>
+          <!-- component: ViewDirtyBar · тихая пометка, без модалки -->
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--color-card);border:1px solid var(--color-border);border-left:2px solid var(--color-accent);border-radius:var(--radius-md);flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--color-text-muted)">Вид изменён: добавлен фильтр «Instagram», снята сортировка по дате</span>
+            <span style="flex:1"></span>
+            <button style="height:26px;padding:0 10px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12px;font-weight:500;cursor:pointer">Сохранить как свой</button>
+            <button style="height:26px;padding:0 9px;border:0;background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Вернуть исходный</button>
+          </div>
+          <div style="font-size:12px;color:var(--color-text-muted);line-height:1.55">Общий вид остаётся нетронутым: у обычного пользователя нет кнопки «Сохранить», только «Сохранить как свой». Оператору с правом <span style="font-family:var(--font-mono);font-size:11.5px">canManageSharedViews</span> в этой же плашке добавляется «Обновить общий вид».</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+        <!-- component: ViewMenu -->
+        <div style="width:244px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:5px">
+          <div style="padding:7px 9px 5px">
+            <div style="font-size:12.5px;font-weight:500">Высокая виральность</div>
+            <div style="font-size:11px;color:var(--color-text-subtle);margin-top:2px;font-variant-numeric:tabular-nums">личный · Д. Кузнецов · изменён 4 авг, 19:12</div>
+          </div>
+          <div style="height:1px;background:var(--color-divider);margin:3px 0"></div>
+          <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;background:var(--color-card)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.6" stroke-linecap="round"><path d="M12 14v6M8 4h8l-1.5 6.5 2 3.5H7.5l2-3.5z"/></svg>Открывать по умолчанию<span style="flex:1"></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg></div>
+          <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 19h14M8 15l9-9 2 2-9 9H8v-2Z"/></svg>Переименовать</div>
+          <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg>Дублировать</div>
+          <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="10" r="2.6"/><path d="M5 18a4 4 0 0 1 8 0M15 8a2.6 2.6 0 0 1 0 5.2"/></svg>Сделать общим<span style="flex:1"></span><span style="font-size:10.5px;color:var(--color-text-subtle)">право</span></div>
+          <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)" style-hover="background:var(--color-card);color:var(--color-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14M15 5v14"/></svg>Колонки этого вида</div>
+          <div style="height:1px;background:var(--color-divider);margin:3px 0"></div>
+          <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-danger)" style-hover="background:var(--color-danger-bg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>Удалить</div>
+        </div>
+        <div style="flex:1;min-width:220px;font-size:12px;color:var(--color-text-muted);line-height:1.6">
+          Владелец в подписи вкладки не показывается — плотность важнее; он живёт в меню вида вместе с датой изменения.
+          <div style="height:8px"></div>
+          «Открывать по умолчанию» — личная настройка даже для общего вида: трендвотчер и оператор публикации заходят в один раздел за разным.
+          <div style="height:8px"></div>
+          Право <span style="font-family:var(--font-mono);font-size:11.5px">canManageSharedViews</span> — одно на всё приложение, не по разделам: тот, кому доверили общие очереди, ведёт их везде.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="l2" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Боковая панель деталей</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:820px">Клик по строке открывает панель, клик по названию уводит на полную страницу. Список позади остаётся виден, ↑↓ переключают объект, Escape закрывает. Модалка здесь не нужна.</span>
+  </div>
+  <div style="max-width:1180px;display:flex;height:400px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:32px 40px minmax(180px,1fr) 96px 104px;column-gap:12px;align-items:center;height:32px;padding:0 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span></span><span>Название</span><span style="text-align:right">Виральность</span><span>Статус</span></div>
+      <div style="display:grid;grid-template-columns:32px 40px minmax(180px,1fr) 96px 104px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider);background:var(--color-accent-bg)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px)"></span></span><span style="min-width:0;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Как за 30 секунд собрать шкаф без инструкции</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">84</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span></span></div>
+      <div style="display:grid;grid-template-columns:32px 40px minmax(180px,1fr) 96px 104px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px)"></span></span><span style="min-width:0;font-size:12.5px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Кухня 6 метров: куда девать посудомойку</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">88</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)">В очереди</span></span></div>
+      <div style="display:grid;grid-template-columns:32px 40px minmax(180px,1fr) 96px 104px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px)"></span></span><span style="min-width:0;font-size:12.5px;color:var(--color-text-muted);overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф под лестницей: замер по месту</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">86</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)">Выполняется</span></span></div>
+      <div style="flex:1;background:repeating-linear-gradient(135deg,transparent 0 9px,var(--color-card) 9px 10px)"></div>
+    </div>
+    <!-- component: DetailDrawer -->
+    <div style="width:372px;flex:none;background:var(--color-panel);border-left:1px solid var(--color-border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-divider);flex:none">
+        <button title="Предыдущий" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg></button>
+        <button title="Следующий" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg></button>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">1 из 52</span>
+        <span style="flex:1"></span>
+        <a href="#l2" style="font-size:12px">Открыть страницу</a>
+        <button title="Закрыть · Escape" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:12px">
+        <div style="display:flex;gap:11px">
+          <div style="width:72px;flex:none;aspect-ratio:9/16;border-radius:var(--radius-md);background:repeating-linear-gradient(135deg,#2c3b46 0 5px,#22303a 5px 10px);border:1px solid var(--color-border);position:relative">
+            <span style="position:absolute;inset:auto 0 6px 0;text-align:center;font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.45)">превью 9:16</span>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;line-height:1.3">Как за 30 секунд собрать шкаф без инструкции</div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-top:3px">trd_44120 · @mebel_pro</div>
+            <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span>
+              <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text-muted)"><span style="width:4px;height:10px;border-radius:2px;background:#25d8d0"></span>TikTok</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:2px;margin:12px 0 10px;border-bottom:1px solid var(--color-border)">
+          <button style="height:28px;padding:0 9px;border:0;border-bottom:2px solid var(--color-accent);background:transparent;color:var(--color-text);font-size:12.5px;font-weight:500;cursor:pointer">Обзор</button>
+          <button style="height:28px;padding:0 9px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Метрики</button>
+          <button style="height:28px;padding:0 9px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Что создано</button>
+        </div>
+        <!-- заменяемая часть: свойства сущности -->
+        <div style="display:flex;flex-direction:column">
+          <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:104px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Просмотры</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">2 431 902</span></div>
+          <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:104px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Виральность</span><span style="display:flex;align-items:center;gap:7px"><span style="width:56px;height:5px;border-radius:var(--radius-full);background:var(--color-neutral-bg);overflow:hidden"><span style="display:block;width:84%;height:100%;background:var(--color-success)"></span></span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">84</span></span></div>
+          <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:104px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Источник</span><span style="font-size:12px">Apify · TikTok RU, ниша мебель</span></div>
+          <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--color-divider)"><span style="width:104px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Импортирован</span><span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">5 авг, 14:32</span></div>
+          <div style="display:flex;gap:10px;padding:5px 0"><span style="width:104px;flex:none;font-size:11.5px;color:var(--color-text-muted)">Хук</span><span style="font-size:12px">вопрос в лоб в первые 3 секунды</span></div>
+        </div>
+        <div style="margin-top:12px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:7px">Связи</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <a href="#l2" style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)">2 сценария</a>
+          <a href="#l2" style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)"><span style="font-family:var(--font-mono);font-size:11px">vid_10842</span></a>
+          <a href="#l2" style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;color:var(--color-text)">1 публикация</a>
+        </div>
+      </div>
+      <div style="flex:none;display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--color-divider);background:var(--color-card)">
+        <button style="flex:1;height:28px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Взять в работу</button>
+        <button style="height:28px;padding:0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">В конвейер</button>
+        <button title="Ещё" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="l3" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Режим карточек</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:820px">Для визуальных сущностей: тренды, видео, креативы. Выделение чекбоксами работает и здесь, массовые действия те же. Таблица остаётся режимом по умолчанию.</span>
+  </div>
+  <div style="max-width:1180px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:14px">
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
+      <div style="border:1px solid var(--color-accent-border);border-radius:var(--radius-md);background:var(--color-accent-bg);overflow:hidden">
+        <div style="position:relative;aspect-ratio:9/16;background:repeating-linear-gradient(135deg,#2c3b46 0 6px,#22303a 6px 12px)">
+          <span style="position:absolute;top:6px;left:6px"><input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer"/></span>
+          <span style="position:absolute;top:6px;right:6px;display:inline-flex;align-items:center;white-space:nowrap;gap:4px;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-overlay);font-size:11px;color:#fff"><span style="width:4px;height:10px;border-radius:2px;background:#25d8d0"></span>TT</span>
+          <span style="position:absolute;bottom:6px;left:6px;display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-size:11px">На ревью</span>
+        </div>
+        <div style="padding:8px 9px;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:12px;line-height:1.3;height:31px;overflow:hidden;mask-image:linear-gradient(to bottom,#000 62%,transparent 100%)">Как за 30 секунд собрать шкаф без инструкции</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">@mebel_pro</span>
+          <span style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>2,4 млн</span><span>84</span></span>
+          <button style="height:24px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);font-size:11.5px;cursor:pointer">Взять в работу</button>
+        </div>
+      </div>
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);overflow:hidden">
+        <div style="position:relative;aspect-ratio:9/16;background:repeating-linear-gradient(135deg,#3a3040 0 6px,#2e2734 6px 12px)">
+          <span style="position:absolute;top:6px;left:6px"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/></span>
+          <span style="position:absolute;top:6px;right:6px;display:inline-flex;align-items:center;white-space:nowrap;gap:4px;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-overlay);font-size:11px;color:#fff"><span style="width:4px;height:10px;border-radius:2px;background:#25d8d0"></span>TT</span>
+          <span style="position:absolute;bottom:6px;left:6px;display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral);font-size:11px">В очереди</span>
+        </div>
+        <div style="padding:8px 9px;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:12px;line-height:1.3;height:31px;overflow:hidden;mask-image:linear-gradient(to bottom,#000 62%,transparent 100%)">Кухня 6 метров: куда девать посудомойку</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">@kuhni.optom</span>
+          <span style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>1,9 млн</span><span>88</span></span>
+          <button style="height:24px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Взять в работу</button>
+        </div>
+      </div>
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);overflow:hidden">
+        <div style="position:relative;aspect-ratio:9/16;background:repeating-linear-gradient(135deg,#2b3a34 0 6px,#233029 6px 12px)">
+          <span style="position:absolute;top:6px;left:6px"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/></span>
+          <span style="position:absolute;top:6px;right:6px;display:inline-flex;align-items:center;white-space:nowrap;gap:4px;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-overlay);font-size:11px;color:#fff"><span style="width:4px;height:10px;border-radius:2px;background:#e34b4b"></span>YT</span>
+          <span style="position:absolute;bottom:6px;left:6px;display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success);font-size:11px">Готово</span>
+        </div>
+        <div style="padding:8px 9px;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:12px;line-height:1.3;height:31px;overflow:hidden;mask-image:linear-gradient(to bottom,#000 62%,transparent 100%)">Диван за 40 тысяч против дивана за 400 тысяч</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">@sofa.review</span>
+          <span style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>1,2 млн</span><span>71</span></span>
+          <button style="height:24px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Взять в работу</button>
+        </div>
+      </div>
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);overflow:hidden">
+        <div style="position:relative;aspect-ratio:9/16;background:repeating-linear-gradient(135deg,#3d3529 0 6px,#302a21 6px 12px)">
+          <span style="position:absolute;top:6px;left:6px"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/></span>
+          <span style="position:absolute;top:6px;right:6px;display:inline-flex;align-items:center;white-space:nowrap;gap:4px;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-overlay);font-size:11px;color:#fff"><span style="width:4px;height:10px;border-radius:2px;background:#25d8d0"></span>TT</span>
+          <span style="position:absolute;bottom:6px;left:6px;display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-danger-bg);border:1px solid var(--color-danger-border);color:var(--color-danger);font-size:11px">Ошибка</span>
+        </div>
+        <div style="padding:8px 9px;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:12px;line-height:1.3;height:31px;overflow:hidden;mask-image:linear-gradient(to bottom,#000 62%,transparent 100%)">Почему шкаф в нишу нельзя заказывать по картинке</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">@mebel_pro</span>
+          <span style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>642 380</span><span>63</span></span>
+          <button style="height:24px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Повторить</button>
+        </div>
+      </div>
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);overflow:hidden">
+        <div style="position:relative;aspect-ratio:9/16;background:repeating-linear-gradient(135deg,#43343f 0 6px,#352a33 6px 12px)">
+          <span style="position:absolute;top:6px;left:6px"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/></span>
+          <span style="position:absolute;top:6px;right:6px;display:inline-flex;align-items:center;white-space:nowrap;gap:4px;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-overlay);font-size:11px;color:#fff"><span style="width:4px;height:10px;border-radius:2px;background:#25d8d0"></span>TT</span>
+          <span style="position:absolute;bottom:6px;left:6px;display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-size:11px">На ревью</span>
+        </div>
+        <div style="padding:8px 9px;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:12px;line-height:1.3;height:31px;overflow:hidden;mask-image:linear-gradient(to bottom,#000 62%,transparent 100%)">Собираем детскую за один вечер: тайминг</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">@detskaya.pro</span>
+          <span style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>1,6 млн</span><span>81</span></span>
+          <button style="height:24px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Взять в работу</button>
+        </div>
+      </div>
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);overflow:hidden">
+        <div style="position:relative;aspect-ratio:9/16;background:repeating-linear-gradient(135deg,#2f3b45 0 6px,#252f38 6px 12px)">
+          <span style="position:absolute;top:6px;left:6px"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/></span>
+          <span style="position:absolute;top:6px;right:6px;display:inline-flex;align-items:center;white-space:nowrap;gap:4px;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-overlay);font-size:11px;color:#fff"><span style="width:4px;height:10px;border-radius:2px;background:#d6337f"></span>IG</span>
+          <span style="position:absolute;bottom:6px;left:6px;display:inline-flex;align-items:center;white-space:nowrap;height:19px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info);font-size:11px">Выполняется</span>
+        </div>
+        <div style="padding:8px 9px;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:12px;line-height:1.3;height:31px;overflow:hidden;mask-image:linear-gradient(to bottom,#000 62%,transparent 100%)">3 ошибки при замере кухни</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">@kuhni.spb</span>
+          <span style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums"><span>918 447</span><span>76</span></span>
+          <button style="height:24px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);font-size:11.5px;cursor:pointer">Взять в работу</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="l4" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Колонки и ширины</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:820px">Состав колонок и их порядок — в меню «Колонки», ширина — перетаскиванием границы в шапке. И то, и другое запоминается в сохранённом представлении, а не глобально.</span>
+  </div>
+  <div style="max-width:1180px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+    <!-- component: ColumnsMenu -->
+    <div style="width:264px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:6px">
+      <div style="padding:6px 8px 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle)">Колонки · 7 из 9 показаны</div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" checked="checked" disabled="disabled" style="width:14px;height:14px"/><span style="font-size:12.5px;color:var(--color-text-subtle)">Название</span><span style="flex:1"></span><span style="font-size:10.5px;color:var(--color-text-subtle)">всегда</span></div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" checked="checked" style="width:14px;height:14px"/><span style="font-size:12.5px">Миниатюра</span></div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" checked="checked" style="width:14px;height:14px"/><span style="font-size:12.5px">Платформа</span></div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" checked="checked" style="width:14px;height:14px"/><span style="font-size:12.5px">Просмотры</span></div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" checked="checked" style="width:14px;height:14px"/><span style="font-size:12.5px">Виральность</span></div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" style="width:14px;height:14px"/><span style="font-size:12.5px;color:var(--color-text-muted)">Лайки</span></div>
+      <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border-radius:var(--radius-sm);cursor:grab" style-hover="background:var(--color-card)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.8" stroke-linecap="round"><path d="M9 7h.01M9 12h.01M9 17h.01M15 7h.01M15 12h.01M15 17h.01"/></svg><input type="checkbox" style="width:14px;height:14px"/><span style="font-size:12.5px;color:var(--color-text-muted)">Язык</span></div>
+      <div style="height:1px;background:var(--color-divider);margin:5px 0"></div>
+      <div style="display:flex;gap:6px;padding:2px 4px 4px"><button style="flex:1;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text);font-size:12px;cursor:pointer">Сбросить</button><button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:var(--color-accent);color:var(--color-on-accent);font-size:12px;font-weight:500;cursor:pointer">Сохранить в вид</button></div>
+    </div>
+    <div style="flex:1;min-width:380px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(160px,1fr) 104px 116px;column-gap:12px;align-items:center;height:32px;padding:0 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);position:relative">
+        <span>Название</span>
+        <span style="text-align:right">Просмотры</span>
+        <span style="text-align:right">Виральность</span>
+        <span style="position:absolute;left:calc(100% - 220px);top:0;bottom:0;width:7px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><span style="width:2px;height:16px;background:var(--color-accent)"></span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(160px,1fr) 104px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span style="font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Как за 30 секунд собрать шкаф без инструкции</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">2 431 902</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">84</span></div>
+      <div style="display:grid;grid-template-columns:minmax(160px,1fr) 104px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px"><span style="font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Кухня 6 метров: куда девать посудомойку</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">1 887 340</span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">88</span></div>
+      <div style="padding:9px 12px;font-size:11.5px;color:var(--color-text-subtle);background:var(--color-card)">Границу колонки видно только при наведении на шапку; курсор — <span style="font-family:var(--font-mono)">col-resize</span>. Двойной клик по границе — авторазмер по содержимому.</div>
+    </div>
+  </div>
+</section>
+
+<section id="l5" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Пагинация: два варианта</h2>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+    <div style="background:var(--color-panel);border:1px solid var(--color-accent-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--color-accent-bg);border-bottom:1px solid var(--color-accent-border)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>
+        <span style="font-size:12.5px;font-weight:500">Страницы — рекомендуемый вариант</span>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">Показано 51–100 из 240</span>
+          <div style="flex:1"></div>
+          <div style="display:flex;gap:2px">
+            <button style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg></button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">1</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-accent-border);border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">2</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">3</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">4</button>
+            <button style="width:26px;height:26px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-family:var(--font-mono);font-size:11.5px">5</button>
+            <button style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m10 6 6 6-6 6"/></svg></button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--color-text-muted);line-height:1.55">Почему так: «Выбрать все 240» имеет смысл только при известном общем количестве; ссылку на страницу можно переслать коллеге; при поллинге раз в 5 секунд страница не растёт под курсором. Оператор возвращается к тому же месту после ухода на деталь.</div>
+      </div>
+    </div>
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--color-card);border-bottom:1px solid var(--color-border)">
+        <span style="font-size:12.5px;font-weight:500;color:var(--color-text-muted)">Бесконечная подгрузка — альтернатива</span>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;flex-direction:column;gap:1px;opacity:.6">
+          <div style="height:12px;border-radius:3px;background:var(--color-card)"></div>
+          <div style="height:12px;width:82%;border-radius:3px;background:var(--color-card)"></div>
+          <div style="height:12px;width:66%;border-radius:3px;background:var(--color-card)"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px;border:1px dashed var(--color-border);border-radius:var(--radius-md)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="2.2" stroke-linecap="round" style="animation:cf-spin 1.1s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>
+          <span style="font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">подгружается 101–150 из 240</span>
+        </div>
+        <button style="height:28px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Показать ещё 50</button>
+        <div style="font-size:12px;color:var(--color-text-muted);line-height:1.55">Годится для режима карточек и для просмотра с телефона. Подгрузка только по кнопке, не по скроллу: автоподгрузка при поллинге сдвигает список под курсором и ломает выделение. Пагинация в URL всё равно сохраняется.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="l6" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Состояния списка</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted)">Шапка, вкладки и фильтры остаются на месте во всех состояниях — меняется только область строк.</span>
+  </div>
+  <div style="max-width:1180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px">
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Загрузка · скелетон строк</div>
+      <div style="padding:0 12px">
+        <div style="display:grid;grid-template-columns:32px 40px 1fr 80px 96px;column-gap:12px;gap:10px;align-items:center;height:36px;animation:cf-sk 1.4s ease-in-out infinite"><span style="height:14px;width:14px;border-radius:3px;background:var(--color-card)"></span><span style="height:28px;width:28px;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;border-radius:3px;background:var(--color-card)"></span><span style="height:18px;border-radius:3px;background:var(--color-card)"></span></div>
+        <div style="display:grid;grid-template-columns:32px 40px 1fr 80px 96px;column-gap:12px;gap:10px;align-items:center;height:36px;animation:cf-sk 1.4s ease-in-out .08s infinite"><span style="height:14px;width:14px;border-radius:3px;background:var(--color-card)"></span><span style="height:28px;width:28px;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;width:78%;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;border-radius:3px;background:var(--color-card)"></span><span style="height:18px;border-radius:3px;background:var(--color-card)"></span></div>
+        <div style="display:grid;grid-template-columns:32px 40px 1fr 80px 96px;column-gap:12px;gap:10px;align-items:center;height:36px;animation:cf-sk 1.4s ease-in-out .16s infinite"><span style="height:14px;width:14px;border-radius:3px;background:var(--color-card)"></span><span style="height:28px;width:28px;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;width:62%;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;border-radius:3px;background:var(--color-card)"></span><span style="height:18px;border-radius:3px;background:var(--color-card)"></span></div>
+        <div style="display:grid;grid-template-columns:32px 40px 1fr 80px 96px;column-gap:12px;gap:10px;align-items:center;height:36px;animation:cf-sk 1.4s ease-in-out .24s infinite"><span style="height:14px;width:14px;border-radius:3px;background:var(--color-card)"></span><span style="height:28px;width:28px;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;width:70%;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;border-radius:3px;background:var(--color-card)"></span><span style="height:18px;border-radius:3px;background:var(--color-card)"></span></div>
+        <div style="display:grid;grid-template-columns:32px 40px 1fr 80px 96px;column-gap:12px;gap:10px;align-items:center;height:36px;animation:cf-sk 1.4s ease-in-out .32s infinite"><span style="height:14px;width:14px;border-radius:3px;background:var(--color-card)"></span><span style="height:28px;width:28px;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;width:56%;border-radius:3px;background:var(--color-card)"></span><span style="height:11px;border-radius:3px;background:var(--color-card)"></span><span style="height:18px;border-radius:3px;background:var(--color-card)"></span></div>
+      </div>
+    </div>
+
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Пусто изначально</div>
+      <div style="padding:22px 16px;text-align:center">
+        <div style="width:36px;height:36px;margin:0 auto 10px;border-radius:var(--radius-md);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg></div>
+        <div style="font-size:13px;font-weight:500">Трендов пока нет</div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin:4px auto 12px;max-width:340px">Трендвотчер соберёт первую выборку по платформам, языкам и нише, которые вы укажете.</div>
+        <div style="display:flex;gap:8px;justify-content:center"><button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Импортировать тренды</button><button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Как это работает</button></div>
+      </div>
+    </div>
+
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Ничего не найдено по фильтрам</div>
+      <div style="padding:14px 16px 18px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">поиск: шкаф<span style="color:var(--color-text-subtle)">✕</span></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">YouTube<span style="color:var(--color-text-subtle)">✕</span></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;font-variant-numeric:tabular-nums">виральность 90—100<span style="color:var(--color-text-subtle)">✕</span></span>
+        </div>
+        <div style="text-align:center">
+          <div style="width:36px;height:36px;margin:0 auto 10px;border-radius:var(--radius-md);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></div>
+          <div style="font-size:13px;font-weight:500">Ничего не нашлось</div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin:4px auto 12px;max-width:360px">Ни один тренд не проходит все три фильтра сразу. Чаще всего мешает виральность 90—100: таких в базе 4.</div>
+          <div style="display:flex;gap:8px;justify-content:center"><button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Сбросить фильтры</button><button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Снять только виральность</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Ошибка загрузки</div>
+      <div style="padding:14px 16px;display:flex;gap:11px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">Не удалось загрузить список</div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin:4px 0 10px">Apify не ответил за 30 секунд. Фильтры и выделение сохранены — после «Повторить» вы вернётесь к тому же виду.</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button style="height:26px;padding:0 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12px;cursor:pointer">Повторить</button>
+            <button style="height:26px;padding:0 6px;border:0;background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px">Технические детали<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">req_7f21ac · 504</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Нет прав на раздел</div>
+      <div style="padding:22px 16px;text-align:center">
+        <div style="width:36px;height:36px;margin:0 auto 10px;border-radius:var(--radius-md);background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+        <div style="font-size:13px;font-weight:500">Раздел закрыт для вашей роли</div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin:4px auto 12px;max-width:380px">«Тренды» требуют модуль <span style="font-family:var(--font-mono)">trendwatcher</span> и роль «Оператор». Напишите администратору — Дмитрий К., <span style="font-family:var(--font-mono)">@dk_admin</span> в Telegram.</div>
+        <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Запросить доступ</button>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:9px">В сайдбаре этот пункт не показывается вообще — экран виден только по прямой ссылке.</div>
+      </div>
+    </div>
+
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:8px 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Фоновое обновление и массовое действие</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);cursor:pointer;width:fit-content">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round"><path d="M12 19V6m0 0-5 5m5-5 5 5"/></svg>
+          <span style="font-size:12px;white-space:nowrap">＋4 новых тренда</span><span style="font-size:11.5px;color:var(--color-text-subtle)">показать</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px;opacity:.85">
+          <div style="display:grid;grid-template-columns:32px 1fr 90px;gap:10px;align-items:center;height:36px;padding:0 4px"><span><input type="checkbox" checked="checked" style="width:14px;height:14px"/></span><span style="font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Как за 30 секунд собрать шкаф без инструкции</span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="animation:cf-spin 1.1s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>идёт</span></div>
+          <div style="display:grid;grid-template-columns:32px 1fr 90px;gap:10px;align-items:center;height:36px;padding:0 4px"><span><input type="checkbox" checked="checked" style="width:14px;height:14px"/></span><span style="font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Кухня 6 метров: куда девать посудомойку</span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)">готово</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 11px;background:var(--color-raised);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);flex-wrap:wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2.2" stroke-linecap="round" style="flex:none;animation:cf-spin 1.1s linear infinite"><path d="M12 4a8 8 0 1 0 8 8"/></svg>
+          <div style="flex:1;min-width:180px">
+            <div style="font-size:12.5px">Взять в работу · <span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">5 из 12</span> · осталось ~8 с</div>
+            <div style="height:3px;border-radius:2px;background:var(--color-card);margin-top:5px;overflow:hidden"><div style="width:42%;height:100%;background:var(--color-accent)"></div></div>
+          </div>
+          <button style="height:24px;padding:0 9px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);color:var(--color-text-muted);font-size:12px;cursor:pointer">Остановить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--color-raised);border:1px solid var(--color-border);border-left:2px solid var(--color-success);border-radius:var(--radius-md);box-shadow:var(--shadow-md)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m5 13 4.5 4.5L19 7"/></svg>
+          <span style="flex:1;font-size:12.5px">12 трендов взяты в работу</span>
+          <button style="height:24px;padding:0 8px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-accent-text);font-size:12px;cursor:pointer">Отменить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="l7" style="padding:24px 24px 40px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:16px;font-weight:600">Планшет 1024 и телефон 390</h2>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:820px">На 1024 сайдбар свёрнут, таблица скроллится внутри своего контейнера, часть колонок скрыта. На 390 — список карточек, массовых действий нет.</span>
+  </div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">1024 × 620</div>
+      <div style="display:flex;width:1024px;height:620px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="width:56px;flex:none;background:var(--color-panel);border-right:1px solid var(--color-border);display:flex;flex-direction:column;align-items:center">
+          <div style="height:44px;display:flex;align-items:center;justify-content:center;width:100%;border-bottom:1px solid var(--color-divider)"><div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding:8px 0;align-items:center;flex:1">
+            <div style="width:36px;height:32px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 12l4-3"/></svg></div>
+            <div style="width:36px;height:32px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/></svg></div>
+            <div style="position:relative;width:36px;height:32px;border-radius:var(--radius-md);background:var(--color-accent-bg);border:1px solid var(--color-accent-border);display:flex;align-items:center;justify-content:center;color:var(--color-accent)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg><div style="position:absolute;left:44px;top:5px;padding:4px 8px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);font-size:11.5px;white-space:nowrap;z-index:5">Тренды</div></div>
+            <div style="width:36px;height:32px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 4h8l4 4v12H6z"/></svg></div>
+            <div style="width:36px;height:32px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="m15 11 5-3v8l-5-3z"/></svg></div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+            <span style="font-size:12.5px;font-weight:500;white-space:nowrap">Тренды</span>
+            <div style="flex:0 1 200px;height:28px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12px;color:var(--color-text-subtle);white-space:nowrap">Поиск и команды<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px">⌘K</span></div>
+            <div style="flex:1"></div>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;height:24px;padding:0 8px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:11.5px;font-variant-numeric:tabular-nums">12 480 ₽</span>
+            <button style="width:24px;height:24px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-size:12px">?</button>
+          </div>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 14px 0;gap:9px">
+            <div style="display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap">
+              <span style="font-size:18px;font-weight:600">Тренды</span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-subtle)">240</span>
+              <div style="flex:1"></div>
+              <button style="height:28px;padding:0 11px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Импортировать</button>
+            </div>
+            <div style="display:flex;gap:6px;flex:none;overflow-x:auto;padding-bottom:2px">
+              <span style="height:26px;padding:0 9px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12px;color:var(--color-text-muted);white-space:nowrap">Все · 240</span>
+              <span style="height:26px;padding:0 9px;display:flex;align-items:center;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);font-size:12px;white-space:nowrap">Высокая виральность · 52</span>
+              <span style="height:26px;padding:0 9px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12px;color:var(--color-text-muted);white-space:nowrap">Новые за 24 ч · 38</span>
+              <span style="height:26px;padding:0 9px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12px;color:var(--color-text-muted);white-space:nowrap">Поиск: шкаф ✕</span>
+            </div>
+            <div style="flex:1;min-height:0;background:var(--color-panel);border:1px solid var(--color-border);border-top-left-radius:var(--radius-lg);border-top-right-radius:var(--radius-lg);display:flex;flex-direction:column;overflow:hidden">
+              <div style="flex:none;display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:32px;padding:0 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span></span><span>Название</span><span style="text-align:right">Виральность</span><span>Статус</span><span>Импортирован</span></div>
+              <div style="flex:1;min-height:0;overflow-y:auto">
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 4px,#22303a 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Как за 30 секунд собрать шкаф без инструкции</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel_pro</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">84</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 14:32</span></div>
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 4px,#2e2734 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Кухня 6 метров: куда девать посудомойку</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@kuhni.optom</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">88</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)">В очереди</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 09:41</span></div>
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 4px,#233029 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Шкаф под лестницей: замер по месту</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@mebel_pro</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">86</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)">Выполняется</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 18:30</span></div>
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#43343f 0 4px,#352a33 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Собираем детскую за один вечер: тайминг</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@detskaya.pro</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">81</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 22:41</span></div>
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2a3348 0 4px,#222a3a 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Кухня без верхних шкафов: за и против</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@kuhni.spb</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">78</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)">Готово</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 16:04</span></div>
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px;border-bottom:1px solid var(--color-divider)"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#333f2c 0 4px,#293422 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Столешница из массива через год эксплуатации</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@stoly.dv</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">74</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)">В очереди</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">5 авг, 08:03</span></div>
+                <div style="display:grid;grid-template-columns:32px 40px minmax(200px,1fr) 96px 108px 116px;column-gap:12px;align-items:center;height:36px;padding:0 12px"><span><input type="checkbox" style="width:14px;height:14px"/></span><span><span style="display:block;width:28px;height:28px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3f3a2c 0 4px,#332f24 4px 8px)"></span></span><span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;white-space:nowrap;min-width:0;width:100%;mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent 100%)">Как не купить ДСП вместо массива: три признака</span><span style="display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);line-height:1.2">@stoly.dv</span></span><span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">72</span><span><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)">Готово</span></span><span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">4 авг, 19:58</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);margin-bottom:8px">390 × 620</div>
+      <div style="width:390px;height:620px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 12px;background:var(--color-panel);border-bottom:1px solid var(--color-border);flex:none">
+          <button title="Меню" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <span style="font-size:14px;font-weight:600;flex:1">Тренды</span>
+          <button title="Фильтры" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-accent-border);border-radius:var(--radius-md);background:var(--color-accent-bg);color:var(--color-accent);cursor:pointer;position:relative"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg><span style="position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--color-accent);color:var(--color-on-accent);font-family:var(--font-mono);font-size:9.5px;display:flex;align-items:center;justify-content:center">3</span></button>
+          <button title="Поиск" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;gap:6px;overflow-x:auto;flex:none;padding-bottom:2px">
+            <span style="height:30px;padding:0 11px;display:flex;align-items:center;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-full);font-size:12.5px;white-space:nowrap">Виральные · 52</span>
+            <span style="height:30px;padding:0 11px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12.5px;color:var(--color-text-muted);white-space:nowrap">Все · 240</span>
+            <span style="height:30px;padding:0 11px;display:flex;align-items:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12.5px;color:var(--color-text-muted);white-space:nowrap">Новые · 38</span>
+          </div>
+          <div style="display:flex;gap:10px;padding:11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);flex:none">
+            <div style="width:44px;height:44px;flex:none;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 5px,#22303a 5px 10px)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;line-height:1.35">Как за 30 секунд собрать шкаф без инструкции</div>
+              <div style="display:flex;gap:8px;margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">@mebel_pro<span>2,4 млн</span><span>84</span></div>
+              <div style="display:flex;gap:5px;margin-top:7px"><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-card);border:1px solid var(--color-border);color:var(--color-text-muted)"><span style="width:4px;height:10px;border-radius:2px;background:#25d8d0"></span>TikTok</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;padding:11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);flex:none">
+            <div style="width:44px;height:44px;flex:none;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 5px,#2e2734 5px 10px)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;line-height:1.35">Кухня 6 метров: куда девать посудомойку</div>
+              <div style="display:flex;gap:8px;margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">@kuhni.optom<span>1,9 млн</span><span>88</span></div>
+              <div style="display:flex;gap:5px;margin-top:7px"><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)">В очереди</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;padding:11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);flex:none">
+            <div style="width:44px;height:44px;flex:none;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2b3a34 0 5px,#233029 5px 10px)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;line-height:1.35">Шкаф под лестницей: замер по месту</div>
+              <div style="display:flex;gap:8px;margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">@mebel_pro<span>2,0 млн</span><span>86</span></div>
+              <div style="display:flex;gap:5px;margin-top:7px"><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-info-bg);border:1px solid var(--color-info-border);color:var(--color-info)">Выполняется</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;padding:11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);flex:none">
+            <div style="width:44px;height:44px;flex:none;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#43343f 0 5px,#352a33 5px 10px)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;line-height:1.35">Собираем детскую за один вечер: тайминг</div>
+              <div style="display:flex;gap:8px;margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">@detskaya.pro<span>1,6 млн</span><span>81</span></div>
+              <div style="display:flex;gap:5px;margin-top:7px"><span style="display:inline-flex;align-items:center;white-space:nowrap;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">На ревью</span></div>
+            </div>
+          </div>
+          <button style="height:32px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer;flex:none">Показать ещё 50</button>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);text-align:center;flex:none">Массовые действия доступны только с компьютера</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultAccent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amber&quot;,&quot;cyan&quot;,&quot;pine&quot;],&quot;default&quot;:&quot;cyan&quot;,&quot;tsType&quot;:&quot;'amber'|'cyan'|'pine'&quot;,&quot;section&quot;:&quot;Тема&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Тема&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.defaultTheme ?? 'dark', accent: this.props.defaultAccent ?? 'amber' };
+  componentDidMount(){ this.apply(); }
+  componentDidUpdate(){ this.apply(); }
+  apply(){
+    const r = document.documentElement;
+    r.dataset.theme = this.state.theme;
+    r.dataset.accent = this.state.accent;
+  }
+  renderVals(){
+    const s = this.state, on = 'var(--color-raised)';
+    return {
+      setDark: () => this.setState({ theme: 'dark' }),
+      setLight: () => this.setState({ theme: 'light' }),
+      tDarkBg: s.theme === 'dark' ? on : 'transparent',
+      tDarkFg: s.theme === 'dark' ? 'var(--color-text)' : 'var(--color-text-muted)',
+      tLightBg: s.theme === 'light' ? on : 'transparent',
+      tLightFg: s.theme === 'light' ? 'var(--color-text)' : 'var(--color-text-muted)'
+    };
+  }
+}
+</script>
+</body>
+</html>
