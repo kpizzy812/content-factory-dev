@@ -359,6 +359,81 @@ const demoViews = [
         />
       </section>
 
+      <!-- Компоненты детальной страницы (этап 4) -->
+      <section class="flex flex-col gap-3">
+        <h2 class="text-micro tracking-[.07em] text-subtle uppercase">Деталь: цепочка, шаги, стоимость, ошибка</h2>
+
+        <div class="rounded-lg border border-border bg-panel p-4">
+          <DetailRelations
+            :chain="[
+              { label: 'Тренд', title: 'Как за 30 секунд собрать шкаф', to: '#' },
+              { label: 'Сценарий', title: 'Хук: боль с доставкой, вариант B', to: '#' },
+              { label: 'Ролик', title: 'vid_10842', current: true },
+              { label: 'Публикация', title: '@zavod.mebel.ru · Reels', to: '#' },
+              { label: 'Лид-магнит', title: '' },
+            ]"
+          />
+        </div>
+
+        <div class="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+          <div class="flex flex-col gap-2">
+            <DetailStepRow
+              :index="1" label="Подготовка промтов" status="done"
+              :duration-ms="14000" :estimated-cost="1.2" :actual-cost="1.1" model="claude-opus-5"
+            />
+            <DetailStepRow
+              :index="2" label="Синтез речи" status="done"
+              :duration-ms="41000" :estimated-cost="6" :actual-cost="9.4" model="elevenlabs/v3"
+            />
+            <DetailStepRow
+              :index="3" label="Lip-sync" status="failed"
+              :duration-ms="128000" :actual-cost="18.6" :attempt="3" :max-attempts="3"
+              model="replicate/wav2lip"
+              error-message="Речь короче видеодорожки на 6,4 с — модель обрезала кадр."
+              can-retry can-skip retry-cost="24 ₽"
+            />
+            <DetailStepRow :index="4" label="Сборка" status="queued" cheap can-retry />
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <div class="rounded-lg border border-border bg-panel p-4">
+              <DetailCostBreakdown
+                :items="[
+                  { label: 'Промты', amount: 1.1 },
+                  { label: 'Речь', amount: 9.4 },
+                  { label: 'Lip-sync', amount: 12.4 },
+                  { label: 'Упавшие попытки', amount: 6.2, wasted: true },
+                ]"
+                :average="34.8"
+              />
+            </div>
+            <DetailQualityGate
+              :score="7.2"
+              :notes="['Хук слабее, чем в варианте B', 'Субтитры перекрывают лицо на 00:12']"
+            />
+          </div>
+        </div>
+
+        <DetailErrorReport
+          step-label="Lip-sync"
+          message="Речь короче видеодорожки на 6,4 секунды. Повтор lip-sync упадёт снова — сначала нужно пересинтезировать речь."
+          details="AudioLengthMismatch: speech=75.6s video=82.0s attempt=3/3"
+          :spent="41.2"
+          retry-from-label="Синтез речи"
+          :retry-cost="24"
+        />
+
+        <DetailVariantStrip
+          :active-id="1"
+          :variants="[
+            { id: 1, label: 'A', status: 'done', cost: 41 },
+            { id: 2, label: 'B', status: 'done', cost: 39 },
+            { id: 3, label: 'E', status: 'failed', cost: 18 },
+            { id: 4, label: 'F', status: 'running', cost: 12 },
+          ]"
+        />
+      </section>
+
       <!-- Оверлеи -->
       <section class="flex flex-wrap gap-2">
         <UiButton variant="primary" @click="modalOpen = true">Открыть модалку</UiButton>
