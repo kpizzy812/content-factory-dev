@@ -52,6 +52,9 @@ const attemptsExhausted = computed(() =>
   props.attempt != null && props.maxAttempts != null && props.attempt >= props.maxAttempts,
 )
 
+/** Вторая строка: чем считали и сколько это заняло. */
+const meta = computed(() => [props.model, duration.value].filter(Boolean) as string[])
+
 const menuItems = computed(() => {
   const items = [{ key: 'logs', label: 'Логи', icon: 'mingcute:file-line' }]
   if (props.canRetry && !props.cheap) {
@@ -66,42 +69,55 @@ const menuItems = computed(() => {
     class="rounded-md border"
     :class="status === 'failed' ? 'border-danger-border bg-danger-bg' : 'border-border bg-card'"
   >
-    <div class="flex items-center gap-2.5 px-2.5 py-2">
-      <span class="tnum w-4 shrink-0 text-right font-mono text-micro text-subtle">{{ index }}</span>
-      <UiStatusBadge :status="status" size="xs" dot icon-only />
-
-      <span class="min-w-0 flex-1 truncate text-sm">{{ label }}</span>
-
-      <span v-if="attempt && attempt > 1" class="tnum shrink-0 font-mono text-micro" :class="attemptsExhausted ? 'text-danger' : 'text-subtle'">
-        попытка {{ attempt }} из {{ maxAttempts }}
+    <!-- Раскладка сеткой, а не одной строкой: иначе на реальных названиях
+         подпись шага съедается длительностью, попыткой и суммой. -->
+    <div class="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-start gap-x-2.5 px-2.5 py-2">
+      <span class="flex shrink-0 items-center gap-2 pt-px">
+        <span class="tnum w-4 text-right font-mono text-micro text-subtle">{{ index }}</span>
+        <UiStatusBadge :status="status" size="xs" dot icon-only />
       </span>
 
-      <span v-if="duration" class="tnum shrink-0 font-mono text-micro text-subtle">{{ duration }}</span>
+      <span class="min-w-0">
+        <span class="block truncate text-sm">{{ label }}</span>
 
-      <span v-if="actualCost != null" class="tnum shrink-0 font-mono text-sm">
+        <span v-if="meta.length" class="tnum block truncate font-mono text-micro text-subtle">
+          {{ meta.join(' · ') }}
+        </span>
+
+        <span v-if="attempt && attempt > 1" class="tnum block font-mono text-micro" :class="attemptsExhausted ? 'text-danger' : 'text-warning'">
+          попытка {{ attempt }} из {{ maxAttempts }}
+        </span>
+
+        <!-- Бесплатное и локальное — прямо в строке -->
+        <UiButton v-if="canRetry && cheap" class="mt-1" @click="emit('retry')">
+          <Icon name="mingcute:refresh-2-line" />
+          Пересобрать
+        </UiButton>
+      </span>
+
+      <span v-if="actualCost != null" class="tnum shrink-0 text-right font-mono text-sm">
         {{ actualCost.toFixed(2) }} ₽
-        <span v-if="costDrift" class="text-warning">({{ costDrift > 0 ? '+' : '' }}{{ costDrift }}%)</span>
+        <span v-if="costDrift" class="block text-warning">{{ costDrift > 0 ? '+' : '' }}{{ costDrift }}%</span>
       </span>
+      <span v-else />
 
-      <!-- Бесплатное и локальное — прямо в строке -->
-      <UiButton v-if="canRetry && cheap" @click="emit('retry')">Пересобрать</UiButton>
+      <span class="flex shrink-0 items-center">
+        <UiActionMenu :items="menuItems" @select="$event === 'logs' ? emit('logs') : emit('retry')" />
 
-      <UiActionMenu :items="menuItems" @select="$event === 'logs' ? emit('logs') : emit('retry')" />
-
-      <button
-        v-if="errorMessage"
-        type="button"
-        class="shrink-0 cursor-pointer text-subtle hover:text-fg"
-        :aria-expanded="expanded"
-        @click="expanded = !expanded"
-      >
-        <Icon :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'" />
-      </button>
+        <button
+          v-if="errorMessage"
+          type="button"
+          class="cursor-pointer text-subtle hover:text-fg"
+          :aria-expanded="expanded"
+          @click="expanded = !expanded"
+        >
+          <Icon :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'" />
+        </button>
+      </span>
     </div>
 
-    <div v-if="expanded && (errorMessage || model)" class="border-t border-divider px-2.5 py-2">
-      <p v-if="errorMessage" class="text-sm text-danger">{{ errorMessage }}</p>
-      <p v-if="model" class="mt-1 font-mono text-micro text-subtle">модель: {{ model }}</p>
+    <div v-if="expanded && errorMessage" class="border-t border-divider px-2.5 py-2">
+      <p class="text-sm text-danger">{{ errorMessage }}</p>
 
       <div v-if="status === 'failed'" class="mt-2 flex flex-wrap gap-1.5">
         <UiButton v-if="canRetry" variant="primary" @click="emit('retry')">

@@ -136,11 +136,5 @@ function formatDate(iso: string): string {
         </NuxtLink>
       </div>
     </div>
-
-    <!-- Интеграция -->
-    <div class="max-w-md">
-      <h3 class="text-lg font-semibold text-base-content mb-3">Интеграция</h3>
-      <SettingsIntegrationCard />
-    </div>
   </div>
 </template>

@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import { onAssetMissing } from '~/utils/image-fallback'
-
+/**
+ * Просмотр кадра во весь экран.
+ *
+ * Кадр лежит на панели системы, а не на «просто чёрном»: подпись и кнопки
+ * тогда берут обычные токены текста и читаются в обеих темах.
+ *
+ * Стрелки не прячутся на краях, а отключаются — иначе кнопка «вперёд» уезжает
+ * из-под курсора в момент, когда её нажимают.
+ */
 const props = defineProps<{
   images: Array<{ id: number; fileUrl: string | null; prompt: string | null; order: number }>
   initialIndex?: number
 }>()
+
 const emit = defineEmits<{ close: [] }>()
 
 const currentIndex = ref(props.initialIndex ?? 0)
 const currentImage = computed(() => props.images[currentIndex.value])
 
+/** Пропавшие файлы отмечаем сами — общий плейсхолдер нарисован светлым. */
+const missing = ref(new Set<number>())
+
 function next() { if (currentIndex.value < props.images.length - 1) currentIndex.value++ }
 function prev() { if (currentIndex.value > 0) currentIndex.value-- }
+
 function downloadImage() {
   if (!currentImage.value?.fileUrl) return
   const a = document.createElement('a')
@@ -20,73 +32,86 @@ function downloadImage() {
   a.click()
 }
 
-// Keyboard navigation
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('close')
   if (e.key === 'ArrowRight') next()
   if (e.key === 'ArrowLeft') prev()
 }
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  document.body.style.overflow = 'hidden'
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  document.body.style.overflow = ''
+})
 </script>
 
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
       @click.self="emit('close')"
     >
-      <!-- Close button -->
-      <button
-        class="absolute top-4 right-4 btn btn-circle btn-ghost text-white hover:bg-white/20"
-        @click="emit('close')"
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Просмотр кадра"
+        class="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-lg border border-border bg-panel shadow-lg"
       >
-        <Icon name="mingcute:close-line" class="text-xl" />
-      </button>
+        <header class="flex shrink-0 items-center gap-2 border-b border-divider px-3 py-2">
+          <span class="tnum font-mono text-sm text-subtle">
+            кадр {{ currentIndex + 1 }} из {{ images.length }}
+          </span>
+          <span class="flex-1" />
+          <UiButton icon-only variant="ghost" aria-label="Скачать кадр" @click="downloadImage">
+            <Icon name="mingcute:download-2-line" />
+          </UiButton>
+          <UiButton icon-only variant="ghost" aria-label="Закрыть" @click="emit('close')">
+            <Icon name="mingcute:close-line" />
+          </UiButton>
+        </header>
 
-      <!-- Download button -->
-      <button
-        class="absolute top-4 right-20 btn btn-circle btn-ghost text-white hover:bg-white/20"
-        @click="downloadImage"
-      >
-        <Icon name="mingcute:download-2-line" class="text-xl" />
-      </button>
+        <div class="flex min-h-0 flex-1 items-center gap-2 p-3">
+          <UiButton icon-only variant="ghost" :disabled="currentIndex === 0" aria-label="Предыдущий кадр" @click="prev">
+            <Icon name="mingcute:left-line" />
+          </UiButton>
 
-      <!-- Counter -->
-      <div class="absolute top-4 left-4 text-white/70 text-sm font-medium">
-        {{ currentIndex + 1 }} / {{ images.length }}
-      </div>
+          <div class="flex min-h-0 flex-1 items-center justify-center">
+            <div
+              v-if="!currentImage?.fileUrl || missing.has(currentImage.id)"
+              class="flex aspect-[9/16] max-h-[70vh] flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-surface px-8 text-subtle"
+            >
+              <Icon name="mingcute:pic-line" class="text-2xl" />
+              <span class="text-sm">Файла нет на сервере</span>
+            </div>
+            <img
+              v-else
+              :src="`/api/files/${currentImage.fileUrl}`"
+              alt="Кадр ролика"
+              class="max-h-[70vh] max-w-full rounded-md bg-surface object-contain"
+              @error="missing.add(currentImage.id)"
+            >
+          </div>
 
-      <!-- Navigation arrows -->
-      <button
-        v-if="currentIndex > 0"
-        class="absolute left-4 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white hover:bg-white/20"
-        @click="prev"
-      >
-        <Icon name="mingcute:arrow-left-line" class="text-2xl" />
-      </button>
-      <button
-        v-if="currentIndex < images.length - 1"
-        class="absolute right-4 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white hover:bg-white/20"
-        @click="next"
-      >
-        <Icon name="mingcute:arrow-right-line" class="text-2xl" />
-      </button>
+          <UiButton
+            icon-only
+            variant="ghost"
+            :disabled="currentIndex >= images.length - 1"
+            aria-label="Следующий кадр"
+            @click="next"
+          >
+            <Icon name="mingcute:right-line" />
+          </UiButton>
+        </div>
 
-      <!-- Image -->
-      <div class="flex-1 flex items-center justify-center w-full px-16 py-16">
-        <img
-          v-if="currentImage?.fileUrl"
-          :src="`/api/files/${currentImage.fileUrl}`"
-          alt="Изображение"
-          class="max-w-full max-h-full object-contain rounded-lg"
-          @error="onAssetMissing"
-        />
-      </div>
-
-      <!-- Prompt text -->
-      <div v-if="currentImage?.prompt" class="w-full max-w-2xl px-4 pb-6">
-        <p class="text-white/70 text-sm text-center whitespace-pre-line">{{ currentImage.prompt }}</p>
+        <p
+          v-if="currentImage?.prompt"
+          class="max-h-24 shrink-0 overflow-y-auto border-t border-divider px-3 py-2 text-sm text-muted"
+        >
+          {{ currentImage.prompt }}
+        </p>
       </div>
     </div>
   </Teleport>

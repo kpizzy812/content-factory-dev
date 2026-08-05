@@ -58,24 +58,19 @@ function onSaved(item: FavoritePrompt) {
 
 <template>
   <span class="inline-flex items-center">
-    <button
-      type="button"
-      class="btn btn-ghost btn-xs gap-1"
-      :class="isFavorite ? 'text-warning' : 'text-base-content/60'"
+    <UiButton
+      variant="ghost"
+      :loading="lookupPending"
       :disabled="!promptText"
+      :class="isFavorite && 'text-warning'"
       :title="isFavorite ? 'Уже в избранном — отредактировать' : 'Добавить в избранное'"
       @click="onClick"
     >
-      <span v-if="lookupPending" class="loading loading-spinner loading-xs" />
-      <Icon
-        v-else
-        :name="isFavorite ? 'mingcute:star-fill' : 'mingcute:star-line'"
-        class="text-sm"
-      />
+      <Icon v-if="!lookupPending" :name="isFavorite ? 'mingcute:star-fill' : 'mingcute:star-line'" />
       <span class="hidden sm:inline">
         {{ isFavorite ? 'В избранном' : 'В избранное' }}
       </span>
-    </button>
+    </UiButton>
 
     <FavoritePromptModal
       :open="modalOpen"

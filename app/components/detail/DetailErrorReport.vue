@@ -18,6 +18,8 @@ defineProps<{
   retryFromLabel?: string
   retryCost?: number | null
   retrying?: boolean
+  /** Отменять нечего, когда запуск уже остановился. */
+  cancellable?: boolean
 }>()
 
 const emit = defineEmits<{ retryFrom: [], retryAll: [], cancel: [] }>()
@@ -52,7 +54,7 @@ const showDetails = ref(false)
             <span v-if="retryCost != null" class="font-mono text-micro">· ~{{ retryCost.toFixed(0) }} ₽</span>
           </UiButton>
           <UiButton :loading="retrying" @click="emit('retryAll')">Повторить всё</UiButton>
-          <UiButton variant="ghost" @click="emit('cancel')">Отменить</UiButton>
+          <UiButton v-if="cancellable" variant="ghost" @click="emit('cancel')">Отменить</UiButton>
 
           <span class="tnum ml-auto font-mono text-sm text-subtle">
             уже потрачено {{ spent.toFixed(2) }} ₽
