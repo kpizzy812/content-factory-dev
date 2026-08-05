@@ -25,6 +25,9 @@ export default defineEventHandler(async (event) => {
       app: {
         select: {
           id: true, name: true, description: true, keywords: true,
+          // language обязателен: без него агенты получают undefined и пишут
+          // сценарий по-английски, даже когда у юнита и тренда указан русский.
+          language: true,
           transformationPromise: true, corePain: true, coreOutcome: true,
           creativeAngles: true, scenarioContext: true,
         },

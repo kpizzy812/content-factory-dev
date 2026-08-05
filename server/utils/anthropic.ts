@@ -34,7 +34,12 @@ interface AppData {
   name: string
   description?: string | null
   keywords: string[]
-  language?: string | null
+  /**
+   * Язык контента. Поле обязательное намеренно: когда оно было
+   * необязательным, три из четырёх мест вызова его не передавали, а агенты
+   * трактуют undefined как English и пишут сценарий не на том языке.
+   */
+  language: string | null
   transformationPromise?: string | null
   corePain?: string | null
   coreOutcome?: string | null

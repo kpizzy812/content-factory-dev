@@ -106,9 +106,16 @@ export default defineEventHandler(async (event) => {
     ? idea.analysis.referenceBreakdown as Record<string, unknown>
     : null
 
+  // language обязателен: без него агенты получают undefined и пишут сценарий
+  // по-английски, даже когда у юнита указан русский.
   const appData = idea.app
-    ? { name: idea.app.name, description: idea.app.description, keywords: idea.app.keywords }
-    : { name: 'Приложение', description: null, keywords: [] }
+    ? {
+        name: idea.app.name,
+        description: idea.app.description,
+        keywords: idea.app.keywords,
+        language: idea.app.language,
+      }
+    : { name: 'Приложение', description: null, keywords: [], language: null }
 
   const scenario = await prisma.scenario.create({
     data: {

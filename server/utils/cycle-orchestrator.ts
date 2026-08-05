@@ -253,7 +253,8 @@ async function stepScenarios(
                 }
               : null,
           },
-          { name: app.name, description: app.description, keywords: app.keywords },
+          // language обязателен: иначе агенты пишут сценарий по-английски.
+          { name: app.name, description: app.description, keywords: app.keywords, language: app.language },
         )
 
         // Создаём сценарий с вариантами
