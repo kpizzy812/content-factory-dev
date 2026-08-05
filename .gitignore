@@ -48,3 +48,7 @@ graphify-cache/
 
 # Design: архив-исходник, содержимое распаковано в design-preview/catalog
 docs/design/*.zip
+
+# Артефакты Playwright MCP и скриншоты проверок
+.playwright-mcp/
+/*.png
