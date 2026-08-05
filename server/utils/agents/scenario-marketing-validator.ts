@@ -259,18 +259,33 @@ async function repairWithHaiku(
     spokenLine: t.scene.spokenLine,
   }))
 
-  const repairPrompt = `App name: ${app.name}.
-Story arc resolution: ${storyPlan.storyArc?.resolution ?? '(no resolution)'}.
-${app.corePain ? `Core pain solved: ${app.corePain}.\n` : ''}${app.appIntegrationStrategy ? `App integration strategy: ${app.appIntegrationStrategy}.\n` : ''}
-Below are scenes that FAILED marketing checks. Rewrite ONLY their subtitleCopy, voiceoverLine and (if not null) spokenLine so:
+  const keyword = app.funnel?.keyword?.trim()
 
-For each scene with role="final_cta":
+  // Воронка с кодовым словом: чинить надо призыв отправить слово, а не
+  // упоминание продукта — устанавливать зрителю нечего.
+  const repairGoal = keyword
+    ? `For each scene with role="final_cta":
+  - subtitleCopy AND voiceoverLine MUST contain the code word "${keyword}" written exactly, in capitals
+  - plus a verb asking to send it (напиши, отправь, write, send) in ${contentLanguage}
+  - the viewer sends the word in a direct message or comment; he installs nothing
+
+For each scene with role="mid_mention":
+  - keep the scene as is, just make sure it stays useful and specific
+  - do NOT push a product name into it`
+    : `For each scene with role="final_cta":
   - subtitleCopy AND voiceoverLine MUST contain "${app.name}" + a CTA verb (try, download, get, open, use, install, tap, start, join, discover)
   - use natural CTA verbs in ${contentLanguage}
 
 For each scene with role="mid_mention":
   - subtitleCopy OR voiceoverLine OR spokenLine MUST naturally include "${app.name}" once
-  - keep the emotional moment intact, just weave the name into the existing line
+  - keep the emotional moment intact, just weave the name into the existing line`
+
+  const repairPrompt = `${keyword ? `Code word: ${keyword}.` : `App name: ${app.name}.`}
+Story arc resolution: ${storyPlan.storyArc?.resolution ?? '(no resolution)'}.
+${app.corePain ? `Core pain solved: ${app.corePain}.\n` : ''}${app.appIntegrationStrategy ? `App integration strategy: ${app.appIntegrationStrategy}.\n` : ''}
+Below are scenes that FAILED marketing checks. Rewrite ONLY their subtitleCopy, voiceoverLine and (if not null) spokenLine so:
+
+${repairGoal}
 
 Constraints:
 - ${contentLanguage} only. No emojis.

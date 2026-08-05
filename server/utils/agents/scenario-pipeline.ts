@@ -514,7 +514,28 @@ appScreenRef.intent = "show_interface" как сигнал downstream'у. Pipeli
 - Стратегия интеграции: ${appIntegrationStrategy}
 - Язык финального текста ролика: ${contentLanguage}
 
-## [APP INTEGRATION — MANDATORY RULES]
+${input.funnel?.keyword ? `## [FUNNEL CTA — MANDATORY RULES]
+Конверсия идёт через кодовое слово, а не через установку продукта. Зритель
+ничего не скачивает: он отправляет слово и получает материал в ответ. До
+зрителя доходят только scene-level subtitleCopy / voiceoverLine / spokenLine.
+
+1. **THE FINAL SCENE's subtitleCopy AND voiceoverLine MUST ask to send the code word "${input.funnel.keyword}"**
+   — слово пишется ровно так: ${input.funnel.keyword} (заглавными, без склонения и перевода)
+   — рядом обязателен глагол отправки на языке ${contentLanguage}: напиши / отправь / write / send
+   — куда отправить: в директ или в комментарии
+${input.funnel.leadMagnetTitle ? `   — что зритель получит взамен: ${input.funnel.leadMagnetTitle}\n` : ''}
+2. **Промежуточные сцены НЕ рекламируют продукт.** Они дают пользу по теме:
+   конкретику, цифры, разбор частой ошибки. Имя продукта в них не нужно.
+
+3. Финальная сцена звучит как предложение друга поделиться полезным файлом,
+   а не как рекламный баннер.
+
+EXAMPLES:
+❌ FINAL Scene "Подписывайся, чтобы не потерять"  (нет кодового слова — лид не дойдёт до воронки)
+✅ FINAL Scene "Напиши ${input.funnel.keyword} в директ — пришлю разбор"
+
+❌ Mid Scene "Скачай приложение и считай калории"  (продукт не устанавливают)
+✅ Mid Scene "Двести восемьдесят калорий пряталось в одной ложке соуса"` : `## [APP INTEGRATION — MANDATORY RULES]
 This is content marketing for **${input.appName}**. The scenario's hook/body/CTA already explicitly reference the app — but those fields don't reach the final video. ONLY scene-level subtitleCopy / voiceoverLine / spokenLine reach the viewer.
 
 ТЫ ОБЯЗАН органично пропечатать "${input.appName}" в нескольких сценах:
@@ -538,7 +559,7 @@ EXAMPLES:
 ❌ Mid Scene "With just one touch... music came alive"
 ✅ Mid Scene "With ${input.appName}, one touch makes music come alive"
 
-В промежуточных сценах после первого упоминания допустимо "the app" / "it" / "оно" — но первое упоминание ОБЯЗАНО быть полным именем "${input.appName}".
+В промежуточных сценах после первого упоминания допустимо "the app" / "it" / "оно" — но первое упоминание ОБЯЗАНО быть полным именем "${input.appName}".`}
 
 ${(() => {
   const strategy = input.profileSettings?.sceneCountStrategy ?? 'auto'
