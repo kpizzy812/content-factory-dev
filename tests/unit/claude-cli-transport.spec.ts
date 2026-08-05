@@ -58,7 +58,7 @@ describe("isClaudeCliTransport", () => {
 describe("buildClaudeCliArgs", () => {
   const args = buildClaudeCliArgs({
     userPrompt: "сгенерируй сценарий",
-    systemPrompt: "ты сценарист",
+    systemPromptPath: "/tmp/sp.txt",
     model: "claude-sonnet-5",
   })
 
@@ -75,20 +75,27 @@ describe("buildClaudeCliArgs", () => {
     expect(args[args.indexOf("--model") + 1]).toBe("claude-sonnet-5")
   })
 
-  // Файлового варианта у CLI нет (проверено на 2.1.222): только аргумент.
-  it("передаёт system prompt отдельным аргументом", () => {
-    expect(args[args.indexOf("--system-prompt") + 1]).toBe("ты сценарист")
-    expect(args).not.toContain("--system-prompt-file")
+  // Флаг в `claude --help` не показан, но рабочий: на 2.1.222 неверный путь
+  // даёт «System prompt file not found», а опечатка — «unknown option».
+  it("отдаёт system prompt файлом — длина промпта тогда не ограничена", () => {
+    expect(args[args.indexOf("--system-prompt-file") + 1]).toBe("/tmp/sp.txt")
   })
 
-  // Ядро Linux режет один аргумент по 128 КБ, и превышение выглядит как
-  // необъяснимый отказ запуска — лучше понятная ошибка заранее.
-  it("не даёт собрать команду с неподъёмным промптом", () => {
+  // Ядро Linux режет один аргумент по 128 КБ. Это касается только user prompt.
+  it("не даёт собрать команду с неподъёмным user-промптом", () => {
     expect(() => buildClaudeCliArgs({
-      userPrompt: "x",
-      systemPrompt: "д".repeat(70_000),
+      userPrompt: "д".repeat(70_000),
+      systemPromptPath: "/tmp/sp.txt",
       model: "claude-sonnet-5",
     })).toThrowError(/слишком длинн/i)
+  })
+
+  it("длинный system-промпт пропускает — он уходит файлом", () => {
+    expect(() => buildClaudeCliArgs({
+      userPrompt: "коротко",
+      systemPromptPath: "/tmp/sp.txt",
+      model: "claude-sonnet-5",
+    })).not.toThrow()
   })
 
   // CLI маппит bypassPermissions на --dangerously-skip-permissions, а тот

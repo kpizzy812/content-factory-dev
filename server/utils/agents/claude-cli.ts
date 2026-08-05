@@ -9,8 +9,11 @@
  * Подводные камни, из-за которых транспорт написан именно так:
  *   - prompt обязан быть позиционным аргументом после -p; stdin CLI отдаёт под
  *     контент-документ, и без аргумента процесс молча падает;
- *   - system prompt тоже уходит аргументом: файлового флага у CLI нет
- *     (проверено на 2.1.222), поэтому длина промптов ограничена вручную;
+ *   - system prompt уезжает временным файлом через --system-prompt-file. Флаг
+ *     рабочий, но в `claude --help` не показан: проверен на 2.1.222 тем, что
+ *     несуществующий путь даёт «System prompt file not found», а опечатка в
+ *     имени флага — «unknown option». Длина ограничена только у user prompt,
+ *     который идёт аргументом;
  *   - режим прав только `default`: bypassPermissions CLI разворачивает в
  *     --dangerously-skip-permissions, а тот запрещён под root — контейнер
  *     работает именно под root;
@@ -19,6 +22,9 @@
  */
 
 import { spawn } from "node:child_process"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 const DEFAULT_TIMEOUT_MS = 360_000
 
@@ -43,32 +49,31 @@ export function isClaudeCliTransport(): boolean {
 }
 
 /**
- * Предел одного аргумента командной строки в Linux — 128 КБ. Берём с запасом:
- * кириллица в UTF-8 занимает два байта на символ, а превышение выглядит как
- * необъяснимый отказ запуска процесса.
+ * Предел одного аргумента командной строки в Linux — 128 КБ. Ограничение
+ * касается только user prompt: system уезжает файлом. Берём с запасом, потому
+ * что кириллица в UTF-8 занимает два байта на символ, а превышение выглядит
+ * как необъяснимый отказ запуска процесса.
  */
-const MAX_PROMPT_CHARS = 60_000
+const MAX_USER_PROMPT_CHARS = 60_000
 
 export function buildClaudeCliArgs(options: {
   userPrompt: string
-  systemPrompt: string
+  systemPromptPath: string
   model: string
 }): string[] {
-  for (const [label, value] of [["system", options.systemPrompt], ["user", options.userPrompt]] as const) {
-    if (value.length > MAX_PROMPT_CHARS) {
-      throw new ClaudeCliError(
-        `${label}-промпт слишком длинный для Claude CLI: ${value.length} символов при пределе ${MAX_PROMPT_CHARS}. `
-        + "Транспорт передаёт промпт аргументом командной строки — используйте LLM_TRANSPORT=api.",
-        "none",
-      )
-    }
+  if (options.userPrompt.length > MAX_USER_PROMPT_CHARS) {
+    throw new ClaudeCliError(
+      `user-промпт слишком длинный для Claude CLI: ${options.userPrompt.length} символов при пределе ${MAX_USER_PROMPT_CHARS}. `
+      + "Транспорт передаёт его аргументом командной строки — используйте LLM_TRANSPORT=api.",
+      "none",
+    )
   }
 
   return [
     "-p", options.userPrompt,
     "--output-format", "json",
     "--model", options.model,
-    "--system-prompt", options.systemPrompt,
+    "--system-prompt-file", options.systemPromptPath,
     "--permission-mode", "default",
   ]
 }
@@ -190,29 +195,39 @@ export async function callClaudeCli(options: {
   const cliPath = process.env.CLAUDE_CLI_PATH || "claude"
   const timeoutMs = options.timeoutMs ?? (Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS)
 
-  const args = buildClaudeCliArgs({
-    userPrompt: options.userPrompt,
-    systemPrompt: options.systemPrompt,
-    model: options.model,
-  })
-
-  const { stdout, stderr, exitCode } = await runProcess(cliPath, args, timeoutMs)
-
-  if (exitCode !== 0) {
-    const signal = detectClaudeCliExhaustion(stdout, stderr, exitCode)
-    throw new ClaudeCliError(
-      `Claude CLI завершился с кодом ${exitCode} (signal=${signal}): ${stderr.slice(0, 400) || stdout.slice(0, 400)}`,
-      signal,
-    )
-  }
+  const dir = await mkdtemp(join(tmpdir(), "cf-claude-"))
+  const systemPromptPath = join(dir, "system-prompt.txt")
 
   try {
-    return parseClaudeCliResponse(stdout)
+    await writeFile(systemPromptPath, options.systemPrompt, "utf8")
+
+    const args = buildClaudeCliArgs({
+      userPrompt: options.userPrompt,
+      systemPromptPath,
+      model: options.model,
+    })
+
+    const { stdout, stderr, exitCode } = await runProcess(cliPath, args, timeoutMs)
+
+    if (exitCode !== 0) {
+      const signal = detectClaudeCliExhaustion(stdout, stderr, exitCode)
+      throw new ClaudeCliError(
+        `Claude CLI завершился с кодом ${exitCode} (signal=${signal}): ${stderr.slice(0, 400) || stdout.slice(0, 400)}`,
+        signal,
+      )
+    }
+
+    try {
+      return parseClaudeCliResponse(stdout)
+    }
+    catch (err) {
+      // Разбор падает и на скрытой ошибке лимита — сигнал считаем из того же вывода.
+      const signal = detectClaudeCliExhaustion(stdout, stderr, exitCode)
+      throw new ClaudeCliError((err as Error).message, signal)
+    }
   }
-  catch (err) {
-    // Разбор падает и на скрытой ошибке лимита — сигнал считаем из того же вывода.
-    const signal = detectClaudeCliExhaustion(stdout, stderr, exitCode)
-    throw new ClaudeCliError((err as Error).message, signal)
+  finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {})
   }
 }
 
