@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import type { EntityStatus } from '~~/shared/utils/entity-status'
+
+/**
+ * Карточка креатива — общая витрина трендов, сценариев и роликов.
+ *
+ * Тип сущности пишется словом, а не только иконкой: в общем списке из трёх
+ * разных сущностей иконку приходится расшифровывать каждый раз.
+ */
 const props = defineProps<{
   type: 'trend' | 'scenario' | 'video'
   id: number
@@ -9,49 +17,58 @@ const props = defineProps<{
   appName: string | null
 }>()
 
-const typeConfig = computed(() => {
-  switch (props.type) {
-    case 'trend':
-      return { icon: 'mingcute:eye-line', label: 'Тренд', route: `/trends/${props.id}` }
-    case 'scenario':
-      return { icon: 'mingcute:document-line', label: 'Сценарий', route: `/scenarios/${props.id}` }
-    case 'video':
-      return { icon: 'mingcute:video-line', label: 'Видео', route: `/videos/${props.id}` }
-  }
-})
+const TYPES = {
+  trend: { label: 'Тренд', route: (id: number) => `/trends/${id}` },
+  scenario: { label: 'Сценарий', route: (id: number) => `/scenarios/${id}` },
+  video: { label: 'Ролик', route: (id: number) => `/videos/${id}` },
+} as const
 
-const statusColor = computed(() => {
-  const colorMap: Record<string, string> = {
-    new: 'badge-info', reviewed: 'badge-warning', in_work: 'badge-accent',
-    completed: 'badge-success', dismissed: 'badge-ghost',
-    draft: 'badge-ghost', selected: 'badge-primary', rejected: 'badge-error',
-    pending: 'badge-warning', generating_images: 'badge-accent',
-    generating_clips: 'badge-accent', assembling: 'badge-accent', failed: 'badge-error',
-  }
-  return colorMap[props.status] ?? 'badge-ghost'
-})
+/** Статусы трёх сущностей сведены к общему словарю системы. */
+const STATUS_TO_ENTITY: Record<string, EntityStatus> = {
+  new: 'draft',
+  draft: 'draft',
+  reviewed: 'review',
+  generated: 'review',
+  pending: 'queued',
+  in_work: 'running',
+  generating_prompts: 'running',
+  generating_images: 'running',
+  generating_clips: 'running',
+  assembling: 'running',
+  selected: 'done',
+  completed: 'done',
+  rejected: 'cancelled',
+  dismissed: 'cancelled',
+  canceled: 'cancelled',
+  failed: 'failed',
+}
+
+const meta = computed(() => TYPES[props.type])
+const status = computed<EntityStatus>(() => STATUS_TO_ENTITY[props.status] ?? 'draft')
 
 const formattedDate = computed(() =>
-  new Date(props.createdAt).toLocaleDateString('ru-RU', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  }),
+  new Date(props.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }),
 )
 </script>
 
 <template>
-  <NuxtLink :to="typeConfig.route" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
-    <div class="card-body p-4 gap-2">
-      <div class="flex items-center gap-2">
-        <Icon :name="typeConfig.icon" class="text-primary text-lg" />
-        <span class="badge badge-ghost badge-sm">{{ typeConfig.label }}</span>
-        <span v-if="platform" class="badge badge-outline badge-sm">{{ platform }}</span>
-      </div>
-      <h3 class="card-title text-sm line-clamp-2">{{ title }}</h3>
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="badge badge-sm" :class="statusColor">{{ status }}</span>
-        <span v-if="appName" class="badge badge-soft badge-sm">{{ appName }}</span>
-      </div>
-      <p class="text-xs text-base-content/50">{{ formattedDate }}</p>
+  <NuxtLink
+    :to="meta.route(id)"
+    class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors duration-(--duration-fast) ease-out hover:border-subtle"
+  >
+    <div class="flex flex-wrap items-center gap-1.5">
+      <span class="rounded-sm border border-border bg-panel px-1.5 text-micro text-muted">
+        {{ meta.label }}
+      </span>
+      <UiPlatformBadge v-if="platform" :platform="platform" />
+      <UiStatusBadge :status="status" size="xs" dot class="ml-auto" />
+    </div>
+
+    <h3 class="line-clamp-2 text-sm font-medium">{{ title }}</h3>
+
+    <div class="flex items-center gap-2">
+      <span v-if="appName" class="truncate text-micro text-subtle">{{ appName }}</span>
+      <span class="tnum ml-auto font-mono text-micro text-subtle">{{ formattedDate }}</span>
     </div>
   </NuxtLink>
 </template>

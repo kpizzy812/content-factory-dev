@@ -5,64 +5,67 @@ useHead({ title: 'Референсы' })
 const page = ref(1)
 const perPage = ref(20)
 
-const query = computed(() => ({
+const { data, pending, error, refresh } = useReferences(computed(() => ({
   page: page.value,
   perPage: perPage.value,
-}))
-
-const { data, pending, error } = useReferences(query)
+})))
 
 const references = computed(() => data.value?.data ?? [])
 const meta = computed(() => data.value?.meta ?? { total: 0, page: 1, perPage: 20, totalPages: 1 })
-
-function onPageUpdate(p: number) {
-  page.value = p
-}
 </script>
 
 <template>
-  <div class="space-y-4">
-    <h1 class="text-2xl font-bold text-base-content">Референсы</h1>
-
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Референсы</h1>
+      <span class="tnum text-sm text-subtle">{{ meta.total }}</span>
+      <span class="flex-1" />
+      <UiButton @click="refresh()">
+        <Icon name="mingcute:refresh-2-line" />
+        Обновить
+      </UiButton>
     </div>
 
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
+    <p class="text-sm text-muted">
+      Публикации, которые система признала образцовыми. Отсюда берут приёмы для следующих роликов.
+    </p>
 
-    <!-- Empty -->
-    <SharedEmptyState
-      v-else-if="references.length === 0"
-      icon="mingcute:star-line"
-      title="Референсов пока нет"
-      description="Успешные ролики попадают сюда автоматически после AI-анализа."
+    <UiSkeleton v-if="pending && !references.length" variant="cards" :count="6" />
+
+    <UiErrorState
+      v-else-if="error"
+      message="Не удалось загрузить референсы."
+      :details="error.message"
+      @retry="refresh()"
     />
 
-    <!-- References grid -->
+    <UiEmptyState
+      v-else-if="!references.length"
+      variant="first"
+      title="Референсов пока нет"
+      description="Успешные ролики попадают сюда сами после разбора метрик."
+    />
+
     <template v-else>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <ReferenceCard
-          v-for="ref in references"
-          :key="ref.id"
-          :id="ref.id"
-          :upload-id="ref.uploadId"
-          :reason="ref.reason"
-          :added-at="ref.addedAt"
-          :upload="ref.upload"
+          v-for="item in references"
+          :id="item.id"
+          :key="item.id"
+          :upload-id="item.uploadId"
+          :reason="item.reason"
+          :added-at="item.addedAt"
+          :upload="item.upload"
         />
       </div>
 
-      <SharedPagination
-        v-if="meta.totalPages > 1"
+      <ListPagination
         :page="meta.page"
         :total-pages="meta.totalPages"
         :total="meta.total"
-        @update:page="onPageUpdate"
+        :per-page="meta.perPage"
+        @update:page="page = $event"
+        @update:per-page="perPage = $event; page = 1"
       />
     </template>
   </div>

@@ -2,56 +2,76 @@
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'trendwatcher' })
 useHead({ title: 'Креативы' })
 
-const filtersStore = useCreativeFiltersStore()
-
-const { data, pending, error } = useCreatives(computed(() => filtersStore.query))
-
-const creatives = computed(() => (data.value as any)?.data ?? [])
-const meta = computed(() => (data.value as any)?.meta ?? { total: 0, page: 1, perPage: 20, totalPages: 1 })
-
-function onPageUpdate(p: number) {
-  filtersStore.page = p
+interface CreativeItem {
+  type: 'trend' | 'scenario' | 'video'
+  id: number
+  title: string
+  status: string
+  platform: string | null
+  createdAt: string
+  appName: string | null
 }
+
+const filters = useCreativeFiltersStore()
+
+const { data, pending, error, refresh } = useCreatives(computed(() => filters.query))
+
+const creatives = computed<CreativeItem[]>(() => data.value?.data ?? [])
+const meta = computed(() => data.value?.meta ?? { total: 0, page: 1, perPage: 20, totalPages: 1 })
+
+const hasFilters = computed(() => filters.type !== 'all' || !!filters.status || !!filters.appId)
 </script>
 
 <template>
-  <div class="space-y-4">
-    <h1 class="text-2xl font-bold text-base-content">Креативы</h1>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Креативы</h1>
+      <span class="tnum text-sm text-subtle">{{ meta.total }}</span>
+      <span class="flex-1" />
+      <UiButton @click="refresh()">
+        <Icon name="mingcute:refresh-2-line" />
+        Обновить
+      </UiButton>
+    </div>
 
-    <SharedPageGuide
-      guide-key="creatives"
-      :title="pageGuides.creatives.title"
-      :steps="pageGuides.creatives.steps"
-      :tips="pageGuides.creatives.tips"
-    />
+    <p class="text-sm text-muted">
+      Общая витрина трендов, сценариев и роликов — всё, что произведено, в одном списке.
+    </p>
 
     <CreativeFilters />
 
-    <!-- Loading -->
-    <SharedListSkeleton v-if="pending" :count="6" variant="card" :cols="3" />
+    <UiSkeleton v-if="pending && !creatives.length" variant="cards" :count="8" />
 
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
-
-    <!-- Empty -->
-    <SharedEmptyState
-      v-else-if="creatives.length === 0"
-      icon="mingcute:pic-line"
-      title="Креативов пока нет"
-      description="Создайте тренды, сценарии или видео -- они появятся здесь."
+    <UiErrorState
+      v-else-if="error"
+      message="Не удалось загрузить креативы."
+      :details="error.message"
+      @retry="refresh()"
     />
 
-    <!-- Grid -->
+    <UiEmptyState
+      v-else-if="!creatives.length && hasFilters"
+      variant="search"
+      title="Ничего не найдено"
+      description="Под текущие фильтры креативов нет."
+    >
+      <UiButton @click="filters.resetFilters()">Сбросить фильтры</UiButton>
+    </UiEmptyState>
+
+    <UiEmptyState
+      v-else-if="!creatives.length"
+      variant="first"
+      title="Креативов пока нет"
+      description="Импортируйте тренды или соберите сценарий — всё произведённое попадёт сюда."
+    />
+
     <template v-else>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <CreativeCard
           v-for="item in creatives"
+          :id="item.id"
           :key="`${item.type}-${item.id}`"
           :type="item.type"
-          :id="item.id"
           :title="item.title"
           :status="item.status"
           :platform="item.platform"
@@ -60,12 +80,13 @@ function onPageUpdate(p: number) {
         />
       </div>
 
-      <SharedPagination
-        v-if="meta.totalPages > 1"
+      <ListPagination
         :page="meta.page"
         :total-pages="meta.totalPages"
         :total="meta.total"
-        @update:page="onPageUpdate"
+        :per-page="meta.perPage"
+        @update:page="filters.page = $event"
+        @update:per-page="filters.perPage = $event; filters.resetPage()"
       />
     </template>
   </div>

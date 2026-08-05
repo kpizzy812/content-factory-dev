@@ -13,34 +13,21 @@ watch(apps, (list) => {
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-    <select
-      v-model.number="filtersStore.appId"
-      class="select select-sm w-full sm:w-64"
-    >
-      <option :value="undefined" disabled>Выберите приложение</option>
-      <option v-for="app in apps" :key="app.id" :value="app.id">
-        {{ app.name }}
-      </option>
-    </select>
+  <div class="flex flex-wrap items-center gap-2">
+    <UiSelect
+      :model-value="filtersStore.appId ?? ''"
+      class="w-64"
+      placeholder="Выберите приложение"
+      :options="apps.map(a => ({ value: a.id, label: a.name }))"
+      @update:model-value="filtersStore.appId = $event ? Number($event) : undefined"
+    />
 
-    <label class="input input-sm flex items-center gap-2 flex-1">
-      <Icon name="mingcute:search-line" class="size-4 text-base-content/50" />
-      <input
-        v-model="filtersStore.search"
-        type="text"
-        placeholder="Поиск по имени, описанию, тегу…"
-        class="grow"
-      />
-    </label>
+    <UiInput
+      v-model="filtersStore.search"
+      class="max-w-72 flex-1"
+      placeholder="Поиск по имени, описанию, тегу"
+    />
 
-    <label class="label cursor-pointer gap-2">
-      <input
-        v-model="filtersStore.showArchived"
-        type="checkbox"
-        class="toggle toggle-sm"
-      />
-      <span class="label-text text-sm">архив</span>
-    </label>
+    <UiCheckbox v-model="filtersStore.showArchived" label="Показать архив" />
   </div>
 </template>

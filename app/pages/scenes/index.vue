@@ -4,75 +4,79 @@ import type { Scene } from '~~/shared/types/scene'
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'script-generator' })
 useHead({ title: 'Композитор сцен' })
 
-const filtersStore = useSceneFiltersStore()
+const filters = useSceneFiltersStore()
 const router = useRouter()
 const createModal = ref<{ open: () => void } | null>(null)
 
-const { data, pending, error, refresh } = useScenes(computed(() => filtersStore.query))
+const { data, pending, error, refresh } = useScenes(computed(() => filters.query))
 const scenes = computed<Scene[]>(() => data.value?.data ?? [])
 
-async function onCreated(payload: { id: string; name: string }) {
+const appChosen = computed(() => Boolean(filters.appId))
+
+async function onCreated(payload: { id: string, name: string }) {
   await refresh()
   router.push(`/scenes/${payload.id}`)
 }
-
-const canShow = computed(() => Boolean(filtersStore.appId))
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between gap-4 flex-wrap">
-      <div>
-        <h1 class="text-2xl font-bold text-base-content">Композитор сцен</h1>
-        <p class="text-sm text-base-content/60 mt-1">
-          Собирайте сцены из блоков (Персонаж / Стиль / Окружение / Действие / Скрин). Финальный промпт уходит в pipeline.
-        </p>
-      </div>
-      <button
-        v-if="canShow && filtersStore.appId"
-        type="button"
-        class="btn btn-primary btn-sm"
-        @click="createModal?.open()"
-      >
-        <Icon name="mingcute:add-line" class="size-4" />
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Композитор сцен</h1>
+      <span v-if="appChosen" class="tnum text-sm text-subtle">{{ scenes.length }}</span>
+      <span class="flex-1" />
+      <UiButton v-if="appChosen" variant="primary" @click="createModal?.open()">
+        <Icon name="mingcute:add-line" />
         Новая сцена
-      </button>
+      </UiButton>
     </div>
+
+    <p class="text-sm text-muted">
+      Сцена собирается из блоков — персонаж, стиль, окружение, действие, скрин. Итоговый промпт
+      уходит в конвейер.
+    </p>
 
     <SceneFilters />
 
-    <div v-if="!canShow" class="alert alert-info alert-soft">
-      <Icon name="mingcute:information-line" />
-      <span>Сначала выберите приложение.</span>
-    </div>
-
-    <div v-else-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка: {{ error.message }}</span>
-    </div>
-
-    <SharedEmptyState
-      v-else-if="scenes.length === 0"
-      icon="mingcute:layers-line"
-      title="Сцен пока нет"
-      description="Создайте первую сцену. Внутри добавьте блоки персонажа, стиля, окружения и действия — composer соберёт промпт автоматически."
+    <UiEmptyState
+      v-if="!appChosen"
+      title="Выберите приложение"
+      description="Сцены заводятся под конкретное приложение — сначала выберите его в фильтре."
     />
 
-    <div
-      v-else
-      class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+    <UiSkeleton v-else-if="pending && !scenes.length" variant="cards" :count="6" />
+
+    <UiErrorState
+      v-else-if="error"
+      message="Не удалось загрузить сцены."
+      :details="error.message"
+      @retry="refresh()"
+    />
+
+    <UiEmptyState
+      v-else-if="!scenes.length && (filters.search || filters.status)"
+      variant="search"
+      title="Ничего не найдено"
+      description="Под текущие фильтры сцен нет."
     >
+      <UiButton @click="filters.reset()">Сбросить фильтры</UiButton>
+    </UiEmptyState>
+
+    <UiEmptyState
+      v-else-if="!scenes.length"
+      variant="first"
+      title="Сцен пока нет"
+      description="Создайте сцену и добавьте блоки персонажа, стиля, окружения и действия — промпт соберётся сам."
+    />
+
+    <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <SceneCard v-for="scene in scenes" :key="scene.id" :scene="scene" />
     </div>
 
     <SceneCreateModal
-      v-if="filtersStore.appId"
+      v-if="filters.appId"
       ref="createModal"
-      :app-id="filtersStore.appId"
+      :app-id="filters.appId"
       @created="onCreated"
     />
   </div>

@@ -1,50 +1,59 @@
 <script setup lang="ts">
-import type { Scene } from '~~/shared/types/scene'
+import type { Scene, SceneStatus } from '~~/shared/types/scene'
 import { SCENE_STATUS_LABELS } from '~~/shared/types/scene'
+import type { EntityStatus } from '~~/shared/utils/entity-status'
 
-const props = defineProps<{
-  scene: Scene
-}>()
+/**
+ * Карточка сцены.
+ *
+ * Превью собранного промпта важнее описания: именно он уходит в генерацию,
+ * и по нему видно, что сцена пустая, ещё до захода внутрь.
+ */
+const SCENE_STATUS_TO_ENTITY: Record<string, EntityStatus> = {
+  draft: 'draft',
+  ready: 'queued',
+  generating: 'running',
+  done: 'done',
+}
 
-const blocksCount = computed(() => Array.isArray(props.scene.blocks) ? props.scene.blocks.length : 0)
-const statusLabel = computed(() => SCENE_STATUS_LABELS[props.scene.status] ?? props.scene.status)
+const props = defineProps<{ scene: Scene }>()
+
+const blocksCount = computed(() => (Array.isArray(props.scene.blocks) ? props.scene.blocks.length : 0))
 const promptPreview = computed(() => (props.scene.promptCompiled ?? '').slice(0, 220))
+const status = computed<EntityStatus>(() => SCENE_STATUS_TO_ENTITY[props.scene.status as SceneStatus] ?? 'draft')
 </script>
 
 <template>
   <NuxtLink
     :to="`/scenes/${scene.id}`"
-    class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow border border-base-300"
+    class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors duration-(--duration-fast) ease-out hover:border-subtle"
   >
-    <div class="card-body p-4 space-y-2">
-      <div class="flex items-start justify-between gap-2">
-        <h3 class="font-semibold text-base line-clamp-1">{{ scene.name }}</h3>
-        <span class="badge badge-sm" :class="{
-          'badge-ghost': scene.status === 'draft',
-          'badge-info': scene.status === 'ready',
-          'badge-warning': scene.status === 'generating',
-          'badge-success': scene.status === 'done',
-        }">{{ statusLabel }}</span>
-      </div>
+    <div class="flex items-start gap-2">
+      <h3 class="min-w-0 flex-1 truncate text-base font-medium">{{ scene.name }}</h3>
+      <UiStatusBadge :status="status" size="xs" dot />
+    </div>
 
-      <p v-if="scene.description" class="text-xs text-base-content/70 line-clamp-2">
-        {{ scene.description }}
-      </p>
+    <p v-if="scene.description" class="line-clamp-2 text-sm text-muted">{{ scene.description }}</p>
 
-      <div class="text-xs text-base-content/60 line-clamp-3 italic">
-        {{ promptPreview || 'Пустая сцена — добавьте блоки' }}
-      </div>
+    <p class="line-clamp-3 text-micro text-subtle">
+      {{ promptPreview || 'Сцена пустая — добавьте блоки' }}
+    </p>
 
-      <div class="flex items-center justify-between pt-1 text-xs text-base-content/50">
-        <span class="flex items-center gap-1">
-          <Icon name="mingcute:layers-line" class="size-3" />
-          {{ blocksCount }} {{ blocksCount === 1 ? 'блок' : 'блоков' }}
-        </span>
-        <span v-if="scene.tags?.length" class="flex gap-1">
-          <span v-for="t in scene.tags.slice(0, 3)" :key="t" class="badge badge-xs badge-ghost">{{ t }}</span>
-        </span>
-        <span v-if="scene.archived" class="badge badge-xs badge-warning">архив</span>
-      </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="tnum font-mono text-micro text-subtle">{{ blocksCount }} блоков</span>
+      <span
+        v-for="t in scene.tags?.slice(0, 3) ?? []"
+        :key="t"
+        class="rounded-sm border border-border bg-panel px-1.5 text-micro text-subtle"
+      >
+        {{ t }}
+      </span>
+      <span
+        v-if="scene.archived"
+        class="ml-auto rounded-sm border border-warning-border bg-warning-bg px-1.5 text-micro text-warning"
+      >
+        архив
+      </span>
     </div>
   </NuxtLink>
 </template>

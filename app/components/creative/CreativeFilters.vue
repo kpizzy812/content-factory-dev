@@ -2,48 +2,51 @@
 const store = useCreativeFiltersStore()
 
 const { data: appsData } = useFetch('/api/apps', { default: () => ({ data: [] }) })
-const apps = computed(() => (appsData.value?.data ?? []) as { id: number; name: string }[])
+const apps = computed(() => (appsData.value?.data ?? []) as { id: number, name: string }[])
 
-function onFilterChange() {
-  store.resetPage()
-}
+/** Общий список статусов трёх сущностей: у каждой свои, пересечения нет. */
+const STATUS_OPTIONS = [
+  { value: '', label: 'Любой статус' },
+  { value: 'new', label: 'Новый' },
+  { value: 'reviewed', label: 'На рассмотрении' },
+  { value: 'in_work', label: 'В работе' },
+  { value: 'completed', label: 'Завершён' },
+  { value: 'draft', label: 'Черновик' },
+  { value: 'selected', label: 'Выбран' },
+  { value: 'pending', label: 'Ожидает' },
+  { value: 'failed', label: 'Ошибка' },
+]
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row gap-3 items-end flex-wrap">
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Тип</legend>
-      <select v-model="store.type" class="select" @change="onFilterChange">
-        <option value="all">Все типы</option>
-        <option value="trend">Тренды</option>
-        <option value="scenario">Сценарии</option>
-        <option value="video">Видео</option>
-      </select>
-    </fieldset>
+  <div class="flex flex-wrap items-center gap-2">
+    <UiSelect
+      v-model="store.type"
+      class="w-44"
+      :options="[
+        { value: 'all', label: 'Все типы' },
+        { value: 'trend', label: 'Тренды' },
+        { value: 'scenario', label: 'Сценарии' },
+        { value: 'video', label: 'Ролики' },
+      ]"
+      @update:model-value="store.resetPage()"
+    />
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Статус</legend>
-      <select v-model="store.status" class="select" @change="onFilterChange">
-        <option value="">Все статусы</option>
-        <option value="new">Новый</option>
-        <option value="reviewed">На рассмотрении</option>
-        <option value="in_work">В работе</option>
-        <option value="completed">Завершён</option>
-        <option value="draft">Черновик</option>
-        <option value="selected">Выбран</option>
-        <option value="pending">Ожидание</option>
-        <option value="failed">Ошибка</option>
-      </select>
-    </fieldset>
+    <UiSelect
+      v-model="store.status"
+      class="w-52"
+      :options="STATUS_OPTIONS"
+      @update:model-value="store.resetPage()"
+    />
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Приложение</legend>
-      <select v-model.number="store.appId" class="select" @change="onFilterChange">
-        <option :value="undefined">Все приложения</option>
-        <option v-for="app in apps" :key="app.id" :value="app.id">
-          {{ app.name }}
-        </option>
-      </select>
-    </fieldset>
+    <UiSelect
+      :model-value="store.appId ?? ''"
+      class="w-56"
+      :options="[
+        { value: '', label: 'Все приложения' },
+        ...apps.map(a => ({ value: a.id, label: a.name })),
+      ]"
+      @update:model-value="store.appId = $event ? Number($event) : undefined; store.resetPage()"
+    />
   </div>
 </template>

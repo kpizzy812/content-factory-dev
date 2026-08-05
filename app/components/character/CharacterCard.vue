@@ -2,6 +2,15 @@
 import type { Character, CharacterReferenceImage } from '~~/shared/types/character'
 import { CHARACTER_ROLE_LABELS } from '~~/shared/types/character'
 
+/**
+ * Карточка персонажа.
+ *
+ * Превью 4:3, а не 9:16 общей `UiEntityCard`: это референсные фото лица и
+ * одежды, у них своя пропорция, и в вертикальной рамке от них остаётся полоса.
+ *
+ * Дополнительные референсы показываются миниатюрами поверх основного: сколько
+ * их есть — главный признак готовности персонажа к сцене.
+ */
 const props = defineProps<{
   character: Character & { referenceImages?: CharacterReferenceImage[] }
 }>()
@@ -16,54 +25,71 @@ const roleLabel = computed(() => CHARACTER_ROLE_LABELS[props.character.role] ?? 
 <template>
   <NuxtLink
     :to="`/characters/${character.id}`"
-    class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow border border-base-300 overflow-hidden"
+    class="overflow-hidden rounded-lg border border-border bg-card transition-colors duration-(--duration-fast) ease-out hover:border-subtle"
   >
-    <div class="aspect-[4/3] bg-base-200 relative">
+    <div class="relative aspect-[4/3] bg-surface">
       <img
         v-if="primary"
         :src="primary"
         :alt="character.name"
-        class="w-full h-full object-cover"
-      />
-      <div v-else class="w-full h-full flex items-center justify-center text-base-content/30">
-        <Icon name="mingcute:user-3-line" class="size-12" />
+        class="size-full object-cover"
+      >
+      <div v-else class="flex size-full items-center justify-center text-subtle">
+        <Icon name="mingcute:user-3-line" class="text-2xl" />
       </div>
 
-      <div v-if="extra.length" class="absolute bottom-1 left-1 right-1 flex gap-1">
+      <div v-if="extra.length" class="absolute inset-x-1.5 bottom-1.5 flex gap-1">
         <img
           v-for="r in extra"
           :key="r.id"
           :src="r.fileUrl"
           :alt="r.kind"
-          class="w-8 h-8 rounded object-cover border-2 border-base-100 shadow"
-        />
+          class="size-8 rounded-sm border border-border object-cover"
+        >
         <span
           v-if="refCount > 4"
-          class="w-8 h-8 rounded bg-base-100/90 border-2 border-base-100 shadow flex items-center justify-center text-xs font-semibold"
+          class="tnum flex size-8 items-center justify-center rounded-sm border border-border bg-panel font-mono text-micro"
         >
           +{{ refCount - 4 }}
         </span>
       </div>
 
-      <span class="absolute top-1 right-1 badge badge-sm badge-neutral">{{ roleLabel }}</span>
-      <span v-if="character.archived" class="absolute top-1 left-1 badge badge-sm badge-warning">архив</span>
+      <span
+        class="absolute top-1.5 right-1.5 rounded-sm border border-border bg-panel px-1.5 text-micro text-muted"
+      >
+        {{ roleLabel }}
+      </span>
+      <span
+        v-if="character.archived"
+        class="absolute top-1.5 left-1.5 rounded-sm border border-warning-border bg-warning-bg px-1.5 text-micro text-warning"
+      >
+        архив
+      </span>
     </div>
 
-    <div class="p-3 space-y-1">
-      <h3 class="font-semibold text-sm line-clamp-1">{{ character.name }}</h3>
-      <p v-if="character.description" class="text-xs text-base-content/70 line-clamp-2">
+    <div class="flex flex-col gap-1 p-2.5">
+      <h3 class="truncate text-sm font-medium">{{ character.name }}</h3>
+      <p v-if="character.description" class="line-clamp-2 text-micro text-muted">
         {{ character.description }}
       </p>
-      <div v-if="character.tags?.length" class="flex flex-wrap gap-1 pt-1">
-        <span v-for="t in character.tags.slice(0, 4)" :key="t" class="badge badge-xs badge-ghost">{{ t }}</span>
-        <span v-if="character.tags.length > 4" class="badge badge-xs badge-ghost">+{{ character.tags.length - 4 }}</span>
-      </div>
-      <div class="flex items-center justify-between pt-1 text-xs text-base-content/50">
-        <span class="flex items-center gap-1">
-          <Icon name="mingcute:pic-2-line" class="size-3" />
-          {{ refCount }} {{ refCount === 1 ? 'референс' : 'референсов' }}
+
+      <div v-if="character.tags?.length" class="flex flex-wrap gap-1">
+        <span
+          v-for="t in character.tags.slice(0, 4)"
+          :key="t"
+          class="rounded-sm border border-border bg-panel px-1.5 text-micro text-subtle"
+        >
+          {{ t }}
+        </span>
+        <span
+          v-if="character.tags.length > 4"
+          class="rounded-sm border border-border bg-panel px-1.5 text-micro text-subtle"
+        >
+          +{{ character.tags.length - 4 }}
         </span>
       </div>
+
+      <span class="tnum font-mono text-micro text-subtle">{{ refCount }} референсов</span>
     </div>
   </NuxtLink>
 </template>
