@@ -1,7 +1,12 @@
 /**
  * POST /api/scenarios/generate
  * Генерация сценария из тренда с использованием CreativeBrief как primary source.
+ *
+ * Отвечает сразу: проход агентов идёт пять и больше минут, а прокси рвёт запрос
+ * на сотой секунде. Клиент получает id и опрашивает GET /api/scenarios/:id.
  */
+import { runScenarioGeneration } from '~~/server/utils/scenario-generation-runner'
+
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canCreate', 'canRunAgent'], moduleSlug: 'script-generator' })
 
@@ -88,17 +93,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Активная воронка юнита. Её кодовое слово становится целью CTA: зритель
-  // пишет слово в директ и получает лид-магнит, а не устанавливает приложение.
-  const funnelRecord = await prisma.contentFunnel.findFirst({
-    where: { appId: trend.appId, status: 'active' },
-    orderBy: { updatedAt: 'desc' },
-    select: { keyword: true, leadMagnet: { select: { title: true } } },
-  })
-  const funnel = funnelRecord
-    ? { keyword: funnelRecord.keyword, leadMagnetTitle: funnelRecord.leadMagnet?.title ?? null }
-    : null
-
   // Load profile settings if profileId specified
   let profileSettings = null as Record<string, unknown> | null
   if (body.profileId) {
@@ -123,115 +117,22 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  try {
-    const generated = await generateScenarios(
-      {
-        title: trend.title,
-        description: trend.description,
-        platform: trend.platform,
-        hashtags: trend.hashtags,
-        viewCount: trend.viewCount,
-        insights: trend.insights.map(i => ({
-          whyViral: i.whyViral,
-          patterns: i.patterns,
-          hooks: i.hooks,
-          audience: i.audience,
-        })),
-        brief: trend.brief
-          ? {
-              hookAnalysis: trend.brief.hookAnalysis as any,
-              sceneStructure: trend.brief.sceneStructure as any,
-              visualStyle: trend.brief.visualStyle as any,
-              viralityReasons: trend.brief.viralityReasons as any,
-              summary: trend.brief.summary,
-            }
-          : null,
-      },
-      {
-        name: trend.app.name,
-        description: trend.app.description,
-        keywords: trend.app.keywords,
-        language: trend.app.language,
-        transformationPromise: trend.app.transformationPromise,
-        corePain: trend.app.corePain,
-        coreOutcome: trend.app.coreOutcome,
-        creativeAngles: trend.app.creativeAngles,
-        scenarioContext: trend.app.scenarioContext,
-        funnel,
-      },
+  // Fire-and-forget: работа идёт в фоне, статус видно через GET /api/scenarios/:id.
+  runScenarioGeneration({
+    scenarioId: scenario.id,
+    trendId,
+    variantsCount,
+    profileSettings,
+  }).catch(() => { /* раннер сам пишет ошибку в generationStatus */ })
+
+  setResponseStatus(event, 202)
+  return {
+    data: {
+      id: scenario.id,
+      trendId,
+      status: scenario.status,
+      generationStatus: scenario.generationStatus,
       variantsCount,
-      trend.appId,
-      profileSettings,
-    )
-
-    // Сохраняем варианты (с storyPlan)
-    const result = await prisma.$transaction(async (tx) => {
-      const variants = await Promise.all(
-        generated.map((v, index) =>
-          tx.scenarioVariant.create({
-            data: {
-              scenarioId: scenario.id,
-              variantIndex: index,
-              title: v.title,
-              hook: v.hook,
-              body: v.body,
-              cta: v.cta,
-              fullScript: v.fullScript,
-              visualStyleText: v.visualStyleText,
-              visualStyleStructured: v.visualStyleStructured as any,
-              storyPlan: v.storyPlan as any,
-              toneProfile: v.toneProfile,
-              rationale: v.rationale,
-              promptVersion: '3.0.0',
-            },
-          }),
-        ),
-      )
-
-      const updated = await tx.scenario.update({
-        where: { id: scenario.id },
-        data: {
-          status: 'generated',
-          generationStatus: 'completed',
-        },
-        include: {
-          variants: { where: { isDeleted: false }, orderBy: { variantIndex: 'asc' } },
-          trend: { select: { id: true, title: true, platform: true } },
-        },
-      })
-
-      // Обновить статус тренда
-      if (trend.status === 'reviewed') {
-        await tx.trend.update({
-          where: { id: trendId },
-          data: { status: 'in_work' },
-        })
-      }
-
-      return updated
-    })
-
-    // Quality Critic loop (gated by SCENARIO_CRITIC_ENABLED).
-    // Не блокируем основной flow: сценарий уже сохранён, варианты есть,
-    // даже если critic упадёт — UI отобразит «Не проверено».
-    try {
-      const { runQualityCriticForScenario } = await import('~~/server/utils/scenario-critic-orchestrator')
-      await runQualityCriticForScenario(scenario.id)
-    } catch (criticErr) {
-      console.error('[scenario-critic] failed in generate.post:', criticErr)
-    }
-
-    return { data: result }
-  } catch (err) {
-    // Обновляем статус в случае ошибки
-    await prisma.scenario.update({
-      where: { id: scenario.id },
-      data: {
-        status: 'draft',
-        generationStatus: `failed: ${err instanceof Error ? err.message : 'unknown'}`,
-      },
-    }).catch(() => {})
-
-    throw err
+    },
   }
 })

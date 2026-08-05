@@ -176,10 +176,25 @@ export async function runVideoPipeline(
     })
     const doneStepKeys = new Set(doneSteps.map(s => s.stepKey as string))
 
-    const needImageProbe = !doneStepKeys.has("image_generation")
-    const needVideoProbe = !doneStepKeys.has("clip_generation")
+    // Ролик, целиком снятый живой ведущей, не трогает fal вообще: ни клипов,
+    // ни превью-кадра. Пробивать доступ к моделям, которые не будут вызваны,
+    // и падать из-за отсутствующего FAL_KEY — нечестно.
+    const storyScenes = (variant.storyPlan as StoryPlan | null)?.scenes ?? []
+    const presenterCapable = video.lipSyncEnabled && !!video.lipSyncCharacterId
+    const presenterSceneCount = presenterCapable
+      ? storyScenes.filter(s => s.spokenLine && s.spokenLine.trim().length > 0).length
+      : 0
+    const presenterOnly = presenterCapable
+      && storyScenes.length > 0
+      && presenterSceneCount === storyScenes.length
+
+    const needImageProbe = !doneStepKeys.has("image_generation") && !presenterOnly
+    const needVideoProbe = !doneStepKeys.has("clip_generation") && !presenterOnly
+    // Пробить через fal можно только fal-модель. Replicate-озвучка сюда не идёт:
+    // её доступность проверяет сам prediction-service при первом вызове.
     const needTtsProbe = video.voiceoverEnabled
       && !!effectiveTtsModelId
+      && effectiveTtsModelId.startsWith("fal-ai/")
       && !doneStepKeys.has("voiceover_generation")
 
     const accessCheckTargets: string[] = []
@@ -237,6 +252,18 @@ export async function runVideoPipeline(
       } catch { /* non-critical */ }
     }
 
+    // Сцены, которые играет живая ведущая. Их клип собирает lip-sync из библиотеки
+    // исходников, поэтому платить за text-to-video по ним не нужно ни в оценке,
+    // ни в самой генерации. Индекс — позиция в плане, так же адресуют клипы шаги.
+    const presenterSceneIndexes = new Set<number>()
+    if (video.lipSyncEnabled && video.lipSyncCharacterId && videoPlan.mode !== 'legacy_simple') {
+      videoPlan.scenes.forEach((scene, index) => {
+        if (scene.spokenLine && scene.spokenLine.trim().length > 0) {
+          presenterSceneIndexes.add(index)
+        }
+      })
+    }
+
     // Cost estimation — записываем estimate перед запуском
     const qualityMap: Record<string, "720p" | "1080p"> = { low: "720p", medium: "1080p", high: "1080p" }
     const effectiveSceneCount = videoPlan.mode !== 'legacy_simple'
@@ -254,7 +281,9 @@ export async function runVideoPipeline(
       quality: qualityMap[video.renderQuality] ?? "1080p" as "720p" | "1080p",
       skipImageGeneration: videoPlan.skipImageGeneration,
       perSceneDurations: videoPlan.mode !== 'legacy_simple'
-        ? videoPlan.scenes.map(s => s.durationSec)
+        ? videoPlan.scenes
+          .filter((_, index) => !presenterSceneIndexes.has(index))
+          .map(s => s.durationSec)
         : undefined,
       // Voiceover config
       voiceoverEnabled: video.voiceoverEnabled,
@@ -349,10 +378,12 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #4: до генерации изображений ──
     throwIfAborted(signal)
 
-    const imgResult = await runImageGeneration(
-      videoId, prompts, video.format, effectiveImageCount,
-      effectiveImageModelId, video.renderQuality, videoPlan,
-    )
+    const imgResult = presenterOnly
+      ? await skipImageGenerationStep(videoId)
+      : await runImageGeneration(
+        videoId, prompts, video.format, effectiveImageCount,
+        effectiveImageModelId, video.renderQuality, videoPlan,
+      )
     // Actual cost: images
     if (imgResult.imagePaths.length > 0) {
       const isLowQ = video.renderQuality === "low"
@@ -379,11 +410,13 @@ export async function runVideoPipeline(
       videoId, prompts, video.format, video.clipDuration,
       effectiveVideoModelId, video.generateAudio, videoPlan,
       variant.storyPlan as StoryPlan | null,
+      presenterSceneIndexes,
     )
     // Actual cost: clips (per-scene duration aware)
     let clipActualCost = 0
     if (videoPlan.mode !== 'legacy_simple') {
-      for (const scene of videoPlan.scenes) {
+      for (const [index, scene] of videoPlan.scenes.entries()) {
+        if (presenterSceneIndexes.has(index)) continue
         const pricePerSec = (video.generateAudio && vidModel.pricing.withAudio)
           ? vidModel.pricing.withAudio
           : vidModel.pricing.base
@@ -479,6 +512,28 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #9: до сборки (ffmpeg assembly) ──
     throwIfAborted(signal)
 
+    // Отрезки таймлайна с закадровым голосом. Сцены ведущей сюда не попадают:
+    // их звук — это её собственная речь, и глушить его нельзя.
+    const voiceoverIntervals: Array<{ startSec: number; endSec: number }> = []
+    if (videoPlan.mode !== 'legacy_simple' && voiceoverResult.mixedPath) {
+      const voicedScenes = new Map(
+        voiceoverResult.sceneResults
+          .filter(scene => scene.audioPath && scene.durationSec > 0)
+          .map(scene => [scene.sceneOrder, scene.durationSec]),
+      )
+      let cursorSec = 0
+      for (const scene of videoPlan.scenes) {
+        const voiceDuration = voicedScenes.get(scene.order)
+        if (voiceDuration) {
+          voiceoverIntervals.push({
+            startSec: cursorSec,
+            endSec: cursorSec + Math.min(voiceDuration, scene.durationSec),
+          })
+        }
+        cursorSec += scene.durationSec
+      }
+    }
+
     const result = await runAssembly(
       videoId,
       effectiveClipPaths,
@@ -495,6 +550,7 @@ export async function runVideoPipeline(
         clipVolumeWithVoiceover: 0.3,
         subtitlePreset: (video.subtitlePreset as import('./render').SubtitlePresetId | null) ?? undefined,
         subtitleStyleOverride,
+        voiceoverIntervals: voiceoverIntervals.length > 0 ? voiceoverIntervals : undefined,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })
@@ -608,6 +664,23 @@ export async function runVideoPipeline(
   } finally {
     await releaseLock(videoId)
   }
+}
+
+/**
+ * Помечает генерацию изображений пропущенной: в ролике из живых фрагментов
+ * ведущей ни один кадр не рисуется нейросетью, включая превью.
+ */
+async function skipImageGenerationStep(
+  videoId: number,
+): Promise<{ imagePaths: string[]; imageRemoteUrls: string[] }> {
+  const step = await ensureStep(videoId, "image_generation", STEP_ORDER.indexOf("image_generation"))
+  await updateStep(step.id, {
+    status: "skipped",
+    finishedAt: new Date(),
+    actualCost: 0,
+    outputSnapshot: { reason: "presenter_only_video", imagePaths: [] },
+  })
+  return { imagePaths: [], imageRemoteUrls: [] }
 }
 
 /**

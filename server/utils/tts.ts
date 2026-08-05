@@ -1,16 +1,19 @@
 /**
- * TTS Provider — synthesize voiceover audio via fal.ai endpoints.
+ * TTS Provider — синтез озвучки.
  *
- * Supported providers (все через fal.ai Queue API, FAL_KEY reused):
- *   - fal-ai/kokoro/american-english  (budget, open-source)
- *   - fal-ai/kokoro/russian           (budget, ru)
+ * Основной путь — Replicate (minimax/speech-02-turbo): единственный из подключённых,
+ * кто произносит русский. Идёт через prediction-service, поэтому идемпотентен и
+ * переживает рестарт; см. server/utils/media-provider/tts.ts.
+ *
+ * fal.ai — оставшийся с VideoCamp запасной путь через Queue API (FAL_KEY):
+ *   - fal-ai/kokoro/american-english  (budget, open-source, только английский)
  *   - fal-ai/playai/tts/v3            (standard, multilingual)
  *   - fal-ai/elevenlabs/tts/turbo-v2.5 (premium, opt-in)
  *
  * Runtime behavior:
  *   - Accepts text + voice options, returns local audio file + real duration (probed).
  *   - Cost tracked per-call (character- or audio-second-based depending on model).
- *   - Fails loudly when FAL_KEY missing or endpoint 403s (no silent fake-success).
+ *   - Fails loudly when the provider key is missing or the endpoint 403s (no silent fake-success).
  */
 
 import { join } from 'node:path'
@@ -20,6 +23,7 @@ import { withTimeoutAndRetry } from './external-call'
 import { downloadFile } from './video-helpers'
 import { getModel, getDefaultTtsModel } from './video-models'
 import type { ModelMeta } from './video-models'
+import { runReplicateTts } from './media-provider/tts'
 
 export interface TtsSynthesisOptions {
   /** Text to synthesize (required) */
@@ -36,6 +40,8 @@ export interface TtsSynthesisOptions {
   pacing?: 'slow' | 'moderate' | 'fast'
   /** Emotional hint (для providers с expressivity) */
   emotion?: string | null
+  /** Привязка prediction к видео — чтобы он удалялся вместе с ним. */
+  videoId?: number | null
 }
 
 export interface TtsSynthesisResult {
@@ -94,6 +100,11 @@ function resolveDefaultVoice(modelId: string, language: string): string {
     return 'Rachel'
   }
   return defaultVoiceEn
+}
+
+/** Модели Replicate идут своим путём — по ним нельзя ходить в fal Queue API. */
+function isReplicateModel(model: ModelMeta): boolean {
+  return model.provider.toLowerCase().includes('replicate')
 }
 
 /**
@@ -221,6 +232,36 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
   }
   if (!model) {
     throw new Error('TTS synthesis: нет доступных TTS моделей в реестре')
+  }
+
+  // Replicate — основной путь. Свои голоса, свой формат входа, свой контур
+  // predictions, поэтому уходим в адаптер целиком, а не через fal Queue API.
+  if (isReplicateModel(model)) {
+    const synthesis = await runReplicateTts({
+      text,
+      outputPath: options.outputPath,
+      language: options.language || 'en',
+      voiceId: options.voiceId,
+      speed: resolveSpeed(options.pacing),
+      emotion: options.emotion,
+      modelId: model.id,
+      videoId: options.videoId ?? null,
+    })
+
+    const durationSec = await probeAudioDuration(synthesis.audioPath)
+    if (durationSec <= 0) {
+      throw new Error(`TTS ${model.id}: скачанный аудиофайл невалиден (duration=0)`)
+    }
+
+    return {
+      audioPath: synthesis.audioPath,
+      durationSec,
+      model: { id: model.id, name: model.name, provider: model.provider },
+      voiceId: synthesis.voiceId,
+      costUsd: synthesis.costUsd,
+      remoteUrl: null,
+      characters: synthesis.characters,
+    }
   }
 
   const voiceId = options.voiceId || resolveDefaultVoice(model.id, options.language || 'en')

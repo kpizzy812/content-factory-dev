@@ -58,6 +58,50 @@ export interface FavoritePromptsSelection {
   autoSelect?: boolean
 }
 
+/**
+ * Ведущий юнита и статистика его живых фрагментов. Протагонист приоритетнее
+ * остальных персонажей — тем же правилом выбирается ведущий при запуске видео.
+ */
+async function loadPresenterForApp(appId: number): Promise<ScenarioInput['presenter']> {
+  try {
+    const withClips = {
+      appId,
+      archived: false,
+      sourceClips: { some: { isActive: true } },
+    }
+    const character = await prisma.character.findFirst({
+      where: { ...withClips, role: 'protagonist' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
+    }) ?? await prisma.character.findFirst({
+      where: withClips,
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
+    })
+    if (!character) return null
+
+    const stats = await prisma.presenterSourceClip.aggregate({
+      where: { characterId: character.id, isActive: true },
+      _count: { _all: true },
+      _min: { durationSec: true },
+      _max: { durationSec: true },
+    })
+    const clipCount = stats._count._all
+    if (clipCount === 0) return null
+
+    return {
+      name: character.name,
+      clipCount,
+      minClipSec: stats._min.durationSec ?? 2,
+      maxClipSec: stats._max.durationSec ?? 10,
+    }
+  } catch {
+    // Разметка ведущего — не критичный контекст: без неё сценарий просто
+    // получится полностью закадровым, а не упадёт.
+    return null
+  }
+}
+
 export async function generateScenarios(
   trend: TrendData,
   app: AppData,
@@ -90,6 +134,10 @@ export async function generateScenarios(
     } catch { /* non-critical, fall back to empty list */ }
   }
 
+  // Живая библиотека ведущего. Пока она пуста, планировщику незачем размечать
+  // сцены под lip-sync: играть в кадре некому.
+  const presenter = appId ? await loadPresenterForApp(appId) : null
+
   const input: ScenarioInput = {
     trendTitle: trend.title,
     trendDescription: trend.description,
@@ -115,6 +163,7 @@ export async function generateScenarios(
       referenceImageUrls: app.referenceImageUrls ?? [],
     },
     appReferenceScreens,
+    presenter,
     profileSettings: profileSettings ?? null,
     // Reference-driven generation
     referenceBreakdown: trend.referenceBreakdown ?? null,

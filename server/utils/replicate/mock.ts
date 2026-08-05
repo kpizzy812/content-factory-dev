@@ -19,7 +19,9 @@ export function createMockReplicateProvider(
   options: MockReplicateProviderOptions = {},
 ): MediaProvider {
   const completeAfterPolls = options.completeAfterPolls ?? 1
-  const outputUrl = options.outputUrl ?? "mock://replicate/output.mp4"
+  // mock://video/... — заглушка собирается ffmpeg'ом в настоящий mp4. Схема
+  // mock://replicate/... дала бы JSON с расширением .mp4, на котором падает сборка.
+  const outputUrl = options.outputUrl ?? "mock://video/output.mp4"
   const predictions = new Map<string, MockState>()
 
   return {

@@ -38,6 +38,12 @@ interface AssembleOptions {
   musicVolumeWithVoiceover?: number
   /** Громкость clip-native audio когда voiceover включён (attenuate) */
   clipVolumeWithVoiceover?: number
+  /**
+   * Отрезки таймлайна, где реально звучит закадровый голос. Если заданы, звук
+   * клипов приглушается только внутри них: сцену, где ведущая говорит в кадре,
+   * глушить нельзя — её голос и есть содержание сцены.
+   */
+  voiceoverIntervals?: Array<{ startSec: number; endSec: number }>
 }
 
 interface AssembleResult {
@@ -731,6 +737,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
     musicVolume = 0.3,
     musicVolumeWithVoiceover = 0.12,
     clipVolumeWithVoiceover = 0.3,
+    voiceoverIntervals,
   } = options
 
   await ensureDir(dirname(outputPath))
@@ -906,9 +913,18 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       const audioFilters: string[] = []
       const mixLabels: string[] = []
 
-      // Clip-native audio lane
-      const clipAudioVolume = hasVoiceover ? clipVolumeWithVoiceover : 1.0
-      audioFilters.push(`[0:a]volume=${clipAudioVolume.toFixed(3)}[va]`)
+      // Clip-native audio lane. При закадровом голосе приглушаем — но точечно,
+      // если известно, на каких отрезках он звучит.
+      if (hasVoiceover) {
+        const duckWindows = (voiceoverIntervals ?? [])
+          .filter(i => Number.isFinite(i.startSec) && Number.isFinite(i.endSec) && i.endSec > i.startSec)
+          .map(i => `between(t,${i.startSec.toFixed(2)},${i.endSec.toFixed(2)})`)
+        audioFilters.push(duckWindows.length > 0
+          ? `[0:a]volume=${clipVolumeWithVoiceover.toFixed(3)}:enable='${duckWindows.join('+')}'[va]`
+          : `[0:a]volume=${clipVolumeWithVoiceover.toFixed(3)}[va]`)
+      } else {
+        audioFilters.push(`[0:a]volume=1.000[va]`)
+      }
       mixLabels.push('[va]')
 
       // Music lane (с ducking если есть voiceover)

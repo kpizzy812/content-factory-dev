@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   estimateMediaCost,
+  estimateTtsCost,
   mapMediaInput,
   resolveMediaModel,
 } from "../../../server/utils/media-provider/registry"
@@ -43,6 +44,72 @@ describe("media model registry", () => {
       maxVideoBytes: 100 * 1024 * 1024,
       maxAudioBytes: 5 * 1024 * 1024,
     })
+  })
+
+  it("uses Replicate MiniMax as the default TTS model", () => {
+    const model = resolveMediaModel("tts")
+
+    expect(model.id).toBe("minimax/speech-02-turbo")
+    expect(model.provider).toBe("replicate")
+    expect(model.constraints.languages).toContain("ru")
+  })
+
+  it("maps Russian speech input to MiniMax fields", () => {
+    const model = resolveMediaModel("tts")
+
+    expect(mapMediaInput(model, {
+      text: "Сахар входит в топ-три ингредиента",
+      voiceId: "Wise_Woman",
+      speed: 1,
+      language: "ru",
+    })).toEqual({
+      text: "Сахар входит в топ-три ингредиента",
+      voice_id: "Wise_Woman",
+      speed: 1,
+      language_boost: "Russian",
+    })
+  })
+
+  it("keeps only emotions the model accepts", () => {
+    const model = resolveMediaModel("tts")
+    const base = { text: "Реплика", voiceId: "Wise_Woman", speed: 1, language: "ru" }
+
+    // Сценарист пишет эмоцию свободным текстом — понятное переводим в enum...
+    expect(mapMediaInput(model, { ...base, emotion: "лёгкая тревога" }))
+      .toMatchObject({ emotion: "fearful" })
+    expect(mapMediaInput(model, { ...base, emotion: "calm" }))
+      .toMatchObject({ emotion: "calm" })
+    expect(mapMediaInput(model, { ...base, emotion: "тёплая уверенность, приглашение" }))
+      .toMatchObject({ emotion: "calm" })
+    // ...а непонятое не угадываем: неизвестное значение уронило бы запрос.
+    expect(mapMediaInput(model, { ...base, emotion: "любопытство" }))
+      .not.toHaveProperty("emotion")
+  })
+
+  it("falls back to the language value the model actually accepts", () => {
+    const model = resolveMediaModel("tts")
+
+    expect(mapMediaInput(model, {
+      text: "Line", voiceId: "Wise_Woman", speed: 1, language: "en",
+    })).toMatchObject({ language_boost: "English" })
+  })
+
+  it("refuses languages the TTS model cannot pronounce", () => {
+    const model = resolveMediaModel("tts")
+
+    expect(() => mapMediaInput(model, {
+      text: "こんにちは",
+      voiceId: "Wise_Woman",
+      speed: 1,
+      language: "ja",
+    })).toThrow('does not support language "ja"')
+  })
+
+  it("estimates TTS cost per 1000 characters", () => {
+    const model = resolveMediaModel("tts")
+
+    expect(estimateTtsCost(model, 500)).toBeCloseTo(model.priceUsdPer1kCharacters / 2, 8)
+    expect(estimateTtsCost(model, 0)).toBe(0)
   })
 
   it("rejects unsupported capabilities and model ids", () => {

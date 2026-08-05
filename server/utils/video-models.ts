@@ -214,6 +214,28 @@ export const VIDEO_MODELS: ModelMeta[] = [
  */
 export const TTS_MODELS: ModelMeta[] = [
   {
+    id: "minimax/speech-02-turbo",
+    name: "MiniMax Speech 02 Turbo",
+    task: "tts",
+    provider: "Replicate / MiniMax",
+    pricing: {
+      unit: "character",
+      // $0.06 за 1000 символов; переопределяется REPLICATE_TTS_PRICE_USD_PER_1K_CHARS
+      base: 0.00006,
+    },
+    strengths: [
+      "Родной русский, а не английская модель с русским текстом",
+      "Основной провайдер Replicate — тот же контур, что у lip-sync",
+      "Идемпотентный синтез: повтор той же реплики не тратит деньги",
+    ],
+    tradeoffs: [
+      "Голоса задаются идентификаторами MiniMax, а не ISO-кодами",
+    ],
+    avgGenerationTime: "~3-8 сек на фразу",
+    integrated: true,
+    tier: "standard",
+  },
+  {
     id: "fal-ai/kokoro/american-english",
     name: "Kokoro (American English)",
     task: "tts",
@@ -245,16 +267,14 @@ export const TTS_MODELS: ModelMeta[] = [
       unit: "audio_second",
       base: 0.00025,
     },
-    strengths: [
-      "Русский TTS, open-source",
-      "Быстрая синтез",
-    ],
+    strengths: [],
     tradeoffs: [
-      "Менее естественный чем ElevenLabs",
-      "Ограниченный набор голосов",
+      "Эндпоинта не существует: fal.ai отдаёт 404, у Kokoro нет русского языка",
     ],
-    avgGenerationTime: "~3-5 сек",
-    integrated: true,
+    avgGenerationTime: "-",
+    // Запись оставлена, чтобы старые Video с этим modelId падали внятно,
+    // а не уходили молча в английский голос. Замена — minimax/speech-02-turbo.
+    integrated: false,
     tier: "budget",
   },
   {
@@ -427,10 +447,12 @@ export function pickTtsModel(options: {
   const integrated = TTS_MODELS.filter(m => m.integrated)
   if (integrated.length === 0) return null
 
-  // Russian-specific path
+  // Русский: только модели, которые его действительно произносят. Kokoro сюда
+  // не подходит — у него нет русского языка, а fal-эндпоинта kokoro/russian
+  // не существует вовсе.
   if (lang.startsWith('ru')) {
-    const ruKokoro = integrated.find(m => m.id === 'fal-ai/kokoro/russian')
-    if (ruKokoro) return ruKokoro
+    const minimax = integrated.find(m => m.id === 'minimax/speech-02-turbo')
+    if (minimax) return minimax
     const multilingual = integrated.find(m => m.id === 'fal-ai/playai/tts/v3')
     if (multilingual) return multilingual
   }
