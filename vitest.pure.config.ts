@@ -36,6 +36,7 @@ export default defineConfig({
       "tests/unit/apify-instagram-trends.spec.ts",
       "tests/unit/apify-account-discovery.spec.ts",
       "tests/unit/scenario-funnel-cta.spec.ts",
+      "tests/unit/scenario-value-structure.spec.ts",
       "tests/unit/claude-cli-transport.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],

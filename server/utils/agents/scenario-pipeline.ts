@@ -15,7 +15,7 @@
  */
 
 import type { TrendAnalysisResult } from '~~/shared/types/agents'
-import type { VisualStyleStructured } from '~~/shared/types/scenario'
+import type { SceneCountStrategy, VisualStyleStructured } from '~~/shared/types/scenario'
 import type {
   StoryPlan,
   StoryArc,
@@ -62,6 +62,20 @@ interface InsightFallback {
   patterns: string[]
   hooks: string[]
   audience?: string | null
+}
+
+/**
+ * Длительность ролика. Воронка с лид-магнитом требует места под пользу: за
+ * 15-25 секунд «auto» помещается один тезис, и зрителю не за что отдавать
+ * кодовое слово. По ТЗ ролик идёт 70-90 секунд — это стратегия longform.
+ * Явный выбор оператора всегда важнее умолчания.
+ */
+export function resolveSceneCountStrategy(
+  profileSettings: { sceneCountStrategy?: SceneCountStrategy } | null | undefined,
+  funnel: { keyword: string } | null | undefined,
+): SceneCountStrategy {
+  if (profileSettings?.sceneCountStrategy) return profileSettings.sceneCountStrategy
+  return funnel?.keyword ? 'longform' : 'auto'
 }
 
 /** Воронка юнита в объёме, нужном генератору сценария. */
@@ -390,10 +404,15 @@ ${referenceContext}
 ${favoritePromptsContext}
 ${accountStyleContext}
 
-## Приложение
+${input.funnel?.keyword ? `## Воронка
+- Кодовое слово: ${input.funnel.keyword} (зритель отправляет его в директ или комментарии)
+${input.funnel.leadMagnetTitle ? `- Что он получает: ${input.funnel.leadMagnetTitle}` : ''}
+- Тема эксперта: ${input.appName}${input.appDescription ? ` — ${input.appDescription}` : ''}
+- Ключевые слова: ${input.appKeywords.join(', ') || 'нет'}
+- Продукт зрителю не устанавливают и не продают в кадре` : `## Приложение
 - Название: ${input.appName}
 ${input.appDescription ? `- Описание: ${input.appDescription}` : ''}
-- Ключевые слова: ${input.appKeywords.join(', ') || 'нет'}
+- Ключевые слова: ${input.appKeywords.join(', ') || 'нет'}`}
 
 ## Задача
 Создай JSON-объект с полной драматургией:
@@ -402,8 +421,12 @@ ${input.appDescription ? `- Описание: ${input.appDescription}` : ''}
    - template: один из "transformation"|"discovery"|"challenge"|"comparison"|"day_in_life"|"social_proof"|"curiosity"|"custom"
    - premise: исходная ситуация (1-2 предложения)
    - conflict: дефицит / проблема / сомнение
-   - turningPoint: момент встречи с приложением
-   - resolution: трансформация / результат
+   - turningPoint: ${input.funnel?.keyword
+     ? 'ключевой факт, цифра или механизм, который переворачивает понимание темы. НЕ появление продукта'
+     : 'момент встречи с приложением'}
+   - resolution: ${input.funnel?.keyword
+     ? 'конкретный шаг, который зритель может сделать сегодня же'
+     : 'трансформация / результат'}
    - emotionalJourney: массив эмоций по сценам (3-6 штук)
 
 2. protagonist — объект:
@@ -413,16 +436,29 @@ ${input.appDescription ? `- Описание: ${input.appDescription}` : ''}
    - finalState: состояние в конце
    - visualIdentifiers: массив визуальных маркеров (что отличает героя на экране)
 
-3. appIntegrationStrategy: как приложение органично встраивается в сюжет (2-3 предложения)
+3. appIntegrationStrategy: ${input.funnel?.keyword
+  ? 'как подаётся польза — какие конкретные факты, цифры и ошибки раскрываются по ходу ролика и почему в конце логично попросить лид-магнит (2-3 предложения)'
+  : 'как приложение органично встраивается в сюжет (2-3 предложения)'}
 
 4. negativeConstraints: массив строк — что ЗАПРЕЩЕНО в этом сценарии (шаблоны, банальности, повторы)
-
+${input.funnel?.keyword ? `
+5. valueBeats: массив из 4-6 строк — конкретные полезные тезисы ролика. Каждый
+   с фактурой: цифра, норма, единица измерения, типичная ошибка или проверяемый
+   признак. Общие советы уровня «питайтесь сбалансированно» не считаются.
+` : ''}
 Правила:
-- Не строй банальную историю "было плохо — нашёл приложение — стало хорошо"
+${input.funnel?.keyword ? `- Ролик — экспертный разбор, а не история про продукт. Зритель должен унести
+  пользу, даже если не напишет кодовое слово: 3-4 применимых тезиса минимум
+- Продукт НЕ является точкой перелома и НЕ решает проблему героя. Перелом — это
+  знание: неочевидный факт, цифра, механизм
+- Лид-магнит упоминается один раз, в самом конце, как продолжение темы
+- Конкретика важнее эмоций: «двести восемьдесят калорий в ложке соуса» сильнее,
+  чем «я была в шоке»
+- Герой — эксперт, который делится разбором, а не пользователь продукта` : `- Не строй банальную историю "было плохо — нашёл приложение — стало хорошо"
 - Герой должен быть конкретным, визуально узнаваемым
 - Конфликт должен быть эмоционально резонансным
 - Приложение появляется органично, а не как рекламный баннер
-- Трансформация должна быть видимой, а не абстрактной
+- Трансформация должна быть видимой, а не абстрактной`}
 ${ref ? `
 ANTI-COPY (обязательно при работе с референсом):
 - Используй АБСТРАКТНЫЕ паттерны из референса, НЕ конкретные фразы/сцены
@@ -562,7 +598,7 @@ EXAMPLES:
 В промежуточных сценах после первого упоминания допустимо "the app" / "it" / "оно" — но первое упоминание ОБЯЗАНО быть полным именем "${input.appName}".`}
 
 ${(() => {
-  const strategy = input.profileSettings?.sceneCountStrategy ?? 'auto'
+  const strategy = resolveSceneCountStrategy(input.profileSettings, input.funnel)
   const budgetMap: Record<string, { min: number; max: number; minSec: number; maxSec: number; cost: string }> = {
     minimal:   { min: 3, max: 3, minSec: 3, maxSec: 4, cost: '~\$1 (минимум денег, короткое видео 9-12с)' },
     auto:      { min: 3, max: 5, minSec: 3, maxSec: 6, cost: '~\$2 (стандарт, 15-25с)' },
@@ -1059,7 +1095,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
         // clamp длительности под диапазон. Это реальная защита расхода — если AI
         // проигнорировал инструкцию и выдал 6 сцен при minimal (лимит 3), лишние
         // отбрасываем вместо отказа.
-        const strategy = input.profileSettings?.sceneCountStrategy ?? 'auto'
+        const strategy = resolveSceneCountStrategy(input.profileSettings, input.funnel)
         const budgetMap: Record<string, { min: number; max: number; minSec: number; maxSec: number }> = {
           minimal:   { min: 3, max: 3, minSec: 3, maxSec: 4 },
           auto:      { min: 3, max: 5, minSec: 3, maxSec: 6 },
