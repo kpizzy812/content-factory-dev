@@ -1,42 +1,37 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: "auth",
-})
-
-useHead({
-  title: "Вход",
-})
+definePageMeta({ layout: 'auth' })
+useHead({ title: 'Вход' })
 
 const { fetch: refreshSession } = useUserSession()
 
-const email = ref("")
-const password = ref("")
+const email = ref('')
+const password = ref('')
 const isLoading = ref(false)
-const errorMessage = ref("")
+const errorMessage = ref('')
 
 async function handleLogin() {
-  errorMessage.value = ""
+  errorMessage.value = ''
   isLoading.value = true
 
   try {
-    await $fetch("/api/auth/login", {
-      method: "POST",
-      body: {
-        email: email.value,
-        password: password.value,
-      },
+    await $fetch('/api/auth/login', {
+      method: 'POST',
+      body: { email: email.value, password: password.value },
     })
 
     await refreshSession()
-    await navigateTo("/")
-  } catch (error: unknown) {
-    if (error && typeof error === "object" && "data" in error) {
+    await navigateTo('/')
+  }
+  catch (error: unknown) {
+    if (error && typeof error === 'object' && 'data' in error) {
       const fetchError = error as { data?: { message?: string } }
-      errorMessage.value = fetchError.data?.message || "Произошла ошибка при входе"
-    } else {
-      errorMessage.value = "Не удалось подключиться к серверу"
+      errorMessage.value = fetchError.data?.message || 'Произошла ошибка при входе'
     }
-  } finally {
+    else {
+      errorMessage.value = 'Не удалось подключиться к серверу'
+    }
+  }
+  finally {
     isLoading.value = false
   }
 }
@@ -44,65 +39,47 @@ async function handleLogin() {
 
 <template>
   <div>
-    <div class="mb-6 text-center">
-      <Icon
-        name="mingcute:building-4-fill"
-        class="mb-2 text-5xl text-primary"
-      />
-      <h1 class="text-2xl font-bold">
-        Контент-Завод
-      </h1>
-      <p class="mt-1 text-sm text-base-content/60">
-        Войдите в систему
-      </p>
+    <div class="mb-6 flex flex-col items-center gap-1.5 text-center">
+      <span class="flex size-9 items-center justify-center rounded-md bg-accent font-mono text-md font-bold text-on-accent">
+        CF
+      </span>
+      <h1 class="text-xl font-semibold">ContentFactory</h1>
+      <p class="text-sm text-muted">Войдите в систему</p>
     </div>
 
     <div
       v-if="errorMessage"
       role="alert"
-      class="alert alert-error mb-4"
+      class="mb-4 flex items-start gap-2.5 rounded-md border border-danger-border bg-danger-bg p-3"
     >
-      <Icon name="mingcute:warning-fill" class="text-lg" />
-      <span>{{ errorMessage }}</span>
+      <Icon name="mingcute:alert-line" class="mt-px shrink-0 text-danger" />
+      <span class="text-sm">{{ errorMessage }}</span>
     </div>
 
-    <form @submit.prevent="handleLogin" class="flex flex-col gap-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Email</legend>
-        <input
+    <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
+      <UiField label="Email">
+        <UiInput
           v-model="email"
           type="email"
           placeholder="user@example.com"
-          class="input input-primary w-full"
           required
           autocomplete="email"
         />
-      </fieldset>
+      </UiField>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Пароль</legend>
-        <input
+      <UiField label="Пароль" hint="Минимум 8 символов">
+        <UiInput
           v-model="password"
           type="password"
-          placeholder="Минимум 8 символов"
-          class="input input-primary w-full"
+          placeholder="••••••••"
           required
-          minlength="8"
           autocomplete="current-password"
         />
-      </fieldset>
+      </UiField>
 
-      <button
-        type="submit"
-        class="btn btn-primary btn-block mt-2"
-        :disabled="isLoading"
-      >
-        <span
-          v-if="isLoading"
-          class="loading loading-spinner loading-sm"
-        />
-        {{ isLoading ? "Вход..." : "Войти" }}
-      </button>
+      <UiButton type="submit" variant="primary" size="md" :loading="isLoading" class="mt-2 justify-center">
+        {{ isLoading ? 'Вход…' : 'Войти' }}
+      </UiButton>
     </form>
   </div>
 </template>
