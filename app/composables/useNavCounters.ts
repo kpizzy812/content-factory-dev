@@ -1,23 +1,42 @@
+import type { DashboardCounters, DashboardSummary } from '~~/shared/types/dashboard-summary'
+
 /**
- * Счётчики у пунктов навигации: сколько ждёт решения, сколько упало.
+ * Счётчики у пунктов навигации и очередь «требует внимания».
  *
- * Пока агрегирующего endpoint нет — раздёргивать шесть списков поллингом раз в
- * 5 секунд ради цифр в меню дороже, чем они стоят. Форма зафиксирована здесь,
- * значения появятся вместе с `/api/dashboard/summary` в этапе 6 (дашборд),
- * который считает те же величины для блока «Требует внимания».
+ * Один источник на всё приложение — `/api/dashboard/summary`. Раздёргивать
+ * шесть списков ради тех же цифр было бы дороже, чем посчитать их одним
+ * запросом, поэтому дашборд и сайдбар читают одно и то же.
  *
- * До тех пор счётчики просто не рисуются. Пустое место лучше выдуманного числа.
+ * Интервал 30 секунд, а не 5: счётчики в меню — фоновая информация, и опрос
+ * их с частотой активного списка создаёт лишнюю нагрузку без пользы. Живой
+ * прогресс запусков обновляется на своих экранах.
  */
-export interface NavCounters {
-  activeRuns?: number
-  trends?: number
-  scenariosOnReview?: number
-  videosFailed?: number
-  postingQueued?: number
-  accountsAttention?: number
-}
+const REFRESH_MS = 30_000
 
 export function useNavCounters() {
-  const counters = useState<NavCounters>('nav-counters', () => ({}))
-  return { counters }
+  const { data, refresh, pending } = useFetch<{ data: DashboardSummary }>('/api/dashboard/summary', {
+    key: 'dashboard-summary',
+    // Сводку не ждём при переходе между страницами: цифра в меню не должна
+    // задерживать рендер раздела.
+    lazy: true,
+    default: () => null as unknown as { data: DashboardSummary },
+  })
+
+  const counters = computed<Partial<DashboardCounters>>(() => data.value?.data.counters ?? {})
+  const attention = computed(() => data.value?.data.attention ?? [])
+  const computedAt = computed(() => data.value?.data.computedAt ?? null)
+
+  // Один таймер на приложение: composable вызывается из сайдбара, топбара и
+  // дашборда одновременно, и каждый заводил бы свой.
+  const timerOwner = useState('nav-counters-timer', () => false)
+  if (import.meta.client && !timerOwner.value) {
+    timerOwner.value = true
+    const timer = setInterval(() => refresh(), REFRESH_MS)
+    onScopeDispose(() => {
+      clearInterval(timer)
+      timerOwner.value = false
+    })
+  }
+
+  return { counters, attention, computedAt, pending, refresh }
 }

@@ -10,18 +10,10 @@
 definePageMeta({ layout: 'default' })
 useHead({ title: 'Оболочка' })
 
-const { counters } = useNavCounters()
-
-// Демонстрационные счётчики: проверяем, что пункт не меняет ширину при
-// переходе с однозначного числа на трёхзначное.
-counters.value = {
-  activeRuns: 7,
-  trends: 240,
-  scenariosOnReview: 12,
-  videosFailed: 3,
-  postingQueued: 8,
-  accountsAttention: 2,
-}
+// Счётчики приезжают из /api/dashboard/summary — подставлять демонстрационные
+// больше не нужно. На пустой базе они не рисуются, и это правильное поведение:
+// пустое место лучше выдуманного числа.
+const { counters, attention } = useNavCounters()
 </script>
 
 <template>
@@ -43,8 +35,26 @@ counters.value = {
       </div>
     </div>
 
-    <div class="rounded-lg border border-dashed border-border p-10 text-center text-sm text-subtle">
-      Здесь рендерится содержимое страницы
+    <div class="rounded-lg border border-border bg-panel p-4">
+      <h2 class="mb-2 text-micro tracking-[.07em] text-subtle uppercase">
+        Требует внимания — из /api/dashboard/summary
+      </h2>
+      <div v-if="!attention.length" class="text-sm text-muted">
+        Очередь пуста. На дашборде здесь будет состояние «Всё под контролем»,
+        а не серая пустота — пустой список это хороший результат, а не отсутствие данных.
+      </div>
+      <div
+        v-for="row in attention"
+        :key="row.key"
+        class="flex items-center gap-3 border-b border-divider py-2 last:border-b-0"
+      >
+        <span class="w-0.5 self-stretch rounded-full" :class="row.severity === 'danger' ? 'bg-danger' : 'bg-warning'" />
+        <NuxtLink :to="row.to" class="flex-1 text-sm hover:underline">{{ row.label }}</NuxtLink>
+        <span class="tnum font-mono text-sm">{{ row.count }}</span>
+        <span v-if="row.oldestAgeMs" class="tnum font-mono text-micro text-subtle">
+          старший {{ Math.round(row.oldestAgeMs / 3600000) }} ч
+        </span>
+      </div>
     </div>
   </div>
 </template>
