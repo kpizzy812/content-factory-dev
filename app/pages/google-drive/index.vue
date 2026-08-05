@@ -24,20 +24,17 @@ const testingCredentialId = ref<number | null>(null)
 const busyFileIds = ref<number[]>([])
 const isSyncingFolder = ref(false)
 
-interface Toast {
-  id: number
-  type: 'success' | 'error' | 'info'
-  message: string
-}
-const toasts = ref<Toast[]>([])
-let toastSeq = 0
+// Раздел относится к унаследованному контуру: при выключенной зоне его API
+// отдаёт 404, и это конфигурация, а не поломка.
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+loadLegacyModules()
+const zoneOff = computed(() => !legacyModules.value.googleDrive)
 
-function pushToast(type: Toast['type'], message: string) {
-  const id = ++toastSeq
-  toasts.value.push({ id, type, message })
-  setTimeout(() => {
-    toasts.value = toasts.value.filter(t => t.id !== id)
-  }, 4000)
+// Свой контейнер тостов был до общего — теперь используем общий.
+const toast = useToast()
+
+function pushToast(type: 'success' | 'error' | 'info', message: string) {
+  toast[type](message)
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -164,39 +161,34 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto p-2 md:p-4 space-y-6">
-    <!-- Empty state -->
-    <div v-if="credentials.length === 0" class="hero min-h-[60vh]">
-      <div class="hero-content text-center">
-        <div class="max-w-md">
-          <Icon name="mingcute:cloud-line" class="h-24 w-24 text-primary mx-auto mb-4" />
-          <h1 class="text-3xl font-bold mb-2">Google Drive</h1>
-          <p class="text-base-content/70 mb-4">
-            Подключите Google Drive аккаунт, чтобы импортировать креативы и использовать их как видео в пайплайне.
-          </p>
-          <p class="text-xs text-base-content/60 mb-6">
-            Понадобится JSON service account из Google Cloud Console с правами drive.readonly.
-          </p>
-          <button class="btn btn-primary btn-lg" @click="isModalOpen = true">
-            <Icon name="mingcute:link-line" class="h-5 w-5" />
-            Подключить Drive
-          </button>
-        </div>
-      </div>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Google Drive</h1>
+      <span class="flex-1" />
+      <UiButton v-if="!zoneOff && credentials.length" variant="primary" @click="isModalOpen = true">
+        <Icon name="mingcute:add-line" />
+        Подключить ещё
+      </UiButton>
     </div>
 
-    <!-- With credentials -->
-    <template v-else>
-      <header>
-        <h1 class="text-3xl font-bold flex items-center gap-2">
-          <Icon name="mingcute:cloud-line" class="h-8 w-8 text-primary" />
-          Google Drive
-        </h1>
-        <p class="text-sm text-base-content/70">
-          Импорт креативов из Google Drive в пайплайн ZavodCamp.
-        </p>
-      </header>
+    <UiEmptyState
+      v-if="zoneOff"
+      variant="denied"
+      title="Импорт из Google Drive выключен"
+      description="Зона относится к унаследованному контуру и включается флагом LEGACY_GOOGLE_DRIVE_ENABLED в окружении."
+    />
 
+    <UiEmptyState
+      v-else-if="!credentials.length"
+      variant="first"
+      icon="mingcute:cloud-line"
+      title="Диск не подключён"
+      description="Подключите сервисный аккаунт Google с правом drive.readonly — после этого файлы с диска можно импортировать как ролики."
+    >
+      <UiButton variant="primary" @click="isModalOpen = true">Подключить диск</UiButton>
+    </UiEmptyState>
+
+    <template v-else>
       <DriveCredentialsSection
         :credentials="credentials"
         :selected-credential-id="selectedCredentialId"
@@ -232,21 +224,5 @@ onMounted(async () => {
         @imported="handleImported"
       />
     </ClientOnly>
-
-    <!-- Toasts -->
-    <div v-if="toasts.length > 0" class="toast toast-end z-50">
-      <div
-        v-for="t in toasts"
-        :key="t.id"
-        class="alert"
-        :class="{
-          'alert-success': t.type === 'success',
-          'alert-error': t.type === 'error',
-          'alert-info': t.type === 'info',
-        }"
-      >
-        <span>{{ t.message }}</span>
-      </div>
-    </div>
   </div>
 </template>
