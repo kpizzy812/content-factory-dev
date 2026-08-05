@@ -47,6 +47,7 @@ model ZavodUser {
   postingJobsCancelled PostingJob[] @relation("PostingJobCancelledBy")
   driveFiles           DriveFile[]  @relation("DriveFilesOwner")
   proxyDeepCheckLogsInitiated ProxyDeepCheckLog[] @relation("ProxyDeepCheckLogInitiator")
+  savedViews           SavedView[]  @relation("SavedViewOwner")
 }
 
 model UserAppAssignment {
@@ -2783,4 +2784,35 @@ model Caption {
   @@unique([videoId, platform])
   @@index([videoId])
   @@index([runId, pipelineId])
+}
+
+/// Сохранённое представление списка: набор фильтров, сортировка и состав колонок.
+///
+/// Три класса, которые нельзя смешивать:
+///   system   — «Все», «Новые за 24 часа». Заводятся кодом, не лежат в этой таблице.
+///   shared   — рабочие очереди команды. Их правит только роль с соответствующим
+///              правом; остальные открывают и сохраняют себе копию.
+///   personal — ежедневный инструмент оператора, ownerId обязателен.
+///
+/// Состав колонок пишется в представление, а не в глобальную настройку: у
+/// трендвотчера и у оператора публикации разные наборы колонок в одном разделе.
+model SavedView {
+  id        Int        @id @default(autoincrement())
+  /// Раздел списка: trends, videos, uploads, accounts и т.д.
+  section   String
+  name      String
+  /// shared | personal
+  scope     String     @default("personal")
+  /// Параметры фильтров и сортировки в том виде, в каком их принимает список.
+  query     Json
+  /// Состав, порядок и ширины колонок. null — колонки по умолчанию для раздела.
+  columns   Json?
+  /// У общих представлений хранит автора, у личных — владельца.
+  ownerId   Int?
+  owner     ZavodUser? @relation("SavedViewOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([section, scope])
+  @@index([ownerId, section])
 }

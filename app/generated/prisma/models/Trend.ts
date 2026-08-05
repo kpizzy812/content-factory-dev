@@ -30,6 +30,8 @@ export type TrendAvgAggregateOutputType = {
   id: number | null
   externalId: number | null
   appId: number | null
+  authorFollowers: number | null
+  viralityScore: number | null
   viewCount: number | null
   likeCount: number | null
   commentCount: number | null
@@ -42,6 +44,8 @@ export type TrendSumAggregateOutputType = {
   id: number | null
   externalId: number | null
   appId: number | null
+  authorFollowers: number | null
+  viralityScore: number | null
   viewCount: number | null
   likeCount: number | null
   commentCount: number | null
@@ -59,6 +63,8 @@ export type TrendMinAggregateOutputType = {
   title: string | null
   description: string | null
   authorName: string | null
+  authorFollowers: number | null
+  viralityScore: number | null
   thumbnailUrl: string | null
   videoUrl: string | null
   viewCount: number | null
@@ -89,6 +95,8 @@ export type TrendMaxAggregateOutputType = {
   title: string | null
   description: string | null
   authorName: string | null
+  authorFollowers: number | null
+  viralityScore: number | null
   thumbnailUrl: string | null
   videoUrl: string | null
   viewCount: number | null
@@ -119,6 +127,8 @@ export type TrendCountAggregateOutputType = {
   title: number
   description: number
   authorName: number
+  authorFollowers: number
+  viralityScore: number
   thumbnailUrl: number
   videoUrl: number
   viewCount: number
@@ -147,6 +157,8 @@ export type TrendAvgAggregateInputType = {
   id?: true
   externalId?: true
   appId?: true
+  authorFollowers?: true
+  viralityScore?: true
   viewCount?: true
   likeCount?: true
   commentCount?: true
@@ -159,6 +171,8 @@ export type TrendSumAggregateInputType = {
   id?: true
   externalId?: true
   appId?: true
+  authorFollowers?: true
+  viralityScore?: true
   viewCount?: true
   likeCount?: true
   commentCount?: true
@@ -176,6 +190,8 @@ export type TrendMinAggregateInputType = {
   title?: true
   description?: true
   authorName?: true
+  authorFollowers?: true
+  viralityScore?: true
   thumbnailUrl?: true
   videoUrl?: true
   viewCount?: true
@@ -206,6 +222,8 @@ export type TrendMaxAggregateInputType = {
   title?: true
   description?: true
   authorName?: true
+  authorFollowers?: true
+  viralityScore?: true
   thumbnailUrl?: true
   videoUrl?: true
   viewCount?: true
@@ -236,6 +254,8 @@ export type TrendCountAggregateInputType = {
   title?: true
   description?: true
   authorName?: true
+  authorFollowers?: true
+  viralityScore?: true
   thumbnailUrl?: true
   videoUrl?: true
   viewCount?: true
@@ -354,6 +374,8 @@ export type TrendGroupByOutputType = {
   title: string
   description: string | null
   authorName: string | null
+  authorFollowers: number | null
+  viralityScore: number | null
   thumbnailUrl: string | null
   videoUrl: string | null
   viewCount: number
@@ -408,6 +430,8 @@ export type TrendWhereInput = {
   title?: Prisma.StringFilter<"Trend"> | string
   description?: Prisma.StringNullableFilter<"Trend"> | string | null
   authorName?: Prisma.StringNullableFilter<"Trend"> | string | null
+  authorFollowers?: Prisma.IntNullableFilter<"Trend"> | number | null
+  viralityScore?: Prisma.FloatNullableFilter<"Trend"> | number | null
   thumbnailUrl?: Prisma.StringNullableFilter<"Trend"> | string | null
   videoUrl?: Prisma.StringNullableFilter<"Trend"> | string | null
   viewCount?: Prisma.IntFilter<"Trend"> | number
@@ -445,6 +469,8 @@ export type TrendOrderByWithRelationInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   authorName?: Prisma.SortOrderInput | Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrderInput | Prisma.SortOrder
+  viralityScore?: Prisma.SortOrderInput | Prisma.SortOrder
   thumbnailUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   videoUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   viewCount?: Prisma.SortOrder
@@ -485,6 +511,8 @@ export type TrendWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringFilter<"Trend"> | string
   description?: Prisma.StringNullableFilter<"Trend"> | string | null
   authorName?: Prisma.StringNullableFilter<"Trend"> | string | null
+  authorFollowers?: Prisma.IntNullableFilter<"Trend"> | number | null
+  viralityScore?: Prisma.FloatNullableFilter<"Trend"> | number | null
   thumbnailUrl?: Prisma.StringNullableFilter<"Trend"> | string | null
   videoUrl?: Prisma.StringNullableFilter<"Trend"> | string | null
   viewCount?: Prisma.IntFilter<"Trend"> | number
@@ -522,6 +550,8 @@ export type TrendOrderByWithAggregationInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   authorName?: Prisma.SortOrderInput | Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrderInput | Prisma.SortOrder
+  viralityScore?: Prisma.SortOrderInput | Prisma.SortOrder
   thumbnailUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   videoUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   viewCount?: Prisma.SortOrder
@@ -561,6 +591,8 @@ export type TrendScalarWhereWithAggregatesInput = {
   title?: Prisma.StringWithAggregatesFilter<"Trend"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Trend"> | string | null
   authorName?: Prisma.StringNullableWithAggregatesFilter<"Trend"> | string | null
+  authorFollowers?: Prisma.IntNullableWithAggregatesFilter<"Trend"> | number | null
+  viralityScore?: Prisma.FloatNullableWithAggregatesFilter<"Trend"> | number | null
   thumbnailUrl?: Prisma.StringNullableWithAggregatesFilter<"Trend"> | string | null
   videoUrl?: Prisma.StringNullableWithAggregatesFilter<"Trend"> | string | null
   viewCount?: Prisma.IntWithAggregatesFilter<"Trend"> | number
@@ -590,6 +622,8 @@ export type TrendCreateInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -625,6 +659,8 @@ export type TrendUncheckedCreateInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -657,6 +693,8 @@ export type TrendUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -692,6 +730,8 @@ export type TrendUncheckedUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -726,6 +766,8 @@ export type TrendCreateManyInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -755,6 +797,8 @@ export type TrendUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -784,6 +828,8 @@ export type TrendUncheckedUpdateManyInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -825,6 +871,8 @@ export type TrendCountOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   authorName?: Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrder
+  viralityScore?: Prisma.SortOrder
   thumbnailUrl?: Prisma.SortOrder
   videoUrl?: Prisma.SortOrder
   viewCount?: Prisma.SortOrder
@@ -851,6 +899,8 @@ export type TrendAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   externalId?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrder
+  viralityScore?: Prisma.SortOrder
   viewCount?: Prisma.SortOrder
   likeCount?: Prisma.SortOrder
   commentCount?: Prisma.SortOrder
@@ -868,6 +918,8 @@ export type TrendMaxOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   authorName?: Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrder
+  viralityScore?: Prisma.SortOrder
   thumbnailUrl?: Prisma.SortOrder
   videoUrl?: Prisma.SortOrder
   viewCount?: Prisma.SortOrder
@@ -898,6 +950,8 @@ export type TrendMinOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   authorName?: Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrder
+  viralityScore?: Prisma.SortOrder
   thumbnailUrl?: Prisma.SortOrder
   videoUrl?: Prisma.SortOrder
   viewCount?: Prisma.SortOrder
@@ -923,6 +977,8 @@ export type TrendSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   externalId?: Prisma.SortOrder
   appId?: Prisma.SortOrder
+  authorFollowers?: Prisma.SortOrder
+  viralityScore?: Prisma.SortOrder
   viewCount?: Prisma.SortOrder
   likeCount?: Prisma.SortOrder
   commentCount?: Prisma.SortOrder
@@ -1139,6 +1195,8 @@ export type TrendCreateWithoutAppInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1172,6 +1230,8 @@ export type TrendUncheckedCreateWithoutAppInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1235,6 +1295,8 @@ export type TrendScalarWhereInput = {
   title?: Prisma.StringFilter<"Trend"> | string
   description?: Prisma.StringNullableFilter<"Trend"> | string | null
   authorName?: Prisma.StringNullableFilter<"Trend"> | string | null
+  authorFollowers?: Prisma.IntNullableFilter<"Trend"> | number | null
+  viralityScore?: Prisma.FloatNullableFilter<"Trend"> | number | null
   thumbnailUrl?: Prisma.StringNullableFilter<"Trend"> | string | null
   videoUrl?: Prisma.StringNullableFilter<"Trend"> | string | null
   viewCount?: Prisma.IntFilter<"Trend"> | number
@@ -1264,6 +1326,8 @@ export type TrendCreateWithoutScenariosInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1298,6 +1362,8 @@ export type TrendUncheckedCreateWithoutScenariosInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1345,6 +1411,8 @@ export type TrendUpdateWithoutScenariosInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1379,6 +1447,8 @@ export type TrendUncheckedUpdateWithoutScenariosInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1410,6 +1480,8 @@ export type TrendCreateWithoutInsightsInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1444,6 +1516,8 @@ export type TrendUncheckedCreateWithoutInsightsInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1491,6 +1565,8 @@ export type TrendUpdateWithoutInsightsInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1525,6 +1601,8 @@ export type TrendUncheckedUpdateWithoutInsightsInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1556,6 +1634,8 @@ export type TrendCreateWithoutBriefInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1590,6 +1670,8 @@ export type TrendUncheckedCreateWithoutBriefInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1637,6 +1719,8 @@ export type TrendUpdateWithoutBriefInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1671,6 +1755,8 @@ export type TrendUncheckedUpdateWithoutBriefInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1702,6 +1788,8 @@ export type TrendCreateWithoutPipelineInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1736,6 +1824,8 @@ export type TrendUncheckedCreateWithoutPipelineInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1793,6 +1883,8 @@ export type TrendCreateWithoutRunInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1827,6 +1919,8 @@ export type TrendUncheckedCreateWithoutRunInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1885,6 +1979,8 @@ export type TrendCreateManyAppInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -1914,6 +2010,8 @@ export type TrendUpdateWithoutAppInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1947,6 +2045,8 @@ export type TrendUncheckedUpdateWithoutAppInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1980,6 +2080,8 @@ export type TrendUncheckedUpdateManyWithoutAppInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2011,6 +2113,8 @@ export type TrendCreateManyPipelineInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -2039,6 +2143,8 @@ export type TrendUpdateWithoutPipelineInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2073,6 +2179,8 @@ export type TrendUncheckedUpdateWithoutPipelineInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2106,6 +2214,8 @@ export type TrendUncheckedUpdateManyWithoutPipelineInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2136,6 +2246,8 @@ export type TrendCreateManyRunInput = {
   title: string
   description?: string | null
   authorName?: string | null
+  authorFollowers?: number | null
+  viralityScore?: number | null
   thumbnailUrl?: string | null
   videoUrl?: string | null
   viewCount?: number
@@ -2164,6 +2276,8 @@ export type TrendUpdateWithoutRunInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2198,6 +2312,8 @@ export type TrendUncheckedUpdateWithoutRunInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2231,6 +2347,8 @@ export type TrendUncheckedUpdateManyWithoutRunInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authorName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorFollowers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  viralityScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   thumbnailUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   viewCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -2301,6 +2419,8 @@ export type TrendSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   title?: boolean
   description?: boolean
   authorName?: boolean
+  authorFollowers?: boolean
+  viralityScore?: boolean
   thumbnailUrl?: boolean
   videoUrl?: boolean
   viewCount?: boolean
@@ -2339,6 +2459,8 @@ export type TrendSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   title?: boolean
   description?: boolean
   authorName?: boolean
+  authorFollowers?: boolean
+  viralityScore?: boolean
   thumbnailUrl?: boolean
   videoUrl?: boolean
   viewCount?: boolean
@@ -2373,6 +2495,8 @@ export type TrendSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   title?: boolean
   description?: boolean
   authorName?: boolean
+  authorFollowers?: boolean
+  viralityScore?: boolean
   thumbnailUrl?: boolean
   videoUrl?: boolean
   viewCount?: boolean
@@ -2407,6 +2531,8 @@ export type TrendSelectScalar = {
   title?: boolean
   description?: boolean
   authorName?: boolean
+  authorFollowers?: boolean
+  viralityScore?: boolean
   thumbnailUrl?: boolean
   videoUrl?: boolean
   viewCount?: boolean
@@ -2429,7 +2555,7 @@ export type TrendSelectScalar = {
   pipelineId?: boolean
 }
 
-export type TrendOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalId" | "appId" | "platform" | "sourceUrl" | "title" | "description" | "authorName" | "thumbnailUrl" | "videoUrl" | "viewCount" | "likeCount" | "commentCount" | "shareCount" | "hashtags" | "language" | "geo" | "keyword" | "publishedAt" | "status" | "analysisStatus" | "isDeleted" | "deletedAt" | "importedAt" | "createdAt" | "updatedAt" | "runId" | "pipelineId", ExtArgs["result"]["trend"]>
+export type TrendOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalId" | "appId" | "platform" | "sourceUrl" | "title" | "description" | "authorName" | "authorFollowers" | "viralityScore" | "thumbnailUrl" | "videoUrl" | "viewCount" | "likeCount" | "commentCount" | "shareCount" | "hashtags" | "language" | "geo" | "keyword" | "publishedAt" | "status" | "analysisStatus" | "isDeleted" | "deletedAt" | "importedAt" | "createdAt" | "updatedAt" | "runId" | "pipelineId", ExtArgs["result"]["trend"]>
 export type TrendInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.Trend$appArgs<ExtArgs>
   run?: boolean | Prisma.Trend$runArgs<ExtArgs>
@@ -2469,6 +2595,8 @@ export type $TrendPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     title: string
     description: string | null
     authorName: string | null
+    authorFollowers: number | null
+    viralityScore: number | null
     thumbnailUrl: string | null
     videoUrl: string | null
     viewCount: number
@@ -2926,6 +3054,8 @@ export interface TrendFieldRefs {
   readonly title: Prisma.FieldRef<"Trend", 'String'>
   readonly description: Prisma.FieldRef<"Trend", 'String'>
   readonly authorName: Prisma.FieldRef<"Trend", 'String'>
+  readonly authorFollowers: Prisma.FieldRef<"Trend", 'Int'>
+  readonly viralityScore: Prisma.FieldRef<"Trend", 'Float'>
   readonly thumbnailUrl: Prisma.FieldRef<"Trend", 'String'>
   readonly videoUrl: Prisma.FieldRef<"Trend", 'String'>
   readonly viewCount: Prisma.FieldRef<"Trend", 'Int'>

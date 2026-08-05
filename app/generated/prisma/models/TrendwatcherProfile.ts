@@ -51,6 +51,7 @@ export type TrendwatcherProfileMinAggregateOutputType = {
   appId: number | null
   name: string | null
   actorId: string | null
+  contentFormat: string | null
   language: string | null
   geo: string | null
   viewCountMin: number | null
@@ -79,6 +80,7 @@ export type TrendwatcherProfileMaxAggregateOutputType = {
   appId: number | null
   name: string | null
   actorId: string | null
+  contentFormat: string | null
   language: string | null
   geo: string | null
   viewCountMin: number | null
@@ -107,6 +109,7 @@ export type TrendwatcherProfileCountAggregateOutputType = {
   appId: number
   name: number
   actorId: number
+  contentFormat: number
   keywords: number
   platforms: number
   language: number
@@ -159,6 +162,7 @@ export type TrendwatcherProfileMinAggregateInputType = {
   appId?: true
   name?: true
   actorId?: true
+  contentFormat?: true
   language?: true
   geo?: true
   viewCountMin?: true
@@ -187,6 +191,7 @@ export type TrendwatcherProfileMaxAggregateInputType = {
   appId?: true
   name?: true
   actorId?: true
+  contentFormat?: true
   language?: true
   geo?: true
   viewCountMin?: true
@@ -215,6 +220,7 @@ export type TrendwatcherProfileCountAggregateInputType = {
   appId?: true
   name?: true
   actorId?: true
+  contentFormat?: true
   keywords?: true
   platforms?: true
   language?: true
@@ -332,6 +338,7 @@ export type TrendwatcherProfileGroupByOutputType = {
   appId: number
   name: string
   actorId: string
+  contentFormat: string
   keywords: string[]
   platforms: $Enums.Platform[]
   language: string | null
@@ -385,6 +392,7 @@ export type TrendwatcherProfileWhereInput = {
   appId?: Prisma.IntFilter<"TrendwatcherProfile"> | number
   name?: Prisma.StringFilter<"TrendwatcherProfile"> | string
   actorId?: Prisma.StringFilter<"TrendwatcherProfile"> | string
+  contentFormat?: Prisma.StringFilter<"TrendwatcherProfile"> | string
   keywords?: Prisma.StringNullableListFilter<"TrendwatcherProfile">
   platforms?: Prisma.EnumPlatformNullableListFilter<"TrendwatcherProfile">
   language?: Prisma.StringNullableFilter<"TrendwatcherProfile"> | string | null
@@ -417,6 +425,7 @@ export type TrendwatcherProfileOrderByWithRelationInput = {
   appId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   actorId?: Prisma.SortOrder
+  contentFormat?: Prisma.SortOrder
   keywords?: Prisma.SortOrder
   platforms?: Prisma.SortOrder
   language?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -452,6 +461,7 @@ export type TrendwatcherProfileWhereUniqueInput = Prisma.AtLeast<{
   appId?: Prisma.IntFilter<"TrendwatcherProfile"> | number
   name?: Prisma.StringFilter<"TrendwatcherProfile"> | string
   actorId?: Prisma.StringFilter<"TrendwatcherProfile"> | string
+  contentFormat?: Prisma.StringFilter<"TrendwatcherProfile"> | string
   keywords?: Prisma.StringNullableListFilter<"TrendwatcherProfile">
   platforms?: Prisma.EnumPlatformNullableListFilter<"TrendwatcherProfile">
   language?: Prisma.StringNullableFilter<"TrendwatcherProfile"> | string | null
@@ -484,6 +494,7 @@ export type TrendwatcherProfileOrderByWithAggregationInput = {
   appId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   actorId?: Prisma.SortOrder
+  contentFormat?: Prisma.SortOrder
   keywords?: Prisma.SortOrder
   platforms?: Prisma.SortOrder
   language?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -522,6 +533,7 @@ export type TrendwatcherProfileScalarWhereWithAggregatesInput = {
   appId?: Prisma.IntWithAggregatesFilter<"TrendwatcherProfile"> | number
   name?: Prisma.StringWithAggregatesFilter<"TrendwatcherProfile"> | string
   actorId?: Prisma.StringWithAggregatesFilter<"TrendwatcherProfile"> | string
+  contentFormat?: Prisma.StringWithAggregatesFilter<"TrendwatcherProfile"> | string
   keywords?: Prisma.StringNullableListFilter<"TrendwatcherProfile">
   platforms?: Prisma.EnumPlatformNullableListFilter<"TrendwatcherProfile">
   language?: Prisma.StringNullableWithAggregatesFilter<"TrendwatcherProfile"> | string | null
@@ -550,6 +562,7 @@ export type TrendwatcherProfileScalarWhereWithAggregatesInput = {
 export type TrendwatcherProfileCreateInput = {
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -582,6 +595,7 @@ export type TrendwatcherProfileUncheckedCreateInput = {
   appId: number
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -611,6 +625,7 @@ export type TrendwatcherProfileUncheckedCreateInput = {
 export type TrendwatcherProfileUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -643,6 +658,7 @@ export type TrendwatcherProfileUncheckedUpdateInput = {
   appId?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -674,6 +690,7 @@ export type TrendwatcherProfileCreateManyInput = {
   appId: number
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -702,6 +719,7 @@ export type TrendwatcherProfileCreateManyInput = {
 export type TrendwatcherProfileUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -732,6 +750,7 @@ export type TrendwatcherProfileUncheckedUpdateManyInput = {
   appId?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -780,6 +799,7 @@ export type TrendwatcherProfileCountOrderByAggregateInput = {
   appId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   actorId?: Prisma.SortOrder
+  contentFormat?: Prisma.SortOrder
   keywords?: Prisma.SortOrder
   platforms?: Prisma.SortOrder
   language?: Prisma.SortOrder
@@ -820,6 +840,7 @@ export type TrendwatcherProfileMaxOrderByAggregateInput = {
   appId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   actorId?: Prisma.SortOrder
+  contentFormat?: Prisma.SortOrder
   language?: Prisma.SortOrder
   geo?: Prisma.SortOrder
   viewCountMin?: Prisma.SortOrder
@@ -848,6 +869,7 @@ export type TrendwatcherProfileMinOrderByAggregateInput = {
   appId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   actorId?: Prisma.SortOrder
+  contentFormat?: Prisma.SortOrder
   language?: Prisma.SortOrder
   geo?: Prisma.SortOrder
   viewCountMin?: Prisma.SortOrder
@@ -963,6 +985,7 @@ export type TrendwatcherProfileUpdateOneRequiredWithoutRunsNestedInput = {
 export type TrendwatcherProfileCreateWithoutAppInput = {
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -993,6 +1016,7 @@ export type TrendwatcherProfileUncheckedCreateWithoutAppInput = {
   id?: number
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -1053,6 +1077,7 @@ export type TrendwatcherProfileScalarWhereInput = {
   appId?: Prisma.IntFilter<"TrendwatcherProfile"> | number
   name?: Prisma.StringFilter<"TrendwatcherProfile"> | string
   actorId?: Prisma.StringFilter<"TrendwatcherProfile"> | string
+  contentFormat?: Prisma.StringFilter<"TrendwatcherProfile"> | string
   keywords?: Prisma.StringNullableListFilter<"TrendwatcherProfile">
   platforms?: Prisma.EnumPlatformNullableListFilter<"TrendwatcherProfile">
   language?: Prisma.StringNullableFilter<"TrendwatcherProfile"> | string | null
@@ -1081,6 +1106,7 @@ export type TrendwatcherProfileScalarWhereInput = {
 export type TrendwatcherProfileCreateWithoutRunsInput = {
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -1112,6 +1138,7 @@ export type TrendwatcherProfileUncheckedCreateWithoutRunsInput = {
   appId: number
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -1156,6 +1183,7 @@ export type TrendwatcherProfileUpdateToOneWithWhereWithoutRunsInput = {
 export type TrendwatcherProfileUpdateWithoutRunsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1187,6 +1215,7 @@ export type TrendwatcherProfileUncheckedUpdateWithoutRunsInput = {
   appId?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1216,6 +1245,7 @@ export type TrendwatcherProfileCreateManyAppInput = {
   id?: number
   name: string
   actorId?: string
+  contentFormat?: string
   keywords?: Prisma.TrendwatcherProfileCreatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileCreateplatformsInput | $Enums.Platform[]
   language?: string | null
@@ -1244,6 +1274,7 @@ export type TrendwatcherProfileCreateManyAppInput = {
 export type TrendwatcherProfileUpdateWithoutAppInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1274,6 +1305,7 @@ export type TrendwatcherProfileUncheckedUpdateWithoutAppInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1304,6 +1336,7 @@ export type TrendwatcherProfileUncheckedUpdateManyWithoutAppInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   actorId?: Prisma.StringFieldUpdateOperationsInput | string
+  contentFormat?: Prisma.StringFieldUpdateOperationsInput | string
   keywords?: Prisma.TrendwatcherProfileUpdatekeywordsInput | string[]
   platforms?: Prisma.TrendwatcherProfileUpdateplatformsInput | $Enums.Platform[]
   language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1365,6 +1398,7 @@ export type TrendwatcherProfileSelect<ExtArgs extends runtime.Types.Extensions.I
   appId?: boolean
   name?: boolean
   actorId?: boolean
+  contentFormat?: boolean
   keywords?: boolean
   platforms?: boolean
   language?: boolean
@@ -1398,6 +1432,7 @@ export type TrendwatcherProfileSelectCreateManyAndReturn<ExtArgs extends runtime
   appId?: boolean
   name?: boolean
   actorId?: boolean
+  contentFormat?: boolean
   keywords?: boolean
   platforms?: boolean
   language?: boolean
@@ -1429,6 +1464,7 @@ export type TrendwatcherProfileSelectUpdateManyAndReturn<ExtArgs extends runtime
   appId?: boolean
   name?: boolean
   actorId?: boolean
+  contentFormat?: boolean
   keywords?: boolean
   platforms?: boolean
   language?: boolean
@@ -1460,6 +1496,7 @@ export type TrendwatcherProfileSelectScalar = {
   appId?: boolean
   name?: boolean
   actorId?: boolean
+  contentFormat?: boolean
   keywords?: boolean
   platforms?: boolean
   language?: boolean
@@ -1485,7 +1522,7 @@ export type TrendwatcherProfileSelectScalar = {
   updatedAt?: boolean
 }
 
-export type TrendwatcherProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "actorId" | "keywords" | "platforms" | "language" | "geo" | "viewCountMin" | "viewCountMax" | "maxItems" | "enabled" | "scheduleEnabled" | "scheduleCron" | "scheduleTimezone" | "scheduleNextRunAt" | "scheduleLastRunAt" | "lastRunId" | "lastSuccessfulRunAt" | "validationStatus" | "validationSummary" | "validatedAt" | "isInline" | "sourceNodeId" | "sourcePipelineId" | "createdAt" | "updatedAt", ExtArgs["result"]["trendwatcherProfile"]>
+export type TrendwatcherProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "actorId" | "contentFormat" | "keywords" | "platforms" | "language" | "geo" | "viewCountMin" | "viewCountMax" | "maxItems" | "enabled" | "scheduleEnabled" | "scheduleCron" | "scheduleTimezone" | "scheduleNextRunAt" | "scheduleLastRunAt" | "lastRunId" | "lastSuccessfulRunAt" | "validationStatus" | "validationSummary" | "validatedAt" | "isInline" | "sourceNodeId" | "sourcePipelineId" | "createdAt" | "updatedAt", ExtArgs["result"]["trendwatcherProfile"]>
 export type TrendwatcherProfileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   runs?: boolean | Prisma.TrendwatcherProfile$runsArgs<ExtArgs>
@@ -1509,6 +1546,7 @@ export type $TrendwatcherProfilePayload<ExtArgs extends runtime.Types.Extensions
     appId: number
     name: string
     actorId: string
+    contentFormat: string
     keywords: string[]
     platforms: $Enums.Platform[]
     language: string | null
@@ -1961,6 +1999,7 @@ export interface TrendwatcherProfileFieldRefs {
   readonly appId: Prisma.FieldRef<"TrendwatcherProfile", 'Int'>
   readonly name: Prisma.FieldRef<"TrendwatcherProfile", 'String'>
   readonly actorId: Prisma.FieldRef<"TrendwatcherProfile", 'String'>
+  readonly contentFormat: Prisma.FieldRef<"TrendwatcherProfile", 'String'>
   readonly keywords: Prisma.FieldRef<"TrendwatcherProfile", 'String[]'>
   readonly platforms: Prisma.FieldRef<"TrendwatcherProfile", 'Platform[]'>
   readonly language: Prisma.FieldRef<"TrendwatcherProfile", 'String'>

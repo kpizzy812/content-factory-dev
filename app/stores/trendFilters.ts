@@ -2,9 +2,11 @@ export const useTrendFiltersStore = defineStore('trendFilters', () => {
   const status = ref<string>('')
   const platform = ref<string>('')
   const search = ref<string>('')
-  const sort = ref<string>('importedAt')
+  const sort = ref<string>('-importedAt')
   const source = ref<string>('')
   const page = ref<number>(1)
+  // Размер страницы выбирает оператор: 25 хватает на обзор, 100 — на разбор пачки.
+  const perPage = ref<number>(25)
 
   // New filters
   const hashtags = ref<string>('')
@@ -33,14 +35,14 @@ export const useTrendFiltersStore = defineStore('trendFilters', () => {
     ...(pipelineId.value ? { pipelineId: pipelineId.value } : {}),
     sort: sort.value,
     page: page.value,
-    perPage: 20,
+    perPage: perPage.value,
   }))
 
   function reset() {
     status.value = ''
     platform.value = ''
     search.value = ''
-    sort.value = 'importedAt'
+    sort.value = '-importedAt'
     source.value = ''
     hashtags.value = ''
     geo.value = ''
@@ -58,7 +60,7 @@ export const useTrendFiltersStore = defineStore('trendFilters', () => {
   }
 
   return {
-    status, platform, search, sort, source, page,
+    status, platform, search, sort, source, page, perPage,
     hashtags, geo, language, viewCountMin, viewCountMax, analysisStatus,
     runId, pipelineId,
     query, reset, resetPage,

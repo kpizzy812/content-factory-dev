@@ -464,7 +464,8 @@ export const ModelName = {
   WarmupSession: 'WarmupSession',
   WarmupKeywordPool: 'WarmupKeywordPool',
   VideoUniqueVariant: 'VideoUniqueVariant',
-  Caption: 'Caption'
+  Caption: 'Caption',
+  SavedView: 'SavedView'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -480,7 +481,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption"
+    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption" | "savedView"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -6478,6 +6479,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    SavedView: {
+      payload: Prisma.$SavedViewPayload<ExtArgs>
+      fields: Prisma.SavedViewFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SavedViewFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SavedViewFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>
+        }
+        findFirst: {
+          args: Prisma.SavedViewFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SavedViewFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>
+        }
+        findMany: {
+          args: Prisma.SavedViewFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>[]
+        }
+        create: {
+          args: Prisma.SavedViewCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>
+        }
+        createMany: {
+          args: Prisma.SavedViewCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SavedViewCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>[]
+        }
+        delete: {
+          args: Prisma.SavedViewDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>
+        }
+        update: {
+          args: Prisma.SavedViewUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>
+        }
+        deleteMany: {
+          args: Prisma.SavedViewDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SavedViewUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SavedViewUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>[]
+        }
+        upsert: {
+          args: Prisma.SavedViewUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SavedViewPayload>
+        }
+        aggregate: {
+          args: Prisma.SavedViewAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSavedView>
+        }
+        groupBy: {
+          args: Prisma.SavedViewGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SavedViewGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SavedViewCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SavedViewCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -6785,6 +6860,8 @@ export const TrendScalarFieldEnum = {
   title: 'title',
   description: 'description',
   authorName: 'authorName',
+  authorFollowers: 'authorFollowers',
+  viralityScore: 'viralityScore',
   thumbnailUrl: 'thumbnailUrl',
   videoUrl: 'videoUrl',
   viewCount: 'viewCount',
@@ -7882,6 +7959,7 @@ export const TrendwatcherProfileScalarFieldEnum = {
   appId: 'appId',
   name: 'name',
   actorId: 'actorId',
+  contentFormat: 'contentFormat',
   keywords: 'keywords',
   platforms: 'platforms',
   language: 'language',
@@ -8306,6 +8384,21 @@ export const CaptionScalarFieldEnum = {
 } as const
 
 export type CaptionScalarFieldEnum = (typeof CaptionScalarFieldEnum)[keyof typeof CaptionScalarFieldEnum]
+
+
+export const SavedViewScalarFieldEnum = {
+  id: 'id',
+  section: 'section',
+  name: 'name',
+  scope: 'scope',
+  query: 'query',
+  columns: 'columns',
+  ownerId: 'ownerId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SavedViewScalarFieldEnum = (typeof SavedViewScalarFieldEnum)[keyof typeof SavedViewScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -9230,6 +9323,7 @@ export type GlobalOmitConfig = {
   warmupKeywordPool?: Prisma.WarmupKeywordPoolOmit
   videoUniqueVariant?: Prisma.VideoUniqueVariantOmit
   caption?: Prisma.CaptionOmit
+  savedView?: Prisma.SavedViewOmit
 }
 
 /* Types for Logging */

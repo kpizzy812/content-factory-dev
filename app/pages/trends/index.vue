@@ -214,17 +214,6 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-4">
-    <h1 class="text-2xl font-bold text-base-content">
-      Тренды
-    </h1>
-
-    <SharedPageGuide
-      guide-key="trends"
-      :title="pageGuides.trends.title"
-      :steps="pageGuides.trends.steps"
-      :tips="pageGuides.trends.tips"
-    />
-
     <!-- Active runs banner -->
     <div v-if="activeRuns.length > 0" role="alert" class="alert alert-info">
       <span class="loading loading-ring loading-sm" />
@@ -273,52 +262,8 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- Tab 1: Тренды -->
-    <div v-if="activeTab === 'trends'">
-      <TrendFilters />
-
-      <!-- Фильтр по запуску / конвейеру -->
-      <SharedRunPipelineFilterBadge
-        :run-id="filtersStore.runId"
-        :pipeline-id="filtersStore.pipelineId"
-        class="mt-3"
-        @clear-run="clearRunFilter"
-        @clear-pipeline="clearPipelineFilter"
-      />
-
-      <SharedListSkeleton v-if="pending" :count="6" variant="row" />
-
-      <div v-else-if="error" role="alert" class="alert alert-error">
-        <Icon name="mingcute:warning-line" />
-        <span>Ошибка загрузки: {{ error.message }}</span>
-      </div>
-
-      <SharedEmptyState
-        v-else-if="trends.length === 0"
-        icon="mingcute:search-line"
-        title="Тренды не найдены"
-        description="Попробуйте изменить фильтры или дождитесь импорта новых трендов."
-      />
-
-      <template v-else>
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-          <TrendCard
-            v-for="trend in trends"
-            :key="trend.id"
-            :trend="trend"
-            @deleted="refreshTrends()"
-          />
-        </div>
-
-        <SharedPagination
-          v-if="meta.totalPages > 1"
-          :page="meta.page"
-          :total-pages="meta.totalPages"
-          :total="meta.total"
-          @update:page="onPageUpdate"
-        />
-      </template>
-    </div>
+    <!-- Tab 1: Тренды — эталонный список -->
+    <TrendListView v-if="activeTab === 'trends'" />
 
     <!-- Tab 2: Профили парсинга -->
     <div v-if="activeTab === 'profiles'">

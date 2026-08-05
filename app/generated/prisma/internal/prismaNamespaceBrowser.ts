@@ -131,7 +131,8 @@ export const ModelName = {
   WarmupSession: 'WarmupSession',
   WarmupKeywordPool: 'WarmupKeywordPool',
   VideoUniqueVariant: 'VideoUniqueVariant',
-  Caption: 'Caption'
+  Caption: 'Caption',
+  SavedView: 'SavedView'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -418,6 +419,8 @@ export const TrendScalarFieldEnum = {
   title: 'title',
   description: 'description',
   authorName: 'authorName',
+  authorFollowers: 'authorFollowers',
+  viralityScore: 'viralityScore',
   thumbnailUrl: 'thumbnailUrl',
   videoUrl: 'videoUrl',
   viewCount: 'viewCount',
@@ -1515,6 +1518,7 @@ export const TrendwatcherProfileScalarFieldEnum = {
   appId: 'appId',
   name: 'name',
   actorId: 'actorId',
+  contentFormat: 'contentFormat',
   keywords: 'keywords',
   platforms: 'platforms',
   language: 'language',
@@ -1939,6 +1943,21 @@ export const CaptionScalarFieldEnum = {
 } as const
 
 export type CaptionScalarFieldEnum = (typeof CaptionScalarFieldEnum)[keyof typeof CaptionScalarFieldEnum]
+
+
+export const SavedViewScalarFieldEnum = {
+  id: 'id',
+  section: 'section',
+  name: 'name',
+  scope: 'scope',
+  query: 'query',
+  columns: 'columns',
+  ownerId: 'ownerId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SavedViewScalarFieldEnum = (typeof SavedViewScalarFieldEnum)[keyof typeof SavedViewScalarFieldEnum]
 
 
 export const SortOrder = {

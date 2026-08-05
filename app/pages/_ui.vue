@@ -44,6 +44,27 @@ const menuItems = [
 function fmt(n: number) {
   return n.toLocaleString('ru-RU')
 }
+
+// --- Компоненты списка (этап 3) ---
+// Активно общее представление и вид изменён — показываем плашку «оригинал не тронут».
+const demoActiveView = ref<string | number>(1)
+const demoDirty = ref(true)
+const demoPage = ref(3)
+const demoColumnDefs = [
+  { key: 'title', label: 'Название', locked: true },
+  { key: 'platform', label: 'Платформа' },
+  { key: 'views', label: 'Просмотры' },
+  { key: 'virality', label: 'Виральность' },
+  { key: 'status', label: 'Статус' },
+  { key: 'imported', label: 'Импортирован' },
+]
+const demoColumns = ref(demoColumnDefs.map(c => c.key))
+const demoViews = [
+  { id: 'system:all', section: 'trends', name: 'Все', scope: 'system' as const, query: {}, columns: null, ownerId: null, ownerName: null, updatedAt: null },
+  { id: 'system:fresh', section: 'trends', name: 'Новые за 24 часа', scope: 'system' as const, query: {}, columns: null, ownerId: null, ownerName: null, updatedAt: null },
+  { id: 1, section: 'trends', name: 'Ждут ревью', scope: 'shared' as const, query: {}, columns: null, ownerId: 2, ownerName: 'Дмитрий Кузнецов', updatedAt: '2026-08-04T10:00:00Z' },
+  { id: 2, section: 'trends', name: 'Мебель, RU', scope: 'personal' as const, query: {}, columns: null, ownerId: 1, ownerName: null, updatedAt: '2026-08-05T10:00:00Z' },
+]
 </script>
 
 <template>
@@ -301,6 +322,41 @@ function fmt(n: number) {
             </template>
           </UiEntityCard>
         </div>
+      </section>
+
+      <!-- Компоненты списка (этап 3) -->
+      <section class="flex flex-col gap-3">
+        <h2 class="text-micro tracking-[.07em] text-subtle uppercase">Список: представления, фильтры, колонки, пагинация</h2>
+
+        <ListSavedViews
+          :views="demoViews"
+          :active-id="demoActiveView"
+          :dirty="demoDirty"
+          can-manage-shared
+          :counts="{ 'system:all': 240, 'system:fresh': 18, '1': 12 }"
+          @select="demoActiveView = $event; demoDirty = false"
+          @revert="demoDirty = false"
+          @save-as-own="demoDirty = false"
+        />
+
+        <ListFilterChips
+          :chips="[
+            { key: 'platform', label: 'Платформа', value: 'TikTok' },
+            { key: 'virality', label: 'Виральность', value: '90—100' },
+          ]"
+        />
+
+        <div class="flex items-center justify-end rounded-md border border-border bg-panel px-3 py-2">
+          <ListColumnsMenu v-model:visible="demoColumns" :columns="demoColumnDefs" />
+        </div>
+
+        <ListPagination
+          :page="demoPage"
+          :total-pages="10"
+          :total="240"
+          :per-page="25"
+          @update:page="demoPage = $event"
+        />
       </section>
 
       <!-- Оверлеи -->

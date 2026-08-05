@@ -367,6 +367,7 @@ export type ZavodUserWhereInput = {
   postingJobsCancelled?: Prisma.PostingJobListRelationFilter
   driveFiles?: Prisma.DriveFileListRelationFilter
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogListRelationFilter
+  savedViews?: Prisma.SavedViewListRelationFilter
 }
 
 export type ZavodUserOrderByWithRelationInput = {
@@ -400,6 +401,7 @@ export type ZavodUserOrderByWithRelationInput = {
   postingJobsCancelled?: Prisma.PostingJobOrderByRelationAggregateInput
   driveFiles?: Prisma.DriveFileOrderByRelationAggregateInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogOrderByRelationAggregateInput
+  savedViews?: Prisma.SavedViewOrderByRelationAggregateInput
 }
 
 export type ZavodUserWhereUniqueInput = Prisma.AtLeast<{
@@ -436,6 +438,7 @@ export type ZavodUserWhereUniqueInput = Prisma.AtLeast<{
   postingJobsCancelled?: Prisma.PostingJobListRelationFilter
   driveFiles?: Prisma.DriveFileListRelationFilter
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogListRelationFilter
+  savedViews?: Prisma.SavedViewListRelationFilter
 }, "id" | "externalId" | "email">
 
 export type ZavodUserOrderByWithAggregationInput = {
@@ -528,6 +531,7 @@ export type ZavodUserCreateInput = {
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateInput = {
@@ -561,6 +565,7 @@ export type ZavodUserUncheckedCreateInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUpdateInput = {
@@ -593,6 +598,7 @@ export type ZavodUserUpdateInput = {
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateInput = {
@@ -626,6 +632,7 @@ export type ZavodUserUncheckedUpdateInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserCreateManyInput = {
@@ -954,6 +961,22 @@ export type ZavodUserUpdateOneWithoutPostingJobsCancelledNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ZavodUserUpdateToOneWithWhereWithoutPostingJobsCancelledInput, Prisma.ZavodUserUpdateWithoutPostingJobsCancelledInput>, Prisma.ZavodUserUncheckedUpdateWithoutPostingJobsCancelledInput>
 }
 
+export type ZavodUserCreateNestedOneWithoutSavedViewsInput = {
+  create?: Prisma.XOR<Prisma.ZavodUserCreateWithoutSavedViewsInput, Prisma.ZavodUserUncheckedCreateWithoutSavedViewsInput>
+  connectOrCreate?: Prisma.ZavodUserCreateOrConnectWithoutSavedViewsInput
+  connect?: Prisma.ZavodUserWhereUniqueInput
+}
+
+export type ZavodUserUpdateOneWithoutSavedViewsNestedInput = {
+  create?: Prisma.XOR<Prisma.ZavodUserCreateWithoutSavedViewsInput, Prisma.ZavodUserUncheckedCreateWithoutSavedViewsInput>
+  connectOrCreate?: Prisma.ZavodUserCreateOrConnectWithoutSavedViewsInput
+  upsert?: Prisma.ZavodUserUpsertWithoutSavedViewsInput
+  disconnect?: Prisma.ZavodUserWhereInput | boolean
+  delete?: Prisma.ZavodUserWhereInput | boolean
+  connect?: Prisma.ZavodUserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ZavodUserUpdateToOneWithWhereWithoutSavedViewsInput, Prisma.ZavodUserUpdateWithoutSavedViewsInput>, Prisma.ZavodUserUncheckedUpdateWithoutSavedViewsInput>
+}
+
 export type ZavodUserCreateWithoutAppAssignmentsInput = {
   externalId: number
   email: string
@@ -983,6 +1006,7 @@ export type ZavodUserCreateWithoutAppAssignmentsInput = {
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutAppAssignmentsInput = {
@@ -1015,6 +1039,7 @@ export type ZavodUserUncheckedCreateWithoutAppAssignmentsInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutAppAssignmentsInput = {
@@ -1062,6 +1087,7 @@ export type ZavodUserUpdateWithoutAppAssignmentsInput = {
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutAppAssignmentsInput = {
@@ -1094,6 +1120,7 @@ export type ZavodUserUncheckedUpdateWithoutAppAssignmentsInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserCreateWithoutProxyDeepCheckLogsInitiatedInput = {
@@ -1125,6 +1152,7 @@ export type ZavodUserCreateWithoutProxyDeepCheckLogsInitiatedInput = {
   postingJobsCreated?: Prisma.PostingJobCreateNestedManyWithoutCreatedByInput
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutProxyDeepCheckLogsInitiatedInput = {
@@ -1157,6 +1185,7 @@ export type ZavodUserUncheckedCreateWithoutProxyDeepCheckLogsInitiatedInput = {
   postingJobsCreated?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCreatedByInput
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutProxyDeepCheckLogsInitiatedInput = {
@@ -1204,6 +1233,7 @@ export type ZavodUserUpdateWithoutProxyDeepCheckLogsInitiatedInput = {
   postingJobsCreated?: Prisma.PostingJobUpdateManyWithoutCreatedByNestedInput
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutProxyDeepCheckLogsInitiatedInput = {
@@ -1236,6 +1266,7 @@ export type ZavodUserUncheckedUpdateWithoutProxyDeepCheckLogsInitiatedInput = {
   postingJobsCreated?: Prisma.PostingJobUncheckedUpdateManyWithoutCreatedByNestedInput
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserCreateWithoutSecretAccessLogsInput = {
@@ -1267,6 +1298,7 @@ export type ZavodUserCreateWithoutSecretAccessLogsInput = {
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutSecretAccessLogsInput = {
@@ -1299,6 +1331,7 @@ export type ZavodUserUncheckedCreateWithoutSecretAccessLogsInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutSecretAccessLogsInput = {
@@ -1346,6 +1379,7 @@ export type ZavodUserUpdateWithoutSecretAccessLogsInput = {
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutSecretAccessLogsInput = {
@@ -1378,6 +1412,7 @@ export type ZavodUserUncheckedUpdateWithoutSecretAccessLogsInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserCreateWithoutDriveFilesInput = {
@@ -1409,6 +1444,7 @@ export type ZavodUserCreateWithoutDriveFilesInput = {
   postingJobsCreated?: Prisma.PostingJobCreateNestedManyWithoutCreatedByInput
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutDriveFilesInput = {
@@ -1441,6 +1477,7 @@ export type ZavodUserUncheckedCreateWithoutDriveFilesInput = {
   postingJobsCreated?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCreatedByInput
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutDriveFilesInput = {
@@ -1488,6 +1525,7 @@ export type ZavodUserUpdateWithoutDriveFilesInput = {
   postingJobsCreated?: Prisma.PostingJobUpdateManyWithoutCreatedByNestedInput
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutDriveFilesInput = {
@@ -1520,6 +1558,7 @@ export type ZavodUserUncheckedUpdateWithoutDriveFilesInput = {
   postingJobsCreated?: Prisma.PostingJobUncheckedUpdateManyWithoutCreatedByNestedInput
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserCreateWithoutFavoritePromptsInput = {
@@ -1551,6 +1590,7 @@ export type ZavodUserCreateWithoutFavoritePromptsInput = {
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutFavoritePromptsInput = {
@@ -1583,6 +1623,7 @@ export type ZavodUserUncheckedCreateWithoutFavoritePromptsInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutFavoritePromptsInput = {
@@ -1630,6 +1671,7 @@ export type ZavodUserUpdateWithoutFavoritePromptsInput = {
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutFavoritePromptsInput = {
@@ -1662,6 +1704,7 @@ export type ZavodUserUncheckedUpdateWithoutFavoritePromptsInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserCreateWithoutPostingJobsCreatedInput = {
@@ -1693,6 +1736,7 @@ export type ZavodUserCreateWithoutPostingJobsCreatedInput = {
   postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutPostingJobsCreatedInput = {
@@ -1725,6 +1769,7 @@ export type ZavodUserUncheckedCreateWithoutPostingJobsCreatedInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutPostingJobsCreatedInput = {
@@ -1761,6 +1806,7 @@ export type ZavodUserCreateWithoutPostingJobsCancelledInput = {
   postingJobsCreated?: Prisma.PostingJobCreateNestedManyWithoutCreatedByInput
   driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserUncheckedCreateWithoutPostingJobsCancelledInput = {
@@ -1793,6 +1839,7 @@ export type ZavodUserUncheckedCreateWithoutPostingJobsCancelledInput = {
   postingJobsCreated?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCreatedByInput
   driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+  savedViews?: Prisma.SavedViewUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type ZavodUserCreateOrConnectWithoutPostingJobsCancelledInput = {
@@ -1840,6 +1887,7 @@ export type ZavodUserUpdateWithoutPostingJobsCreatedInput = {
   postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutPostingJobsCreatedInput = {
@@ -1872,6 +1920,7 @@ export type ZavodUserUncheckedUpdateWithoutPostingJobsCreatedInput = {
   postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUpsertWithoutPostingJobsCancelledInput = {
@@ -1914,6 +1963,7 @@ export type ZavodUserUpdateWithoutPostingJobsCancelledInput = {
   postingJobsCreated?: Prisma.PostingJobUpdateManyWithoutCreatedByNestedInput
   driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUpdateManyWithoutOwnerNestedInput
 }
 
 export type ZavodUserUncheckedUpdateWithoutPostingJobsCancelledInput = {
@@ -1946,6 +1996,153 @@ export type ZavodUserUncheckedUpdateWithoutPostingJobsCancelledInput = {
   postingJobsCreated?: Prisma.PostingJobUncheckedUpdateManyWithoutCreatedByNestedInput
   driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
   proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
+  savedViews?: Prisma.SavedViewUncheckedUpdateManyWithoutOwnerNestedInput
+}
+
+export type ZavodUserCreateWithoutSavedViewsInput = {
+  externalId: number
+  email: string
+  name?: string | null
+  surname?: string | null
+  passwordHash?: string | null
+  rolePreset?: $Enums.RolePreset
+  roleName?: string | null
+  rolePresetName?: string | null
+  canRead?: boolean
+  canWrite?: boolean
+  canCreate?: boolean
+  canDelete?: boolean
+  canApprove?: boolean
+  canRunAgent?: boolean
+  canApplyChanges?: boolean
+  canAdmin?: boolean
+  moduleAccess?: Prisma.ZavodUserCreatemoduleAccessInput | string[]
+  telegramChatId?: string | null
+  isActive?: boolean
+  lastLoginAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  appAssignments?: Prisma.UserAppAssignmentCreateNestedManyWithoutUserInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutUserInput
+  secretAccessLogs?: Prisma.SecretAccessLogCreateNestedManyWithoutUserInput
+  postingJobsCreated?: Prisma.PostingJobCreateNestedManyWithoutCreatedByInput
+  postingJobsCancelled?: Prisma.PostingJobCreateNestedManyWithoutCancelledByInput
+  driveFiles?: Prisma.DriveFileCreateNestedManyWithoutUserInput
+  proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogCreateNestedManyWithoutInitiatedByInput
+}
+
+export type ZavodUserUncheckedCreateWithoutSavedViewsInput = {
+  id?: number
+  externalId: number
+  email: string
+  name?: string | null
+  surname?: string | null
+  passwordHash?: string | null
+  rolePreset?: $Enums.RolePreset
+  roleName?: string | null
+  rolePresetName?: string | null
+  canRead?: boolean
+  canWrite?: boolean
+  canCreate?: boolean
+  canDelete?: boolean
+  canApprove?: boolean
+  canRunAgent?: boolean
+  canApplyChanges?: boolean
+  canAdmin?: boolean
+  moduleAccess?: Prisma.ZavodUserCreatemoduleAccessInput | string[]
+  telegramChatId?: string | null
+  isActive?: boolean
+  lastLoginAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  appAssignments?: Prisma.UserAppAssignmentUncheckedCreateNestedManyWithoutUserInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutUserInput
+  secretAccessLogs?: Prisma.SecretAccessLogUncheckedCreateNestedManyWithoutUserInput
+  postingJobsCreated?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCreatedByInput
+  postingJobsCancelled?: Prisma.PostingJobUncheckedCreateNestedManyWithoutCancelledByInput
+  driveFiles?: Prisma.DriveFileUncheckedCreateNestedManyWithoutUserInput
+  proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedCreateNestedManyWithoutInitiatedByInput
+}
+
+export type ZavodUserCreateOrConnectWithoutSavedViewsInput = {
+  where: Prisma.ZavodUserWhereUniqueInput
+  create: Prisma.XOR<Prisma.ZavodUserCreateWithoutSavedViewsInput, Prisma.ZavodUserUncheckedCreateWithoutSavedViewsInput>
+}
+
+export type ZavodUserUpsertWithoutSavedViewsInput = {
+  update: Prisma.XOR<Prisma.ZavodUserUpdateWithoutSavedViewsInput, Prisma.ZavodUserUncheckedUpdateWithoutSavedViewsInput>
+  create: Prisma.XOR<Prisma.ZavodUserCreateWithoutSavedViewsInput, Prisma.ZavodUserUncheckedCreateWithoutSavedViewsInput>
+  where?: Prisma.ZavodUserWhereInput
+}
+
+export type ZavodUserUpdateToOneWithWhereWithoutSavedViewsInput = {
+  where?: Prisma.ZavodUserWhereInput
+  data: Prisma.XOR<Prisma.ZavodUserUpdateWithoutSavedViewsInput, Prisma.ZavodUserUncheckedUpdateWithoutSavedViewsInput>
+}
+
+export type ZavodUserUpdateWithoutSavedViewsInput = {
+  externalId?: Prisma.IntFieldUpdateOperationsInput | number
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
+  roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canWrite?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canCreate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canDelete?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canApprove?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canRunAgent?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canApplyChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  moduleAccess?: Prisma.ZavodUserUpdatemoduleAccessInput | string[]
+  telegramChatId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  appAssignments?: Prisma.UserAppAssignmentUpdateManyWithoutUserNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutUserNestedInput
+  secretAccessLogs?: Prisma.SecretAccessLogUpdateManyWithoutUserNestedInput
+  postingJobsCreated?: Prisma.PostingJobUpdateManyWithoutCreatedByNestedInput
+  postingJobsCancelled?: Prisma.PostingJobUpdateManyWithoutCancelledByNestedInput
+  driveFiles?: Prisma.DriveFileUpdateManyWithoutUserNestedInput
+  proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUpdateManyWithoutInitiatedByNestedInput
+}
+
+export type ZavodUserUncheckedUpdateWithoutSavedViewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.IntFieldUpdateOperationsInput | number
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  surname?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rolePreset?: Prisma.EnumRolePresetFieldUpdateOperationsInput | $Enums.RolePreset
+  roleName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rolePresetName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRead?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canWrite?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canCreate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canDelete?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canApprove?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canRunAgent?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canApplyChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  moduleAccess?: Prisma.ZavodUserUpdatemoduleAccessInput | string[]
+  telegramChatId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  appAssignments?: Prisma.UserAppAssignmentUncheckedUpdateManyWithoutUserNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutUserNestedInput
+  secretAccessLogs?: Prisma.SecretAccessLogUncheckedUpdateManyWithoutUserNestedInput
+  postingJobsCreated?: Prisma.PostingJobUncheckedUpdateManyWithoutCreatedByNestedInput
+  postingJobsCancelled?: Prisma.PostingJobUncheckedUpdateManyWithoutCancelledByNestedInput
+  driveFiles?: Prisma.DriveFileUncheckedUpdateManyWithoutUserNestedInput
+  proxyDeepCheckLogsInitiated?: Prisma.ProxyDeepCheckLogUncheckedUpdateManyWithoutInitiatedByNestedInput
 }
 
 
@@ -1961,6 +2158,7 @@ export type ZavodUserCountOutputType = {
   postingJobsCancelled: number
   driveFiles: number
   proxyDeepCheckLogsInitiated: number
+  savedViews: number
 }
 
 export type ZavodUserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1971,6 +2169,7 @@ export type ZavodUserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensi
   postingJobsCancelled?: boolean | ZavodUserCountOutputTypeCountPostingJobsCancelledArgs
   driveFiles?: boolean | ZavodUserCountOutputTypeCountDriveFilesArgs
   proxyDeepCheckLogsInitiated?: boolean | ZavodUserCountOutputTypeCountProxyDeepCheckLogsInitiatedArgs
+  savedViews?: boolean | ZavodUserCountOutputTypeCountSavedViewsArgs
 }
 
 /**
@@ -2032,6 +2231,13 @@ export type ZavodUserCountOutputTypeCountProxyDeepCheckLogsInitiatedArgs<ExtArgs
   where?: Prisma.ProxyDeepCheckLogWhereInput
 }
 
+/**
+ * ZavodUserCountOutputType without action
+ */
+export type ZavodUserCountOutputTypeCountSavedViewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SavedViewWhereInput
+}
+
 
 export type ZavodUserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2064,6 +2270,7 @@ export type ZavodUserSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   postingJobsCancelled?: boolean | Prisma.ZavodUser$postingJobsCancelledArgs<ExtArgs>
   driveFiles?: boolean | Prisma.ZavodUser$driveFilesArgs<ExtArgs>
   proxyDeepCheckLogsInitiated?: boolean | Prisma.ZavodUser$proxyDeepCheckLogsInitiatedArgs<ExtArgs>
+  savedViews?: boolean | Prisma.ZavodUser$savedViewsArgs<ExtArgs>
   _count?: boolean | Prisma.ZavodUserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["zavodUser"]>
 
@@ -2154,6 +2361,7 @@ export type ZavodUserInclude<ExtArgs extends runtime.Types.Extensions.InternalAr
   postingJobsCancelled?: boolean | Prisma.ZavodUser$postingJobsCancelledArgs<ExtArgs>
   driveFiles?: boolean | Prisma.ZavodUser$driveFilesArgs<ExtArgs>
   proxyDeepCheckLogsInitiated?: boolean | Prisma.ZavodUser$proxyDeepCheckLogsInitiatedArgs<ExtArgs>
+  savedViews?: boolean | Prisma.ZavodUser$savedViewsArgs<ExtArgs>
   _count?: boolean | Prisma.ZavodUserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ZavodUserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -2169,6 +2377,7 @@ export type $ZavodUserPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     postingJobsCancelled: Prisma.$PostingJobPayload<ExtArgs>[]
     driveFiles: Prisma.$DriveFilePayload<ExtArgs>[]
     proxyDeepCheckLogsInitiated: Prisma.$ProxyDeepCheckLogPayload<ExtArgs>[]
+    savedViews: Prisma.$SavedViewPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -2595,6 +2804,7 @@ export interface Prisma__ZavodUserClient<T, Null = never, ExtArgs extends runtim
   postingJobsCancelled<T extends Prisma.ZavodUser$postingJobsCancelledArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ZavodUser$postingJobsCancelledArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PostingJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   driveFiles<T extends Prisma.ZavodUser$driveFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ZavodUser$driveFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DriveFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   proxyDeepCheckLogsInitiated<T extends Prisma.ZavodUser$proxyDeepCheckLogsInitiatedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ZavodUser$proxyDeepCheckLogsInitiatedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProxyDeepCheckLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  savedViews<T extends Prisma.ZavodUser$savedViewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ZavodUser$savedViewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SavedViewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3205,6 +3415,30 @@ export type ZavodUser$proxyDeepCheckLogsInitiatedArgs<ExtArgs extends runtime.Ty
   take?: number
   skip?: number
   distinct?: Prisma.ProxyDeepCheckLogScalarFieldEnum | Prisma.ProxyDeepCheckLogScalarFieldEnum[]
+}
+
+/**
+ * ZavodUser.savedViews
+ */
+export type ZavodUser$savedViewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SavedView
+   */
+  select?: Prisma.SavedViewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SavedView
+   */
+  omit?: Prisma.SavedViewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SavedViewInclude<ExtArgs> | null
+  where?: Prisma.SavedViewWhereInput
+  orderBy?: Prisma.SavedViewOrderByWithRelationInput | Prisma.SavedViewOrderByWithRelationInput[]
+  cursor?: Prisma.SavedViewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SavedViewScalarFieldEnum | Prisma.SavedViewScalarFieldEnum[]
 }
 
 /**
