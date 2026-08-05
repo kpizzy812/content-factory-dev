@@ -87,65 +87,55 @@ async function suggestPostingTime() {
 </script>
 
 <template>
-  <div class="space-y-3">
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Название</legend>
-      <input
+  <div class="flex flex-col gap-3">
+    <UiField label="Название">
+      <UiInput
         v-model="title"
-        type="text"
-        class="input w-full"
-        placeholder="Заголовок видео"
+        placeholder="Заголовок ролика"
         @input="emit('edit:title')"
       />
-    </fieldset>
+    </UiField>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center gap-2">
-        Описание
+    <div>
+      <div class="mb-[5px] flex items-center gap-2">
+        <span class="text-[11.5px] text-muted">Описание</span>
         <SharedAiSuggestButton :loading="descriptionAi.loading.value" @click="suggestDescription" />
-      </legend>
-      <textarea
+      </div>
+      <UiTextarea
         v-model="description"
-        class="textarea w-full"
-        rows="3"
-        placeholder="Описание видео"
+        :rows="3"
+        placeholder="Описание ролика"
         @input="emit('edit:description')"
       />
-    </fieldset>
+    </div>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center gap-2">
-        Хештеги
+    <div>
+      <div class="mb-[5px] flex items-center gap-2">
+        <span class="text-[11.5px] text-muted">Хэштеги</span>
         <SharedAiSuggestButton :loading="keywordAi.loading.value" @click="suggestKeywords" />
-      </legend>
-      <textarea
+      </div>
+      <UiTextarea
         v-model="hashtagsRaw"
-        class="textarea w-full"
-        rows="2"
-        placeholder="тренд, вирусное, контент (через запятую)"
+        :rows="2"
+        placeholder="тренд, вирусное, контент — через запятую"
         @input="emit('edit:hashtags')"
       />
-    </fieldset>
+    </div>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Запланировать (опционально)</legend>
-      <input
-        v-model="scheduledAt"
-        type="datetime-local"
-        class="input w-full"
-      />
-      <button
-        class="btn btn-xs btn-ghost gap-1 mt-1"
-        :disabled="postingTimeAi.loading.value"
+    <UiField label="Запланировать" hint="Необязательно — без даты ролик уйдёт сразу">
+      <UiInput v-model="scheduledAt" type="datetime-local" />
+      <UiButton
+        variant="ghost"
+        class="mt-1"
+        :loading="postingTimeAi.loading.value"
         @click="suggestPostingTime"
       >
-        <span v-if="postingTimeAi.loading.value" class="loading loading-spinner loading-xs" />
-        <Icon v-else name="mingcute:sparkles-2-line" class="text-sm" />
-        Лучшее время
-      </button>
-      <p v-if="postingTimeSuggestion" class="text-xs text-success mt-1">
+        <Icon v-if="!postingTimeAi.loading.value" name="mingcute:magic-1-line" />
+        Подобрать время
+      </UiButton>
+      <p v-if="postingTimeSuggestion" class="mt-1 text-sm text-success">
         {{ postingTimeSuggestion }}
       </p>
-    </fieldset>
+    </UiField>
   </div>
 </template>

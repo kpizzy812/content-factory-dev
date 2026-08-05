@@ -78,38 +78,32 @@ const showPreview = computed(() =>
 <template>
   <span class="inline-flex flex-col">
     <span class="inline-flex items-center">
-      <button
-        type="button"
-        class="btn btn-ghost btn-xs gap-1"
-        :disabled="loading"
-        @click="handleClick"
-      >
-        <span v-if="loading" class="loading loading-spinner loading-xs" />
-        <Icon v-else name="mingcute:sparkles-2-line" class="text-sm" />
-        <span class="text-xs">AI</span>
-      </button>
+      <UiButton variant="ghost" :loading="loading" @click="handleClick">
+        <Icon v-if="!loading" name="mingcute:magic-1-line" />
+        Модель
+      </UiButton>
 
       <!-- Inline prompt -->
       <Transition name="fade">
-        <span v-if="expanded && withPrompt" class="inline-flex items-center gap-1 ml-1">
-          <input
+        <span v-if="expanded && withPrompt" class="ml-1 inline-flex items-center gap-1">
+          <UiInput
             ref="inputRef"
             v-model="prompt"
-            type="text"
-            class="input input-xs w-44 font-normal"
-            :placeholder="placeholder || 'Опишите, что сгенерировать...'"
+            class="w-44"
+            :placeholder="placeholder || 'Что сгенерировать?'"
             :disabled="loading"
             @keydown="onKeydown"
           />
-          <button
-            type="button"
-            class="btn btn-primary btn-xs btn-square"
-            :disabled="!prompt.trim() || loading"
+          <UiButton
+            variant="primary"
+            icon-only
+            :loading="loading"
+            :disabled="!prompt.trim()"
+            aria-label="Отправить"
             @click="submit"
           >
-            <span v-if="loading" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:send-line" class="text-xs" />
-          </button>
+            <Icon v-if="!loading" name="mingcute:send-line" />
+          </UiButton>
         </span>
       </Transition>
     </span>
@@ -118,53 +112,37 @@ const showPreview = computed(() =>
     <Transition name="preview">
       <div
         v-if="showPreview"
-        class="mt-1.5 rounded-box border border-primary/20 bg-primary/5 p-2 text-[10px] space-y-1.5"
+        class="mt-1.5 flex flex-col gap-1.5 rounded-md border border-accent-border bg-accent-bg p-2 text-sm"
       >
-        <div class="flex items-center gap-1 text-primary font-medium">
-          <Icon name="mingcute:eye-line" class="text-xs" />
-          AI предлагает:
-        </div>
+        <div class="text-micro tracking-[.06em] text-subtle uppercase">Предложение модели</div>
 
-        <!-- Tags preview -->
-        <div v-if="previewData?.items?.length" class="flex flex-wrap gap-0.5">
+        <!-- Теги -->
+        <div v-if="previewData?.items?.length" class="flex flex-wrap gap-1">
           <span
             v-for="(item, i) in previewData.items"
             :key="i"
-            class="inline-block bg-primary/10 text-primary rounded px-1.5 py-0.5"
+            class="rounded-sm border border-border bg-card px-1.5 text-micro text-muted"
           >
             {{ item }}
           </span>
         </div>
 
-        <!-- Text preview -->
-        <div v-if="previewData?.text" class="text-base-content/70">
-          <template v-if="previewData.text.length > 120">
-            <details class="group">
-              <summary class="cursor-pointer text-primary/70">
-                {{ previewData.text.slice(0, 120) }}...
-              </summary>
-              <p class="mt-1 whitespace-pre-wrap">{{ previewData.text }}</p>
-            </details>
-          </template>
-          <template v-else>
-            {{ previewData.text }}
-          </template>
+        <!-- Текст -->
+        <div v-if="previewData?.text" class="text-muted">
+          <details v-if="previewData.text.length > 120">
+            <summary class="cursor-pointer">{{ previewData.text.slice(0, 120) }}…</summary>
+            <p class="mt-1 whitespace-pre-wrap">{{ previewData.text }}</p>
+          </details>
+          <template v-else>{{ previewData.text }}</template>
         </div>
 
-        <!-- Reasoning -->
-        <div v-if="previewData?.reasoning" class="text-base-content/40 italic">
+        <p v-if="previewData?.reasoning" class="text-micro text-subtle">
           {{ previewData.reasoning }}
-        </div>
+        </p>
 
-        <!-- Actions -->
-        <div class="flex gap-1">
-          <button class="btn btn-primary btn-xs flex-1" @click="applyPreview">
-            <Icon name="mingcute:check-line" class="text-[10px]" />
-            Применить
-          </button>
-          <button class="btn btn-ghost btn-xs" @click="dismissPreview">
-            Отмена
-          </button>
+        <div class="flex gap-1.5">
+          <UiButton variant="primary" @click="applyPreview">Применить</UiButton>
+          <UiButton variant="ghost" @click="dismissPreview">Отмена</UiButton>
         </div>
       </div>
     </Transition>

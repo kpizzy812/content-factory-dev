@@ -506,14 +506,14 @@ async function handleSubmit(schedule: boolean) {
         <div
           v-for="acc in activeAccounts"
           :key="acc.id"
-          class="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-card"
+          class="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md px-2 py-1.5 hover:bg-card"
         >
           <UiCheckbox
             :model-value="selectedAccountIds.includes(acc.id)"
             @update:model-value="toggleAccount(acc.id)"
           />
           <UiPlatformBadge :platform="acc.platform" />
-          <span class="min-w-0 flex-1 truncate text-sm">{{ acc.displayName }}</span>
+          <span class="min-w-24 flex-1 truncate text-sm">{{ acc.displayName }}</span>
           <span
             v-if="acc.postingMethod === 'browser_automation'"
             class="shrink-0 rounded-sm border border-warning-border bg-warning-bg px-1.5 text-micro text-warning"

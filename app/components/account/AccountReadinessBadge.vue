@@ -22,10 +22,11 @@ const accountRef = computed<PreflightAccount | null>(() => props.account)
 const liveLoginRef = computed<LoginCheckResult | null>(() => props.liveLoginResult ?? null)
 const { state } = useAccountReadiness(accountRef, undefined, liveLoginRef)
 
-const badgeClass = computed(() => {
-  if (state.value.ready) return "badge-success"
-  if (state.value.score >= 2) return "badge-warning"
-  return "badge-error"
+/** Готовность — не статус сущности, поэтому свой тон, а не UiStatusBadge. */
+const tone = computed(() => {
+  if (state.value.ready) return "border-success-border bg-success-bg text-success"
+  if (state.value.score >= 2) return "border-warning-border bg-warning-bg text-warning"
+  return "border-danger-border bg-danger-bg text-danger"
 })
 
 const tooltip = computed(() => {
@@ -37,17 +38,14 @@ const tooltip = computed(() => {
 </script>
 
 <template>
-  <span class="tooltip tooltip-bottom whitespace-pre-line" :data-tip="tooltip">
+  <UiTooltip :text="tooltip" placement="bottom">
     <span
-      class="badge badge-xs gap-1"
-      :class="badgeClass"
+      class="tnum inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm border px-1.5 text-micro whitespace-nowrap"
+      :class="tone"
       :aria-label="tooltip"
     >
-      <Icon
-        :name="state.ready ? 'mingcute:check-circle-line' : 'mingcute:alert-line'"
-        class="text-xs"
-      />
-      Готовность: {{ state.score }}/{{ state.total }}
+      <Icon :name="state.ready ? 'mingcute:check-line' : 'mingcute:alert-line'" />
+      готовность {{ state.score }} из {{ state.total }}
     </span>
-  </span>
+  </UiTooltip>
 </template>
