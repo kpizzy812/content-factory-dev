@@ -119,159 +119,79 @@ async function handleDelete() {
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <!-- Header: label + status badge -->
-      <div class="flex items-start justify-between gap-2 flex-wrap">
-        <div class="flex flex-col gap-1 min-w-0">
-          <h3 class="font-semibold text-base-content truncate">
-            {{ proxy.label }}
-          </h3>
-          <span v-if="proxy.provider" class="text-xs text-base-content/60">
-            {{ proxy.provider }}
-          </span>
-        </div>
-        <ProxyHealthBadge :status="proxy.status" size="sm" />
+  <div class="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3">
+    <div class="flex items-start gap-2">
+      <div class="flex min-w-0 flex-col">
+        <h3 class="truncate font-medium">{{ proxy.label }}</h3>
+        <span v-if="proxy.provider" class="truncate text-micro text-subtle">{{ proxy.provider }}</span>
       </div>
-
-      <!-- Body: type + host + meta -->
-      <div class="flex flex-col gap-2 text-sm">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="badge badge-soft gap-1">
-            <Icon :name="typeInfo.icon" class="text-sm" />
-            {{ typeInfo.label }}
-          </span>
-          <span class="badge badge-outline badge-sm uppercase">
-            {{ proxy.protocol }}
-          </span>
-          <code class="text-xs bg-base-200 px-2 py-1 rounded">
-            {{ proxy.hostMasked }}:{{ proxy.port }}
-          </code>
-        </div>
-
-        <div v-if="locationLabel" class="flex items-center gap-1.5 text-base-content/70">
-          <Icon name="mingcute:location-line" class="text-sm" />
-          <span>{{ locationLabel }}</span>
-        </div>
-
-        <div class="flex items-center gap-1.5 text-base-content/70">
-          <Icon name="mingcute:group-line" class="text-sm" />
-          <span>Аккаунтов: {{ proxy.attachedAccountsCount }}</span>
-        </div>
-
-        <div class="flex items-center gap-1.5 text-base-content/70">
-          <Icon name="mingcute:time-line" class="text-sm" />
-          <span>Проверка: {{ lastCheckedLabel }}</span>
-        </div>
-
-        <div v-if="expiresLabel" class="flex items-center gap-1.5 text-base-content/70">
-          <Icon name="mingcute:calendar-line" class="text-sm" />
-          <span>Истекает: {{ expiresLabel }}</span>
-        </div>
-
-        <div v-if="proxy.consecutiveFailures > 0" class="flex items-center gap-1.5 text-warning">
-          <Icon name="mingcute:warning-line" class="text-sm" />
-          <span>Подряд неудач: {{ proxy.consecutiveFailures }}</span>
-        </div>
-
-        <div
-          v-if="hasAlerts"
-          class="tooltip tooltip-left text-left"
-          :data-tip="alertTooltip"
-        >
-          <div class="flex items-center gap-1.5 text-base-content/70">
-            <Icon name="mingcute:notification-line" class="text-sm" />
-            <span class="text-xs">
-              Алёрты:
-              <template v-for="(a, idx) in alertSummary" :key="a.reason">
-                <span>{{ alertReasonLabels[a.reason] ?? a.reason }} ({{ a.count }})</span>
-                <span v-if="idx < alertSummary.length - 1">, </span>
-              </template>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Footer: actions -->
-      <div class="card-actions justify-end mt-2 flex-wrap gap-1">
-        <button
-          class="btn btn-xs btn-ghost gap-1"
-          :disabled="isChecking || isBusy"
-          @click="handleCheck"
-        >
-          <span v-if="isChecking" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:refresh-3-line" class="text-sm" />
-          Проверить
-        </button>
-        <button
-          class="btn btn-xs btn-ghost gap-1"
-          @click="emit('history', proxy)"
-        >
-          <Icon name="mingcute:history-line" class="text-sm" />
-          История
-        </button>
-        <button
-          class="btn btn-xs btn-warning btn-soft gap-1"
-          @click="emit('diagnose', proxy)"
-        >
-          <Icon name="mingcute:search-line" class="text-sm" />
-          Diagnose
-        </button>
-        <button
-          class="btn btn-xs btn-ghost gap-1"
-          @click="emit('reveal', proxy)"
-        >
-          <Icon name="mingcute:eye-line" class="text-sm" />
-          Креды
-        </button>
-        <button
-          class="btn btn-xs btn-ghost gap-1"
-          @click="emit('edit', proxy)"
-        >
-          <Icon name="mingcute:edit-line" class="text-sm" />
-          Редактировать
-        </button>
-        <button
-          class="btn btn-xs btn-error btn-outline gap-1"
-          :disabled="isBusy"
-          @click="showDeleteConfirm = true"
-        >
-          <Icon name="mingcute:delete-2-line" class="text-sm" />
-          Удалить
-        </button>
-      </div>
-
-      <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ error }}</span>
-      </div>
+      <ProxyHealthBadge :status="proxy.status" size="sm" class="ml-auto shrink-0" />
     </div>
 
-    <!-- Confirm удаления -->
-    <dialog class="modal" :class="{ 'modal-open': showDeleteConfirm }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Удалить прокси?</h3>
-        <p class="py-4 text-base-content/70">
-          Прокси <strong>{{ proxy.label }}</strong> будет удалён.
-          <span v-if="proxy.attachedAccountsCount > 0" class="text-error">
-            К нему привязано {{ proxy.attachedAccountsCount }} аккаунтов — сначала отвяжите их.
-          </span>
-        </p>
-        <div class="modal-action">
-          <button class="btn btn-sm" @click="showDeleteConfirm = false">Отмена</button>
-          <button
-            class="btn btn-sm btn-error"
-            :disabled="isBusy"
-            @click="handleDelete"
-          >
-            <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-            Удалить
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="showDeleteConfirm = false">close</button>
-      </form>
-    </dialog>
+    <div class="flex flex-wrap items-center gap-1.5">
+      <span class="inline-flex h-[22px] items-center gap-1.5 rounded-sm border border-border bg-panel px-2 text-sm text-muted">
+        <Icon :name="typeInfo.icon" />
+        {{ typeInfo.label }}
+      </span>
+      <span class="inline-flex h-[22px] items-center rounded-sm border border-border bg-panel px-2 font-mono text-micro text-subtle uppercase">
+        {{ proxy.protocol }}
+      </span>
+      <code class="tnum rounded-sm bg-surface px-2 py-0.5 font-mono text-micro text-muted">
+        {{ proxy.hostMasked }}:{{ proxy.port }}
+      </code>
+    </div>
+
+    <UiKeyValue
+      label-width="104px"
+      :items="[
+        ...(locationLabel ? [{ label: 'Расположение', value: locationLabel, mono: false }] : []),
+        { label: 'Аккаунтов', value: proxy.attachedAccountsCount },
+        { label: 'Проверен', value: lastCheckedLabel },
+        ...(expiresLabel ? [{ label: 'Истекает', value: expiresLabel }] : []),
+      ]"
+    />
+
+    <p v-if="proxy.consecutiveFailures > 0" class="text-sm text-warning">
+      Неудач подряд: <span class="tnum font-mono">{{ proxy.consecutiveFailures }}</span>
+    </p>
+
+    <UiTooltip v-if="hasAlerts" :text="alertTooltip" placement="top">
+      <span class="flex items-center gap-1.5 text-sm text-muted">
+        <Icon name="mingcute:notification-line" class="text-subtle" />
+        <span>
+          <template v-for="(a, idx) in alertSummary" :key="a.reason">
+            {{ alertReasonLabels[a.reason] ?? a.reason }} ({{ a.count }})<span v-if="idx < alertSummary.length - 1">, </span>
+          </template>
+        </span>
+      </span>
+    </UiTooltip>
+
+    <div class="flex flex-wrap justify-end gap-1">
+      <UiButton variant="ghost" :loading="isChecking" :disabled="isBusy" @click="handleCheck">
+        Проверить
+      </UiButton>
+      <UiButton variant="ghost" @click="emit('history', proxy)">История</UiButton>
+      <UiButton variant="ghost" @click="emit('diagnose', proxy)">Диагностика</UiButton>
+      <UiButton variant="ghost" @click="emit('reveal', proxy)">Доступы</UiButton>
+      <UiButton variant="ghost" @click="emit('edit', proxy)">Изменить</UiButton>
+      <UiButton variant="danger" :disabled="isBusy" @click="showDeleteConfirm = true">Удалить</UiButton>
+    </div>
+
+    <p v-if="error" class="rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+      {{ error }}
+    </p>
+
+    <UiModal :open="showDeleteConfirm" title="Удалить прокси?" size="sm" @close="showDeleteConfirm = false">
+      <p class="text-sm text-muted">
+        Прокси «{{ proxy.label }}» будет удалён.
+      </p>
+      <p v-if="proxy.attachedAccountsCount > 0" class="mt-2 text-sm text-danger">
+        К нему привязано аккаунтов: {{ proxy.attachedAccountsCount }} — сначала отвяжите их.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="showDeleteConfirm = false">Отмена</UiButton>
+        <UiButton variant="danger" :loading="isBusy" @click="handleDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

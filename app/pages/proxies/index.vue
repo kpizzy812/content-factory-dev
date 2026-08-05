@@ -11,6 +11,12 @@ useHead({ title: "Прокси" })
 const filters = useProxyFiltersStore()
 const { data: proxiesData, pending, error, refresh } = useProxies()
 
+// Пул прокси относится к унаследованному контуру: при выключенной зоне его API
+// отдаёт 404, и это не поломка, а конфигурация. Говорим об этом прямо.
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+loadLegacyModules()
+const zoneOff = computed(() => !legacyModules.value.proxyPool)
+
 const proxies = computed<ProxyDto[]>(() => proxiesData.value?.data ?? [])
 
 const { checkAllProxies } = useProxyActions()
@@ -128,121 +134,73 @@ const problemCount = computed(
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Заголовок -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-base-content">Прокси</h1>
-        <p class="text-sm text-base-content/60 mt-1">
-          Всего: {{ totalCount }} · Здоровых: {{ healthyCount }} · С проблемами: {{ problemCount }}
-        </p>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <button
-          class="btn btn-sm btn-ghost gap-1"
-          :disabled="bulkChecking || totalCount === 0"
-          @click="checkAll"
-        >
-          <span v-if="bulkChecking" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:refresh-3-line" />
-          {{ bulkChecking ? "Проверяю прокси..." : "Проверить все" }}
-        </button>
-        <button class="btn btn-primary btn-sm gap-1" @click="openAddModal">
-          <Icon name="mingcute:add-line" />
-          Добавить прокси
-        </button>
-      </div>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Прокси</h1>
+      <span class="tnum text-sm text-subtle">{{ totalCount }}</span>
+      <span class="flex-1" />
+      <UiButton v-if="!zoneOff" :loading="bulkChecking" :disabled="totalCount === 0" @click="checkAll">
+        <Icon v-if="!bulkChecking" name="mingcute:refresh-3-line" />
+        Проверить все
+      </UiButton>
+      <UiButton v-if="!zoneOff" variant="primary" @click="openAddModal">
+        <Icon name="mingcute:add-line" />
+        Добавить прокси
+      </UiButton>
     </div>
 
-    <div
+    <!-- Сводка стоит рядом с заголовком: сколько прокси мертво — это первое,
+         что смотрят, заходя в раздел. -->
+    <div v-if="!zoneOff" class="flex flex-wrap gap-4 text-sm text-muted">
+      <span>Здоровых <span class="tnum font-mono text-success">{{ healthyCount }}</span></span>
+      <span>С проблемами <span class="tnum font-mono" :class="problemCount ? 'text-danger' : 'text-fg'">{{ problemCount }}</span></span>
+    </div>
+
+    <p
       v-if="bulkSummary"
-      role="alert"
-      class="alert text-sm"
-      :class="bulkSummary.failed === 0 ? 'alert-success alert-soft' : 'alert-warning alert-soft'"
+      class="flex items-center gap-2 rounded-md border p-2.5 text-sm"
+      :class="bulkSummary.failed === 0
+        ? 'border-success-border bg-success-bg text-success'
+        : 'border-warning-border bg-warning-bg text-warning'"
     >
-      <Icon
-        :name="bulkSummary.failed === 0 ? 'mingcute:check-circle-line' : 'mingcute:warning-line'"
-      />
-      <span>
-        Проверено {{ bulkSummary.total }}: {{ bulkSummary.successful }} OK,
-        {{ bulkSummary.failed }} с проблемами
-      </span>
-      <button
-        class="btn btn-xs btn-ghost ml-auto"
-        @click="bulkSummary = null"
-      >
+      Проверено {{ bulkSummary.total }}: рабочих {{ bulkSummary.successful }},
+      с проблемами {{ bulkSummary.failed }}
+      <UiButton icon-only variant="ghost" aria-label="Скрыть" class="ml-auto" @click="bulkSummary = null">
         <Icon name="mingcute:close-line" />
-      </button>
+      </UiButton>
+    </p>
+
+    <div v-if="!zoneOff" class="flex flex-wrap items-center gap-2">
+      <UiInput v-model="searchInput" class="max-w-64 flex-1" placeholder="Метка, провайдер, страна" />
+      <UiSelect v-model="filters.status" class="w-48" :options="statusOptions" />
+      <UiSelect v-model="filters.type" class="w-44" :options="typeOptions" />
+      <UiButton variant="ghost" @click="filters.reset(); searchInput = ''">Сбросить</UiButton>
     </div>
 
-    <SharedPageGuide
-      guide-key="proxies"
-      :title="pageGuides.proxies.title"
-      :steps="pageGuides.proxies.steps"
-      :tips="pageGuides.proxies.tips"
+    <UiEmptyState
+      v-if="zoneOff"
+      variant="denied"
+      title="Пул прокси выключен"
+      description="Зона относится к унаследованному контуру и включается флагом LEGACY_PROXY_POOL_ENABLED в окружении."
     />
 
-    <!-- Фильтры -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Поиск</legend>
-            <input
-              v-model="searchInput"
-              type="text"
-              class="input input-sm w-full"
-              placeholder="label, провайдер, страна"
-            />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Статус</legend>
-            <select v-model="filters.status" class="select select-sm w-full">
-              <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Тип</legend>
-            <select v-model="filters.type" class="select select-sm w-full">
-              <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">&nbsp;</legend>
-            <button class="btn btn-sm btn-ghost" @click="filters.reset(); searchInput = ''">
-              <Icon name="mingcute:close-line" />
-              Сбросить
-            </button>
-          </fieldset>
-        </div>
-      </div>
-    </div>
+    <UiSkeleton v-else-if="pending && !proxies.length" variant="cards" :count="6" />
 
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
-
-    <!-- Empty -->
-    <SharedEmptyState
-      v-else-if="proxies.length === 0"
-      icon="mingcute:wifi-line"
-      title="Нет добавленных прокси"
-      description="Добавьте прокси, чтобы привязать их к социальным аккаунтам и публиковать контент через них."
+    <UiErrorState
+      v-else-if="error"
+      message="Не удалось загрузить прокси."
+      :details="error.message"
+      @retry="refresh()"
     />
 
-    <!-- Сетка карточек -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <UiEmptyState
+      v-else-if="!proxies.length"
+      variant="first"
+      title="Прокси пока нет"
+      description="Добавьте прокси, чтобы привязать их к аккаунтам: публикация с адреса сервера быстро приводит к бану."
+    />
+
+    <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <ProxyCard
         v-for="proxy in proxies"
         :key="proxy.id"
