@@ -51,77 +51,43 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <h3 class="card-title text-sm">
-        <Icon name="mingcute:add-line" class="text-primary" />
-        Добавить идею
-      </h3>
+  <form class="flex flex-col gap-2 rounded-lg border border-border bg-panel p-3" @submit.prevent="handleSubmit">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <UiField label="Ссылка на ролик" class="flex-1">
+        <UiInput
+          v-model="form.sourceUrl"
+          type="url"
+          placeholder="YouTube, TikTok, Instagram или прямая ссылка"
+          :disabled="isSubmitting"
+        />
+      </UiField>
 
-      <div class="flex flex-col sm:flex-row gap-3">
-        <fieldset class="fieldset flex-1">
-          <legend class="fieldset-legend">URL видео</legend>
-          <input
-            v-model="form.sourceUrl"
-            type="url"
-            class="input w-full"
-            placeholder="YouTube, TikTok, Instagram или прямая ссылка на видео/изображение"
-            :disabled="isSubmitting"
-          >
-        </fieldset>
+      <UiField label="Приложение" class="w-52">
+        <UiSelect
+          :model-value="form.appId ?? ''"
+          :disabled="isSubmitting"
+          :options="[
+            { value: '', label: 'Не выбрано' },
+            ...apps.map((a: { id: number, name: string }) => ({ value: a.id, label: a.name })),
+          ]"
+          @update:model-value="form.appId = $event ? Number($event) : undefined"
+        />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Приложение</legend>
-          <select
-            v-model="form.appId"
-            class="select"
-            :disabled="isSubmitting"
-          >
-            <option :value="undefined">Не выбрано</option>
-            <option
-              v-for="app in apps"
-              :key="app.id"
-              :value="app.id"
-            >
-              {{ app.name }}
-            </option>
-          </select>
-        </fieldset>
+      <UiField label="Язык" class="w-44">
+        <UiSelect v-model="form.language" :options="languages" :disabled="isSubmitting" />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Язык</legend>
-          <select
-            v-model="form.language"
-            class="select"
-            :disabled="isSubmitting"
-          >
-            <option
-              v-for="lang in languages"
-              :key="lang.value"
-              :value="lang.value"
-            >
-              {{ lang.label }}
-            </option>
-          </select>
-        </fieldset>
-
-        <div class="flex items-end">
-          <button
-            class="btn btn-primary gap-1"
-            :disabled="!form.sourceUrl.trim() || isSubmitting"
-            @click="handleSubmit"
-          >
-            <span v-if="isSubmitting" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:send-line" />
-            Добавить
-          </button>
-        </div>
-      </div>
-
-      <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft text-sm">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ errorMessage }}</span>
-      </div>
+      <UiButton
+        type="submit"
+        variant="primary"
+        :loading="isSubmitting"
+        :disabled="!form.sourceUrl.trim()"
+      >
+        Добавить
+      </UiButton>
     </div>
-  </div>
+
+    <p v-if="errorMessage" class="text-sm text-danger">{{ errorMessage }}</p>
+  </form>
 </template>
