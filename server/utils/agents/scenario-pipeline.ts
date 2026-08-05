@@ -1316,7 +1316,9 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
       }
       // После auto-fix scriptResult.cta может быть устаревшим — приклеиваем имя
       // приложения к scenario.cta если его там нет (защита от UI-показа без бренда).
-      if (!scriptResult.cta.toLowerCase().includes(input.appName.toLowerCase())) {
+      // С воронкой этого делать нельзя: цель CTA — кодовое слово, а приклеенное
+      // «Попробуйте <продукт>» превращает призыв в рекламу того, что не продают.
+      if (!input.funnel?.keyword && !scriptResult.cta.toLowerCase().includes(input.appName.toLowerCase())) {
         const fallbackCta = contentLanguageLabel(input.language) === 'Russian'
           ? `Попробуйте ${input.appName}`
           : `Try ${input.appName}`
