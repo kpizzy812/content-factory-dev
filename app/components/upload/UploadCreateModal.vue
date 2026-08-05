@@ -88,6 +88,11 @@ const hasSelection = computed(() =>
   selectedAccountIds.value.length > 0 || !!selectedGroupId.value,
 )
 
+const groupOptions = computed(() => groups.value.map((g: { id: number, name: string, members: unknown[] }) => ({
+  value: g.id,
+  label: `${g.name} · ${g.members.length} аккаунтов`,
+})))
+
 /**
  * true если среди выбранных аккаунтов есть хотя бы один с postingMethod=browser_automation.
  * UploadCreateModal — это legacy OAuth API flow (TikTok Business / YouTube Data / IG Graph).
@@ -474,202 +479,151 @@ async function handleSubmit(schedule: boolean) {
 </script>
 
 <template>
-  <dialog v-if="can('canRunAgent')" class="modal" :class="{ 'modal-open': open }">
-    <div class="modal-box max-w-lg">
-      <h3 class="font-bold text-lg mb-1">Загрузить в соцсети</h3>
-      <p class="text-xs text-base-content/60 mb-4">
-        Выберите аккаунты, заполните мета-данные и опубликуйте сейчас или по расписанию.
+  <UiModal
+    v-if="can('canRunAgent')"
+    :open="open"
+    title="Загрузить в соцсети"
+    size="lg"
+    @close="closeModal"
+  >
+    <!-- Шаг 1: куда публикуем -->
+    <div v-if="step === 1" class="flex flex-col gap-3">
+      <UiField v-if="groups.length" label="Пачка аккаунтов">
+        <UiSelect
+          :model-value="selectedGroupId ?? ''"
+          :options="groupOptions"
+          placeholder="Не выбрана"
+          @update:model-value="selectedGroupId = $event ? Number($event) : undefined"
+        />
+      </UiField>
+
+      <div v-if="activeAccounts.length" class="flex flex-col gap-1">
+        <span class="text-[11.5px] text-muted">
+          {{ groups.length ? 'Или отдельные аккаунты' : 'Аккаунты' }}
+        </span>
+        <!-- Строка не сделана одним <label>: внутри есть свои интерактивные
+             элементы, и клик по ним не должен переключать выбор аккаунта. -->
+        <div
+          v-for="acc in activeAccounts"
+          :key="acc.id"
+          class="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-card"
+        >
+          <UiCheckbox
+            :model-value="selectedAccountIds.includes(acc.id)"
+            @update:model-value="toggleAccount(acc.id)"
+          />
+          <UiPlatformBadge :platform="acc.platform" />
+          <span class="min-w-0 flex-1 truncate text-sm">{{ acc.displayName }}</span>
+          <span
+            v-if="acc.postingMethod === 'browser_automation'"
+            class="shrink-0 rounded-sm border border-warning-border bg-warning-bg px-1.5 text-micro text-warning"
+            title="Аккаунт публикует через устройство, а не через официальный API"
+          >
+            через устройство
+          </span>
+          <AccountReadinessBadge
+            v-if="acc.postingMethod === 'browser_automation'"
+            :account="acc"
+          />
+        </div>
+      </div>
+
+      <p
+        v-if="hasBrowserAutomationSelected && !hasBrowserPreflightBlockers"
+        class="rounded-md border border-info-border bg-info-bg p-2.5 text-sm text-muted"
+      >
+        <span class="font-medium text-info">Публикация через устройство.</span>
+        На каждый такой аккаунт заводится отдельная задача — она видна в разделе
+        <NuxtLink to="/posting-jobs" class="text-accent-text">Постинг</NuxtLink>.
+        Ролики YouTube уходят скрытыми и с пометкой «не для детей»; чтобы задать
+        видимость точнее, создайте задачу вручную.
       </p>
 
-      <!-- Шаг 1: Выбор аккаунтов -->
-      <template v-if="step === 1">
-        <p class="text-xs text-base-content/60 mb-3">Выберите аккаунты или пачку</p>
+      <div
+        v-if="hasBrowserPreflightBlockers"
+        class="rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm"
+      >
+        <div class="font-medium text-warning">Часть аккаунтов не готова публиковать</div>
+        <ul class="mt-1 flex flex-col gap-0.5 text-muted">
+          <li v-for="iss in browserAccountsIssues" :key="iss.accountId">
+            <span class="font-medium">{{ iss.displayName }}</span> · {{ iss.reasons.join(', ') }}
+          </li>
+        </ul>
+        <p class="mt-1.5 text-subtle">
+          Сервер откажет по ним, остальные пройдут. Поправить можно в разделе
+          <NuxtLink to="/accounts" class="text-accent-text">Аккаунты</NuxtLink> —
+          или снимите с них выбор.
+        </p>
+      </div>
 
-        <!-- Пачка -->
-        <fieldset v-if="groups.length > 0" class="fieldset mb-4">
-          <legend class="fieldset-legend">Пачка аккаунтов</legend>
-          <select v-model="selectedGroupId" class="select select-sm w-full">
-            <option :value="undefined">Не выбрана</option>
-            <option
-              v-for="group in groups"
-              :key="group.id"
-              :value="group.id"
-            >
-              {{ group.name }} ({{ group.members.length }} аккаунтов)
-            </option>
-          </select>
-        </fieldset>
-
-        <!-- Аккаунты -->
-        <div v-if="activeAccounts.length > 0" class="space-y-2">
-          <p class="text-sm font-medium text-base-content/70">Или выберите аккаунты:</p>
-          <label
-            v-for="acc in activeAccounts"
-            :key="acc.id"
-            class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 cursor-pointer"
-          >
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm checkbox-primary"
-              :checked="selectedAccountIds.includes(acc.id)"
-              @change="toggleAccount(acc.id)"
-            />
-            <Icon
-              :name="acc.platform === 'youtube' ? 'mingcute:youtube-line' : acc.platform === 'tiktok' ? 'mingcute:tiktok-line' : 'mingcute:instagram-line'"
-              class="text-lg"
-            />
-            <span class="text-sm flex-1 min-w-0 truncate">{{ acc.displayName }}</span>
-            <span
-              v-if="acc.postingMethod === 'browser_automation'"
-              class="badge badge-xs badge-warning gap-1 shrink-0"
-              title="Этот аккаунт постит через устройство DuoPlus"
-            >
-              <Icon name="mingcute:robot-line" class="text-xs" />
-              Browser
-            </span>
-            <AccountReadinessBadge
-              v-if="acc.postingMethod === 'browser_automation'"
-              :account="acc"
-            />
-          </label>
-        </div>
-
-        <!-- Info если выбраны browser_automation аккаунты — публикация через Indigo. -->
-        <div
-          v-if="hasBrowserAutomationSelected && !hasBrowserPreflightBlockers"
-          role="alert"
-          class="alert alert-info alert-soft text-xs"
-        >
-          <Icon name="mingcute:information-line" class="text-sm shrink-0" />
-          <div class="flex-1">
-            <div class="font-medium mb-0.5">
-              Browser-аккаунты опубликуют через Indigo + Chromium
-            </div>
-            <div>
-              Для каждого browser-аккаунта будет создана задача постинга
-              (видно в <NuxtLink to="/posting-jobs" class="link link-primary">/posting-jobs</NuxtLink>).
-              YouTube videos опубликуются с visibility=<span class="font-mono">private</span> и
-              made-for-kids=<span class="font-mono">no</span> по умолчанию. Для точной настройки
-              видимости (public/unlisted) используйте /posting-jobs → "+ Создать задачу".
-            </div>
-          </div>
-        </div>
-
-        <!-- Aggregate pre-flight: список проблемных browser-аккаунтов -->
-        <div
-          v-if="hasBrowserPreflightBlockers"
-          role="alert"
-          class="alert alert-warning alert-soft text-xs"
-        >
-          <Icon name="mingcute:warning-line" class="text-sm shrink-0" />
-          <div class="flex-1">
-            <div class="font-medium mb-1">
-              Часть выбранных browser-аккаунтов не готова к публикации:
-            </div>
-            <ul class="space-y-0.5 list-disc list-inside">
-              <li v-for="iss in browserAccountsIssues" :key="iss.accountId">
-                <span class="font-medium">{{ iss.displayName }}</span>
-                ({{ iss.platform }}):
-                <span class="text-base-content/70">{{ iss.reasons.join(', ') }}</span>
-              </li>
-            </ul>
-            <div class="mt-1 text-base-content/60">
-              Эти аккаунты получат 412-ошибку от сервера. Исправьте на странице
-              <NuxtLink to="/accounts" class="link link-primary">/accounts</NuxtLink>
-              или снимите выбор — остальные аккаунты создадутся успешно.
-            </div>
-          </div>
-        </div>
-
-        <div v-if="activeAccounts.length === 0 && groups.length === 0" class="py-6 text-center">
-          <p class="text-sm text-base-content/50">Нет активных аккаунтов. Подключите аккаунт на странице "Аккаунты".</p>
-        </div>
-
-        <div class="modal-action">
-          <button class="btn btn-sm btn-ghost" @click="closeModal">Отмена</button>
-          <button class="btn btn-sm btn-primary" :disabled="!hasSelection" @click="goToStep2">
-            Далее
-          </button>
-        </div>
-      </template>
-
-      <!-- Шаг 2: Мета-данные -->
-      <template v-if="step === 2">
-        <UploadMetaForm
-          v-model:title="title"
-          v-model:description="description"
-          v-model:hashtags-raw="hashtagsRaw"
-          v-model:scheduled-at="scheduledAt"
-          :cache-scope="String(videoId)"
-          @edit:title="userEditedTitle = true"
-          @edit:description="userEditedDescription = true"
-          @edit:hashtags="userEditedHashtags = true"
-        />
-
-        <!-- Caption preload hint -->
-        <div
-          v-if="captionPreload.captions.value.length > 0"
-          class="alert alert-info alert-soft text-xs mt-2"
-        >
-          <Icon name="mingcute:information-line" class="text-sm shrink-0" />
-          <span>
-            Подтянут утверждённый caption из видео.
-            Можно отредактировать или сгенерировать новый AI-кнопкой.
-          </span>
-        </div>
-
-        <!-- Ошибка -->
-        <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm mt-3">
-          <Icon name="mingcute:warning-line" />
-          <span>{{ error }}</span>
-        </div>
-
-        <!-- Post-submit notice: blocked_by_env / browser_automation routing -->
-        <div
-          v-if="postSubmitNotice"
-          role="alert"
-          class="alert alert-warning alert-soft text-xs mt-3"
-        >
-          <Icon name="mingcute:warning-line" class="text-sm shrink-0" />
-          <div class="flex-1">
-            <div class="font-medium mb-0.5">Видео НЕ опубликовано</div>
-            <div class="break-words">{{ postSubmitNotice }}</div>
-            <NuxtLink
-              to="/posting-jobs"
-              class="link link-primary font-medium text-xs mt-1 inline-block"
-            >
-              → Перейти к Posting Jobs
-            </NuxtLink>
-          </div>
-        </div>
-
-        <div class="modal-action">
-          <button class="btn btn-sm btn-ghost" @click="goBackToStep1">Назад</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="!title.trim() || isCreating || isSubmittingPostingJobs"
-            @click="handleSubmit(false)"
-          >
-            <span
-              v-if="isCreating || isSubmittingPostingJobs"
-              class="loading loading-spinner loading-xs"
-            />
-            Загрузить сейчас
-          </button>
-          <button
-            v-if="scheduledAt"
-            class="btn btn-sm btn-warning"
-            :disabled="!title.trim() || isCreating || isSubmittingPostingJobs"
-            @click="handleSubmit(true)"
-          >
-            Запланировать
-          </button>
-        </div>
-      </template>
+      <UiEmptyState
+        v-if="!activeAccounts.length && !groups.length"
+        icon="mingcute:user-add-line"
+        title="Активных аккаунтов нет"
+        description="Подключите аккаунт в разделе «Аккаунты», иначе публиковать некуда."
+      />
     </div>
 
-    <form method="dialog" class="modal-backdrop">
-      <button @click="closeModal">close</button>
-    </form>
-  </dialog>
+    <!-- Шаг 2: что публикуем -->
+    <div v-else class="flex flex-col gap-3">
+      <UploadMetaForm
+        v-model:title="title"
+        v-model:description="description"
+        v-model:hashtags-raw="hashtagsRaw"
+        v-model:scheduled-at="scheduledAt"
+        :cache-scope="String(videoId)"
+        @edit:title="userEditedTitle = true"
+        @edit:description="userEditedDescription = true"
+        @edit:hashtags="userEditedHashtags = true"
+      />
+
+      <p
+        v-if="captionPreload.captions.value.length > 0"
+        class="text-sm text-subtle"
+      >
+        Подставлено утверждённое описание ролика — можно править.
+      </p>
+
+      <p v-if="error" class="rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+        {{ error }}
+      </p>
+
+      <div
+        v-if="postSubmitNotice"
+        class="rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm"
+      >
+        <div class="font-medium text-warning">Ролик не опубликован</div>
+        <p class="mt-1 break-words text-muted">{{ postSubmitNotice }}</p>
+        <NuxtLink to="/posting-jobs" class="mt-1 inline-block text-accent-text">
+          Открыть задачи постинга
+        </NuxtLink>
+      </div>
+    </div>
+
+    <template #footer>
+      <template v-if="step === 1">
+        <UiButton variant="ghost" @click="closeModal">Отмена</UiButton>
+        <UiButton variant="primary" :disabled="!hasSelection" @click="goToStep2">Далее</UiButton>
+      </template>
+      <template v-else>
+        <UiButton variant="ghost" @click="goBackToStep1">Назад</UiButton>
+        <UiButton
+          v-if="scheduledAt"
+          :loading="isCreating || isSubmittingPostingJobs"
+          :disabled="!title.trim()"
+          @click="handleSubmit(true)"
+        >
+          Запланировать
+        </UiButton>
+        <UiButton
+          variant="primary"
+          :loading="isCreating || isSubmittingPostingJobs"
+          :disabled="!title.trim()"
+          @click="handleSubmit(false)"
+        >
+          Загрузить сейчас
+        </UiButton>
+      </template>
+    </template>
+  </UiModal>
 </template>
