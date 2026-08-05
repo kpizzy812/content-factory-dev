@@ -1,0 +1,15 @@
+<!-- component: LogRow -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:14px 16px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle);margin-bottom:12px">Лог-строка</div>
+      <div style="font-family:var(--font-mono);font-size:11.5px">
+        <div style="display:flex;gap:10px;padding:5px 6px;border-radius:var(--radius-sm);cursor:pointer" style-hover="background:var(--color-card)"><span style="color:var(--color-text-subtle);font-variant-numeric:tabular-nums;flex:none">14:32:07</span><span style="color:var(--color-info);width:44px;flex:none">INFO</span><span style="color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">шаг 4/9 lip-sync: отправлено в Replicate, model=wav2lip</span></div>
+        <div style="display:flex;gap:10px;padding:5px 6px;border-radius:var(--radius-sm);cursor:pointer" style-hover="background:var(--color-card)"><span style="color:var(--color-text-subtle);font-variant-numeric:tabular-nums;flex:none">14:32:41</span><span style="color:var(--color-warning);width:44px;flex:none">WARN</span><span style="color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">повторная попытка 1 из 3, таймаут провайдера</span></div>
+        <div style="border-radius:var(--radius-sm);background:var(--color-danger-bg);border:1px solid var(--color-danger-border)">
+          <div style="display:flex;gap:10px;padding:5px 6px;cursor:pointer"><span style="color:var(--color-text-subtle);font-variant-numeric:tabular-nums;flex:none">14:33:12</span><span style="color:var(--color-danger);width:44px;flex:none">ERR</span><span style="color:var(--color-text);flex:1">lip-sync упал: файл речи короче видеодорожки</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="2" stroke-linecap="round" style="flex:none;margin-top:3px"><path d="m6 14 6-6 6 6"/></svg></div>
+          <div style="padding:0 6px 7px 64px;color:var(--color-text-muted);line-height:1.6">audio_duration=74.20s video_duration=82.04s<br/>provider=replicate/wav2lip attempt=2 cost=6,10 ₽</div>
+        </div>
+        <div style="display:flex;gap:10px;padding:5px 6px;border-radius:var(--radius-sm)"><span style="color:var(--color-text-subtle);font-variant-numeric:tabular-nums;flex:none">14:33:15</span><span style="color:var(--color-text-subtle);width:44px;flex:none">DBG</span><span style="color:var(--color-text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">запуск приостановлен, ожидание решения оператора</span></div>
+      </div>
+    </div>
+
+    

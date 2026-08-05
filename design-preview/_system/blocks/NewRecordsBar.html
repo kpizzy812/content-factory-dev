@@ -1,0 +1,41 @@
+<!-- component: NewRecordsBar — новые записи не вставляются в список на лету -->
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);cursor:pointer;width:fit-content" style-hover="background:var(--color-card)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round"><path d="M12 19V6m0 0-5 5m5-5 5 5"/></svg>
+          <span style="font-size:12px;white-space:nowrap">＋4 новых тренда</span>
+          <span style="font-size:11.5px;color:var(--color-text-subtle);white-space:nowrap">показать</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);line-height:1.55;padding:9px 11px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+          <b style="color:var(--color-text)">Правила поллинга (интервал 5 с, 33 места в коде).</b> Индикатор обновления один на приложение, в топбаре, без спиннера и без мигания. Счётчики меняют только цифру: место под 3 знака зарезервировано, ширина пункта не меняется. Строки таблицы не перерисовываются и не переупорядочиваются, пока пользователь сам не сменил сортировку; новые записи не вставляются в середину — появляется плашка «＋N новых» сверху.
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="position:relative;padding-top:26px;min-width:206px;flex:none">
+            <div style="position:absolute;top:0;left:0;padding:5px 8px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);font-size:11.5px;white-space:nowrap">Сбросится через 3 ч 20 мин</div>
+            <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:22px;padding:0 8px;border-radius:var(--radius-sm);font-size:12px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-variant-numeric:tabular-nums">34 / 50 за 24 ч</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);max-width:220px">Подсказка объясняет, а не прячет: сама величина всегда видна в интерфейсе.</div>
+        </div>
+        <div style="display:flex;gap:11px;padding:11px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:var(--radius-md)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="8"/><path d="M12 8v5m0 3h.01"/></svg>
+          <div style="flex:1">
+            <div style="font-size:12.5px;font-weight:500">Часть данных не загрузилась</div>
+            <div style="font-size:12px;color:var(--color-text-muted);margin:3px 0 8px">Метрики просмотров недоступны: YouTube Data API вернул 503. Остальные колонки актуальны, работа со списком не блокируется.</div>
+            <button style="height:26px;padding:0 10px;border:1px solid var(--color-warning-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12px;cursor:pointer">Повторить только просмотры</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="s8" style="padding:28px 24px 32px;border-top:1px solid var(--color-divider);overflow-x:auto">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">08</span>
+    <h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em">Оболочка приложения</h2>
+  </div>
+  <p style="margin:6px 0 16px;font-size:13px;color:var(--color-text-muted);max-width:760px">Левый сайдбар вместо горизонтального меню: 240 px развёрнутый, 56 px свёрнутый, состояние запоминается. Подсказка по странице переехала в кнопку «?» в верхней панели и больше не занимает вертикальное место. Пункты, недоступные по правам или выключенным модулям, отсутствуют — не серые.</p>
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <button onClick="{{ toggleSb }}" style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Свернуть / развернуть сайдбар</button>
+    <button onClick="{{ openCmdk }}" style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:12.5px;cursor:pointer">Открыть ⌘K</button>
+    <span style="font-size:11.5px;color:var(--color-text-subtle)">Работают и клавиши: ⌘K / Ctrl+K открывает палитру, Escape закрывает.</span>
+  </div>
+
+  

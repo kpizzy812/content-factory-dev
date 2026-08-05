@@ -1,0 +1,66 @@
+<!-- component: Field -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+      <div>
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Название конвейера</label>
+        <input value="Тренд → сценарий → видео → Reels" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px"/>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Видно в списке запусков и в уведомлениях.</div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Фокус</label>
+        <input value="TikTok, RU" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-accent);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;outline:2px solid var(--color-accent);outline-offset:1px"/>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Кольцо фокуса — акцентное, 2 px.</div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Лимит за 24 ч</label>
+        <input value="80" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-danger);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-family:var(--font-mono)"/>
+        <div style="display:flex;gap:5px;align-items:center;font-size:11.5px;color:var(--color-danger);margin-top:4px">
+          <!-- icon: mingcute:alert-line -->
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          Instagram не даёт больше 50 публикаций за 24 часа.
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Аккаунт</label>
+        <div style="position:relative">
+          <select style="width:100%;height:32px;padding:0 30px 0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;appearance:none;cursor:pointer"><option>@zavod.mebel.ru</option><option>@mebel.optom</option></select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Только прогретые аккаунты.</div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Только чтение</label>
+        <input value="run_88213" readOnly="readOnly" style="width:100%;height:32px;padding:0 10px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:13px;font-family:var(--font-mono)"/>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">ID запуска не редактируется.</div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Отключено</label>
+        <input value="Нет прав на изменение" disabled="disabled" style="width:100%;height:32px;padding:0 10px;background:var(--color-surface);border:1px dashed var(--color-divider);border-radius:var(--radius-md);color:var(--color-text-subtle);font-size:13px"/>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Запросите роль «Оператор».</div>
+      </div>
+      <div style="grid-column:span 2">
+        <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Промт сценария</label>
+        <textarea rows="3" style="width:100%;padding:8px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;resize:vertical">Хук: боль с доставкой. Первые 3 секунды — вопрос в лоб, дальше демонстрация сборки без инструкции.</textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer"><input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer"/>Только прогретые аккаунты</label>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/>Включая архив</label>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer"><input type="radio" name="mode" checked="checked" style="width:15px;height:15px;cursor:pointer"/>Таблица</label>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer"><input type="radio" name="mode" style="width:15px;height:15px;cursor:pointer"/>Карточки</label>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;justify-content:center">
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px">
+          <div style="width:34px;height:20px;border-radius:var(--radius-full);background:var(--color-accent);position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:16px;width:16px;height:16px;border-radius:var(--radius-full);background:var(--color-on-accent)"></div></div>
+          Автопубликация включена
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--color-text-muted)">
+          <div style="width:34px;height:20px;border-radius:var(--radius-full);background:var(--color-neutral-bg);border:1px solid var(--color-border);position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:var(--radius-full);background:var(--color-text-subtle)"></div></div>
+          Черновики в выдаче
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--color-text-muted);margin-bottom:4px"><span>Минимальная виральность</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">70</span></div>
+          <input type="range" min="0" max="100" value="70" style="width:100%;cursor:pointer"/>
+        </div>
+      </div>
+    </div>
+
+    

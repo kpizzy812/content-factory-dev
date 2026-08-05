@@ -1,0 +1,28 @@
+<!-- component: ErrorInline / ErrorScreen -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:14px 16px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle);margin-bottom:12px">Ошибка · встроенная и на весь блок</div>
+      <div style="display:flex;gap:11px;padding:12px;background:var(--color-danger-bg);border:1px solid var(--color-danger-border);border-radius:var(--radius-md)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+        <div style="flex:1">
+          <div style="font-size:12.5px;font-weight:500">Не удалось загрузить тренды</div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin:3px 0 8px">Apify не ответил за 30 секунд. Данные в списке — из кэша, они могли устареть.</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button style="height:26px;padding:0 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12px;cursor:pointer">Повторить</button>
+            <button style="height:26px;padding:0 6px;border:0;background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px">Технические детали<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:26px 16px;text-align:center;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+        <div style="width:38px;height:38px;margin:0 auto 10px;border-radius:var(--radius-md);background:var(--color-danger-bg);border:1px solid var(--color-danger-border);display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.5" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+        </div>
+        <div style="font-size:14px;font-weight:600">Раздел недоступен</div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin:5px auto 12px;max-width:340px">Сервис трендов не отвечает. Остальные разделы работают — конвейеры и публикация не остановлены.</div>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Повторить</button>
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Открыть логи</button>
+        </div>
+      </div>
+    </div>
+
+    

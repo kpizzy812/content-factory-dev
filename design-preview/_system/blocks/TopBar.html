@@ -1,0 +1,33 @@
+<!-- component: TopBar -->
+      <div style="flex:none;display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+        <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;flex:none;white-space:nowrap">
+          <span style="color:var(--color-text-subtle)">Производство</span>
+          <span style="color:var(--color-text-subtle)">/</span>
+          <span style="font-weight:500">Тренды</span>
+        </div>
+        <div onClick="{{ openCmdk }}" style="flex:0 1 320px;position:relative;cursor:text">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:7px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <div style="height:29px;padding:0 10px 0 30px;display:flex;align-items:center;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--color-text-subtle)">
+            Поиск и команды
+            <span style="flex:1"></span>
+            <span style="font-family:var(--font-mono);font-size:11px;padding:1px 5px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface)">⌘K</span>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:8px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer" style-hover="border-color:var(--color-text-subtle)">
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-text-muted)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-info)"></span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">7</span> запусков</span>
+          <span style="width:1px;height:14px;background:var(--color-border)"></span>
+          <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;font-size:12px;color:var(--color-danger)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3</span> алерта</span>
+        </div>
+        <div style="display:flex;align-items:center;white-space:nowrap;flex:none;gap:6px;height:26px;padding:0 9px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer" style-hover="border-color:var(--color-text-subtle)">
+          <span style="font-size:11.5px;color:var(--color-text-subtle)">за сутки</span>
+          <span style="font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">12 480 ₽</span>
+        </div>
+        <button title="Подсказка по странице" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer;font-size:12.5px" style-hover="color:var(--color-text)">?</button>
+        <button title="Уведомления" style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text-muted);cursor:pointer" style-hover="color:var(--color-text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11a4 4 0 0 1 8 0v4l1.5 2h-11L8 15zM10.5 19.5a2 2 0 0 0 3 0"/></svg>
+          <span style="position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:var(--radius-full);background:var(--color-danger);color:var(--color-text-inverse);font-size:9.5px;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center">4</span>
+        </button>
+      </div>
+
+      

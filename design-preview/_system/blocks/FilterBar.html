@@ -1,0 +1,29 @@
+<!-- component: FilterBar -->
+    <div style="padding:12px 14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle);margin-bottom:10px">Группа фильтров · одна строка, чипы, сброс</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <div style="position:relative;flex:0 1 240px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;left:9px;top:8px"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <input placeholder="Поиск по названию и автору" style="width:100%;height:30px;padding:0 10px 0 30px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px"/>
+        </div>
+        <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md);color:var(--color-text);font-size:12.5px;cursor:pointer">Платформа<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-accent-text)">2</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+        <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Статус<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+        <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Источник<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+        <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">5 авг — 5 авг<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 10 6 6 6-6"/></svg></button>
+        <div style="flex:1"></div>
+        <button style="height:30px;padding:0 10px;display:flex;align-items:center;gap:7px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text-muted);font-size:12.5px;cursor:pointer">
+          <!-- icon: mingcute:sort-descending-line -->
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h10M4 12h7M4 17h4M17 5v14m0 0 3-3m-3 3-3-3"/></svg>
+          Виральность ↓
+        </button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px">
+        <span style="font-size:11.5px;color:var(--color-text-subtle)">Активные:</span>
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">TikTok<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px">Instagram<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+        <span style="display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:24px;padding:0 6px 0 9px;white-space:nowrap;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:12px;font-variant-numeric:tabular-nums">виральность ≥ 70<button style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--color-text-subtle);cursor:pointer;padding:0" style-hover="color:var(--color-danger)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+        <button style="height:24px;padding:0 8px;border:0;background:transparent;color:var(--color-accent-text);font-size:12px;cursor:pointer">Сбросить всё</button>
+      </div>
+    </div>
+
+    

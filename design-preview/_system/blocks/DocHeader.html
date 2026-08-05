@@ -1,0 +1,164 @@
+<!-- component: DocHeader -->
+<div style="position:sticky;top:0;z-index:40;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+  <div style="display:flex;align-items:center;gap:16px;padding:12px 24px">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+      <div style="font-size:14px;font-weight:600;letter-spacing:-.01em">ContentFactory</div>
+      <div style="font-size:12px;color:var(--color-text-subtle)">Дизайн-система · Задача 1</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:6px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+      <button onClick="{{ setDark }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tDarkBg }};color:{{ tDarkFg }}">Тёмная</button>
+      <button onClick="{{ setLight }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tLightBg }};color:{{ tLightFg }}">Светлая</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button onClick="{{ setAmber }}" title="Янтарь" style="width:24px;height:24px;border-radius:var(--radius-full);cursor:pointer;background:#f0a63c;border:2px solid {{ aAmber }}"></button>
+      <button onClick="{{ setCyan }}" title="Сталь" style="width:24px;height:24px;border-radius:var(--radius-full);cursor:pointer;background:#3fb3d6;border:2px solid {{ aCyan }}"></button>
+      <button onClick="{{ setPine }}" title="Хвоя" style="width:24px;height:24px;border-radius:var(--radius-full);cursor:pointer;background:#46b384;border:2px solid {{ aPine }}"></button>
+      <span style="font-size:11px;color:var(--color-text-subtle);font-family:var(--font-mono);width:52px">{{ accentName }}</span>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:2px;padding:0 20px 8px">
+    <a href="#s1" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">01 · Палитры</a>
+    <a href="#s2" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">02 · Токены</a>
+    <a href="#s3" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">03 · Типографика</a>
+    <a href="#s4" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">04 · Управление</a>
+    <a href="#s5" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">05 · Статусы</a>
+    <a href="#s6" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">06 · Данные</a>
+    <a href="#s7" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">07 · Обратная связь</a>
+    <a href="#s8" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">08 · Оболочка</a>
+    <a href="#s9" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">09 · ⌘K</a>
+    <a href="#s10" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">10 · Адаптив</a>
+    <a href="#s11" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">11 · Две темы</a>
+    <a href="#s12" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);text-decoration:none;border-radius:var(--radius-sm)" style-hover="background:var(--color-card);color:var(--color-text)">12 · tokens.css</a>
+  </div>
+</div>
+
+<section id="s1" style="padding:28px 24px 32px">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">01</span>
+    <h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em">Три варианта акцентной палитры</h2>
+  </div>
+  <p style="margin:6px 0 20px;font-size:13px;color:var(--color-text-muted);max-width:760px">Акцент один на всю систему: активный пункт меню, основная кнопка, прогресс, ссылка, фокус. Статусные цвета от него не зависят. Переключатель в шапке применяет выбранную палитру ко всему каталогу.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;max-width:1400px">
+
+    <div data-accent="amber" style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-divider)">
+        <div style="width:28px;height:28px;border-radius:var(--radius-sm);background:var(--color-accent)"></div>
+        <div>
+          <div style="font-size:14px;font-weight:600">А · Промышленный янтарь</div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">oklch(.76 .13 68) · #f0a63c</div>
+        </div>
+      </div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;color:var(--color-text-muted)">Тёплый сигнальный цвет цеха: маркировка, предупреждающая разметка. Даёт наибольшую разницу со статусными синим и зелёным, но конкурирует с warning.</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:13px;font-weight:500;cursor:pointer">Запустить</button>
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:13px;cursor:pointer">Отмена</button>
+          <a href="#s1" style="font-size:13px">Все запуски</a>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;position:relative">
+            <div style="position:absolute;left:0;top:5px;bottom:5px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+            <!-- icon: mingcute:git-branch-line -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+            Конвейеры
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px">
+            <!-- icon: mingcute:fire-line -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+            Тренды
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-muted);margin-bottom:5px"><span>Готово роликов за сутки</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">43 / 60</span></div>
+          <div style="height:6px;border-radius:var(--radius-full);background:var(--color-card);overflow:hidden"><div style="width:72%;height:100%;background:var(--color-accent)"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div data-accent="cyan" style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-divider)">
+        <div style="width:28px;height:28px;border-radius:var(--radius-sm);background:var(--color-accent)"></div>
+        <div>
+          <div style="font-size:14px;font-weight:600">Б · Холодная сталь</div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">oklch(.73 .09 218) · #3fb3d6</div>
+        </div>
+      </div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;color:var(--color-text-muted)">Спокойный и выносливый на шести часах работы. Риск: близок к info, поэтому «выполняется» придётся отличать движением и иконкой, а не только цветом.</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:13px;font-weight:500;cursor:pointer">Запустить</button>
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:13px;cursor:pointer">Отмена</button>
+          <a href="#s1" style="font-size:13px">Все запуски</a>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;position:relative">
+            <div style="position:absolute;left:0;top:5px;bottom:5px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+            <!-- icon: mingcute:git-branch-line -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+            Конвейеры
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px">
+            <!-- icon: mingcute:fire-line -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+            Тренды
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-muted);margin-bottom:5px"><span>Готово роликов за сутки</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">43 / 60</span></div>
+          <div style="height:6px;border-radius:var(--radius-full);background:var(--color-card);overflow:hidden"><div style="width:72%;height:100%;background:var(--color-accent)"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div data-accent="pine" style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-divider)">
+        <div style="width:28px;height:28px;border-radius:var(--radius-sm);background:var(--color-accent)"></div>
+        <div>
+          <div style="font-size:14px;font-weight:600">В · Хвойный зелёный</div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">oklch(.71 .11 158) · #46b384</div>
+        </div>
+      </div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;color:var(--color-text-muted)">Самый нейтральный на тёмном фоне. Главный минус для этого продукта: почти неотличим от success, а «готово» — самый частый статус в системе.</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button style="height:28px;padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:13px;font-weight:500;cursor:pointer">Запустить</button>
+          <button style="height:28px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card);color:var(--color-text);font-size:13px;cursor:pointer">Отмена</button>
+          <a href="#s1" style="font-size:13px">Все запуски</a>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:var(--radius-sm);background:var(--color-accent-bg);color:var(--color-text);font-size:12.5px;position:relative">
+            <div style="position:absolute;left:0;top:5px;bottom:5px;width:2px;border-radius:2px;background:var(--color-accent)"></div>
+            <!-- icon: mingcute:git-branch-line -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/><circle cx="7" cy="5" r="1.6"/><circle cx="17" cy="5" r="1.6"/></svg>
+            Конвейеры
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:var(--radius-sm);color:var(--color-text-muted);font-size:12.5px">
+            <!-- icon: mingcute:fire-line -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 4c3 3 5 5.6 5 8.5a5 5 0 0 1-10 0C7 9.6 9 7 12 4Z"/></svg>
+            Тренды
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-muted);margin-bottom:5px"><span>Готово роликов за сутки</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">43 / 60</span></div>
+          <div style="height:6px;border-radius:var(--radius-full);background:var(--color-card);overflow:hidden"><div style="width:72%;height:100%;background:var(--color-accent)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:10px;align-items:flex-start;max-width:900px;padding:12px 14px;background:var(--color-accent-bg);border:1px solid var(--color-accent-border);border-radius:var(--radius-md)">
+    <!-- icon: mingcute:bulb-line -->
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>
+    <div style="font-size:12.5px;color:var(--color-text)"><b>Рекомендация — А, промышленный янтарь.</b> Единственный из трёх, который не пересекается ни с info («выполняется»), ни с success («готово»), а это два самых частых состояния в интерфейсе. Конфликт с warning снят тем, что warning нигде не используется как заливка крупной плоскости — только как подложка бейджа и полоса слева.</div>
+  </div>
+</section>
+<section id="s2" style="padding:28px 24px 32px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">02</span>
+    <h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em">Токены</h2>
+  </div>
+  <p style="margin:6px 0 20px;font-size:13px;color:var(--color-text-muted);max-width:760px">Названные, а не нумерованные. Каждый токен существует в обеих темах. Полный <a href="#s12">tokens.css</a> — в конце документа.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;max-width:1400px">
+    

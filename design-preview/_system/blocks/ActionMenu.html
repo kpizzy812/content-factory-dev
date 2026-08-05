@@ -1,0 +1,42 @@
+<!-- component: ActionMenu -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+      <div style="width:220px;background:var(--color-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px">
+        <div style="padding:6px 9px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">Тренд</div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;background:var(--color-card)">
+          <!-- icon: mingcute:play-circle-line -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M10.5 9.5l4 2.5-4 2.5z"/></svg>Взять в работу<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">W</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)">
+          <!-- icon: mingcute:git-branch-line -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 5v14M7 12h6a4 4 0 0 0 4-4V6"/></svg>Отправить в конвейер
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-text-muted)">
+          <!-- icon: mingcute:copy-line -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 6H7a2 2 0 0 0-2 2v8"/></svg>Скопировать ID
+        </div>
+        <div style="height:1px;background:var(--color-divider);margin:4px 0"></div>
+        <div style="display:flex;align-items:center;gap:9px;height:28px;padding:0 9px;border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;color:var(--color-danger)">
+          <!-- icon: mingcute:delete-2-line -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>Удалить<span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle)">⌫</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:260px;font-size:12.5px;color:var(--color-text-muted);max-width:520px">
+        <b style="color:var(--color-text)">Правило.</b> Частые действия («Взять в работу», «Повторить») стоят в строке и в шапке, а меню — только для редких и опасных. Обратимые действия выполняются сразу, с тостом «Отменить»; необратимые — мягким подтверждением на месте кнопки:
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);width:fit-content">
+          <span style="font-size:12.5px;color:var(--color-text)">Удалить?</span>
+          <button style="height:24px;padding:0 9px;border:0;border-radius:var(--radius-sm);background:var(--color-danger);color:var(--color-text-inverse);font-size:12px;cursor:pointer">Да</button>
+          <button style="height:24px;padding:0 9px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Нет</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="s5" style="padding:28px 24px 32px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">05</span>
+    <h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em">Статусы — единая семантика</h2>
+  </div>
+  <p style="margin:6px 0 20px;font-size:13px;color:var(--color-text-muted);max-width:760px">Восемь состояний на все сущности системы. У сущности могут быть свои подписи («На ревью» у сценария, «Ждёт сброса лимита» у публикации), но цвет и иконка берутся строго отсюда. Свои наборы цветов у сущностей запрещены.</p>
+
+  <div style="display:grid;grid-template-columns:minmax(560px,1.4fr) minmax(300px,1fr);gap:16px;max-width:1400px">
+    
