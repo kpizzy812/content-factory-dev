@@ -1,26 +1,30 @@
 <script setup lang="ts">
 /**
- * Track F — секция уникализации видео для completed-видео.
+ * Уникализированные варианты ролика (Track F) — по одному на платформу.
  *
- * Показывает по одному варианту на платформу (tiktok / youtube).
- * При создании variant: POST /api/videos/[id]/uniqify → refresh list.
- * Force-перегенерация → uniqifyVariant(..., true).
+ * Оговорка про пределы уникализации стоит выше кнопок и не сворачивается:
+ * сервис меняет file hash и базовые метаданные, но не обходит perceptual
+ * hashing, и человек должен узнать это до того, как нажмёт.
  *
- * Disclaimer обязателен: сервис меняет только file hash + base metadata,
- * не обходит perceptual hashing.
+ * Список тянется только на клиенте (`server: false` в composable), поэтому
+ * секция целиком за `ClientOnly`: иначе разметка сервера и клиента расходятся
+ * и Vue бросает поддерево недорисованным.
  */
-
 import type { VariantDto } from '~/composables/useVideoVariants'
 
-interface Props {
+const props = defineProps<{
   videoId: number
   videoFileUrl: string | null
-}
+}>()
 
-const props = defineProps<Props>()
 const emit = defineEmits<{ created: [] }>()
 
 type AllowedPlatform = 'tiktok' | 'youtube'
+
+const TABS: Array<{ key: AllowedPlatform, label: string }> = [
+  { key: 'tiktok', label: 'TikTok' },
+  { key: 'youtube', label: 'YouTube' },
+]
 
 const activeTab = ref<AllowedPlatform>('tiktok')
 
@@ -29,12 +33,29 @@ const { uniqifyVariant, isUniqifying, error } = useVideoVariantActions()
 
 const variants = computed<VariantDto[]>(() => data.value?.data ?? [])
 
-const tiktokVariant = computed(() => variants.value.find(v => v.platform === 'tiktok') ?? null)
-const youtubeVariant = computed(() => variants.value.find(v => v.platform === 'youtube') ?? null)
-
 function variantFor(platform: AllowedPlatform): VariantDto | null {
-  return platform === 'tiktok' ? tiktokVariant.value : youtubeVariant.value
+  return variants.value.find(v => v.platform === platform) ?? null
 }
+
+const current = computed(() => variantFor(activeTab.value))
+
+const currentProps = computed(() => {
+  const v = current.value
+  if (!v) return []
+  const p = v.paramsJson
+  return [
+    { label: 'CRF', value: String(p.crf) },
+    { label: 'Яркость', value: String(p.brightness) },
+    { label: 'Контраст', value: String(p.contrast) },
+    { label: 'Насыщенность', value: String(p.saturation) },
+    { label: 'Скорость', value: String(p.speed) },
+    { label: 'Обрезка, px', value: String(p.cropPx) },
+    { label: 'Размер', value: `${(v.fileSize / 1024 / 1024).toFixed(2)} МБ` },
+    { label: 'Длительность', value: `${v.durationSec.toFixed(2)} с` },
+    { label: 'File hash', value: `${v.fileHash.slice(0, 16)}…` },
+    { label: 'Params hash', value: v.paramsHash },
+  ]
+})
 
 async function onCreate(platform: AllowedPlatform, force = false) {
   const result = await uniqifyVariant(props.videoId, platform, force)
@@ -43,182 +64,92 @@ async function onCreate(platform: AllowedPlatform, force = false) {
     emit('created')
   }
 }
-
-function formatBytes(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
-}
-
-function formatHash(hash: string): string {
-  return `${hash.slice(0, 16)}…`
-}
-
-function formatDuration(sec: number): string {
-  return `${sec.toFixed(2)} с`
-}
-
-const tabs: Array<{ key: AllowedPlatform; label: string; icon: string }> = [
-  { key: 'tiktok', label: 'TikTok', icon: 'mingcute:tiktok-line' },
-  { key: 'youtube', label: 'YouTube', icon: 'mingcute:youtube-line' },
-]
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body space-y-3">
-      <div class="flex items-center gap-2 flex-wrap">
-        <h2 class="card-title text-base">
-          <Icon name="mingcute:copy-2-line" class="text-base-content/60" />
-          Уникализированные варианты
-        </h2>
-        <span class="badge badge-soft badge-warning badge-sm">бета</span>
-      </div>
+  <ClientOnly>
+    <section class="overflow-hidden rounded-lg border border-border bg-panel">
+    <header class="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
+      <h2 class="text-base font-semibold">Уникализированные варианты</h2>
+      <span class="inline-flex h-5 items-center rounded-sm border border-warning-border bg-warning-bg px-1.5 text-micro text-warning">
+        бета
+      </span>
+    </header>
 
-      <div role="alert" class="alert alert-info text-sm">
-        <Icon name="mingcute:information-line" class="text-base" />
-        <div class="space-y-1">
-          <p class="font-medium">Что делает уникализация</p>
-          <p class="text-xs opacity-90">
-            Меняет file hash и базовые метаданные (re-encode, лёгкие сдвиги яркости/контраста/тембра).
-            Не обходит perceptual hashing TikTok/Meta — реальная защита от детектирования
-            делается творческими изменениями (новый хук, CTA, монтаж).
-          </p>
-        </div>
-      </div>
+    <div class="flex flex-col gap-3 p-3">
+      <p class="rounded-md border border-info-border bg-info-bg p-2.5 text-sm text-muted">
+        <span class="font-medium text-info">Что делает уникализация.</span>
+        Меняет file hash и базовые метаданные — пережатие, лёгкие сдвиги яркости, контраста и
+        тембра. Perceptual hashing TikTok и Meta это не обходит: от детектирования защищают
+        творческие изменения — другой хук, другой CTA, другой монтаж.
+      </p>
 
-      <div role="tablist" class="tabs tabs-lift">
-        <a
-          v-for="tab in tabs"
-          :key="tab.key"
+      <UiErrorState v-if="error" title="Уникализация не удалась" :message="error" @retry="refresh" />
+
+      <div role="tablist" class="flex gap-0.5 border-b border-divider">
+        <button
+          v-for="t in TABS"
+          :key="t.key"
+          type="button"
           role="tab"
-          class="tab gap-1"
-          :class="{ 'tab-active': activeTab === tab.key }"
-          @click="activeTab = tab.key"
+          :aria-selected="activeTab === t.key"
+          class="flex h-8 cursor-pointer items-center gap-1.5 border-b-2 px-2.5 text-sm"
+          :class="activeTab === t.key ? 'border-accent font-medium text-fg' : 'border-transparent text-muted hover:text-fg'"
+          @click="activeTab = t.key"
         >
-          <Icon :name="tab.icon" class="text-sm" />
-          {{ tab.label }}
-          <span
-            v-if="variantFor(tab.key)"
-            class="badge badge-soft badge-success badge-xs ml-1"
-          >есть</span>
-        </a>
+          {{ t.label }}
+          <UiStatusBadge v-if="variantFor(t.key)" status="done" size="xs" dot icon-only />
+        </button>
       </div>
 
-      <div v-if="error" role="alert" class="alert alert-error text-sm">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ error }}</span>
-      </div>
+      <UiSkeleton v-if="pending && !variants.length" variant="details" :count="4" />
 
-      <div v-if="pending && !variants.length" class="flex justify-center py-6">
-        <span class="loading loading-spinner loading-md" />
-      </div>
+      <template v-else-if="current">
+        <div class="flex flex-col gap-3 md:flex-row">
+          <video
+            :src="current.fileUrl"
+            controls
+            :autoplay="false"
+            class="aspect-[9/16] w-full max-w-[236px] shrink-0 rounded-md border border-border bg-surface"
+          >
+            Ваш браузер не поддерживает воспроизведение видео.
+          </video>
 
-      <template v-else>
-        <div
-          v-for="tab in tabs"
-          v-show="activeTab === tab.key"
-          :key="tab.key"
-          class="space-y-3"
-        >
-          <template v-if="variantFor(tab.key)">
-            <video
-              :src="variantFor(tab.key)!.fileUrl"
-              controls
-              :autoplay="false"
-              class="rounded-box bg-base-300 max-w-sm aspect-[9/16] mx-auto"
-            >
-              Ваш браузер не поддерживает воспроизведение видео.
-            </video>
-
-            <div class="overflow-x-auto">
-              <table class="table table-xs">
-                <tbody>
-                  <tr>
-                    <th class="w-1/3">CRF</th>
-                    <td>{{ variantFor(tab.key)!.paramsJson.crf }}</td>
-                  </tr>
-                  <tr>
-                    <th>Brightness</th>
-                    <td>{{ variantFor(tab.key)!.paramsJson.brightness }}</td>
-                  </tr>
-                  <tr>
-                    <th>Contrast</th>
-                    <td>{{ variantFor(tab.key)!.paramsJson.contrast }}</td>
-                  </tr>
-                  <tr>
-                    <th>Saturation</th>
-                    <td>{{ variantFor(tab.key)!.paramsJson.saturation }}</td>
-                  </tr>
-                  <tr>
-                    <th>Speed</th>
-                    <td>{{ variantFor(tab.key)!.paramsJson.speed }}</td>
-                  </tr>
-                  <tr>
-                    <th>Crop (px)</th>
-                    <td>{{ variantFor(tab.key)!.paramsJson.cropPx }}</td>
-                  </tr>
-                  <tr>
-                    <th>Размер файла</th>
-                    <td>{{ formatBytes(variantFor(tab.key)!.fileSize) }}</td>
-                  </tr>
-                  <tr>
-                    <th>Длительность</th>
-                    <td>{{ formatDuration(variantFor(tab.key)!.durationSec) }}</td>
-                  </tr>
-                  <tr>
-                    <th>File hash</th>
-                    <td class="font-mono text-xs">{{ formatHash(variantFor(tab.key)!.fileHash) }}</td>
-                  </tr>
-                  <tr>
-                    <th>Params hash</th>
-                    <td class="font-mono text-xs">{{ variantFor(tab.key)!.paramsHash }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-              <a
-                :href="variantFor(tab.key)!.fileUrl"
-                :download="`video-${videoId}-${tab.key}.mp4`"
-                class="btn btn-sm btn-primary gap-1"
-              >
-                <Icon name="mingcute:download-2-line" />
-                Скачать
-              </a>
-              <button
-                class="btn btn-sm btn-ghost gap-1"
-                :disabled="isUniqifying"
-                @click="onCreate(tab.key, true)"
-              >
-                <Icon name="mingcute:refresh-2-line" />
-                Перегенерировать
-              </button>
-            </div>
-          </template>
-
-          <template v-else>
-            <div class="flex flex-col items-center gap-3 py-6">
-              <Icon name="mingcute:add-circle-line" class="text-3xl text-base-content/40" />
-              <p class="text-sm text-base-content/70">
-                Вариант для {{ tab.label }} ещё не создан
-              </p>
-              <button
-                class="btn btn-sm btn-primary gap-1"
-                :disabled="isUniqifying || !videoFileUrl"
-                @click="onCreate(tab.key, false)"
-              >
-                <Icon name="mingcute:wand-line" />
-                Создать вариант для {{ tab.label }}
-              </button>
-            </div>
-          </template>
+          <div class="min-w-0 flex-1">
+            <UiKeyValue :items="currentProps" label-width="128px" />
+          </div>
         </div>
 
-        <div v-if="isUniqifying" class="flex items-center gap-2 text-sm text-base-content/60">
-          <span class="loading loading-spinner loading-xs" />
-          <span>Идёт уникализация — это займёт несколько секунд…</span>
+        <div class="flex flex-wrap gap-1.5">
+          <a :href="current.fileUrl" :download="`video-${videoId}-${activeTab}.mp4`">
+            <UiButton variant="primary">
+              <Icon name="mingcute:download-2-line" />
+              Скачать
+            </UiButton>
+          </a>
+          <UiButton :loading="isUniqifying" @click="onCreate(activeTab, true)">
+            <Icon name="mingcute:refresh-2-line" />
+            Перегенерировать
+          </UiButton>
         </div>
       </template>
+
+      <UiEmptyState
+        v-else
+        icon="mingcute:magic-1-line"
+        :title="`Варианта для ${TABS.find(t => t.key === activeTab)?.label} ещё нет`"
+        description="Создаётся из готового ролика за несколько секунд."
+      >
+        <UiButton
+          variant="primary"
+          :loading="isUniqifying"
+          :disabled="!videoFileUrl"
+          @click="onCreate(activeTab, false)"
+        >
+          Создать вариант
+        </UiButton>
+      </UiEmptyState>
     </div>
-  </div>
+    </section>
+  </ClientOnly>
 </template>

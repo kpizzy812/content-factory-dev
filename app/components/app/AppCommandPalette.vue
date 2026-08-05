@@ -5,9 +5,9 @@
  * Основной способ перемещаться по ~20 разделам и ~50 страницам: перебирать их
  * мышью в меню на такой глубине бессмысленно.
  *
- * Поиск по сущностям (vid_10842, @zavod.mebel.ru) в макете есть, но требует
- * общего серверного endpoint, которого пока нет, — секция подключается в
- * этапе 5 без изменения этого компонента.
+ * Поиск по сущностям идёт в /api/search и живёт отдельной секцией: разделы
+ * находятся мгновенно на клиенте, объекты — с задержкой, и смешивать их в
+ * один список нельзя, иначе результаты прыгают под курсором.
  */
 const { allItems } = useAppNavigation()
 const router = useRouter()
@@ -17,6 +17,56 @@ const query = ref('')
 const cursor = ref(0)
 const inputEl = ref<HTMLInputElement | null>(null)
 const recent = useState<string[]>('cmdk-recent', () => [])
+
+interface SearchHit {
+  type: string
+  typeLabel: string
+  id: number
+  label: string
+  sublabel?: string
+  to: string
+  icon: string
+}
+
+const hits = ref<SearchHit[]>([])
+const searching = ref(false)
+let searchToken = 0
+
+/**
+ * Запрос уходит не на каждое нажатие: оператор печатает быстро, и без
+ * задержки палитра успевает отправить шесть запросов на одно слово.
+ * Ответ на устаревший запрос отбрасывается по токену — иначе медленный
+ * первый ответ перезатрёт быстрый последний.
+ */
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(query, (value) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  const q = value.trim()
+  if (q.length < 2) {
+    hits.value = []
+    searching.value = false
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    const token = ++searchToken
+    searching.value = true
+    try {
+      const res = await $fetch<{ data: SearchHit[] }>('/api/search', { query: { q } })
+      if (token === searchToken) hits.value = res.data
+    }
+    catch {
+      if (token === searchToken) hits.value = []
+    }
+    finally {
+      if (token === searchToken) searching.value = false
+    }
+  }, 200)
+})
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 interface Row {
   /** Уникален в пределах списка: два пункта могут вести на один маршрут. */
@@ -67,9 +117,24 @@ const sections = computed(() => {
 
   const all = [...navRows, ...commands.value]
 
+  // Объекты идут первыми: если человек ищет конкретный ролик, раздел «Видео»
+  // ему сейчас не нужен.
+  const hitRows: Row[] = hits.value.map(h => ({
+    key: `hit:${h.type}:${h.id}`,
+    to: h.to,
+    label: h.label,
+    hint: h.sublabel ? `${h.typeLabel} · ${h.sublabel}` : h.typeLabel,
+    icon: h.icon,
+    section: 'Объекты',
+    run: () => router.push(h.to),
+  }))
+
   let rows: Row[]
   if (q) {
-    rows = all.filter(r => r.label.toLowerCase().includes(q) || r.hint?.toLowerCase().includes(q))
+    rows = [
+      ...hitRows,
+      ...all.filter(r => r.label.toLowerCase().includes(q) || r.hint?.toLowerCase().includes(q)),
+    ]
   }
   else {
     // Пустой запрос: сверху недавнее, ниже всё остальное без повторов.
@@ -145,7 +210,10 @@ defineExpose({ openPalette })
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- Только на клиенте: телепорт в body на сервере расходится с гидратацией,
+       а закрытая палитра в серверной выдаче не нужна. -->
+  <ClientOnly>
+    <Teleport to="body">
     <div
       v-if="open"
       class="fixed inset-0 z-50 flex items-start justify-center bg-overlay px-4 pt-[12vh]"
@@ -185,11 +253,20 @@ defineExpose({ openPalette })
             </button>
           </template>
 
-          <div v-if="!flat.length" class="px-[9px] py-6 text-center text-sm text-subtle">
+          <div
+            v-if="searching && !hits.length"
+            class="flex items-center gap-2 px-[9px] py-2 text-sm text-subtle"
+          >
+            <Icon name="mingcute:loading-line" class="animate-spin" />
+            Ищем объекты…
+          </div>
+
+          <div v-if="!flat.length && !searching" class="px-[9px] py-6 text-center text-sm text-subtle">
             Ничего не найдено
           </div>
         </div>
       </div>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 </template>

@@ -23,8 +23,7 @@ function ageMs(date: Date | null | undefined): number | null {
 export default defineEventHandler(async (event) => {
   const user = await requirePermission(event, "canRead")
 
-  const modules = new Set(user.moduleAccess)
-  const has = (slug: string) => user.canAdmin || modules.has(slug)
+  const has = moduleGate(user)
 
   const tokenDeadline = new Date(Date.now() + TOKEN_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000)
 

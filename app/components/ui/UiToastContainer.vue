@@ -17,7 +17,10 @@ const TONE = {
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- Только на клиенте: телепорт в body на сервере расходится с гидратацией,
+       а в серверной выдаче тостов всё равно быть не может. -->
+  <ClientOnly>
+    <Teleport to="body">
     <div class="pointer-events-none fixed right-4 bottom-4 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2">
       <TransitionGroup
         enter-active-class="transition duration-(--duration-base) ease-out"
@@ -53,5 +56,6 @@ const TONE = {
         </div>
       </TransitionGroup>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 </template>

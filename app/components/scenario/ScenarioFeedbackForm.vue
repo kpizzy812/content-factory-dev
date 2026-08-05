@@ -1,20 +1,38 @@
 <script setup lang="ts">
+/**
+ * Обратная связь по сценарию, ролику или публикации.
+ *
+ * История отзывов лежит под формой, а не за вкладкой: без неё человек пишет
+ * то же самое второй раз, а извлечённые из прошлых отзывов требования — это
+ * готовый ответ на «почему сценарий такой».
+ */
+interface FeedbackDerived {
+  sentiment?: string
+  requirements?: string[]
+  recommendations?: string[]
+  antiPatterns?: string[]
+}
+
+interface FeedbackEntry {
+  id: number
+  feedbackText: string
+  createdAt: string
+  derived?: FeedbackDerived | null
+}
+
 const props = defineProps<{
   scenarioId?: number
   videoId?: number
   uploadId?: number
 }>()
 
-const emit = defineEmits<{
-  submitted: []
-}>()
+const emit = defineEmits<{ submitted: [] }>()
 
 const feedbackText = ref('')
 const isSubmitting = ref(false)
-const successMessage = ref(false)
+const saved = ref(false)
 const errorMessage = ref('')
 
-// --- Query params for fetching past feedback ---
 const queryParams = computed(() => {
   if (props.scenarioId) return { scenarioId: props.scenarioId }
   if (props.videoId) return { videoId: props.videoId }
@@ -22,15 +40,39 @@ const queryParams = computed(() => {
   return {}
 })
 
-const {
-  data: feedbackList,
-  refresh: refreshFeedback,
-} = useFetch('/api/scenarios/feedback', {
+const { data: feedbackList, refresh: refreshFeedback } = useFetch('/api/scenarios/feedback', {
   query: queryParams,
   default: () => [] as FeedbackEntry[],
 })
 
-// --- Submit ---
+const entries = computed(() => (feedbackList.value ?? []) as FeedbackEntry[])
+
+/** Настроение приводим к общему словарю статусов, своих цветов не заводим. */
+const SENTIMENT: Record<string, { label: string, status: 'done' | 'failed' | 'draft' | 'review' }> = {
+  positive: { label: 'Позитивный', status: 'done' },
+  negative: { label: 'Негативный', status: 'failed' },
+  neutral: { label: 'Нейтральный', status: 'draft' },
+  mixed: { label: 'Смешанный', status: 'review' },
+}
+
+const expanded = ref(new Set<number>())
+
+function toggle(id: number) {
+  if (expanded.value.has(id)) expanded.value.delete(id)
+  else expanded.value.add(id)
+}
+
+function hasInsights(entry: FeedbackEntry) {
+  const d = entry.derived
+  return !!(d?.requirements?.length || d?.recommendations?.length || d?.antiPatterns?.length)
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('ru-RU', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 async function handleSubmit() {
   const text = feedbackText.value.trim()
   if (!text) return
@@ -50,175 +92,104 @@ async function handleSubmit() {
     })
 
     feedbackText.value = ''
-    successMessage.value = true
+    saved.value = true
     emit('submitted')
-    refreshFeedback()
-
-    setTimeout(() => {
-      successMessage.value = false
-    }, 2000)
+    await refreshFeedback()
+    setTimeout(() => { saved.value = false }, 2000)
   }
-  catch (err: any) {
-    errorMessage.value = err?.data?.error || err?.message || 'Не удалось отправить отзыв'
+  catch (err: unknown) {
+    errorMessage.value = (err as { data?: { error?: string } })?.data?.error
+      ?? (err instanceof Error ? err.message : 'Не удалось отправить отзыв')
   }
   finally {
     isSubmitting.value = false
   }
 }
-
-// --- Helpers ---
-const sentimentConfig: Record<string, { label: string; class: string }> = {
-  positive: { label: 'Позитивный', class: 'badge-success' },
-  negative: { label: 'Негативный', class: 'badge-error' },
-  neutral: { label: 'Нейтральный', class: 'badge-ghost' },
-  mixed: { label: 'Смешанный', class: 'badge-warning' },
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-// --- Types ---
-interface FeedbackDerived {
-  sentiment?: string
-  requirements?: string[]
-  recommendations?: string[]
-  antiPatterns?: string[]
-}
-
-interface FeedbackEntry {
-  id: number
-  feedbackText: string
-  createdAt: string
-  derived?: FeedbackDerived | null
-}
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-4">
-      <!-- Header -->
-      <h3 class="card-title text-sm">
-        <Icon name="mingcute:comment-line" class="text-base" />
-        Обратная связь
-      </h3>
+  <section class="overflow-hidden rounded-lg border border-border bg-panel">
+    <header class="flex items-center gap-2 border-b border-border px-3 py-2.5">
+      <h2 class="text-base font-semibold">Обратная связь</h2>
+      <span v-if="entries.length" class="tnum font-mono text-micro text-subtle">{{ entries.length }}</span>
+    </header>
 
-      <!-- Form -->
-      <form @submit.prevent="handleSubmit" class="space-y-3">
-        <textarea
-          v-model="feedbackText"
-          class="textarea w-full"
-          rows="3"
-          placeholder="Напишите ваш отзыв или замечания..."
-          :disabled="isSubmitting"
-        />
+    <form class="flex flex-col gap-2 p-3" @submit.prevent="handleSubmit">
+      <UiTextarea
+        v-model="feedbackText"
+        :rows="3"
+        placeholder="Что получилось, что нет, что поменять в следующий раз"
+        :disabled="isSubmitting"
+      />
 
-        <!-- Error alert -->
-        <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft text-sm">
-          <Icon name="mingcute:warning-line" class="text-base" />
-          <span>{{ errorMessage }}</span>
-        </div>
+      <p v-if="errorMessage" class="text-sm text-danger">{{ errorMessage }}</p>
 
-        <!-- Submit button -->
-        <button
-          v-if="!successMessage"
+      <div class="flex items-center gap-2">
+        <UiButton
           type="submit"
-          class="btn btn-primary btn-sm"
-          :disabled="isSubmitting || !feedbackText.trim()"
+          variant="primary"
+          :loading="isSubmitting"
+          :disabled="!feedbackText.trim()"
         >
-          <span v-if="isSubmitting" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:send-line" class="text-sm" />
           Отправить отзыв
-        </button>
-        <span v-else class="btn btn-success btn-sm btn-disabled">
-          <Icon name="mingcute:check-circle-line" class="text-sm" />
-          Отзыв сохранён
+        </UiButton>
+        <span v-if="saved" class="flex items-center gap-1.5 text-sm text-success">
+          <Icon name="mingcute:check-line" />
+          Сохранено
         </span>
-      </form>
+      </div>
+    </form>
 
-      <!-- Past feedback list -->
-      <template v-if="(feedbackList as FeedbackEntry[])?.length">
-        <div class="divider text-xs text-base-content/40 my-0">
-          История отзывов
+    <div v-if="entries.length" class="max-h-80 overflow-y-auto border-t border-divider">
+      <article
+        v-for="entry in entries"
+        :key="entry.id"
+        class="border-b border-divider px-3 py-2.5 last:border-b-0"
+      >
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="tnum font-mono text-micro text-subtle">{{ formatDate(entry.createdAt) }}</span>
+          <UiStatusBadge
+            v-if="entry.derived?.sentiment && SENTIMENT[entry.derived.sentiment]"
+            :status="SENTIMENT[entry.derived.sentiment]!.status"
+            size="xs"
+            dot
+          />
         </div>
 
-        <div class="space-y-3 max-h-80 overflow-y-auto">
-          <div
-            v-for="entry in (feedbackList as FeedbackEntry[])"
-            :key="entry.id"
-            class="rounded-lg bg-base-200/50 p-3 space-y-2"
+        <p class="mt-1 text-sm whitespace-pre-line">{{ entry.feedbackText }}</p>
+
+        <template v-if="hasInsights(entry)">
+          <button
+            type="button"
+            class="mt-1.5 cursor-pointer text-micro text-subtle hover:text-muted"
+            :aria-expanded="expanded.has(entry.id)"
+            @click="toggle(entry.id)"
           >
-            <!-- Feedback header -->
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs text-base-content/50">
-                {{ formatDate(entry.createdAt) }}
-              </span>
-              <span
-                v-if="entry.derived?.sentiment"
-                class="badge badge-xs"
-                :class="sentimentConfig[entry.derived.sentiment]?.class || 'badge-ghost'"
-              >
-                {{ sentimentConfig[entry.derived.sentiment]?.label || entry.derived.sentiment }}
-              </span>
+            {{ expanded.has(entry.id) ? 'Скрыть извлечённое' : 'Показать извлечённое' }}
+          </button>
+
+          <div v-if="expanded.has(entry.id)" class="mt-2 flex flex-col gap-2 text-sm">
+            <div v-if="entry.derived?.requirements?.length">
+              <span class="font-medium text-info">Требования</span>
+              <ul class="mt-0.5 flex flex-col gap-0.5 text-muted">
+                <li v-for="(req, i) in entry.derived.requirements" :key="i">— {{ req }}</li>
+              </ul>
             </div>
-
-            <!-- Feedback text -->
-            <p class="text-sm text-base-content/80 whitespace-pre-line">
-              {{ entry.feedbackText }}
-            </p>
-
-            <!-- Derived insights collapse -->
-            <div
-              v-if="entry.derived?.requirements?.length
-                || entry.derived?.recommendations?.length
-                || entry.derived?.antiPatterns?.length"
-              class="collapse collapse-arrow bg-base-100 rounded-lg"
-            >
-              <input type="checkbox" />
-              <div class="collapse-title text-xs font-medium py-2 min-h-0">
-                <Icon name="mingcute:sparkles-2-line" class="text-sm mr-1" />
-                Извлечённые инсайты
-              </div>
-              <div class="collapse-content text-xs space-y-2 px-4 pb-3">
-                <!-- Requirements -->
-                <div v-if="entry.derived.requirements?.length">
-                  <span class="font-semibold text-info">Требования:</span>
-                  <ul class="list-disc list-inside mt-1 space-y-0.5 text-base-content/70">
-                    <li v-for="(req, i) in entry.derived.requirements" :key="i">
-                      {{ req }}
-                    </li>
-                  </ul>
-                </div>
-
-                <!-- Recommendations -->
-                <div v-if="entry.derived.recommendations?.length">
-                  <span class="font-semibold text-success">Рекомендации:</span>
-                  <ul class="list-disc list-inside mt-1 space-y-0.5 text-base-content/70">
-                    <li v-for="(rec, i) in entry.derived.recommendations" :key="i">
-                      {{ rec }}
-                    </li>
-                  </ul>
-                </div>
-
-                <!-- Anti-patterns -->
-                <div v-if="entry.derived.antiPatterns?.length">
-                  <span class="font-semibold text-warning">Антипаттерны:</span>
-                  <ul class="list-disc list-inside mt-1 space-y-0.5 text-base-content/70">
-                    <li v-for="(ap, i) in entry.derived.antiPatterns" :key="i">
-                      {{ ap }}
-                    </li>
-                  </ul>
-                </div>
-              </div>
+            <div v-if="entry.derived?.recommendations?.length">
+              <span class="font-medium text-success">Рекомендации</span>
+              <ul class="mt-0.5 flex flex-col gap-0.5 text-muted">
+                <li v-for="(rec, i) in entry.derived.recommendations" :key="i">— {{ rec }}</li>
+              </ul>
+            </div>
+            <div v-if="entry.derived?.antiPatterns?.length">
+              <span class="font-medium text-warning">Антипаттерны</span>
+              <ul class="mt-0.5 flex flex-col gap-0.5 text-muted">
+                <li v-for="(ap, i) in entry.derived.antiPatterns" :key="i">— {{ ap }}</li>
+              </ul>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
+      </article>
     </div>
-  </div>
+  </section>
 </template>
