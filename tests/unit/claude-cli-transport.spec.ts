@@ -12,10 +12,45 @@
 import { describe, it, expect, afterEach } from "vitest"
 import {
   buildClaudeCliArgs,
+  buildClaudeCliEnv,
   detectClaudeCliExhaustion,
   isClaudeCliTransport,
   parseClaudeCliResponse,
 } from "../../server/utils/agents/claude-cli"
+
+describe("buildClaudeCliEnv", () => {
+  // При обоих заданных credentials CLI выбирает API-ключ и падает с
+  // «Invalid API key · Fix external API key», даже когда OAuth-токен рабочий.
+  it("убирает API-ключ, чтобы CLI пошёл по подписке", () => {
+    const env = buildClaudeCliEnv({
+      ANTHROPIC_API_KEY: "sk-ant-заглушка",
+      CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-живой",
+    })
+
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined()
+    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe("sk-ant-oat01-живой")
+  })
+
+  it("не трогает окружение самого приложения", () => {
+    const base = { ANTHROPIC_API_KEY: "sk-ant-нужен-http-транспорту" }
+    buildClaudeCliEnv(base)
+
+    expect(base.ANTHROPIC_API_KEY).toBe("sk-ant-нужен-http-транспорту")
+  })
+
+  it("подменяет HOME на изолированный, когда он задан", () => {
+    const env = buildClaudeCliEnv({ CLAUDE_CLI_HOME: "/app/.claude-home", HOME: "/root" })
+
+    expect(env.HOME).toBe("/app/.claude-home")
+    expect(env.USERPROFILE).toBe("/app/.claude-home")
+  })
+
+  it("оставляет HOME как есть, если изоляция не настроена", () => {
+    const env = buildClaudeCliEnv({ HOME: "/root" })
+
+    expect(env.HOME).toBe("/root")
+  })
+})
 
 describe("isClaudeCliTransport", () => {
   const original = process.env.LLM_TRANSPORT

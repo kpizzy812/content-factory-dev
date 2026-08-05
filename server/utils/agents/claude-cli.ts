@@ -158,15 +158,18 @@ export class ClaudeCliError extends Error {
   }
 }
 
-function buildEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env }
+export function buildClaudeCliEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base }
 
-  const token = process.env.CLAUDE_CODE_OAUTH_TOKEN
-  if (token) env.CLAUDE_CODE_OAUTH_TOKEN = token
+  // ANTHROPIC_API_KEY обязан уйти из окружения subprocess: при обоих заданных
+  // credentials CLI выбирает ключ и падает с «Invalid API key · Fix external
+  // API key», даже когда OAuth-токен рабочий. Ключ остаётся у HTTP-транспорта,
+  // которому он и нужен как запасной путь.
+  delete env.ANTHROPIC_API_KEY
 
   // Изолированный HOME: иначе в продовую генерацию подмешиваются CLAUDE.md,
   // хуки и скиллы того, кто ставил CLI на машину.
-  const cliHome = process.env.CLAUDE_CLI_HOME
+  const cliHome = base.CLAUDE_CLI_HOME
   if (cliHome) {
     env.HOME = cliHome
     env.USERPROFILE = cliHome
@@ -237,7 +240,10 @@ function runProcess(
   timeoutMs: number,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { env: buildEnv(), stdio: ["ignore", "pipe", "pipe"] })
+    const child = spawn(command, args, {
+      env: buildClaudeCliEnv(process.env),
+      stdio: ["ignore", "pipe", "pipe"],
+    })
 
     let stdout = ""
     let stderr = ""
