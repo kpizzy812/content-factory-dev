@@ -70,6 +70,30 @@ describe("media model registry", () => {
     })
   })
 
+  it("keeps only emotions the model accepts", () => {
+    const model = resolveMediaModel("tts")
+    const base = { text: "Реплика", voiceId: "Wise_Woman", speed: 1, language: "ru" }
+
+    // Сценарист пишет эмоцию свободным текстом — понятное переводим в enum...
+    expect(mapMediaInput(model, { ...base, emotion: "лёгкая тревога" }))
+      .toMatchObject({ emotion: "fearful" })
+    expect(mapMediaInput(model, { ...base, emotion: "calm" }))
+      .toMatchObject({ emotion: "calm" })
+    expect(mapMediaInput(model, { ...base, emotion: "тёплая уверенность, приглашение" }))
+      .toMatchObject({ emotion: "calm" })
+    // ...а непонятое не угадываем: неизвестное значение уронило бы запрос.
+    expect(mapMediaInput(model, { ...base, emotion: "любопытство" }))
+      .not.toHaveProperty("emotion")
+  })
+
+  it("falls back to the language value the model actually accepts", () => {
+    const model = resolveMediaModel("tts")
+
+    expect(mapMediaInput(model, {
+      text: "Line", voiceId: "Wise_Woman", speed: 1, language: "en",
+    })).toMatchObject({ language_boost: "English" })
+  })
+
   it("refuses languages the TTS model cannot pronounce", () => {
     const model = resolveMediaModel("tts")
 

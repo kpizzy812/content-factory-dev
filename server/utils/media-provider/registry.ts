@@ -56,15 +56,47 @@ const MINIMAX_SPEECH_02_TURBO: TtsModelSpec = Object.freeze({
 })
 
 /**
- * Голоса MiniMax задаются собственными идентификаторами, а не ISO-кодами языка.
+ * Голоса MiniMax задаются собственными идентификаторами, а не ISO-кодами языка,
+ * и списка допустимых значений схема модели не публикует — там просто строка.
+ * Проверено живыми вызовами: `Wise_Woman` и `Calm_Woman` работают и читают
+ * русский, а языковые варианты вроде `Russian_Wiselady` модель отвергает.
  * Женский голос по умолчанию — ведущая в кадре женщина.
  */
 const MINIMAX_DEFAULT_VOICE = "Wise_Woman"
+
+function configuredTtsVoice(): string {
+  return process.env.REPLICATE_TTS_VOICE?.trim() || MINIMAX_DEFAULT_VOICE
+}
 
 /** MiniMax принимает язык отдельным полем language_boost, в своей нотации. */
 const MINIMAX_LANGUAGE_BOOST: Record<string, string> = {
   ru: "Russian",
   en: "English",
+}
+
+/**
+ * Эмоция у MiniMax — закрытый список, а сценарист пишет её свободным текстом
+ * («лёгкая тревога», «тёплая уверенность»). Непонятое не угадываем: провайдер
+ * сам выберет интонацию по тексту, а неизвестное значение уронило бы запрос.
+ */
+const MINIMAX_EMOTIONS = new Set([
+  "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent", "neutral",
+])
+
+const EMOTION_HINTS: Array<{ match: RegExp; emotion: string }> = [
+  { match: /радост|восторг|happy|joy/i, emotion: "happy" },
+  { match: /груст|печал|sad/i, emotion: "sad" },
+  { match: /злост|раздраж|гнев|angry/i, emotion: "angry" },
+  { match: /страх|тревог|fear|anxious/i, emotion: "fearful" },
+  { match: /удивл|изумл|surprise/i, emotion: "surprised" },
+  { match: /спокой|уверен|ясност|calm|confident/i, emotion: "calm" },
+]
+
+function normalizeEmotion(raw: string | null | undefined): string | null {
+  const value = raw?.trim().toLowerCase()
+  if (!value) return null
+  if (MINIMAX_EMOTIONS.has(value)) return value
+  return EMOTION_HINTS.find(hint => hint.match.test(value))?.emotion ?? null
 }
 
 const MODELS = new Map<string, MediaModelSpec>([
@@ -125,12 +157,14 @@ export function mapMediaInput(
     if (!model.constraints.languages.includes(language)) {
       throw new Error(`Model ${model.id} does not support language "${language}"`)
     }
+    const emotion = normalizeEmotion(tts.emotion)
     return {
       text,
-      voice_id: tts.voiceId?.trim() || MINIMAX_DEFAULT_VOICE,
       speed: tts.speed,
-      language_boost: MINIMAX_LANGUAGE_BOOST[language] ?? "auto",
-      ...(tts.emotion ? { emotion: tts.emotion } : {}),
+      voice_id: tts.voiceId?.trim() || configuredTtsVoice(),
+      // "Automatic" — значение из enum модели; "auto" она не принимает.
+      language_boost: MINIMAX_LANGUAGE_BOOST[language] ?? "Automatic",
+      ...(emotion ? { emotion } : {}),
     }
   }
 
@@ -152,7 +186,7 @@ export function estimateTtsCost(model: TtsModelSpec, characters: number): number
 }
 
 export function defaultTtsVoice(): string {
-  return MINIMAX_DEFAULT_VOICE
+  return configuredTtsVoice()
 }
 
 function readTtsPrice(): number {
