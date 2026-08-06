@@ -1,4 +1,14 @@
 <script setup lang="ts">
+/**
+ * История доставок.
+ *
+ * Ошибки Telegram переводятся на человеческий прямо в строке: «chat not found»
+ * оператору ничего не говорит, а «бота удалили из чата» говорит, что делать.
+ * Исходный текст остаётся в раскрытии — с ним идут к инженеру.
+ *
+ * Повтор доступен только у упавшей доставки: у отправленной он создал бы
+ * второе сообщение в чате.
+ */
 interface DeliveryTemplate {
   id: number
   key: string
@@ -29,37 +39,37 @@ interface Meta {
   totalPages: number
 }
 
-function chatDisplayName(d: Delivery): string {
-  if (d.chat?.title) return d.chat.title
-  if (d.chat?.username) return `@${d.chat.username}`
-  return String(d.targetChatId)
-}
-
 const { resendDelivery } = useAdminTelegramActions()
+const toast = useToast()
 
-const statusOptions = [
-  { value: '', label: 'Все статусы' },
-  { value: 'pending', label: 'Ожидание' },
+const STATUS_OPTIONS = [
+  { value: '', label: 'Все состояния' },
+  { value: 'pending', label: 'Ожидает' },
   { value: 'sent', label: 'Отправлено' },
   { value: 'failed', label: 'Ошибка' },
 ]
 
-const eventTypeOptions = [
+const EVENT_OPTIONS = [
   { value: '', label: 'Все события' },
   { value: 'cycle_started', label: 'Цикл запущен' },
-  { value: 'upload_success', label: 'Загрузка завершена' },
+  { value: 'upload_success', label: 'Загрузка прошла' },
   { value: 'critical_error', label: 'Критическая ошибка' },
   { value: 'idea_created', label: 'Идея создана' },
   { value: 'test', label: 'Тест' },
-  { value: 'custom', label: 'Пользовательское' },
+  { value: 'custom', label: 'Своё событие' },
 ]
+
+const STATUS_ENTITY = {
+  sent: 'done',
+  failed: 'failed',
+  pending: 'queued',
+} as const
 
 const filterStatus = ref('')
 const filterEventType = ref('')
 const page = ref(1)
 const expandedId = ref<number | null>(null)
 const resendingId = ref<number | null>(null)
-const resendFeedback = ref<{ id: number; success: boolean; message: string } | null>(null)
 
 const params = computed(() => ({
   page: page.value,
@@ -72,235 +82,197 @@ const { data: raw, refresh } = useAdminTelegramDeliveries(params)
 const items = computed<Delivery[]>(() => (raw.value as any)?.data ?? (raw.value as any)?.items ?? [])
 const meta = computed<Meta>(() => (raw.value as any)?.meta ?? { page: 1, limit: 20, total: 0, totalPages: 1 })
 
-function onFilterChange() {
+const filtered = computed(() => !!filterStatus.value || !!filterEventType.value)
+
+function setStatus(value: string | number) {
+  filterStatus.value = String(value)
   page.value = 1
-  refresh()
+}
+
+function setEventType(value: string | number) {
+  filterEventType.value = String(value)
+  page.value = 1
+}
+
+function chatDisplayName(d: Delivery): string {
+  if (d.chat?.title) return d.chat.title
+  if (d.chat?.username) return `@${d.chat.username}`
+  return String(d.targetChatId)
+}
+
+function eventLabel(eventType: string): string {
+  return EVENT_OPTIONS.find(o => o.value === eventType)?.label ?? eventType
+}
+
+function statusLabel(status: string): string {
+  return STATUS_OPTIONS.find(o => o.value === status)?.label ?? status
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+/** Ответ Telegram → что это значит для оператора. */
+function humanReadableError(error: string | null): string {
+  if (!error) return ''
+  if (error.includes('chat not found')) return 'Чат не найден — скорее всего бота удалили из чата'
+  if (error.includes('bot was blocked')) return 'Пользователь заблокировал бота'
+  if (error.includes('FLOOD_WAIT')) return 'Telegram придержал отправку: слишком часто'
+  if (error.includes('Too Many Requests')) return 'Превышен лимит запросов к Telegram'
+  if (error.includes('Forbidden')) return 'У бота нет прав писать в этот чат'
+  if (error.includes('timeout') || error.includes('ETIMEDOUT')) return 'Telegram не ответил вовремя'
+  if (error.includes('Unauthorized') || error.includes('401')) return 'Токен бота не принят'
+  return error
 }
 
 function toggleExpand(id: number) {
   expandedId.value = expandedId.value === id ? null : id
 }
 
-function formatDate(date: string | null): string {
-  if (!date) return '—'
-  return new Date(date).toLocaleString('ru-RU')
-}
-
-function statusBadge(status: string): string {
-  if (status === 'sent') return 'badge-success'
-  if (status === 'failed') return 'badge-error'
-  return 'badge-warning'
-}
-
-function statusLabel(status: string): string {
-  return statusOptions.find(o => o.value === status)?.label ?? status
-}
-
-function eventLabel(eventType: string): string {
-  return eventTypeOptions.find(o => o.value === eventType)?.label ?? eventType
-}
-
-function humanReadableError(error: string | null): string {
-  if (!error) return ''
-  if (error.includes('chat not found')) return 'Чат не найден — возможно, бот был удалён из чата'
-  if (error.includes('bot was blocked')) return 'Бот заблокирован пользователем'
-  if (error.includes('FLOOD_WAIT')) return 'Telegram ограничил отправку — слишком много запросов'
-  if (error.includes('Too Many Requests')) return 'Превышен лимит запросов к Telegram API'
-  if (error.includes('Forbidden')) return 'Бот не имеет прав отправлять сообщения в этот чат'
-  if (error.includes('timeout') || error.includes('ETIMEDOUT')) return 'Таймаут соединения с Telegram API'
-  if (error.includes('Unauthorized') || error.includes('401')) return 'Токен бота невалиден'
-  return error
-}
-
 async function handleResend(delivery: Delivery) {
   resendingId.value = delivery.id
-  resendFeedback.value = null
   try {
     const res = await resendDelivery(delivery.id) as { success: boolean; error?: string }
-    resendFeedback.value = {
-      id: delivery.id,
-      success: res.success,
-      message: res.success ? 'Повторная отправка успешна' : (res.error || 'Не удалось отправить'),
-    }
+    if (res.success) toast.success('Отправлено повторно')
+    else toast.error(res.error || 'Повторная отправка не удалась')
     await refresh()
-  } catch (e: any) {
-    resendFeedback.value = {
-      id: delivery.id,
-      success: false,
-      message: e.data?.message || e.message || 'Ошибка повторной отправки',
-    }
-  } finally {
+  }
+  catch (e: any) {
+    toast.error(e?.data?.message || e?.message || 'Не удалось отправить повторно')
+  }
+  finally {
     resendingId.value = null
-    setTimeout(() => { resendFeedback.value = null }, 5000)
   }
 }
 
-function goToPage(p: number) {
-  if (p < 1 || p > meta.value.totalPages) return
-  page.value = p
-}
-
-const pageNumbers = computed(() => {
-  const total = meta.value.totalPages
-  const current = meta.value.page
-  const pages: number[] = []
-  const start = Math.max(1, current - 2)
-  const end = Math.min(total, current + 2)
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
+const COLUMNS = '156px minmax(140px,1fr) 116px minmax(0,1.4fr) 116px 32px'
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div>
-        <h3 class="text-lg font-semibold flex items-center gap-2">
-          <Icon name="mingcute:mail-send-line" class="size-5" />
-          История доставок
-        </h3>
-        <p class="text-xs text-base-content/50">Все отправленные уведомления с их статусами и деталями ошибок</p>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="min-w-0 flex-1">
+        <h3 class="text-base font-semibold">История доставок</h3>
+        <p class="text-sm text-subtle">Что уходило в чаты и что из этого не дошло.</p>
       </div>
-      <div class="flex items-center gap-2">
-        <select v-model="filterStatus" class="select select-sm" @change="onFilterChange">
-          <option v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-        </select>
-        <select v-model="filterEventType" class="select select-sm" @change="onFilterChange">
-          <option v-for="o in eventTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-        </select>
+      <UiSelect class="w-44" :model-value="filterStatus" :options="STATUS_OPTIONS" @update:model-value="setStatus" />
+      <UiSelect class="w-52" :model-value="filterEventType" :options="EVENT_OPTIONS" @update:model-value="setEventType" />
+    </div>
+
+    <UiEmptyState
+      v-if="!items.length"
+      title="Доставок нет"
+      :description="filtered
+        ? 'Под выбранные условия ничего не попало — снимите фильтры.'
+        : 'Отправьте тестовое сообщение на вкладке «Диагностика».'"
+    />
+
+    <template v-else>
+      <UiTable :columns="COLUMNS" min-width="900px">
+        <UiTableHead>
+          <span>Событие</span>
+          <span>Чат</span>
+          <span>Состояние</span>
+          <span>Что не так</span>
+          <span>Отправлено</span>
+          <span />
+        </UiTableHead>
+
+        <template v-for="delivery in items" :key="delivery.id">
+          <UiTableRow
+            role="button"
+            tabindex="0"
+            :selected="expandedId === delivery.id"
+            @click="toggleExpand(delivery.id)"
+            @keydown.enter="toggleExpand(delivery.id)"
+          >
+            <span class="truncate text-sm">{{ eventLabel(delivery.eventType) }}</span>
+
+            <span class="min-w-0">
+              <span class="block truncate text-sm">{{ chatDisplayName(delivery) }}</span>
+              <span class="block truncate font-mono text-micro text-subtle">{{ delivery.targetChatId }}</span>
+            </span>
+
+            <span class="flex items-center gap-1.5">
+              <UiStatusBadge :status="STATUS_ENTITY[delivery.status] ?? 'draft'" size="xs" icon-only />
+              <span class="truncate text-sm text-muted">{{ statusLabel(delivery.status) }}</span>
+            </span>
+
+            <span class="min-w-0 truncate text-sm" :class="delivery.errorMessage ? 'text-danger' : 'text-subtle'">
+              {{ delivery.errorMessage ? humanReadableError(delivery.errorMessage) : (delivery.template?.title ?? '—') }}
+            </span>
+
+            <ClientOnly>
+              <span class="tnum truncate font-mono text-sm text-muted">{{ formatDate(delivery.sentAt) }}</span>
+              <template #fallback><span /></template>
+            </ClientOnly>
+
+            <span class="flex justify-end" @click.stop>
+              <UiButton
+                v-if="delivery.status === 'failed'"
+                variant="ghost"
+                :loading="resendingId === delivery.id"
+                title="Отправить повторно"
+                @click="handleResend(delivery)"
+              >
+                <Icon v-if="resendingId !== delivery.id" name="mingcute:refresh-2-line" />
+              </UiButton>
+            </span>
+          </UiTableRow>
+
+          <div
+            v-if="expandedId === delivery.id"
+            class="grid gap-3 border-b border-divider bg-card px-3 py-2.5 md:grid-cols-2"
+          >
+            <div class="flex min-w-0 flex-col gap-1">
+              <span class="text-micro tracking-[.06em] text-subtle uppercase">Текст сообщения</span>
+              <pre
+                v-if="delivery.messageText"
+                class="max-h-48 overflow-y-auto rounded-md bg-surface p-2.5 text-sm break-words whitespace-pre-wrap text-muted"
+              >{{ delivery.messageText }}</pre>
+              <span v-else class="text-sm text-subtle">Текст не сохранён.</span>
+            </div>
+
+            <div class="flex min-w-0 flex-col gap-2">
+              <ClientOnly>
+                <UiKeyValue
+                  :items="[
+                    { label: 'Номер', value: delivery.id },
+                    { label: 'Создано', value: formatDate(delivery.createdAt) },
+                    ...(delivery.telegramMessageId
+                      ? [{ label: 'ID в Telegram', value: delivery.telegramMessageId }]
+                      : []),
+                    ...(delivery.relatedEntityType
+                      ? [{ label: 'Связь', value: `${delivery.relatedEntityType}#${delivery.relatedEntityId}` }]
+                      : []),
+                  ]"
+                />
+              </ClientOnly>
+              <div v-if="delivery.errorMessage" class="flex flex-col gap-1">
+                <span class="text-micro tracking-[.06em] text-danger uppercase">Ответ Telegram</span>
+                <pre
+                  class="overflow-x-auto rounded-md bg-surface p-2.5 font-mono text-micro break-words whitespace-pre-wrap text-danger"
+                >{{ delivery.errorMessage }}</pre>
+              </div>
+            </div>
+          </div>
+        </template>
+      </UiTable>
+
+      <div v-if="meta.totalPages > 1" class="flex items-center justify-center gap-2">
+        <UiButton variant="ghost" :disabled="page <= 1" aria-label="Предыдущая" @click="page--">
+          <Icon name="mingcute:left-line" />
+        </UiButton>
+        <span class="tnum font-mono text-sm text-muted">{{ meta.page }} / {{ meta.totalPages }}</span>
+        <UiButton variant="ghost" :disabled="page >= meta.totalPages" aria-label="Следующая" @click="page++">
+          <Icon name="mingcute:right-line" />
+        </UiButton>
       </div>
-    </div>
 
-    <!-- Resend feedback -->
-    <div v-if="resendFeedback" role="alert" :class="['alert alert-sm', resendFeedback.success ? 'alert-success' : 'alert-error']">
-      <Icon :name="resendFeedback.success ? 'mingcute:check-circle-line' : 'mingcute:close-circle-line'" />
-      <span>{{ resendFeedback.message }}</span>
-      <button class="btn btn-ghost btn-xs" @click="resendFeedback = null">✕</button>
-    </div>
-
-    <!-- Table -->
-    <div v-if="items.length" class="overflow-x-auto">
-      <table class="table table-sm">
-        <thead>
-          <tr>
-            <th>Событие</th>
-            <th>Чат</th>
-            <th>Статус</th>
-            <th>Шаблон</th>
-            <th>Связь</th>
-            <th>Отправлено</th>
-            <th>Ошибка</th>
-            <th class="text-right">Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="d in items" :key="d.id">
-            <tr class="cursor-pointer hover" @click="toggleExpand(d.id)">
-              <td>
-                <span class="badge badge-sm badge-outline">{{ eventLabel(d.eventType) }}</span>
-              </td>
-              <td class="text-xs">
-                <span class="font-semibold">{{ chatDisplayName(d) }}</span>
-                <code v-if="d.chat" class="font-mono text-base-content/40 ml-1 text-[10px]">({{ d.targetChatId }})</code>
-              </td>
-              <td>
-                <span :class="['badge badge-sm', statusBadge(d.status)]">
-                  {{ statusLabel(d.status) }}
-                </span>
-              </td>
-              <td class="text-xs">
-                <span v-if="d.template" class="text-info">{{ d.template.title }}</span>
-                <span v-else class="opacity-40">—</span>
-              </td>
-              <td class="text-xs">
-                <span v-if="d.relatedEntityType" class="badge badge-xs badge-outline">
-                  {{ d.relatedEntityType }}#{{ d.relatedEntityId }}
-                </span>
-                <span v-else class="opacity-40">—</span>
-              </td>
-              <td class="text-xs text-base-content/60 whitespace-nowrap">{{ formatDate(d.sentAt) }}</td>
-              <td class="text-xs max-w-48">
-                <span v-if="d.errorMessage" class="text-error" :title="d.errorMessage">
-                  {{ humanReadableError(d.errorMessage) }}
-                </span>
-                <span v-else class="opacity-40">—</span>
-              </td>
-              <td class="text-right" @click.stop>
-                <div v-if="d.status === 'failed'" class="tooltip" data-tip="Повторить отправку">
-                  <button
-                    class="btn btn-ghost btn-xs"
-                    :disabled="resendingId === d.id"
-                    @click="handleResend(d)"
-                  >
-                    <span v-if="resendingId === d.id" class="loading loading-spinner loading-xs" />
-                    <Icon v-else name="mingcute:refresh-2-line" class="size-4" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <!-- Expanded details -->
-            <tr v-if="expandedId === d.id">
-              <td colspan="8" class="bg-base-200 p-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div class="text-xs font-semibold opacity-60 mb-1">Текст сообщения</div>
-                    <pre v-if="d.messageText" class="text-sm whitespace-pre-wrap bg-base-300 rounded-lg p-3 max-h-48 overflow-y-auto">{{ d.messageText }}</pre>
-                    <span v-else class="text-sm opacity-40">Текст отсутствует</span>
-                  </div>
-                  <div class="space-y-3">
-                    <div>
-                      <div class="text-xs font-semibold opacity-60 mb-1">Детали</div>
-                      <div class="text-xs space-y-1">
-                        <div>ID: <code class="font-mono">{{ d.id }}</code></div>
-                        <div>Создано: {{ formatDate(d.createdAt) }}</div>
-                        <div v-if="d.telegramMessageId">Telegram ID: <code class="font-mono">{{ d.telegramMessageId }}</code></div>
-                      </div>
-                    </div>
-                    <div v-if="d.errorMessage">
-                      <div class="text-xs font-semibold text-error mb-1">Ошибка (raw)</div>
-                      <pre class="text-xs whitespace-pre-wrap text-error bg-base-300 rounded-lg p-3">{{ d.errorMessage }}</pre>
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Empty state -->
-    <div v-else class="flex flex-col items-center gap-3 py-12 text-base-content/50">
-      <Icon name="mingcute:inbox-line" class="text-4xl" />
-      <div class="text-center">
-        <p class="font-medium">Доставки не найдены</p>
-        <p v-if="filterStatus || filterEventType" class="text-xs mt-1">Попробуйте изменить фильтры</p>
-        <p v-else class="text-xs mt-1">Отправьте тестовое сообщение через вкладку «Диагностика»</p>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="meta.totalPages > 1" class="flex justify-center">
-      <div class="join">
-        <button class="join-item btn btn-sm" :disabled="page <= 1" @click="goToPage(page - 1)">
-          <Icon name="mingcute:left-line" class="size-4" />
-        </button>
-        <button
-          v-for="p in pageNumbers"
-          :key="p"
-          :class="['join-item btn btn-sm', { 'btn-active': p === meta.page }]"
-          @click="goToPage(p)"
-        >
-          {{ p }}
-        </button>
-        <button class="join-item btn btn-sm" :disabled="page >= meta.totalPages" @click="goToPage(page + 1)">
-          <Icon name="mingcute:right-line" class="size-4" />
-        </button>
-      </div>
-    </div>
-
-    <div v-if="meta.total > 0" class="text-center text-xs text-base-content/50">
-      Всего: {{ meta.total }} записей
-    </div>
+      <p class="tnum text-center font-mono text-micro text-subtle">всего {{ meta.total }}</p>
+    </template>
   </div>
 </template>

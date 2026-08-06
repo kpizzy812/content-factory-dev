@@ -69,10 +69,10 @@
 | `+` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor · шаги со стоимостью, нормы длительности, пропуск шага, логи, схема |
 | `—` | `analytics/index.vue` | 07-analytics |
 | `+` | `settings.vue` | 08-settings-admin · профиль, тема, состояние MarketingCamp |
-| `+` | `admin/index.vue` | 08-settings-admin · разделы, строка состояния, очередь и ошибки |
-| `+` | `admin/integrations/index.vue` | 08-settings-admin · карта настроек; ключей нет — они в окружении |
+| `+` | `admin/index.vue` | 08-settings-admin · разделы, строка состояния, здоровье системы с планировщиками, очередь и ошибки |
+| `+` | `admin/integrations/index.vue` | 08-settings-admin · состояние сервисов и «Проверить все»; ключей нет — они в окружении |
 | `+` | `admin/balances.vue` | 08-settings-admin · карточки остатков и расход за сутки по типам операций |
-| `~` | `admin/telegram.vue` | 08-settings-admin · страница и вкладка «Обзор» переписаны; ещё шесть вкладок в `components/admin/telegram/` на DaisyUI |
+| `+` | `admin/telegram.vue` | 08-settings-admin · все семь вкладок переписаны и проверены на демо-данных |
 | `+` | `admin/storage-health.vue` | 08-settings-admin · доля найденных файлов, список пропаж |
 | `+` | `admin/accounts-health.vue` | 06-accounts-queue · прогрев и 2FA видны только здесь |
 | `+` | `admin/warmup-keywords.vue` | 08-settings-admin · карточки пулов и редактор |
@@ -118,6 +118,7 @@ bun run scripts/seed-posting-jobs-demo.ts # очередь публикаций 
 bun run scripts/seed-pipeline-runs-demo.ts # конвейер из 9 блоков и 8 запусков во всех состояниях
 bun run scripts/seed-cost-ledger-demo.ts # журнал списаний из шагов роликов — расход в админке
 bun run scripts/seed-trend-profiles-demo.ts # профили парсинга и их запуски — вкладки на /trends
+bun run scripts/seed-telegram-demo.ts    # чаты, шаблоны, ключи, доставки и аудит Telegram
 ```
 
 `seed-dev-user` запускать первым: без пользователя не работает ни вход, ни

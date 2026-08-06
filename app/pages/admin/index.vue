@@ -79,6 +79,8 @@ function formatDate(iso: string): string {
         :unresolved-errors="dashboard.unresolvedErrors"
       />
 
+      <AdminSystemHealth />
+
       <section v-if="dashboard.contentPipeline" class="overflow-hidden rounded-lg border border-border bg-panel">
         <h2 class="border-b border-divider bg-card px-3.5 py-2.5 text-base font-medium">Что сейчас в работе</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">

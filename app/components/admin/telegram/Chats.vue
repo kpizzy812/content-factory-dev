@@ -1,4 +1,17 @@
 <script setup lang="ts">
+/**
+ * Привязанные чаты.
+ *
+ * Главный вопрос карточки — «дойдёт ли сюда уведомление», поэтому переключатель
+ * и маршрутизация стоят выше счётчиков доставок: счётчики отвечают на «доходило
+ * ли раньше», а это другой вопрос.
+ *
+ * Маршрутизация редактируется на месте, без модалки: теги переключают по
+ * несколько подряд, и модалка на каждый клик мешала бы.
+ *
+ * `mingcute:broadcast-line` в наборе не существует — у канала стоит
+ * `announcement-line`.
+ */
 interface ChatUser {
   name: string
   surname: string
@@ -26,59 +39,39 @@ const { updateChat, deleteChat, testChat } = useAdminTelegramActions()
 
 const chats = computed<Chat[]>(() => (chatsData.value as any)?.data ?? chatsData.value ?? [])
 
+const toast = useToast()
+
 const EVENT_TYPES = [
-  { value: 'cycle_started', label: 'Цикл запущен', icon: 'mingcute:play-circle-line' },
-  { value: 'upload_success', label: 'Загрузка ОК', icon: 'mingcute:upload-2-line' },
-  { value: 'critical_error', label: 'Крит. ошибка', icon: 'mingcute:alert-line' },
-  { value: 'idea_created', label: 'Идея создана', icon: 'mingcute:bulb-line' },
-  { value: 'test', label: 'Тест', icon: 'mingcute:bug-line' },
-  { value: 'custom', label: 'Пользовательское', icon: 'mingcute:settings-3-line' },
-  { value: 'scenario_ready', label: 'Сценарий готов', icon: 'mingcute:movie-line' },
-  { value: 'video_complete', label: 'Видео завершено', icon: 'mingcute:video-line' },
+  { value: 'cycle_started', label: 'Цикл запущен' },
+  { value: 'upload_success', label: 'Загрузка прошла' },
+  { value: 'critical_error', label: 'Критическая ошибка' },
+  { value: 'idea_created', label: 'Идея создана' },
+  { value: 'scenario_ready', label: 'Сценарий готов' },
+  { value: 'video_complete', label: 'Видео готово' },
+  { value: 'custom', label: 'Своё событие' },
+  { value: 'test', label: 'Тест' },
 ] as const
 
 const editingTagsId = ref<number | null>(null)
-const deleteConfirmId = ref<number | null>(null)
+const deleteTarget = ref<Chat | null>(null)
 const testingId = ref<number | null>(null)
 const togglingId = ref<number | null>(null)
-const error = ref('')
-const testFeedback = ref<{ chatId: number; success: boolean; message: string } | null>(null)
-const confirmModalRef = ref<{ open: () => void; close: () => void; setBusy: (v: boolean) => void } | null>(null)
 
-function openDeleteConfirm(id: number) {
-  deleteConfirmId.value = id
-  confirmModalRef.value?.open()
+const CHAT_TYPES: Record<string, { label: string; icon: string }> = {
+  private: { label: 'Личный', icon: 'mingcute:user-3-line' },
+  group: { label: 'Группа', icon: 'mingcute:group-line' },
+  supergroup: { label: 'Супергруппа', icon: 'mingcute:group-line' },
+  channel: { label: 'Канал', icon: 'mingcute:announcement-line' },
 }
 
-async function onConfirmDelete() {
-  const id = deleteConfirmId.value
-  if (id === null) return
-  confirmModalRef.value?.setBusy(true)
-  try {
-    await deleteChat(id)
-    deleteConfirmId.value = null
-    confirmModalRef.value?.close()
-    await refresh()
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка удаления'
-  } finally {
-    confirmModalRef.value?.setBusy(false)
-  }
+function chatType(type: string) {
+  return CHAT_TYPES[type] ?? { label: type, icon: 'mingcute:chat-3-line' }
 }
 
-function chatTypeLabel(type: string): string {
-  if (type === 'private') return 'Личный'
-  if (type === 'group') return 'Группа'
-  if (type === 'supergroup') return 'Супергруппа'
-  if (type === 'channel') return 'Канал'
-  return type
-}
-
-function chatTypeIcon(type: string): string {
-  if (type === 'private') return 'mingcute:user-3-line'
-  if (type === 'group' || type === 'supergroup') return 'mingcute:group-line'
-  if (type === 'channel') return 'mingcute:broadcast-line'
-  return 'mingcute:chat-3-line'
+function chatTitle(chat: Chat): string {
+  if (chat.title) return chat.title
+  if (chat.username) return `@${chat.username}`
+  return `Чат ${chat.chatId}`
 }
 
 function userName(user: ChatUser | null): string {
@@ -86,14 +79,26 @@ function userName(user: ChatUser | null): string {
   return [user.name, user.surname].filter(Boolean).join(' ') || user.email
 }
 
+function routingDescription(tags: string[]): string {
+  if (!tags.length) return 'получает все уведомления'
+  const labels = tags.map(t => EVENT_TYPES.find(e => e.value === t)?.label ?? t)
+  return `только: ${labels.join(', ')}`
+}
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 async function toggleAlerts(chat: Chat) {
   togglingId.value = chat.id
   try {
     await updateChat(chat.id, { alertsEnabled: !chat.alertsEnabled })
     await refresh()
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка обновления'
-  } finally {
+  }
+  catch (e: unknown) {
+    toast.error((e as Error).message || 'Не удалось изменить чат')
+  }
+  finally {
     togglingId.value = null
   }
 }
@@ -105,208 +110,158 @@ async function toggleTag(chat: Chat, tag: string) {
   try {
     await updateChat(chat.id, { routingTags: tags })
     await refresh()
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка обновления тегов'
   }
-}
-
-async function confirmDelete(id: number) {
-  try {
-    await deleteChat(id)
-    deleteConfirmId.value = null
-    await refresh()
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка удаления'
+  catch (e: unknown) {
+    toast.error((e as Error).message || 'Не удалось изменить маршрутизацию')
   }
 }
 
 async function sendTest(chat: Chat) {
   testingId.value = chat.id
-  testFeedback.value = null
   try {
-    const res = await testChat(chat.chatId, 'Тестовое сообщение из панели администратора') as { success: boolean; error?: string }
-    testFeedback.value = {
-      chatId: chat.id,
-      success: res.success,
-      message: res.success ? 'Сообщение доставлено' : (res.error || 'Не удалось отправить'),
-    }
-  } catch (e: unknown) {
-    testFeedback.value = {
-      chatId: chat.id,
-      success: false,
-      message: (e as Error).message || 'Ошибка тестовой отправки',
-    }
-  } finally {
+    const res = await testChat(
+      chat.chatId,
+      'Тестовое сообщение из панели администратора',
+    ) as { success: boolean; error?: string }
+    if (res.success) toast.success(`Сообщение доставлено в «${chatTitle(chat)}»`)
+    else toast.error(res.error || 'Сообщение не доставлено')
+  }
+  catch (e: unknown) {
+    toast.error((e as Error).message || 'Не удалось отправить тест')
+  }
+  finally {
     testingId.value = null
-    setTimeout(() => { testFeedback.value = null }, 5000)
   }
 }
 
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function routingDescription(tags: string[]): string {
-  if (tags.length === 0) return 'Получает все типы уведомлений'
-  const labels = tags.map(t => EVENT_TYPES.find(e => e.value === t)?.label ?? t)
-  return `Только: ${labels.join(', ')}`
+async function handleDelete() {
+  const target = deleteTarget.value
+  deleteTarget.value = null
+  if (!target) return
+  try {
+    await deleteChat(target.id)
+    await refresh()
+    toast.success('Привязка удалена')
+  }
+  catch (e: unknown) {
+    toast.error((e as Error).message || 'Не удалось удалить привязку')
+  }
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h3 class="text-lg font-semibold">Привязанные чаты</h3>
-        <p class="text-xs text-base-content/50">Чаты автоматически регистрируются при первом сообщении боту. Привяжите аккаунт командой /link</p>
-      </div>
+  <div class="flex flex-col gap-3">
+    <div>
+      <h3 class="text-base font-semibold">Привязанные чаты</h3>
+      <p class="text-sm text-subtle">
+        Чат появляется здесь сам после первого сообщения боту. Аккаунт привязывается
+        командой <span class="font-mono">/link почта</span>.
+      </p>
     </div>
 
-    <!-- Error -->
-    <div v-if="error" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:warning-line" />
-      <span>{{ error }}</span>
-      <button class="btn btn-ghost btn-xs" @click="error = ''">✕</button>
-    </div>
+    <UiEmptyState
+      v-if="!chats.length"
+      title="Чатов нет"
+      description="Отправьте боту /start, затем /link ваша@почта — чат появится в списке."
+    />
 
-    <!-- Test feedback -->
-    <div v-if="testFeedback" role="alert" :class="['alert alert-sm', testFeedback.success ? 'alert-success' : 'alert-error']">
-      <Icon :name="testFeedback.success ? 'mingcute:check-circle-line' : 'mingcute:close-circle-line'" />
-      <span>{{ testFeedback.message }}</span>
-      <button class="btn btn-ghost btn-xs" @click="testFeedback = null">✕</button>
-    </div>
+    <article
+      v-for="chat in chats"
+      :key="chat.id"
+      class="flex flex-col gap-2.5 rounded-lg border bg-panel p-3"
+      :class="chat.alertsEnabled ? 'border-border' : 'border-divider'"
+    >
+      <div class="flex items-start gap-2.5">
+        <span
+          class="flex size-9 shrink-0 items-center justify-center rounded-full border"
+          :class="chat.alertsEnabled
+            ? 'border-accent-border bg-accent-bg text-accent'
+            : 'border-divider bg-card text-subtle'"
+        >
+          <Icon :name="chatType(chat.chatType).icon" class="text-lg" />
+        </span>
 
-    <!-- Chat cards -->
-    <div v-if="chats.length" class="grid gap-3">
-      <div v-for="chat in chats" :key="chat.id" class="card bg-base-100 shadow-sm">
-        <div class="card-body p-4">
-          <div class="flex items-start justify-between gap-3">
-            <!-- Chat info -->
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="avatar placeholder shrink-0">
-                <div :class="['rounded-full w-10 h-10 flex items-center justify-center', chat.alertsEnabled ? 'bg-primary/10 text-primary' : 'bg-base-200 text-base-content/40']">
-                  <Icon :name="chatTypeIcon(chat.chatType)" class="text-lg" />
-                </div>
-              </div>
-              <div class="min-w-0">
-                <div class="font-semibold truncate">
-                  {{ chat.title ? chat.title : (chat.username ? `@${chat.username}` : `Чат ${chat.chatId}`) }}
-                </div>
-                <div class="flex items-center gap-2 text-xs text-base-content/50 flex-wrap">
-                  <span class="badge badge-xs badge-outline">{{ chatTypeLabel(chat.chatType) }}</span>
-                  <code class="font-mono">{{ chat.chatId }}</code>
-                  <span v-if="chat.user" class="text-info">{{ userName(chat.user) }}</span>
-                </div>
-              </div>
-            </div>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate font-medium">{{ chatTitle(chat) }}</span>
+          <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-subtle">
+            <span class="rounded-sm border border-divider px-1.5">{{ chatType(chat.chatType).label }}</span>
+            <span class="font-mono">{{ chat.chatId }}</span>
+            <span v-if="chat.user" class="text-info">{{ userName(chat.user) }}</span>
+          </span>
+        </span>
 
-            <!-- Controls -->
-            <div class="flex items-center gap-2 shrink-0">
-              <div class="tooltip" data-tip="Тестовая отправка">
-                <button
-                  class="btn btn-ghost btn-xs"
-                  :disabled="testingId === chat.id"
-                  @click="sendTest(chat)"
-                >
-                  <span v-if="testingId === chat.id" class="loading loading-spinner loading-xs" />
-                  <Icon v-else name="mingcute:send-line" class="size-4" />
-                </button>
-              </div>
-              <div class="tooltip" data-tip="Удалить привязку">
-                <button
-                  class="btn btn-ghost btn-xs text-error"
-                  @click="openDeleteConfirm(chat.id)"
-                >
-                  <Icon name="mingcute:delete-2-line" class="size-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="divider my-1" />
-
-          <!-- Status row -->
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-3 text-sm">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-success"
-                  :checked="chat.alertsEnabled"
-                  :disabled="togglingId === chat.id"
-                  @change="toggleAlerts(chat)"
-                />
-                <span class="text-xs">Уведомления</span>
-              </label>
-              <span :class="['badge badge-xs', chat.isAuthorized ? 'badge-success' : 'badge-ghost']">
-                {{ chat.isAuthorized ? 'Авторизован' : 'Не авторизован' }}
-              </span>
-            </div>
-            <div class="flex items-center gap-3 text-xs text-base-content/50">
-              <span>Доставок: {{ chat._count?.deliveries ?? 0 }}</span>
-              <span>Команд: {{ chat._count?.commandAudits ?? 0 }}</span>
-            </div>
-          </div>
-
-          <!-- Routing tags -->
-          <div class="mt-2">
-            <div class="text-xs text-base-content/50 mb-1">
-              <Icon name="mingcute:route-line" class="inline text-sm" />
-              Маршрутизация:
-              <span class="text-base-content/70">{{ routingDescription(chat.routingTags) }}</span>
-            </div>
-            <div v-if="editingTagsId === chat.id" class="flex flex-wrap gap-1 mt-1">
-              <button
-                v-for="evt in EVENT_TYPES"
-                :key="evt.value"
-                :class="['btn btn-xs gap-1', chat.routingTags.includes(evt.value) ? 'btn-primary' : 'btn-ghost btn-outline']"
-                @click="toggleTag(chat, evt.value)"
-              >
-                <Icon :name="evt.icon" class="size-3" />
-                {{ evt.label }}
-              </button>
-              <button class="btn btn-xs btn-ghost text-success" @click="editingTagsId = null">
-                <Icon name="mingcute:check-line" class="size-4" />
-                Готово
-              </button>
-            </div>
-            <button
-              v-else
-              class="btn btn-ghost btn-xs mt-1"
-              @click="editingTagsId = chat.id"
-            >
-              <Icon name="mingcute:edit-line" class="size-3" />
-              Настроить теги
-            </button>
-          </div>
-          <div class="mt-1 text-xs text-base-content/40">
-            Подключён {{ formatDate(chat.createdAt) }}
-          </div>
+        <div class="flex shrink-0 items-center gap-1">
+          <UiButton variant="ghost" :loading="testingId === chat.id" title="Отправить тест" @click="sendTest(chat)">
+            <Icon v-if="testingId !== chat.id" name="mingcute:send-line" />
+          </UiButton>
+          <UiButton variant="ghost" title="Удалить привязку" @click="deleteTarget = chat">
+            <Icon name="mingcute:delete-2-line" class="text-danger" />
+          </UiButton>
         </div>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div v-else class="flex flex-col items-center gap-3 py-12 text-base-content/50">
-      <Icon name="mingcute:chat-3-line" class="text-4xl" />
-      <div class="text-center">
-        <p class="font-medium">Нет привязанных чатов</p>
-        <p class="text-xs mt-1 max-w-sm">
-          Чтобы привязать чат, отправьте боту команду <kbd class="kbd kbd-xs">/start</kbd>,
-          затем <kbd class="kbd kbd-xs">/link ваш@email.com</kbd>
-        </p>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-divider pt-2">
+        <UiToggle
+          :model-value="chat.alertsEnabled"
+          :disabled="togglingId === chat.id"
+          label="Уведомления"
+          @update:model-value="toggleAlerts(chat)"
+        />
+        <UiStatusBadge :status="chat.isAuthorized ? 'done' : 'draft'" size="xs" icon-only />
+        <span class="text-sm text-subtle">
+          {{ chat.isAuthorized ? 'аккаунт привязан' : 'аккаунт не привязан' }}
+        </span>
+        <span class="flex-1" />
+        <span class="tnum font-mono text-micro text-subtle">
+          доставок {{ chat._count?.deliveries ?? 0 }} · команд {{ chat._count?.commandAudits ?? 0 }}
+        </span>
       </div>
-    </div>
 
-    <!-- Delete confirm modal -->
-    <SharedConfirmModal
-      ref="confirmModalRef"
-      title="Удалить чат?"
-      message="Привязка чата будет удалена. Это действие нельзя отменить."
-      confirm-label="Удалить"
-      variant="danger"
-      @confirm="onConfirmDelete"
-      @cancel="deleteConfirmId = null"
-    />
+      <div class="flex flex-col gap-1.5">
+        <span class="flex flex-wrap items-center gap-1.5 text-sm text-muted">
+          <Icon name="mingcute:route-line" class="shrink-0" />
+          Маршрутизация: <span class="text-fg">{{ routingDescription(chat.routingTags) }}</span>
+        </span>
+
+        <div v-if="editingTagsId === chat.id" class="flex flex-wrap gap-1.5">
+          <button
+            v-for="event in EVENT_TYPES"
+            :key="event.value"
+            type="button"
+            class="h-7 cursor-pointer rounded-md border px-2 text-sm transition-colors duration-(--duration-fast)"
+            :class="chat.routingTags.includes(event.value)
+              ? 'border-accent-border bg-accent-bg text-fg'
+              : 'border-border bg-card text-muted hover:text-fg'"
+            @click="toggleTag(chat, event.value)"
+          >
+            {{ event.label }}
+          </button>
+          <UiButton variant="ghost" @click="editingTagsId = null">
+            <Icon name="mingcute:check-line" />
+            Готово
+          </UiButton>
+        </div>
+        <UiButton v-else variant="ghost" class="w-fit" @click="editingTagsId = chat.id">
+          <Icon name="mingcute:edit-line" />
+          Настроить маршрутизацию
+        </UiButton>
+      </div>
+
+      <ClientOnly>
+        <span class="tnum font-mono text-micro text-subtle">подключён {{ formatDate(chat.createdAt) }}</span>
+      </ClientOnly>
+    </article>
+
+    <UiModal :open="!!deleteTarget" size="sm" title="Удалить привязку?" @close="deleteTarget = null">
+      <p class="text-sm text-muted">
+        Чат «{{ deleteTarget ? chatTitle(deleteTarget) : '' }}» перестанет получать
+        уведомления. Он вернётся в список сам, как только напишет боту снова, но
+        маршрутизацию придётся настроить заново.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="deleteTarget = null">Отмена</UiButton>
+        <UiButton variant="danger" @click="handleDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

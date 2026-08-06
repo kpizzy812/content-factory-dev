@@ -1,4 +1,14 @@
 <script setup lang="ts">
+/**
+ * Аудит команд бота.
+ *
+ * Строка отвечает предложением, а не кодом команды: «@ivan остановил цикл»
+ * читается, а «/stop success» требует расшифровки. Сама команда стоит рядом
+ * мелким — она нужна, когда ищут конкретный случай.
+ *
+ * Относительное время («5 мин назад») зависит от «сейчас» и живёт в
+ * `ClientOnly`: на сервере оно посчиталось бы другим.
+ */
 interface AuditEntry {
   id: number
   chatId: string | number
@@ -14,30 +24,31 @@ interface AuditEntry {
   chat: { title: string | null; username: string | null; chatType: string } | null
 }
 
-function chatDisplayName(entry: AuditEntry): string {
-  if (entry.chat?.title) return entry.chat.title
-  if (entry.chat?.username) return `@${entry.chat.username}`
-  return String(entry.chatId)
-}
-
-const commandOptions = [
+const COMMAND_OPTIONS = [
   { value: '', label: 'Все команды' },
-  { value: '/start', label: '/start — Начало работы' },
-  { value: '/link', label: '/link — Привязка аккаунта' },
-  { value: '/status', label: '/status — Статус системы' },
-  { value: '/stop', label: '/stop — Остановка цикла' },
-  { value: '/start_cycle', label: '/start_cycle — Запуск цикла' },
-  { value: '/help', label: '/help — Справка' },
-  { value: 'video_url', label: 'video_url — Анализ видео' },
+  { value: '/start', label: '/start — начало работы' },
+  { value: '/link', label: '/link — привязка аккаунта' },
+  { value: '/status', label: '/status — состояние завода' },
+  { value: '/stop', label: '/stop — остановка цикла' },
+  { value: '/start_cycle', label: '/start_cycle — запуск цикла' },
+  { value: '/help', label: '/help — справка' },
+  { value: 'video_url', label: 'ссылка на видео — разбор' },
 ]
 
-const statusOptions = [
-  { value: '', label: 'Все статусы' },
-  { value: 'success', label: 'Успех' },
+const STATUS_OPTIONS = [
+  { value: '', label: 'Все исходы' },
+  { value: 'success', label: 'Выполнено' },
   { value: 'error', label: 'Ошибка' },
-  { value: 'unauthorized', label: 'Не авторизован' },
+  { value: 'unauthorized', label: 'Нет доступа' },
   { value: 'not_found', label: 'Не найдено' },
 ]
+
+const STATUS_ENTITY = {
+  success: 'done',
+  error: 'failed',
+  unauthorized: 'blocked',
+  not_found: 'review',
+} as const
 
 const filterCommand = ref('')
 const filterStatus = ref('')
@@ -55,68 +66,48 @@ const { data, refresh } = useAdminTelegramAudit(params)
 const items = computed<AuditEntry[]>(() => (data.value as any)?.data ?? [])
 const meta = computed(() => (data.value as any)?.meta ?? { page: 1, total: 0, totalPages: 1 })
 
+const filtered = computed(() => !!filterCommand.value || !!filterStatus.value)
+
+/** «Сейчас» берём после монтирования: относительное время ломает гидратацию. */
+const now = ref<number | null>(null)
+onMounted(() => { now.value = Date.now() })
+
+function setCommand(value: string | number) {
+  filterCommand.value = String(value)
+  page.value = 1
+}
+
+function setStatus(value: string | number) {
+  filterStatus.value = String(value)
+  page.value = 1
+}
+
 function resetFilters() {
   filterCommand.value = ''
   filterStatus.value = ''
   page.value = 1
 }
 
-function onFilterChange() {
-  page.value = 1
-}
-
-function statusBadge(status: string): string {
-  switch (status) {
-    case 'success': return 'badge-success'
-    case 'error': return 'badge-error'
-    case 'unauthorized': return 'badge-warning'
-    case 'not_found': return 'badge-ghost'
-    default: return ''
-  }
+function chatDisplayName(entry: AuditEntry): string {
+  if (entry.chat?.title) return entry.chat.title
+  if (entry.chat?.username) return `@${entry.chat.username}`
+  return String(entry.chatId)
 }
 
 function statusLabel(status: string): string {
-  switch (status) {
-    case 'success': return 'Успех'
-    case 'error': return 'Ошибка'
-    case 'unauthorized': return 'Не авторизован'
-    case 'not_found': return 'Не найдено'
-    default: return status
-  }
-}
-
-function statusIcon(status: string): string {
-  switch (status) {
-    case 'success': return 'mingcute:check-circle-line'
-    case 'error': return 'mingcute:close-circle-line'
-    case 'unauthorized': return 'mingcute:shield-line'
-    case 'not_found': return 'mingcute:question-line'
-    default: return 'mingcute:information-line'
-  }
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleString('ru-RU')
-}
-
-function timeAgo(date: string): string {
-  const diff = Date.now() - new Date(date).getTime()
-  if (diff < 60_000) return 'только что'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} мин. назад`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} ч. назад`
-  return `${Math.floor(diff / 86_400_000)} дн. назад`
+  return STATUS_OPTIONS.find(o => o.value === status)?.label ?? status
 }
 
 function humanReadableEvent(entry: AuditEntry): string {
-  const user = entry.telegramUsername ? `@${entry.telegramUsername}` : `ID ${entry.telegramUserId}`
+  const user = entry.telegramUsername ? `@${entry.telegramUsername}` : `пользователь ${entry.telegramUserId}`
   switch (entry.command) {
     case '/start': return `${user} начал работу с ботом`
     case '/link': return `${user} привязал аккаунт`
-    case '/status': return `${user} запросил статус системы`
+    case '/status': return `${user} спросил состояние завода`
     case '/stop': return `${user} остановил цикл`
     case '/start_cycle': return `${user} запустил цикл`
-    case '/help': return `${user} запросил справку`
-    case 'video_url': return `${user} отправил видео на анализ`
+    case '/help': return `${user} открыл справку`
+    case 'video_url': return `${user} прислал видео на разбор`
     default: return `${user} выполнил ${entry.command}`
   }
 }
@@ -124,153 +115,115 @@ function humanReadableEvent(entry: AuditEntry): string {
 function formatArgs(args: Record<string, unknown> | string | null): string {
   if (!args) return ''
   if (typeof args === 'string') return args
-  if (!Object.keys(args).length) return ''
-  return JSON.stringify(args)
+  return Object.keys(args).length ? JSON.stringify(args) : ''
 }
 
-function goToPage(p: number) {
-  page.value = p
+function formatDate(value: string): string {
+  return new Date(value).toLocaleString('ru-RU')
 }
 
-const pageNumbers = computed(() => {
-  const total = meta.value.totalPages
-  const current = meta.value.page
-  const pages: number[] = []
-  const start = Math.max(1, current - 2)
-  const end = Math.min(total, current + 2)
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
+function timeAgo(value: string): string {
+  if (now.value == null) return ''
+  const diff = now.value - new Date(value).getTime()
+  if (diff < 60_000) return 'только что'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} мин назад`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} ч назад`
+  return `${Math.floor(diff / 86_400_000)} дн назад`
+}
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-3">
     <div>
-      <h3 class="text-lg font-semibold flex items-center gap-2">
-        <Icon name="mingcute:history-line" class="size-5" />
-        Аудит команд
-      </h3>
-      <p class="text-xs text-base-content/50">Все взаимодействия пользователей с ботом в Telegram</p>
+      <h3 class="text-base font-semibold">Аудит команд</h3>
+      <p class="text-sm text-subtle">Что люди делали через бота и чем это закончилось.</p>
     </div>
 
-    <!-- Filters -->
-    <div class="flex flex-wrap items-center gap-3">
-      <select v-model="filterCommand" class="select select-sm" @change="onFilterChange">
-        <option v-for="opt in commandOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <select v-model="filterStatus" class="select select-sm" @change="onFilterChange">
-        <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <button
-        v-if="filterCommand || filterStatus"
-        class="btn btn-sm btn-ghost gap-1"
-        @click="resetFilters"
-      >
-        <Icon name="mingcute:close-line" class="text-sm" />
+    <div class="flex flex-wrap items-center gap-2">
+      <UiSelect class="w-64" :model-value="filterCommand" :options="COMMAND_OPTIONS" @update:model-value="setCommand" />
+      <UiSelect class="w-44" :model-value="filterStatus" :options="STATUS_OPTIONS" @update:model-value="setStatus" />
+      <UiButton v-if="filtered" variant="ghost" @click="resetFilters">
+        <Icon name="mingcute:close-line" />
         Сбросить
-      </button>
-      <button class="btn btn-sm btn-ghost gap-1 ml-auto" @click="refresh()">
-        <Icon name="mingcute:refresh-2-line" class="text-sm" />
+      </UiButton>
+      <span class="flex-1" />
+      <UiButton variant="ghost" @click="refresh()">
+        <Icon name="mingcute:refresh-2-line" />
         Обновить
-      </button>
+      </UiButton>
     </div>
 
-    <!-- Timeline-style entries -->
-    <div v-if="items.length" class="space-y-2">
-      <div
+    <UiEmptyState
+      v-if="!items.length"
+      title="Записей нет"
+      :description="filtered
+        ? 'Под выбранные условия ничего не попало — снимите фильтры.'
+        : 'Аудит заполнится, как только с ботом начнут разговаривать.'"
+    />
+
+    <div v-else class="flex flex-col gap-1.5">
+      <article
         v-for="entry in items"
         :key="entry.id"
-        class="card bg-base-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-        @click="expandedId = expandedId === entry.id ? null : entry.id"
+        class="rounded-md border border-border bg-panel"
       >
-        <div class="card-body p-3 gap-1">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 min-w-0">
-              <Icon :name="statusIcon(entry.resultStatus)" :class="['text-lg shrink-0', statusBadge(entry.resultStatus).replace('badge-', 'text-')]" />
-              <div class="min-w-0">
-                <div class="text-sm">{{ humanReadableEvent(entry) }}</div>
-                <div class="flex items-center gap-2 text-xs text-base-content/50">
-                  <code class="font-mono font-semibold">{{ entry.command }}</code>
-                  <span v-if="entry.relatedEntityType" class="badge badge-xs badge-outline">
-                    {{ entry.relatedEntityType }}#{{ entry.relatedEntityId }}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <span :class="['badge badge-xs', statusBadge(entry.resultStatus)]">
-                {{ statusLabel(entry.resultStatus) }}
-              </span>
-              <span class="text-xs text-base-content/40 whitespace-nowrap">{{ timeAgo(entry.createdAt) }}</span>
-            </div>
-          </div>
-
-          <!-- Expanded details -->
-          <div v-if="expandedId === entry.id" class="mt-2 pt-2 border-t border-base-200">
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span class="opacity-50">Чат:</span>
-                <span class="font-semibold ml-1">{{ chatDisplayName(entry) }}</span>
-                <code class="font-mono text-base-content/40 ml-1 text-[10px]">({{ entry.chatId }})</code>
-              </div>
-              <div>
-                <span class="opacity-50">Telegram User:</span>
-                <span class="ml-1">{{ entry.telegramUsername ? `@${entry.telegramUsername}` : entry.telegramUserId }}</span>
-              </div>
-              <div>
-                <span class="opacity-50">Время:</span>
-                <span class="ml-1">{{ formatDate(entry.createdAt) }}</span>
-              </div>
-              <div v-if="formatArgs(entry.parsedArgs)">
-                <span class="opacity-50">Аргументы:</span>
-                <code class="font-mono ml-1">{{ formatArgs(entry.parsedArgs) }}</code>
-              </div>
-            </div>
-            <div v-if="entry.errorMessage" class="mt-2 alert alert-error alert-sm py-1.5">
-              <Icon name="mingcute:close-circle-line" class="text-sm" />
-              <span class="text-xs">{{ entry.errorMessage }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <div v-else class="flex flex-col items-center gap-3 py-12 text-base-content/50">
-      <Icon name="mingcute:document-line" class="text-4xl" />
-      <div class="text-center">
-        <p class="font-medium">Записей аудита не найдено</p>
-        <p v-if="filterCommand || filterStatus" class="text-xs mt-1">Попробуйте изменить фильтры</p>
-        <p v-else class="text-xs mt-1">Аудит начнёт заполняться, когда пользователи будут взаимодействовать с ботом</p>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="meta.totalPages > 1" class="flex justify-center">
-      <div class="join">
-        <button class="join-item btn btn-sm" :disabled="page <= 1" @click="goToPage(page - 1)">
-          <Icon name="mingcute:left-line" class="size-4" />
-        </button>
         <button
-          v-for="p in pageNumbers"
-          :key="p"
-          :class="['join-item btn btn-sm', { 'btn-active': p === meta.page }]"
-          @click="goToPage(p)"
+          type="button"
+          class="flex w-full cursor-pointer flex-wrap items-center gap-2 px-2.5 py-2 text-left"
+          :aria-expanded="expandedId === entry.id"
+          @click="expandedId = expandedId === entry.id ? null : entry.id"
         >
-          {{ p }}
+          <UiStatusBadge :status="STATUS_ENTITY[entry.resultStatus] ?? 'draft'" size="xs" icon-only />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm">{{ humanReadableEvent(entry) }}</span>
+            <span class="flex flex-wrap items-center gap-2 text-micro text-subtle">
+              <span class="font-mono">{{ entry.command }}</span>
+              <span v-if="entry.relatedEntityType" class="rounded-sm border border-divider px-1.5">
+                {{ entry.relatedEntityType }}#{{ entry.relatedEntityId }}
+              </span>
+            </span>
+          </span>
+          <span class="shrink-0 text-sm text-muted">{{ statusLabel(entry.resultStatus) }}</span>
+          <ClientOnly>
+            <span class="shrink-0 text-micro text-subtle">{{ timeAgo(entry.createdAt) }}</span>
+          </ClientOnly>
         </button>
-        <button class="join-item btn btn-sm" :disabled="page >= meta.totalPages" @click="goToPage(page + 1)">
-          <Icon name="mingcute:right-line" class="size-4" />
-        </button>
-      </div>
-    </div>
 
-    <div v-if="meta.total > 0" class="text-center text-xs text-base-content/50">
-      Всего: {{ meta.total }} записей
+        <div v-if="expandedId === entry.id" class="border-t border-divider px-2.5 py-2">
+          <ClientOnly>
+            <UiKeyValue
+              :items="[
+                { label: 'Чат', value: `${chatDisplayName(entry)} (${entry.chatId})` },
+                {
+                  label: 'В Telegram',
+                  value: entry.telegramUsername ? `@${entry.telegramUsername}` : String(entry.telegramUserId),
+                },
+                { label: 'Время', value: formatDate(entry.createdAt) },
+                ...(formatArgs(entry.parsedArgs) ? [{ label: 'Аргументы', value: formatArgs(entry.parsedArgs) }] : []),
+              ]"
+            />
+          </ClientOnly>
+          <p
+            v-if="entry.errorMessage"
+            class="mt-2 flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-1.5 text-sm text-fg"
+          >
+            <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-danger" />
+            <span class="min-w-0 flex-1">{{ entry.errorMessage }}</span>
+          </p>
+        </div>
+      </article>
+
+      <div v-if="meta.totalPages > 1" class="flex items-center justify-center gap-2 pt-1">
+        <UiButton variant="ghost" :disabled="page <= 1" aria-label="Предыдущая" @click="page--">
+          <Icon name="mingcute:left-line" />
+        </UiButton>
+        <span class="tnum font-mono text-sm text-muted">{{ meta.page }} / {{ meta.totalPages }}</span>
+        <UiButton variant="ghost" :disabled="page >= meta.totalPages" aria-label="Следующая" @click="page++">
+          <Icon name="mingcute:right-line" />
+        </UiButton>
+      </div>
+
+      <p class="tnum text-center font-mono text-micro text-subtle">всего {{ meta.total }}</p>
     </div>
   </div>
 </template>

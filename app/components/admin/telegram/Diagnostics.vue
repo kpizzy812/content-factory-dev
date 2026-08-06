@@ -1,49 +1,106 @@
 <script setup lang="ts">
+/**
+ * Диагностика Telegram.
+ *
+ * Три проверки по нарастающей: жив ли токен, доходит ли до чатов вообще,
+ * доходит ли до конкретного. В таком порядке их и делают, когда «уведомления
+ * не приходят», — каждая следующая имеет смысл, только если прошла предыдущая.
+ *
+ * Ответы Telegram переводятся на человеческий: «chat not found» ничего не
+ * говорит оператору, «бота удалили из чата» говорит, что делать.
+ */
 const { testApi, testSend, testChat } = useAdminTelegramActions()
 const { data: chatsData } = useAdminTelegramChats()
 
 const chats = computed(() => {
   const raw = (chatsData.value as any)?.data ?? chatsData.value ?? []
-  return raw as Array<{ id: number; chatId: string; title: string | null; username: string | null; chatType: string; alertsEnabled: boolean }>
+  return raw as Array<{
+    id: number
+    chatId: string
+    title: string | null
+    username: string | null
+    chatType: string
+    alertsEnabled: boolean
+  }>
 })
 
-// --- Test API ---
+const CHAT_TYPE_LABELS: Record<string, string> = {
+  group: 'группа',
+  supergroup: 'супергруппа',
+  channel: 'канал',
+  private: 'личный',
+}
+
+function chatLabel(chat: { title: string | null; username: string | null; chatId: string; chatType: string }): string {
+  const name = chat.title || (chat.username ? `@${chat.username}` : `Чат ${chat.chatId}`)
+  return chat.chatType === 'private' ? name : `${name} · ${CHAT_TYPE_LABELS[chat.chatType] ?? chat.chatType}`
+}
+
+/** Ответ Telegram → что это значит для оператора. */
+function humanReadableError(error: string | null | undefined): string {
+  if (!error) return ''
+  if (error.includes('chat not found')) return 'Чат не найден — скорее всего бота удалили из чата'
+  if (error.includes('bot was blocked')) return 'Пользователь заблокировал бота'
+  if (error.includes('Forbidden')) return 'У бота нет прав писать в этот чат'
+  if (error.includes('FLOOD_WAIT')) return 'Telegram придержал отправку: слишком часто'
+  if (error.includes('Too Many Requests')) return 'Превышен лимит запросов к Telegram'
+  if (error.includes('timeout') || error.includes('ETIMEDOUT')) return 'Telegram не ответил вовремя'
+  if (error.includes('Unauthorized') || error.includes('401')) return 'Токен бота не принят'
+  return error
+}
+
+// ── 1. Токен ──────────────────────────────────────────────────────────────
+interface ApiStep { label: string; ok: boolean; detail?: string }
+
 const apiLoading = ref(false)
 const apiResult = ref<{
   success: boolean
   botUsername?: string
   botName?: string
   error?: string
-  steps?: Array<{ label: string; ok: boolean; detail?: string }>
+  steps: ApiStep[]
 } | null>(null)
+
+/** Что делать дальше — выводится из текста отказа, а не из общих слов. */
+const apiHint = computed(() => {
+  const error = apiResult.value?.error
+  if (!apiResult.value || apiResult.value.success || !error) return null
+  if (error.includes('401') || error.includes('Unauthorized')) {
+    return 'Проверьте TELEGRAM_BOT_TOKEN в окружении: токен отозван или скопирован не полностью.'
+  }
+  if (error.includes('timeout') || error.includes('ETIMEDOUT')) {
+    return 'Telegram недоступен с этого сервера — вопрос к сети, а не к настройкам бота.'
+  }
+  return 'Проверьте TELEGRAM_BOT_TOKEN и доступ сервера в интернет.'
+})
 
 async function handleTestApi() {
   apiLoading.value = true
   apiResult.value = null
-  const steps: Array<{ label: string; ok: boolean; detail?: string }> = []
-
+  const steps: ApiStep[] = []
   try {
-    steps.push({ label: 'Отправка запроса к Telegram API (getMe)', ok: true })
+    steps.push({ label: 'Запрос getMe к Telegram', ok: true })
     const res = await testApi() as { success: boolean; botUsername?: string; botName?: string; error?: string }
-
     if (res.success) {
-      steps.push({ label: 'Токен валиден', ok: true, detail: `@${res.botUsername}` })
-      steps.push({ label: 'Бот доступен и отвечает', ok: true, detail: res.botName })
-    } else {
-      steps.push({ label: 'Проверка токена', ok: false, detail: res.error || 'Telegram API вернул ошибку' })
+      steps.push({ label: 'Токен принят', ok: true, detail: res.botUsername ? `@${res.botUsername}` : undefined })
+      steps.push({ label: 'Бот отвечает', ok: true, detail: res.botName })
     }
-
+    else {
+      steps.push({ label: 'Токен не принят', ok: false, detail: res.error || 'Telegram вернул ошибку' })
+    }
     apiResult.value = { ...res, steps }
-  } catch (e: any) {
-    const errorMsg = e.data?.message || e.message || 'Сетевая ошибка или сервер недоступен'
-    steps.push({ label: 'Соединение с сервером', ok: false, detail: errorMsg })
-    apiResult.value = { success: false, error: errorMsg, steps }
-  } finally {
+  }
+  catch (e: any) {
+    const message = e?.data?.message || e?.message || 'Сервер не ответил'
+    steps.push({ label: 'Соединение с сервером', ok: false, detail: message })
+    apiResult.value = { success: false, error: message, steps }
+  }
+  finally {
     apiLoading.value = false
   }
 }
 
-// --- Test Send (broadcast) ---
+// ── 2. Рассылка ───────────────────────────────────────────────────────────
 const sendMessage = ref('')
 const sendLoading = ref(false)
 const sendResult = ref<{ sent: boolean; chatsCount?: number; reason?: string } | null>(null)
@@ -53,230 +110,203 @@ async function handleTestSend() {
   sendLoading.value = true
   sendResult.value = null
   try {
-    const res = await testSend(sendMessage.value) as { sent: boolean; chatsCount?: number; reason?: string }
-    sendResult.value = res
-  } catch (e: any) {
-    sendResult.value = { sent: false, reason: e.data?.message || e.message || 'Неизвестная ошибка' }
-  } finally {
+    sendResult.value = await testSend(sendMessage.value) as { sent: boolean; chatsCount?: number; reason?: string }
+  }
+  catch (e: any) {
+    sendResult.value = { sent: false, reason: e?.data?.message || e?.message || 'Не удалось отправить' }
+  }
+  finally {
     sendLoading.value = false
   }
 }
 
-// --- Test Chat ---
-const chatId = ref('')
+// ── 3. Один чат ───────────────────────────────────────────────────────────
+const chatId = ref<string>('')
 const chatMessage = ref('')
 const chatLoading = ref(false)
 const chatResult = ref<{ success: boolean; messageId?: number; error?: string } | null>(null)
 
+const chatOptions = computed(() => [
+  { value: '', label: chats.value.length ? 'Выберите чат' : 'Привязанных чатов нет' },
+  ...chats.value.map(c => ({ value: c.chatId, label: chatLabel(c) })),
+])
+
 const selectedChatName = computed(() => {
-  const c = chats.value.find(ch => ch.chatId === chatId.value)
-  if (!c) return chatId.value
-  return c.title || (c.username ? `@${c.username}` : `Чат ${c.chatId}`)
+  const chat = chats.value.find(c => c.chatId === chatId.value)
+  return chat ? chatLabel(chat) : chatId.value
 })
 
-function chatTypeLabel(type: string): string {
-  if (type === 'group') return 'Группа'
-  if (type === 'supergroup') return 'Супергруппа'
-  if (type === 'channel') return 'Канал'
-  return 'Личный'
-}
-
-function humanReadableError(error: string | null): string {
-  if (!error) return ''
-  if (error.includes('chat not found')) return 'Чат не найден — возможно, бот был удалён из чата'
-  if (error.includes('bot was blocked')) return 'Бот заблокирован пользователем'
-  if (error.includes('Forbidden')) return 'Бот не имеет прав отправлять в этот чат'
-  if (error.includes('FLOOD_WAIT')) return 'Telegram ограничил отправку — слишком много запросов'
-  if (error.includes('Too Many Requests')) return 'Превышен лимит запросов к Telegram API'
-  if (error.includes('timeout') || error.includes('ETIMEDOUT')) return 'Таймаут соединения с Telegram API'
-  if (error.includes('Unauthorized') || error.includes('401')) return 'Токен бота невалиден'
-  return error
-}
-
 async function handleTestChat() {
-  if (!chatId.value.trim()) return
+  if (!chatId.value) return
   chatLoading.value = true
   chatResult.value = null
   try {
-    const res = await testChat(chatId.value, chatMessage.value || undefined) as { success: boolean; messageId?: number; error?: string }
-    chatResult.value = res
-  } catch (e: any) {
-    chatResult.value = { success: false, error: e.data?.message || e.message || 'Неизвестная ошибка' }
-  } finally {
+    chatResult.value = await testChat(
+      chatId.value,
+      chatMessage.value || undefined,
+    ) as { success: boolean; messageId?: number; error?: string }
+  }
+  catch (e: any) {
+    chatResult.value = { success: false, error: e?.data?.message || e?.message || 'Не удалось отправить' }
+  }
+  finally {
     chatLoading.value = false
   }
 }
-
-// Advanced details toggle
-const showAdvanced = ref(false)
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <!-- Test API -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="font-bold text-base-content">Проверка API</h3>
-            <p class="text-xs text-base-content/50 mt-0.5">Проверяет валидность токена и доступность Telegram Bot API</p>
-          </div>
-          <button class="btn btn-sm btn-primary" :disabled="apiLoading" @click="handleTestApi">
-            <span v-if="apiLoading" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:radar-line" />
-            Тест API
-          </button>
-        </div>
+  <div class="flex flex-col gap-3">
+    <section class="overflow-hidden rounded-lg border border-border bg-panel">
+      <header class="flex flex-wrap items-center gap-2 border-b border-divider bg-card px-3 py-2.5">
+        <span class="min-w-0 flex-1">
+          <span class="block text-base font-medium">Токен и связь</span>
+          <span class="block text-sm text-subtle">Жив ли токен и отвечает ли Telegram</span>
+        </span>
+        <UiButton variant="primary" :loading="apiLoading" @click="handleTestApi">
+          <Icon v-if="!apiLoading" name="mingcute:radar-line" />
+          Проверить
+        </UiButton>
+      </header>
 
-        <!-- Result -->
-        <template v-if="apiResult">
-          <div role="alert" :class="['alert', apiResult.success ? 'alert-success' : 'alert-error']">
-            <Icon :name="apiResult.success ? 'mingcute:check-circle-line' : 'mingcute:close-circle-line'" class="text-lg shrink-0" />
-            <div>
-              <template v-if="apiResult.success">
-                <span class="font-semibold">Бот подключён и работает</span>
-                <div class="text-sm mt-0.5">
-                  <span class="badge badge-ghost badge-sm">@{{ apiResult.botUsername }}</span>
-                  <span v-if="apiResult.botName" class="ml-1 opacity-70">({{ apiResult.botName }})</span>
-                </div>
-              </template>
-              <template v-else>
-                <span class="font-semibold">Тест не пройден</span>
-                <div class="text-sm mt-0.5">{{ apiResult.error }}</div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Steps breakdown -->
-          <div v-if="apiResult.steps?.length" class="collapse collapse-arrow bg-base-200">
-            <input type="checkbox" v-model="showAdvanced" />
-            <div class="collapse-title text-sm font-medium py-2 min-h-0">
-              Подробности проверки ({{ apiResult.steps.length }} шагов)
-            </div>
-            <div class="collapse-content px-4 pb-3">
-              <ul class="steps steps-vertical text-xs">
-                <li v-for="(step, i) in apiResult.steps" :key="i" :class="['step', step.ok ? 'step-success' : 'step-error']">
-                  <div class="text-left">
-                    <span :class="step.ok ? '' : 'text-error font-semibold'">{{ step.label }}</span>
-                    <span v-if="step.detail" class="block text-base-content/50">{{ step.detail }}</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Next action hint -->
-          <div v-if="!apiResult.success" class="text-xs text-base-content/60 flex items-center gap-1">
-            <Icon name="mingcute:bulb-line" class="text-warning" />
-            <template v-if="apiResult.error?.includes('401') || apiResult.error?.includes('Unauthorized')">
-              Проверьте TELEGRAM_BOT_TOKEN в .env — токен невалиден или отозван.
-            </template>
-            <template v-else-if="apiResult.error?.includes('timeout') || apiResult.error?.includes('ETIMEDOUT')">
-              Telegram API недоступен. Проверьте сетевое подключение сервера.
+      <div v-if="apiResult" class="flex flex-col gap-2 px-3 py-3">
+        <p
+          class="flex items-start gap-2 rounded-md border px-2.5 py-2 text-sm text-fg"
+          :class="apiResult.success
+            ? 'border-success-border bg-success-bg'
+            : 'border-danger-border bg-danger-bg'"
+        >
+          <Icon
+            :name="apiResult.success ? 'mingcute:check-line' : 'mingcute:alert-line'"
+            class="mt-0.5 shrink-0"
+            :class="apiResult.success ? 'text-success' : 'text-danger'"
+          />
+          <span class="min-w-0 flex-1">
+            <template v-if="apiResult.success">
+              <span class="block font-medium">Бот подключён</span>
+              <span class="block font-mono text-micro text-muted">
+                @{{ apiResult.botUsername }}<template v-if="apiResult.botName"> · {{ apiResult.botName }}</template>
+              </span>
             </template>
             <template v-else>
-              Проверьте настройки бота и сетевое подключение. Убедитесь, что TELEGRAM_BOT_TOKEN корректен.
+              <span class="block font-medium">Проверка не прошла</span>
+              <span class="block text-micro text-muted">{{ humanReadableError(apiResult.error) }}</span>
             </template>
-          </div>
-        </template>
-      </div>
-    </div>
+          </span>
+        </p>
 
-    <!-- Test Send (broadcast) -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <div>
-          <h3 class="font-bold text-base-content">Тестовая рассылка</h3>
-          <p class="text-xs text-base-content/50 mt-0.5">Отправит сообщение во все чаты с включёнными уведомлениями</p>
-        </div>
-        <form class="flex flex-col gap-2" @submit.prevent="handleTestSend">
-          <textarea
-            v-model="sendMessage"
-            class="textarea w-full"
-            placeholder="Текст тестового сообщения..."
-            rows="2"
-            required
-          />
-          <button class="btn btn-sm btn-primary self-end" :disabled="sendLoading || !sendMessage.trim()">
-            <span v-if="sendLoading" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:send-line" />
+        <UiDisclosure title="Как шла проверка" :count="apiResult.steps.length">
+          <div class="flex flex-col gap-1">
+            <div
+              v-for="(step, index) in apiResult.steps"
+              :key="index"
+              class="flex items-start gap-2 text-sm"
+            >
+              <span class="mt-1.5 size-1.5 shrink-0 rounded-full" :class="step.ok ? 'bg-success' : 'bg-danger'" />
+              <span class="min-w-0 flex-1">
+                <span class="block" :class="!step.ok && 'text-danger'">{{ step.label }}</span>
+                <span v-if="step.detail" class="block text-micro text-subtle">{{ step.detail }}</span>
+              </span>
+            </div>
+          </div>
+        </UiDisclosure>
+
+        <p v-if="apiHint" class="flex items-start gap-2 text-sm text-muted">
+          <Icon name="mingcute:bulb-line" class="mt-0.5 shrink-0 text-warning" />
+          <span>{{ apiHint }}</span>
+        </p>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-lg border border-border bg-panel">
+      <header class="border-b border-divider bg-card px-3 py-2.5">
+        <span class="block text-base font-medium">Рассылка по всем чатам</span>
+        <span class="block text-sm text-subtle">Уйдёт во все чаты с включёнными уведомлениями</span>
+      </header>
+
+      <form class="flex flex-col gap-2 px-3 py-3" @submit.prevent="handleTestSend">
+        <UiTextarea v-model="sendMessage" :rows="2" placeholder="Текст тестового сообщения" />
+        <div class="flex items-center gap-2">
+          <span class="flex-1" />
+          <UiButton
+            type="submit"
+            variant="primary"
+            :loading="sendLoading"
+            :disabled="!sendMessage.trim()"
+          >
+            <Icon v-if="!sendLoading" name="mingcute:send-line" />
             Отправить всем
-          </button>
-        </form>
-        <template v-if="sendResult">
-          <div role="alert" :class="['alert', sendResult.sent ? 'alert-success' : 'alert-warning']">
-            <Icon :name="sendResult.sent ? 'mingcute:check-circle-line' : 'mingcute:information-line'" class="text-lg shrink-0" />
-            <div>
-              <template v-if="sendResult.sent">
-                Отправлено в <span class="badge badge-ghost badge-sm">{{ sendResult.chatsCount }}</span> чат(ов).
-                Результаты доставки — во вкладке «Доставки».
-              </template>
-              <template v-else>
-                <span class="font-semibold">Не отправлено:</span> {{ sendResult.reason }}
-              </template>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <!-- Test Chat -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <div>
-          <h3 class="font-bold text-base-content">Тест отдельного чата</h3>
-          <p class="text-xs text-base-content/50 mt-0.5">Отправит сообщение в выбранный чат. Результат сохранится в доставках.</p>
+          </UiButton>
         </div>
-        <form class="flex flex-col gap-2" @submit.prevent="handleTestChat">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Чат-получатель</legend>
-            <select v-model="chatId" class="select select-sm w-full" required>
-              <option value="" disabled>Выберите чат...</option>
-              <option v-for="c in chats" :key="c.chatId" :value="c.chatId">
-                {{ c.title || (c.username ? `@${c.username}` : `Чат ${c.chatId}`) }}
-                <template v-if="c.chatType !== 'private'"> ({{ chatTypeLabel(c.chatType) }})</template>
-              </option>
-            </select>
-            <p v-if="!chats.length" class="text-xs text-warning mt-1">
-              Нет привязанных чатов. Отправьте боту команду /start, чтобы зарегистрировать чат.
-            </p>
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Сообщение (необязательно)</legend>
-            <textarea
-              v-model="chatMessage"
-              class="textarea w-full textarea-sm"
-              placeholder="Тестовое сообщение из админки"
-              rows="2"
-            />
-          </fieldset>
-          <div class="flex items-center justify-between">
-            <span v-if="chatId.trim()" class="text-xs text-base-content/50">
-              Отправка в: <span class="font-semibold">{{ selectedChatName }}</span>
-              <code class="font-mono text-base-content/40 ml-1">({{ chatId }})</code>
-            </span>
-            <button class="btn btn-sm btn-primary" :disabled="chatLoading || !chatId.trim()">
-              <span v-if="chatLoading" class="loading loading-spinner loading-xs" />
-              <Icon v-else name="mingcute:chat-3-line" />
-              Отправить в чат
-            </button>
-          </div>
-        </form>
-        <template v-if="chatResult">
-          <div role="alert" :class="['alert', chatResult.success ? 'alert-success' : 'alert-error']">
-            <Icon :name="chatResult.success ? 'mingcute:check-circle-line' : 'mingcute:close-circle-line'" class="text-lg shrink-0" />
-            <div>
-              <template v-if="chatResult.success">
-                Сообщение доставлено в <span class="font-semibold">{{ selectedChatName }}</span>
-                <span class="badge badge-ghost badge-sm ml-1">Telegram ID: {{ chatResult.messageId }}</span>
-              </template>
-              <template v-else>
-                <span class="font-semibold">Ошибка доставки:</span> {{ humanReadableError(chatResult.error ?? null) }}
-              </template>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
+
+        <p
+          v-if="sendResult"
+          class="flex items-start gap-2 rounded-md border px-2.5 py-2 text-sm text-fg"
+          :class="sendResult.sent
+            ? 'border-success-border bg-success-bg'
+            : 'border-warning-border bg-warning-bg'"
+        >
+          <Icon
+            :name="sendResult.sent ? 'mingcute:check-line' : 'mingcute:information-line'"
+            class="mt-0.5 shrink-0"
+            :class="sendResult.sent ? 'text-success' : 'text-warning'"
+          />
+          <span v-if="sendResult.sent">
+            Ушло в {{ sendResult.chatsCount }} чат(ов). Что из этого дошло — на вкладке «Доставки».
+          </span>
+          <span v-else>Не отправлено: {{ sendResult.reason }}</span>
+        </p>
+      </form>
+    </section>
+
+    <section class="overflow-hidden rounded-lg border border-border bg-panel">
+      <header class="border-b border-divider bg-card px-3 py-2.5">
+        <span class="block text-base font-medium">Отправка в один чат</span>
+        <span class="block text-sm text-subtle">Результат попадёт в историю доставок</span>
+      </header>
+
+      <form class="flex flex-col gap-3 px-3 py-3" @submit.prevent="handleTestChat">
+        <UiField
+          label="Чат"
+          :hint="chats.length ? undefined : 'Отправьте боту /start, чтобы чат появился в списке'"
+        >
+          <UiSelect v-model="chatId" :options="chatOptions" :disabled="!chats.length" />
+        </UiField>
+
+        <UiField label="Сообщение" hint="Пусто — уйдёт стандартный текст проверки">
+          <UiTextarea v-model="chatMessage" :rows="2" placeholder="Тестовое сообщение из админки" />
+        </UiField>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <span v-if="chatId" class="min-w-0 flex-1 truncate text-sm text-subtle">
+            уйдёт в {{ selectedChatName }}
+          </span>
+          <span v-else class="flex-1" />
+          <UiButton type="submit" variant="primary" :loading="chatLoading" :disabled="!chatId">
+            <Icon v-if="!chatLoading" name="mingcute:chat-3-line" />
+            Отправить
+          </UiButton>
+        </div>
+
+        <p
+          v-if="chatResult"
+          class="flex items-start gap-2 rounded-md border px-2.5 py-2 text-sm text-fg"
+          :class="chatResult.success
+            ? 'border-success-border bg-success-bg'
+            : 'border-danger-border bg-danger-bg'"
+        >
+          <Icon
+            :name="chatResult.success ? 'mingcute:check-line' : 'mingcute:alert-line'"
+            class="mt-0.5 shrink-0"
+            :class="chatResult.success ? 'text-success' : 'text-danger'"
+          />
+          <span v-if="chatResult.success">
+            Доставлено в {{ selectedChatName }}
+            <span class="font-mono text-micro text-muted">· сообщение {{ chatResult.messageId }}</span>
+          </span>
+          <span v-else>{{ humanReadableError(chatResult.error) }}</span>
+        </p>
+      </form>
+    </section>
   </div>
 </template>

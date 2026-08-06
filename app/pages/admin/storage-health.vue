@@ -2,10 +2,10 @@
 /**
  * Здоровье хранилища. Макет: design-preview/catalog/08-settings-admin.dc.html
  *
- * В макете это полоски заполненности с порогами 80 и 90 процентов. Endpoint
- * отдаёт другое: сколько роликов проверено и у скольких пропали файлы. Полоски
- * рисуются по этим числам — доля найденного, — а не по свободному месту:
- * `freeSpaceGB` приходит без общего объёма, и процент из него не получится.
+ * Две разные вещи в одной панели: заполненность диска (порогами 80 и 90, как
+ * в макете) и целостность — сколько файлов роликов нашлось на месте. Первая
+ * отвечает «скоро ли кончится место», вторая «что уже потерялось», и
+ * подменять одну другой нельзя.
  *
  * Ответ приходит только на клиенте (`server: false`), поэтому содержимое
  * обёрнуто в ClientOnly: иначе на сервере страница вечно в загрузке.
@@ -30,6 +30,8 @@ interface StorageHealthResponse {
     storageBase: string
     baseExists: boolean
     freeSpaceGB: number | null
+    totalSpaceGB: number | null
+    usedPercent: number | null
     driver: { provider: string; bucketName?: string; localRoot?: string; credentialsSource?: string }
     checkedVideos: number
     videoFilesOnDisk: number
@@ -91,6 +93,33 @@ function barTone(bar: Bar): string {
   if (value >= 90) return 'bg-warning'
   return 'bg-danger'
 }
+
+/** Пороги из макета: 80 — пора чистить, 90 — генерация встанет со дня на день. */
+const diskTone = computed(() => {
+  const percent = stats.value?.usedPercent ?? 0
+  if (percent >= 90) {
+    return {
+      border: 'border-danger-border',
+      text: 'text-danger',
+      fill: 'bg-danger',
+      hint: 'Места почти нет. Генерация встанет, как только очередной ролик не поместится.',
+    }
+  }
+  if (percent >= 80) {
+    return {
+      border: 'border-warning-border',
+      text: 'text-warning',
+      fill: 'bg-warning',
+      hint: 'Пора убрать старые ролики: до порога, на котором встаёт генерация, немного.',
+    }
+  }
+  return {
+    border: 'border-border',
+    text: 'text-fg',
+    fill: 'bg-accent',
+    hint: 'Места достаточно.',
+  }
+})
 </script>
 
 <template>
@@ -115,6 +144,27 @@ function barTone(bar: Bar): string {
       />
 
       <template v-else-if="stats">
+        <section
+          v-if="stats.usedPercent !== null"
+          class="overflow-hidden rounded-lg border bg-panel"
+          :class="diskTone.border"
+        >
+          <div class="flex flex-wrap items-center gap-2 border-b border-divider bg-card px-3.5 py-2.5">
+            <h2 class="text-base font-medium">Заполненность диска</h2>
+            <span class="tnum font-mono text-sm" :class="diskTone.text">{{ stats.usedPercent }}%</span>
+            <span class="flex-1" />
+            <span class="tnum font-mono text-sm text-subtle">
+              свободно {{ stats.freeSpaceGB }} из {{ stats.totalSpaceGB }} ГБ
+            </span>
+          </div>
+          <div class="flex flex-col gap-1.5 px-3.5 py-3">
+            <span class="h-2 overflow-hidden rounded-full bg-card">
+              <span class="block h-full" :class="diskTone.fill" :style="{ width: `${stats.usedPercent}%` }" />
+            </span>
+            <p class="text-sm text-muted">{{ diskTone.hint }}</p>
+          </div>
+        </section>
+
         <section class="overflow-hidden rounded-lg border border-border bg-panel">
           <div class="flex flex-wrap items-center gap-2 border-b border-divider bg-card px-3.5 py-2.5">
             <h2 class="text-base font-medium">Файлы на месте</h2>
@@ -148,7 +198,7 @@ function barTone(bar: Bar): string {
               {{ stats.driver.bucketName ?? stats.driver.localRoot ?? stats.storageBase }}
             </span>
             <span v-if="stats.freeSpaceGB !== null" class="tnum font-mono">
-              свободно {{ stats.freeSpaceGB }} ГБ
+              свободно {{ stats.freeSpaceGB }} ГБ<template v-if="stats.totalSpaceGB"> из {{ stats.totalSpaceGB }}</template>
             </span>
             <span v-if="!stats.baseExists" class="text-danger">каталог хранилища не найден</span>
           </div>

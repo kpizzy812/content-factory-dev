@@ -4,6 +4,9 @@
  *
  * Вкладки — второй уровень внутри страницы: у каждой свой запрос, и грузить их
  * все разом ради одной незачем. Хлебных крошек нет — путь рисует топбар.
+ *
+ * Вкладка живёт в адресе (`?tab=deliveries`): на неё ссылаются из разбора
+ * инцидента, и ссылка должна открывать нужную, а не «Обзор».
  */
 definePageMeta({ middleware: ['admin-access'] })
 useHead({ title: 'Telegram' })
@@ -20,7 +23,19 @@ const TABS = [
 
 type TabKey = typeof TABS[number]['key']
 
-const activeTab = ref<TabKey>('overview')
+const route = useRoute()
+const router = useRouter()
+
+const TAB_KEYS = new Set<string>(TABS.map(t => t.key))
+
+const activeTab = computed<TabKey>(() => {
+  const value = route.query.tab
+  return typeof value === 'string' && TAB_KEYS.has(value) ? value as TabKey : 'overview'
+})
+
+function setTab(tab: TabKey) {
+  router.replace({ query: { ...route.query, tab: tab === 'overview' ? undefined : tab } })
+}
 
 const { data: statusData, pending, refresh } = useAdminTelegramStatus()
 const status = computed(() => statusData.value?.data ?? null)
@@ -49,7 +64,7 @@ const status = computed(() => statusData.value?.data ?? null)
         :class="activeTab === tab.key
           ? 'border-accent font-medium text-fg'
           : 'border-transparent text-muted hover:text-fg'"
-        @click="activeTab = tab.key"
+        @click="setTab(tab.key)"
       >
         {{ tab.label }}
       </button>
@@ -61,8 +76,8 @@ const status = computed(() => statusData.value?.data ?? null)
       <AdminTelegramOverview
         v-if="activeTab === 'overview'"
         :status="status"
-        @test-api="activeTab = 'diagnostics'"
-        @navigate="(tab) => { activeTab = tab as TabKey }"
+        @test-api="setTab('diagnostics')"
+        @navigate="(tab) => setTab(tab as TabKey)"
       />
       <AdminTelegramDiagnostics v-else-if="activeTab === 'diagnostics'" />
       <AdminTelegramTemplates v-else-if="activeTab === 'templates'" />

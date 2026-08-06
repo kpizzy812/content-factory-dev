@@ -2,11 +2,13 @@
 /**
  * Интеграции. Макет: design-preview/catalog/08-settings-admin.dc.html
  *
- * В макете здесь сетка карточек с ключами, порогами и кнопкой «Проверить все».
- * Ни ключей, ни проверок в API нет: секреты живут в окружении, а состояния
- * сервисов не отдаёт ни один endpoint. Поэтому страница говорит прямо, где
- * настраивается каждая зона, и ведёт туда, где её состояние действительно видно.
+ * Ключей на странице нет и не будет: секреты живут в окружении и в интерфейс
+ * не выводятся ни целиком, ни маской. А вот состояние сервиса — выводится:
+ * `/api/admin/integrations` дёргает у каждого бесплатный endpoint и говорит,
+ * отвечает он или нет. Генерации там нет, поэтому «Проверить все» ничего не стоит.
  */
+import { INTEGRATION_STATE_META } from '~/components/admin/IntegrationStateMap'
+
 definePageMeta({ middleware: ['admin-access'] })
 useHead({ title: 'Интеграции' })
 
@@ -14,10 +16,53 @@ const { data: modulesData } = await useFetch<{ data: Record<string, boolean> }>(
 
 const legacy = computed(() => modulesData.value?.data ?? {})
 
+interface IntegrationHealthRow {
+  key: string
+  label: string
+  purpose: string
+  state: keyof typeof INTEGRATION_STATE_META
+  detail: string
+  durationMs: number | null
+}
+
+// Проверка ходит наружу и занимает секунды, поэтому только в браузере и лениво:
+// страница-карта должна открываться мгновенно.
+const {
+  data: healthData,
+  pending: healthPending,
+  refresh: refreshHealth,
+} = useFetch<{ data: { services: IntegrationHealthRow[]; okCount: number; total: number; checkedAt: string } }>(
+  '/api/admin/integrations',
+  { key: 'admin-integrations-health', server: false, lazy: true },
+)
+
+const health = computed(() => healthData.value?.data ?? null)
+const healthByKey = computed(() =>
+  new Map((health.value?.services ?? []).map(s => [s.key, s])),
+)
+
+/** Своё состояние: `pending` на сервере false, а в браузере сразу true. */
+const checking = ref(false)
+async function checkAll() {
+  checking.value = true
+  try {
+    await refreshHealth()
+  }
+  finally {
+    checking.value = false
+  }
+}
+
+function checkedAtLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ru-RU')
+}
+
 interface IntegrationRow {
   name: string
   purpose: string
   icon: string
+  /** Ключ в ответе проверки; без него карточка только объясняет, где настроить. */
+  healthKey?: string
   /** Куда идти за состоянием и настройкой. */
   href?: string
   hrefLabel?: string
@@ -32,22 +77,43 @@ const rows = computed<IntegrationRow[]>(() => [
     name: 'Replicate',
     purpose: 'генерация видео и lip-sync',
     icon: 'mingcute:video-line',
+    healthKey: 'replicate',
     href: '/admin/balances',
     hrefLabel: 'Балансы',
     note: 'Ключ задаётся в окружении. Остаток и расход видны в балансах.',
   },
   {
+    name: 'fal.ai',
+    purpose: 'кадры и клипы',
+    icon: 'mingcute:pic-line',
+    healthKey: 'fal.ai',
+    href: '/admin/balances',
+    hrefLabel: 'Балансы',
+    note: 'Резервный провайдер медиа-моделей, подключается явной настройкой.',
+  },
+  {
     name: 'Anthropic',
     purpose: 'сценарии и критик',
     icon: 'mingcute:document-line',
+    healthKey: 'anthropic',
     href: '/admin/balances',
     hrefLabel: 'Балансы',
     note: 'Ключ задаётся в окружении. Расход виден в балансах.',
   },
   {
+    name: 'Apify',
+    purpose: 'парсинг трендов',
+    icon: 'mingcute:fire-line',
+    healthKey: 'apify',
+    href: '/trends?tab=profiles',
+    hrefLabel: 'Профили парсинга',
+    note: 'Токен задаётся в окружении. Что и где искать — в профилях парсинга.',
+  },
+  {
     name: 'Telegram',
     purpose: 'уведомления и бот',
     icon: 'mingcute:send-plane-line',
+    healthKey: 'telegram',
     href: '/admin/telegram',
     hrefLabel: 'Настроить',
     note: 'Чаты, шаблоны и доставка — на своей странице.',
@@ -56,6 +122,7 @@ const rows = computed<IntegrationRow[]>(() => [
     name: 'Хранилище',
     purpose: 'готовые ролики и кадры',
     icon: 'mingcute:folder-line',
+    healthKey: 'storage',
     href: '/admin/storage-health',
     hrefLabel: 'Здоровье',
     note: 'Драйвер и бакет задаются в окружении, заполненность — на своей странице.',
@@ -86,6 +153,19 @@ const rows = computed<IntegrationRow[]>(() => [
     <div class="flex flex-wrap items-center gap-2">
       <h1 class="text-xl font-semibold">Интеграции</h1>
       <span class="tnum font-mono text-sm text-subtle">{{ rows.length }} сервисов</span>
+      <ClientOnly>
+        <span v-if="health" class="tnum text-sm text-muted">
+          {{ health.okCount }} из {{ health.total }} в норме
+        </span>
+        <span v-if="health" class="tnum font-mono text-micro text-subtle">
+          проверено {{ checkedAtLabel(health.checkedAt) }}
+        </span>
+      </ClientOnly>
+      <span class="flex-1" />
+      <UiButton :loading="checking" @click="checkAll">
+        <Icon v-if="!checking" name="mingcute:refresh-2-line" />
+        Проверить все
+      </UiButton>
     </div>
 
     <p
@@ -94,8 +174,8 @@ const rows = computed<IntegrationRow[]>(() => [
       <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       <span>
         Ключи сервисов задаются переменными окружения и в интерфейс не выводятся —
-        ни целиком, ни маской. Здесь только карта: где что настраивается и где
-        видно, что оно работает.
+        ни целиком, ни маской. Проверка дёргает у каждого сервиса бесплатный
+        endpoint: она отвечает «работает или нет» и ничего не стоит.
       </span>
     </p>
 
@@ -124,6 +204,29 @@ const rows = computed<IntegrationRow[]>(() => [
             {{ row.enabled ? 'включено' : 'выключено' }}
           </span>
         </div>
+
+        <ClientOnly>
+          <div v-if="row.healthKey" class="flex flex-wrap items-center gap-2">
+            <template v-if="healthByKey.get(row.healthKey)">
+              <UiStatusBadge
+                :status="INTEGRATION_STATE_META[healthByKey.get(row.healthKey)!.state].entity"
+                size="xs"
+                icon-only
+              />
+              <span class="text-sm text-fg">
+                {{ INTEGRATION_STATE_META[healthByKey.get(row.healthKey)!.state].label }}
+              </span>
+              <span class="min-w-0 flex-1 truncate text-micro text-subtle" :title="healthByKey.get(row.healthKey)!.detail">
+                {{ healthByKey.get(row.healthKey)!.detail }}
+              </span>
+              <span
+                v-if="healthByKey.get(row.healthKey)!.durationMs != null"
+                class="tnum font-mono text-micro text-subtle"
+              >{{ healthByKey.get(row.healthKey)!.durationMs }} мс</span>
+            </template>
+            <span v-else-if="healthPending" class="text-sm text-subtle">проверяем…</span>
+          </div>
+        </ClientOnly>
 
         <p class="text-sm text-muted">{{ row.note }}</p>
         <p v-if="row.flag && !row.enabled" class="font-mono text-micro text-subtle">

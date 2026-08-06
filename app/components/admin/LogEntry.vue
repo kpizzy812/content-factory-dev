@@ -103,6 +103,16 @@ async function resolve() {
             <Icon :name="ADMIN_LOG_SOURCE_ICONS[log.source]" />
             {{ ADMIN_LOG_SOURCE_LABELS[log.source] }}
           </span>
+          <!-- Действие человека, а не завода: это первое, что ищут в разборе
+               «кто остановил запуск». Признак приходит с сервера из userId. -->
+          <span
+            v-if="log.actor === 'human'"
+            class="inline-flex items-center gap-1 rounded-sm border border-accent-border px-1.5 text-accent"
+            :title="log.actorUserId ? `Пользователь #${log.actorUserId}` : 'Действие человека'"
+          >
+            <Icon name="mingcute:user-3-line" />
+            человек
+          </span>
           <span>{{ moduleLabels[log.module] ?? log.module }}</span>
           <NuxtLink
             v-if="log.ref?.href"
