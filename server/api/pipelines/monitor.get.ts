@@ -181,6 +181,7 @@ export default defineEventHandler(async (event) => {
         finishedAt: r.finishedAt ? r.finishedAt.toISOString() : null,
         createdAt: r.createdAt.toISOString(),
         stepsCount: r._count?.steps ?? 0,
+        costActual: r.costActual,
       }
       if (r.status === 'running' || r.status === 'pending') active.push(summary)
       else completed.push(summary)

@@ -24,6 +24,7 @@ import {
 } from './posting/instagram-snapshot-validator'
 import { readFactoryContext } from './content-factory-batch'
 import { linkFactoryPublication } from './factory-publication'
+import { COST_ACTUAL_KEY, COST_ESTIMATE_KEY, sumAmounts } from './pipeline-cost'
 
 // Re-export для backward compatibility (call-sites вне этого файла могут
 // импортировать detectUpstreamNoData/getUpstreamNoDataReason из './pipeline-executors').
@@ -1282,11 +1283,18 @@ export async function executeVideoNode(
   const hasDegraded = totalFailed > 0 && generatedCount > 0
   const domainStatus = totalFailed === 0 ? 'success' : (generatedCount > 0 ? 'partial' : 'failed')
 
+  // Деньги шага: сумма по роликам, которые этот шаг реально произвёл.
+  // Ролик складывает свои шаги в totalCostActual при завершении (video-pipeline),
+  // здесь остаётся только сложить ролики — считать заново нечего.
+  const videoRecords = videos as Array<Record<string, unknown>>
+
   return {
     videos,
     generatedCount,
     failedCount,
     timeoutCount,
+    [COST_ACTUAL_KEY]: sumAmounts(videoRecords, 'totalCostActual'),
+    [COST_ESTIMATE_KEY]: sumAmounts(videoRecords, 'totalCostEstimate'),
     // ── Fan-out cardinality metadata ──
     scenariosReceived: scenarios.length,
     scenariosProcessed: scenariosToProcess.length,

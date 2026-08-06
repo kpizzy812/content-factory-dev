@@ -14,6 +14,7 @@
  */
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../app/generated/prisma/client'
+import { COST_ACTUAL_KEY, COST_ESTIMATE_KEY, readStepCost, sumAmounts } from '../server/utils/pipeline-cost'
 
 const connectionString = process.env.DATABASE_URL
   ?? 'postgresql://contentfactory_tests:contentfactory_tests_password@localhost:5436/contentfactory_tests_db'
@@ -134,18 +135,24 @@ const SCRIPTS_OUTPUT = {
   meta: { step: 'script-generator', model: 'claude-sonnet-4' },
 }
 
+const DONE_VIDEOS = [
+  { id: 101, status: 'completed', duration: 74, totalCostEstimate: 1.8, totalCostActual: 2.05, imageModelId: 'flux-1.1-pro', videoModelId: 'kling-v2' },
+  { id: 102, status: 'completed', duration: 68, totalCostEstimate: 1.8, totalCostActual: 1.74, imageModelId: 'flux-1.1-pro', videoModelId: 'kling-v2' },
+  { id: 103, status: 'failed', errorMessage: 'lip-sync: не удалось выровнять артикуляцию, попытки исчерпаны', totalCostEstimate: 1.8 },
+  { id: 104, status: 'timeout', errorMessage: 'провайдер не ответил за 600 с', totalCostEstimate: 1.8 },
+]
+
 const VIDEO_OUTPUT_DONE = {
   generatedCount: 12,
   failedCount: 2,
   timeoutCount: 1,
   _domainStatus: 'partial',
   _domainDegraded: true,
-  videos: [
-    { id: 101, status: 'completed', duration: 74, totalCostEstimate: 1.8, totalCostActual: 2.05, imageModelId: 'flux-1.1-pro', videoModelId: 'kling-v2' },
-    { id: 102, status: 'completed', duration: 68, totalCostEstimate: 1.8, totalCostActual: 1.74, imageModelId: 'flux-1.1-pro', videoModelId: 'kling-v2' },
-    { id: 103, status: 'failed', errorMessage: 'lip-sync: не удалось выровнять артикуляцию, попытки исчерпаны', totalCostEstimate: 1.8 },
-    { id: 104, status: 'timeout', errorMessage: 'провайдер не ответил за 600 с', totalCostEstimate: 1.8 },
-  ],
+  // Те же ключи, что кладёт executeVideoNode — иначе шаг в сиде будет без суммы,
+  // а на живом запуске с суммой.
+  [COST_ACTUAL_KEY]: sumAmounts(DONE_VIDEOS, 'totalCostActual'),
+  [COST_ESTIMATE_KEY]: sumAmounts(DONE_VIDEOS, 'totalCostEstimate'),
+  videos: DONE_VIDEOS,
 }
 
 function buildSteps(runStart: Date, specs: StepSpec[]) {
@@ -157,11 +164,14 @@ function buildSteps(runStart: Date, specs: StepSpec[]) {
     const finishedAt = startedAt && spec.durationMs != null && spec.status !== 'running'
       ? new Date(startedAt.getTime() + spec.durationMs)
       : null
+    const cost = readStepCost(meta.type, spec.output)
     return {
       nodeId: spec.nodeId,
       nodeName: meta.name,
       nodeType: meta.type,
       status: spec.status,
+      costActual: cost.actual,
+      costEstimate: cost.estimate,
       input: (spec.input ?? null) as never,
       output: (spec.output ?? null) as never,
       error: spec.error ?? null,
@@ -414,7 +424,7 @@ const RUNS: RunSpec[] = [
         status: 'success',
         startOffset: 5 * MIN,
         durationMs: 5 * MIN,
-        output: { generatedCount: 3, failedCount: 0, _domainStatus: 'success', videos: [{ id: 201, status: 'completed', duration: 71, totalCostActual: 1.94 }] },
+        output: { generatedCount: 3, failedCount: 0, _domainStatus: 'success', [COST_ACTUAL_KEY]: 1.94, [COST_ESTIMATE_KEY]: 1.8, videos: [{ id: 201, status: 'completed', duration: 71, totalCostActual: 1.94 }] },
       },
       { nodeId: 'cap-1', status: 'success', startOffset: 10 * MIN, durationMs: 30_000, output: { captions: 3 } },
       {
@@ -439,7 +449,7 @@ const RUNS: RunSpec[] = [
     finishOffset: 34 * HOUR - (1 * HOUR + 48 * MIN),
     steps: [
       ...HEAD_STEPS,
-      { nodeId: 'vid-1', status: 'success', startOffset: 5 * MIN, durationMs: 1 * HOUR + 20 * MIN, output: { generatedCount: 40, failedCount: 0, _domainStatus: 'success', videos: [] } },
+      { nodeId: 'vid-1', status: 'success', startOffset: 5 * MIN, durationMs: 1 * HOUR + 20 * MIN, output: { generatedCount: 40, failedCount: 0, _domainStatus: 'success', [COST_ACTUAL_KEY]: 71.6, [COST_ESTIMATE_KEY]: 72, videos: [] } },
       { nodeId: 'cap-1', status: 'success', startOffset: 1 * HOUR + 26 * MIN, durationMs: 3 * MIN, output: { captions: 40 } },
       { nodeId: 'up-1', status: 'success', startOffset: 1 * HOUR + 30 * MIN, durationMs: 17 * MIN, output: { uploadsInitiated: 40 } },
       { nodeId: 'an-1', status: 'success', startOffset: 1 * HOUR + 47 * MIN, durationMs: 55_000, output: { tracked: 40 } },
@@ -447,9 +457,20 @@ const RUNS: RunSpec[] = [
   },
 ]
 
+/** Тот же агрегат, что считает движок: сумма шагов, null пока сумм нет. */
+function runCost(steps: ReturnType<typeof buildSteps>) {
+  const known = <K extends 'costActual' | 'costEstimate'>(field: K) => {
+    const values = steps.map(s => s[field]).filter((v): v is number => v != null)
+    return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null
+  }
+  return { costActual: known('costActual'), costEstimate: known('costEstimate') }
+}
+
 let created = 0
 for (const spec of RUNS) {
   const startedAt = at(spec.startOffset)
+  const steps = buildSteps(startedAt, spec.steps)
+  const cost = runCost(steps)
   const run = await prisma.workflowRun.create({
     data: {
       pipelineId: pipeline.id,
@@ -460,12 +481,14 @@ for (const spec of RUNS) {
       inputContext: { source: 'seed-pipeline-runs-demo' } as never,
       errorMessage: spec.errorMessage ?? null,
       errorCategory: spec.errorCategory ?? null,
+      costActual: cost.costActual,
+      costEstimate: cost.costEstimate,
       cancelRequestedAt: spec.cancelOffset != null ? at(spec.cancelOffset) : null,
       cancelRequestedBy: spec.cancelOffset != null ? user.id : null,
       startedAt,
       finishedAt: spec.finishOffset != null ? at(spec.finishOffset) : null,
       createdAt: startedAt,
-      steps: { create: buildSteps(startedAt, spec.steps) as never },
+      steps: { create: steps as never },
     },
   })
   created += 1

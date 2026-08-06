@@ -1923,6 +1923,9 @@ model WorkflowRun {
   cancelRequestedBy Int?
   errorMessage      String?
   errorCategory     String?
+  /// Агрегат по шагам, USD. Денормализация: пересчитывается движком из WorkflowStep.
+  costActual        Float?
+  costEstimate      Float?
   startedAt         DateTime       @default(now())
   finishedAt        DateTime?
   createdAt         DateTime       @default(now())
@@ -1960,6 +1963,10 @@ model WorkflowStep {
   attemptCount  Int         @default(0)
   retryPolicy   Json?
   artifacts     Json?
+  /// Фактически списанное за шаг, USD. Кладёт исполнитель через `_costActualUsd`.
+  costActual    Float?
+  /// Оценка до запуска, USD. Есть не у всех типов блоков.
+  costEstimate  Float?
   startedAt     DateTime?
   finishedAt    DateTime?
   duration      Int?

@@ -7832,6 +7832,8 @@ export const WorkflowRunScalarFieldEnum = {
   cancelRequestedBy: 'cancelRequestedBy',
   errorMessage: 'errorMessage',
   errorCategory: 'errorCategory',
+  costActual: 'costActual',
+  costEstimate: 'costEstimate',
   startedAt: 'startedAt',
   finishedAt: 'finishedAt',
   createdAt: 'createdAt'
@@ -7855,6 +7857,8 @@ export const WorkflowStepScalarFieldEnum = {
   attemptCount: 'attemptCount',
   retryPolicy: 'retryPolicy',
   artifacts: 'artifacts',
+  costActual: 'costActual',
+  costEstimate: 'costEstimate',
   startedAt: 'startedAt',
   finishedAt: 'finishedAt',
   duration: 'duration',

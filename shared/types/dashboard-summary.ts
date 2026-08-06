@@ -32,9 +32,26 @@ export interface AttentionRow {
   severity: 'warning' | 'danger'
 }
 
+/**
+ * Расход за сутки в строке состояния дашборда.
+ *
+ * Приходит только администратору: суммы по заводу живут за тем же правом, что
+ * и балансы. Остальные не увидят плитку вовсе — счётчик не должен подсказывать
+ * объём того, чего человек не видит.
+ */
+export interface DashboardSpend {
+  /** USD за последние сутки. */
+  totalUsd: number
+  /** Стоимость ролика. null, когда за сутки ни один не завершился. */
+  perVideoUsd: number | null
+  videoCount: number
+}
+
 export interface DashboardSummary {
   counters: DashboardCounters
   attention: AttentionRow[]
   /** Момент расчёта — для индикатора обновления в топбаре. */
   computedAt: string
+  /** Расход за сутки. null — у пользователя нет права на суммы. */
+  spend: DashboardSpend | null
 }

@@ -11,7 +11,8 @@
  * Раздел, к которому у пользователя нет доступа, не считается вообще — иначе
  * счётчик подсказывал бы объём того, чего человек не видит.
  */
-import type { AttentionRow, DashboardCounters } from "../../../shared/types/dashboard-summary"
+import type { AttentionRow, DashboardCounters, DashboardSpend } from "../../../shared/types/dashboard-summary"
+import { computeSpendBreakdown } from "../../utils/balance/spend-breakdown"
 
 /** Аккаунт считается требующим внимания, если токен истекает в этот срок. */
 const TOKEN_EXPIRY_WARNING_DAYS = 3
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
     postingQueued,
     oldestPosting,
     accountsAttention,
+    spendBreakdown,
   ] = await Promise.all([
     has("pipeline")
       ? prisma.workflowRun.count({ where: { status: "running" } })
@@ -99,7 +101,18 @@ export default defineEventHandler(async (event) => {
           },
         })
       : 0,
+
+    // Суммы по заводу — за тем же правом, что и балансы. Без него плитки нет.
+    user.canAdmin ? computeSpendBreakdown(24) : null,
   ])
+
+  const spend: DashboardSpend | null = spendBreakdown
+    ? {
+        totalUsd: spendBreakdown.totalUsd,
+        perVideoUsd: spendBreakdown.perVideoUsd,
+        videoCount: spendBreakdown.videoCount,
+      }
+    : null
 
   const counters: DashboardCounters = {
     activeRuns,
@@ -152,6 +165,7 @@ export default defineEventHandler(async (event) => {
     data: {
       counters,
       attention,
+      spend,
       computedAt: new Date().toISOString(),
       // Возраст самого старого активного запуска нужен монитору, а не очереди
       // решений: работающий запуск — это не проблема, пока он не завис.

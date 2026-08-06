@@ -30,6 +30,8 @@ export type WorkflowStepAvgAggregateOutputType = {
   id: number | null
   runId: number | null
   attemptCount: number | null
+  costActual: number | null
+  costEstimate: number | null
   duration: number | null
 }
 
@@ -37,6 +39,8 @@ export type WorkflowStepSumAggregateOutputType = {
   id: number | null
   runId: number | null
   attemptCount: number | null
+  costActual: number | null
+  costEstimate: number | null
   duration: number | null
 }
 
@@ -50,6 +54,8 @@ export type WorkflowStepMinAggregateOutputType = {
   error: string | null
   errorCategory: string | null
   attemptCount: number | null
+  costActual: number | null
+  costEstimate: number | null
   startedAt: Date | null
   finishedAt: Date | null
   duration: number | null
@@ -66,6 +72,8 @@ export type WorkflowStepMaxAggregateOutputType = {
   error: string | null
   errorCategory: string | null
   attemptCount: number | null
+  costActual: number | null
+  costEstimate: number | null
   startedAt: Date | null
   finishedAt: Date | null
   duration: number | null
@@ -87,6 +95,8 @@ export type WorkflowStepCountAggregateOutputType = {
   attemptCount: number
   retryPolicy: number
   artifacts: number
+  costActual: number
+  costEstimate: number
   startedAt: number
   finishedAt: number
   duration: number
@@ -99,6 +109,8 @@ export type WorkflowStepAvgAggregateInputType = {
   id?: true
   runId?: true
   attemptCount?: true
+  costActual?: true
+  costEstimate?: true
   duration?: true
 }
 
@@ -106,6 +118,8 @@ export type WorkflowStepSumAggregateInputType = {
   id?: true
   runId?: true
   attemptCount?: true
+  costActual?: true
+  costEstimate?: true
   duration?: true
 }
 
@@ -119,6 +133,8 @@ export type WorkflowStepMinAggregateInputType = {
   error?: true
   errorCategory?: true
   attemptCount?: true
+  costActual?: true
+  costEstimate?: true
   startedAt?: true
   finishedAt?: true
   duration?: true
@@ -135,6 +151,8 @@ export type WorkflowStepMaxAggregateInputType = {
   error?: true
   errorCategory?: true
   attemptCount?: true
+  costActual?: true
+  costEstimate?: true
   startedAt?: true
   finishedAt?: true
   duration?: true
@@ -156,6 +174,8 @@ export type WorkflowStepCountAggregateInputType = {
   attemptCount?: true
   retryPolicy?: true
   artifacts?: true
+  costActual?: true
+  costEstimate?: true
   startedAt?: true
   finishedAt?: true
   duration?: true
@@ -264,6 +284,8 @@ export type WorkflowStepGroupByOutputType = {
   attemptCount: number
   retryPolicy: runtime.JsonValue | null
   artifacts: runtime.JsonValue | null
+  costActual: number | null
+  costEstimate: number | null
   startedAt: Date | null
   finishedAt: Date | null
   duration: number | null
@@ -308,6 +330,8 @@ export type WorkflowStepWhereInput = {
   attemptCount?: Prisma.IntFilter<"WorkflowStep"> | number
   retryPolicy?: Prisma.JsonNullableFilter<"WorkflowStep">
   artifacts?: Prisma.JsonNullableFilter<"WorkflowStep">
+  costActual?: Prisma.FloatNullableFilter<"WorkflowStep"> | number | null
+  costEstimate?: Prisma.FloatNullableFilter<"WorkflowStep"> | number | null
   startedAt?: Prisma.DateTimeNullableFilter<"WorkflowStep"> | Date | string | null
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowStep"> | Date | string | null
   duration?: Prisma.IntNullableFilter<"WorkflowStep"> | number | null
@@ -330,6 +354,8 @@ export type WorkflowStepOrderByWithRelationInput = {
   attemptCount?: Prisma.SortOrder
   retryPolicy?: Prisma.SortOrderInput | Prisma.SortOrder
   artifacts?: Prisma.SortOrderInput | Prisma.SortOrder
+  costActual?: Prisma.SortOrderInput | Prisma.SortOrder
+  costEstimate?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   finishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -355,6 +381,8 @@ export type WorkflowStepWhereUniqueInput = Prisma.AtLeast<{
   attemptCount?: Prisma.IntFilter<"WorkflowStep"> | number
   retryPolicy?: Prisma.JsonNullableFilter<"WorkflowStep">
   artifacts?: Prisma.JsonNullableFilter<"WorkflowStep">
+  costActual?: Prisma.FloatNullableFilter<"WorkflowStep"> | number | null
+  costEstimate?: Prisma.FloatNullableFilter<"WorkflowStep"> | number | null
   startedAt?: Prisma.DateTimeNullableFilter<"WorkflowStep"> | Date | string | null
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowStep"> | Date | string | null
   duration?: Prisma.IntNullableFilter<"WorkflowStep"> | number | null
@@ -377,6 +405,8 @@ export type WorkflowStepOrderByWithAggregationInput = {
   attemptCount?: Prisma.SortOrder
   retryPolicy?: Prisma.SortOrderInput | Prisma.SortOrder
   artifacts?: Prisma.SortOrderInput | Prisma.SortOrder
+  costActual?: Prisma.SortOrderInput | Prisma.SortOrder
+  costEstimate?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   finishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -406,6 +436,8 @@ export type WorkflowStepScalarWhereWithAggregatesInput = {
   attemptCount?: Prisma.IntWithAggregatesFilter<"WorkflowStep"> | number
   retryPolicy?: Prisma.JsonNullableWithAggregatesFilter<"WorkflowStep">
   artifacts?: Prisma.JsonNullableWithAggregatesFilter<"WorkflowStep">
+  costActual?: Prisma.FloatNullableWithAggregatesFilter<"WorkflowStep"> | number | null
+  costEstimate?: Prisma.FloatNullableWithAggregatesFilter<"WorkflowStep"> | number | null
   startedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"WorkflowStep"> | Date | string | null
   finishedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"WorkflowStep"> | Date | string | null
   duration?: Prisma.IntNullableWithAggregatesFilter<"WorkflowStep"> | number | null
@@ -425,6 +457,8 @@ export type WorkflowStepCreateInput = {
   attemptCount?: number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string | null
   finishedAt?: Date | string | null
   duration?: number | null
@@ -447,6 +481,8 @@ export type WorkflowStepUncheckedCreateInput = {
   attemptCount?: number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string | null
   finishedAt?: Date | string | null
   duration?: number | null
@@ -466,6 +502,8 @@ export type WorkflowStepUpdateInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -488,6 +526,8 @@ export type WorkflowStepUncheckedUpdateInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -509,6 +549,8 @@ export type WorkflowStepCreateManyInput = {
   attemptCount?: number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string | null
   finishedAt?: Date | string | null
   duration?: number | null
@@ -528,6 +570,8 @@ export type WorkflowStepUpdateManyMutationInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -549,6 +593,8 @@ export type WorkflowStepUncheckedUpdateManyInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -580,6 +626,8 @@ export type WorkflowStepCountOrderByAggregateInput = {
   attemptCount?: Prisma.SortOrder
   retryPolicy?: Prisma.SortOrder
   artifacts?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrder
   duration?: Prisma.SortOrder
@@ -590,6 +638,8 @@ export type WorkflowStepAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   runId?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   duration?: Prisma.SortOrder
 }
 
@@ -603,6 +653,8 @@ export type WorkflowStepMaxOrderByAggregateInput = {
   error?: Prisma.SortOrder
   errorCategory?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrder
   duration?: Prisma.SortOrder
@@ -619,6 +671,8 @@ export type WorkflowStepMinOrderByAggregateInput = {
   error?: Prisma.SortOrder
   errorCategory?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrder
   duration?: Prisma.SortOrder
@@ -629,6 +683,8 @@ export type WorkflowStepSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   runId?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   duration?: Prisma.SortOrder
 }
 
@@ -691,6 +747,8 @@ export type WorkflowStepCreateWithoutRunInput = {
   attemptCount?: number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string | null
   finishedAt?: Date | string | null
   duration?: number | null
@@ -711,6 +769,8 @@ export type WorkflowStepUncheckedCreateWithoutRunInput = {
   attemptCount?: number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string | null
   finishedAt?: Date | string | null
   duration?: number | null
@@ -761,6 +821,8 @@ export type WorkflowStepScalarWhereInput = {
   attemptCount?: Prisma.IntFilter<"WorkflowStep"> | number
   retryPolicy?: Prisma.JsonNullableFilter<"WorkflowStep">
   artifacts?: Prisma.JsonNullableFilter<"WorkflowStep">
+  costActual?: Prisma.FloatNullableFilter<"WorkflowStep"> | number | null
+  costEstimate?: Prisma.FloatNullableFilter<"WorkflowStep"> | number | null
   startedAt?: Prisma.DateTimeNullableFilter<"WorkflowStep"> | Date | string | null
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowStep"> | Date | string | null
   duration?: Prisma.IntNullableFilter<"WorkflowStep"> | number | null
@@ -781,6 +843,8 @@ export type WorkflowStepCreateManyRunInput = {
   attemptCount?: number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string | null
   finishedAt?: Date | string | null
   duration?: number | null
@@ -800,6 +864,8 @@ export type WorkflowStepUpdateWithoutRunInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -820,6 +886,8 @@ export type WorkflowStepUncheckedUpdateWithoutRunInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -840,6 +908,8 @@ export type WorkflowStepUncheckedUpdateManyWithoutRunInput = {
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   retryPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   artifacts?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -863,6 +933,8 @@ export type WorkflowStepSelect<ExtArgs extends runtime.Types.Extensions.Internal
   attemptCount?: boolean
   retryPolicy?: boolean
   artifacts?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   duration?: boolean
@@ -885,6 +957,8 @@ export type WorkflowStepSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   attemptCount?: boolean
   retryPolicy?: boolean
   artifacts?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   duration?: boolean
@@ -907,6 +981,8 @@ export type WorkflowStepSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   attemptCount?: boolean
   retryPolicy?: boolean
   artifacts?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   duration?: boolean
@@ -929,13 +1005,15 @@ export type WorkflowStepSelectScalar = {
   attemptCount?: boolean
   retryPolicy?: boolean
   artifacts?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   duration?: boolean
   createdAt?: boolean
 }
 
-export type WorkflowStepOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "runId" | "nodeId" | "nodeName" | "nodeType" | "status" | "input" | "output" | "error" | "errorCategory" | "logs" | "attemptCount" | "retryPolicy" | "artifacts" | "startedAt" | "finishedAt" | "duration" | "createdAt", ExtArgs["result"]["workflowStep"]>
+export type WorkflowStepOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "runId" | "nodeId" | "nodeName" | "nodeType" | "status" | "input" | "output" | "error" | "errorCategory" | "logs" | "attemptCount" | "retryPolicy" | "artifacts" | "costActual" | "costEstimate" | "startedAt" | "finishedAt" | "duration" | "createdAt", ExtArgs["result"]["workflowStep"]>
 export type WorkflowStepInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   run?: boolean | Prisma.WorkflowRunDefaultArgs<ExtArgs>
 }
@@ -966,6 +1044,14 @@ export type $WorkflowStepPayload<ExtArgs extends runtime.Types.Extensions.Intern
     attemptCount: number
     retryPolicy: runtime.JsonValue | null
     artifacts: runtime.JsonValue | null
+    /**
+     * Фактически списанное за шаг, USD. Кладёт исполнитель через `_costActualUsd`.
+     */
+    costActual: number | null
+    /**
+     * Оценка до запуска, USD. Есть не у всех типов блоков.
+     */
+    costEstimate: number | null
     startedAt: Date | null
     finishedAt: Date | null
     duration: number | null
@@ -1408,6 +1494,8 @@ export interface WorkflowStepFieldRefs {
   readonly attemptCount: Prisma.FieldRef<"WorkflowStep", 'Int'>
   readonly retryPolicy: Prisma.FieldRef<"WorkflowStep", 'Json'>
   readonly artifacts: Prisma.FieldRef<"WorkflowStep", 'Json'>
+  readonly costActual: Prisma.FieldRef<"WorkflowStep", 'Float'>
+  readonly costEstimate: Prisma.FieldRef<"WorkflowStep", 'Float'>
   readonly startedAt: Prisma.FieldRef<"WorkflowStep", 'DateTime'>
   readonly finishedAt: Prisma.FieldRef<"WorkflowStep", 'DateTime'>
   readonly duration: Prisma.FieldRef<"WorkflowStep", 'Int'>

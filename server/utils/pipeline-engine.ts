@@ -30,6 +30,7 @@ import {
 import { prisma } from './prisma'
 import { logAgent } from './agent-logger'
 import { syncFactoryCycleStatus } from './content-factory-status'
+import { readStepCost, recalcRunCost } from './pipeline-cost'
 
 const MAX_RUN_DURATION_MS = 30 * 60 * 1000 // 30 minutes
 const MAX_STEP_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes per step (default)
@@ -185,10 +186,14 @@ async function processNode(
         output: pinnedOutput as never,
         input: input as never,
         logs: logs as never,
+        // Закреплённый output — исполнитель не вызывался, денег не потрачено.
+        // Сумма из прошлого запуска в pinnedOutput не в счёт.
+        costActual: 0,
         startedAt: new Date(),
         finishedAt: new Date(),
       },
     })
+    await recalcRunCost(runId)
     return { failed: false, message: '' }
   }
 
@@ -301,9 +306,11 @@ async function processNode(
             output: { skipped: true } as never,
             logs: logs as never,
             attemptCount: attempt + 1,
+            costActual: 0,
             finishedAt,
           },
         })
+        await recalcRunCost(runId)
         return { failed: false, message: '' }
       }
 
@@ -344,6 +351,9 @@ async function processNode(
         logs.push(logEntry('info', `Успешно за ${duration}мс`, { outputKeys: Object.keys(output) }))
       }
 
+      // Сумму кладёт исполнитель служебными ключами output — см. pipeline-cost.ts
+      const stepCost = readStepCost(nodeType, output)
+
       await prisma.workflowStep.update({
         where: { id: step.id },
         data: {
@@ -352,9 +362,12 @@ async function processNode(
           output: output as never,
           logs: logs as never,
           attemptCount: attempt + 1,
+          costActual: stepCost.actual,
+          costEstimate: stepCost.estimate,
           finishedAt,
         },
       })
+      await recalcRunCost(runId)
 
       return { failed: false, message: '' }
     } catch (err) {
@@ -761,6 +774,10 @@ export async function executePipeline(runId: number): Promise<void> {
       })
     noDataMessage = `Запуск завершён без данных. ${reasons.join('; ')}`
   }
+
+  // Финальный пересчёт агрегата: покрывает пути, где шаг закрыт не processNode'ом
+  // (отмена между уровнями, resume после рестарта).
+  await recalcRunCost(runId)
 
   await prisma.workflowRun.update({
     where: { id: runId },

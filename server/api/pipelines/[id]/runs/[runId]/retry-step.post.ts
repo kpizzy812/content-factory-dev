@@ -9,6 +9,7 @@
  */
 
 import type { GraphNode, GraphEdge } from '~~/server/utils/pipeline-graph'
+import { recalcRunCost } from '~~/server/utils/pipeline-cost'
 
 interface RetryStepBody {
   nodeId?: string
@@ -248,6 +249,10 @@ export default defineEventHandler(async (event) => {
       cancelRequestedBy: null,
     },
   })
+
+  // Шаги удалены — агрегат стоимости запуска обязан сойтись с оставшимися,
+  // иначе в шапке до конца повтора висит сумма вместе с уже стёртыми шагами.
+  await recalcRunCost(runId)
 
   enqueueRun(runId).catch(() => {})
 

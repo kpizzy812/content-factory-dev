@@ -28,6 +28,10 @@ export interface WorkflowStep {
   attemptCount: number
   retryPolicy: { maxRetries: number; delayMs: number } | null
   artifacts: Record<string, unknown> | null
+  /** Фактически списанное за шаг, USD. null — сумму никто не посчитал. */
+  costActual: number | null
+  /** Оценка до запуска, USD. Есть не у всех типов блоков. */
+  costEstimate: number | null
   startedAt: string | null
   finishedAt: string | null
   duration: number | null
@@ -57,6 +61,9 @@ export interface WorkflowRun {
   cancelRequestedAt: string | null
   errorMessage: string | null
   errorCategory: ErrorCategory | null
+  /** Агрегат по шагам, USD. Считает движок, см. server/utils/pipeline-cost.ts. */
+  costActual: number | null
+  costEstimate: number | null
   startedAt: string
   finishedAt: string | null
   createdAt: string
@@ -145,6 +152,8 @@ export interface WorkflowRunSummary {
   finishedAt: string | null
   createdAt: string
   stepsCount: number
+  /** Фактическая стоимость запуска, USD. null — сумму никто не посчитал. */
+  costActual: number | null
 }
 
 export interface WorkflowStepSummary {

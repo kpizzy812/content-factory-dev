@@ -36,6 +36,8 @@ export type WorkflowRunAvgAggregateOutputType = {
   parentRunId: number | null
   cycleId: number | null
   cancelRequestedBy: number | null
+  costActual: number | null
+  costEstimate: number | null
 }
 
 export type WorkflowRunSumAggregateOutputType = {
@@ -48,6 +50,8 @@ export type WorkflowRunSumAggregateOutputType = {
   parentRunId: number | null
   cycleId: number | null
   cancelRequestedBy: number | null
+  costActual: number | null
+  costEstimate: number | null
 }
 
 export type WorkflowRunMinAggregateOutputType = {
@@ -66,6 +70,8 @@ export type WorkflowRunMinAggregateOutputType = {
   cancelRequestedBy: number | null
   errorMessage: string | null
   errorCategory: string | null
+  costActual: number | null
+  costEstimate: number | null
   startedAt: Date | null
   finishedAt: Date | null
   createdAt: Date | null
@@ -87,6 +93,8 @@ export type WorkflowRunMaxAggregateOutputType = {
   cancelRequestedBy: number | null
   errorMessage: string | null
   errorCategory: string | null
+  costActual: number | null
+  costEstimate: number | null
   startedAt: Date | null
   finishedAt: Date | null
   createdAt: Date | null
@@ -110,6 +118,8 @@ export type WorkflowRunCountAggregateOutputType = {
   cancelRequestedBy: number
   errorMessage: number
   errorCategory: number
+  costActual: number
+  costEstimate: number
   startedAt: number
   finishedAt: number
   createdAt: number
@@ -127,6 +137,8 @@ export type WorkflowRunAvgAggregateInputType = {
   parentRunId?: true
   cycleId?: true
   cancelRequestedBy?: true
+  costActual?: true
+  costEstimate?: true
 }
 
 export type WorkflowRunSumAggregateInputType = {
@@ -139,6 +151,8 @@ export type WorkflowRunSumAggregateInputType = {
   parentRunId?: true
   cycleId?: true
   cancelRequestedBy?: true
+  costActual?: true
+  costEstimate?: true
 }
 
 export type WorkflowRunMinAggregateInputType = {
@@ -157,6 +171,8 @@ export type WorkflowRunMinAggregateInputType = {
   cancelRequestedBy?: true
   errorMessage?: true
   errorCategory?: true
+  costActual?: true
+  costEstimate?: true
   startedAt?: true
   finishedAt?: true
   createdAt?: true
@@ -178,6 +194,8 @@ export type WorkflowRunMaxAggregateInputType = {
   cancelRequestedBy?: true
   errorMessage?: true
   errorCategory?: true
+  costActual?: true
+  costEstimate?: true
   startedAt?: true
   finishedAt?: true
   createdAt?: true
@@ -201,6 +219,8 @@ export type WorkflowRunCountAggregateInputType = {
   cancelRequestedBy?: true
   errorMessage?: true
   errorCategory?: true
+  costActual?: true
+  costEstimate?: true
   startedAt?: true
   finishedAt?: true
   createdAt?: true
@@ -311,6 +331,8 @@ export type WorkflowRunGroupByOutputType = {
   cancelRequestedBy: number | null
   errorMessage: string | null
   errorCategory: string | null
+  costActual: number | null
+  costEstimate: number | null
   startedAt: Date
   finishedAt: Date | null
   createdAt: Date
@@ -357,6 +379,8 @@ export type WorkflowRunWhereInput = {
   cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   errorCategory?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  costActual?: Prisma.FloatNullableFilter<"WorkflowRun"> | number | null
+  costEstimate?: Prisma.FloatNullableFilter<"WorkflowRun"> | number | null
   startedAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
@@ -392,6 +416,8 @@ export type WorkflowRunOrderByWithRelationInput = {
   cancelRequestedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCategory?: Prisma.SortOrderInput | Prisma.SortOrder
+  costActual?: Prisma.SortOrderInput | Prisma.SortOrder
+  costEstimate?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -430,6 +456,8 @@ export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   errorCategory?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  costActual?: Prisma.FloatNullableFilter<"WorkflowRun"> | number | null
+  costEstimate?: Prisma.FloatNullableFilter<"WorkflowRun"> | number | null
   startedAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
@@ -465,6 +493,8 @@ export type WorkflowRunOrderByWithAggregationInput = {
   cancelRequestedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCategory?: Prisma.SortOrderInput | Prisma.SortOrder
+  costActual?: Prisma.SortOrderInput | Prisma.SortOrder
+  costEstimate?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -496,6 +526,8 @@ export type WorkflowRunScalarWhereWithAggregatesInput = {
   cancelRequestedBy?: Prisma.IntNullableWithAggregatesFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"WorkflowRun"> | string | null
   errorCategory?: Prisma.StringNullableWithAggregatesFilter<"WorkflowRun"> | string | null
+  costActual?: Prisma.FloatNullableWithAggregatesFilter<"WorkflowRun"> | number | null
+  costEstimate?: Prisma.FloatNullableWithAggregatesFilter<"WorkflowRun"> | number | null
   startedAt?: Prisma.DateTimeWithAggregatesFilter<"WorkflowRun"> | Date | string
   finishedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"WorkflowRun"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"WorkflowRun"> | Date | string
@@ -516,6 +548,8 @@ export type WorkflowRunCreateInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -551,6 +585,8 @@ export type WorkflowRunUncheckedCreateInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -581,6 +617,8 @@ export type WorkflowRunUpdateInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -616,6 +654,8 @@ export type WorkflowRunUncheckedUpdateInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -649,6 +689,8 @@ export type WorkflowRunCreateManyInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -669,6 +711,8 @@ export type WorkflowRunUpdateManyMutationInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -692,6 +736,8 @@ export type WorkflowRunUncheckedUpdateManyInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -735,6 +781,8 @@ export type WorkflowRunCountOrderByAggregateInput = {
   cancelRequestedBy?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   errorCategory?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -750,6 +798,8 @@ export type WorkflowRunAvgOrderByAggregateInput = {
   parentRunId?: Prisma.SortOrder
   cycleId?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
 }
 
 export type WorkflowRunMaxOrderByAggregateInput = {
@@ -768,6 +818,8 @@ export type WorkflowRunMaxOrderByAggregateInput = {
   cancelRequestedBy?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   errorCategory?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -789,6 +841,8 @@ export type WorkflowRunMinOrderByAggregateInput = {
   cancelRequestedBy?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   errorCategory?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   finishedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -804,6 +858,8 @@ export type WorkflowRunSumOrderByAggregateInput = {
   parentRunId?: Prisma.SortOrder
   cycleId?: Prisma.SortOrder
   cancelRequestedBy?: Prisma.SortOrder
+  costActual?: Prisma.SortOrder
+  costEstimate?: Prisma.SortOrder
 }
 
 export type WorkflowRunCreateNestedOneWithoutTrendsInput = {
@@ -1067,6 +1123,8 @@ export type WorkflowRunCreateWithoutTrendsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1101,6 +1159,8 @@ export type WorkflowRunUncheckedCreateWithoutTrendsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1146,6 +1206,8 @@ export type WorkflowRunUpdateWithoutTrendsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1180,6 +1242,8 @@ export type WorkflowRunUncheckedUpdateWithoutTrendsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1209,6 +1273,8 @@ export type WorkflowRunCreateWithoutScenariosInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1243,6 +1309,8 @@ export type WorkflowRunUncheckedCreateWithoutScenariosInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1288,6 +1356,8 @@ export type WorkflowRunUpdateWithoutScenariosInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1322,6 +1392,8 @@ export type WorkflowRunUncheckedUpdateWithoutScenariosInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1351,6 +1423,8 @@ export type WorkflowRunCreateWithoutVideosInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1385,6 +1459,8 @@ export type WorkflowRunUncheckedCreateWithoutVideosInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1430,6 +1506,8 @@ export type WorkflowRunUpdateWithoutVideosInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1464,6 +1542,8 @@ export type WorkflowRunUncheckedUpdateWithoutVideosInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1493,6 +1573,8 @@ export type WorkflowRunCreateWithoutUploadsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1527,6 +1609,8 @@ export type WorkflowRunUncheckedCreateWithoutUploadsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1572,6 +1656,8 @@ export type WorkflowRunUpdateWithoutUploadsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1606,6 +1692,8 @@ export type WorkflowRunUncheckedUpdateWithoutUploadsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1635,6 +1723,8 @@ export type WorkflowRunCreateWithoutCycleInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1668,6 +1758,8 @@ export type WorkflowRunUncheckedCreateWithoutCycleInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1730,6 +1822,8 @@ export type WorkflowRunScalarWhereInput = {
   cancelRequestedBy?: Prisma.IntNullableFilter<"WorkflowRun"> | number | null
   errorMessage?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   errorCategory?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  costActual?: Prisma.FloatNullableFilter<"WorkflowRun"> | number | null
+  costEstimate?: Prisma.FloatNullableFilter<"WorkflowRun"> | number | null
   startedAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   finishedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
@@ -1750,6 +1844,8 @@ export type WorkflowRunCreateWithoutContentHypothesisInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1784,6 +1880,8 @@ export type WorkflowRunUncheckedCreateWithoutContentHypothesisInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1829,6 +1927,8 @@ export type WorkflowRunUpdateWithoutContentHypothesisInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1863,6 +1963,8 @@ export type WorkflowRunUncheckedUpdateWithoutContentHypothesisInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1892,6 +1994,8 @@ export type WorkflowRunCreateWithoutFactoryPublicationsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1926,6 +2030,8 @@ export type WorkflowRunUncheckedCreateWithoutFactoryPublicationsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -1971,6 +2077,8 @@ export type WorkflowRunUpdateWithoutFactoryPublicationsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2005,6 +2113,8 @@ export type WorkflowRunUncheckedUpdateWithoutFactoryPublicationsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2034,6 +2144,8 @@ export type WorkflowRunCreateWithoutFactoryQaReviewsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2068,6 +2180,8 @@ export type WorkflowRunUncheckedCreateWithoutFactoryQaReviewsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2113,6 +2227,8 @@ export type WorkflowRunUpdateWithoutFactoryQaReviewsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2147,6 +2263,8 @@ export type WorkflowRunUncheckedUpdateWithoutFactoryQaReviewsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2176,6 +2294,8 @@ export type WorkflowRunCreateWithoutPipelineInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2209,6 +2329,8 @@ export type WorkflowRunUncheckedCreateWithoutPipelineInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2265,6 +2387,8 @@ export type WorkflowRunCreateWithoutStepsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2299,6 +2423,8 @@ export type WorkflowRunUncheckedCreateWithoutStepsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2344,6 +2470,8 @@ export type WorkflowRunUpdateWithoutStepsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2378,6 +2506,8 @@ export type WorkflowRunUncheckedUpdateWithoutStepsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2407,6 +2537,8 @@ export type WorkflowRunCreateWithoutIdeasInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2441,6 +2573,8 @@ export type WorkflowRunUncheckedCreateWithoutIdeasInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2486,6 +2620,8 @@ export type WorkflowRunUpdateWithoutIdeasInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2520,6 +2656,8 @@ export type WorkflowRunUncheckedUpdateWithoutIdeasInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2549,6 +2687,8 @@ export type WorkflowRunCreateWithoutPostingJobsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2583,6 +2723,8 @@ export type WorkflowRunUncheckedCreateWithoutPostingJobsInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2628,6 +2770,8 @@ export type WorkflowRunUpdateWithoutPostingJobsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2662,6 +2806,8 @@ export type WorkflowRunUncheckedUpdateWithoutPostingJobsInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2693,6 +2839,8 @@ export type WorkflowRunCreateManyCycleInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2713,6 +2861,8 @@ export type WorkflowRunUpdateWithoutCycleInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2746,6 +2896,8 @@ export type WorkflowRunUncheckedUpdateWithoutCycleInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2778,6 +2930,8 @@ export type WorkflowRunUncheckedUpdateManyWithoutCycleInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2800,6 +2954,8 @@ export type WorkflowRunCreateManyPipelineInput = {
   cancelRequestedBy?: number | null
   errorMessage?: string | null
   errorCategory?: string | null
+  costActual?: number | null
+  costEstimate?: number | null
   startedAt?: Date | string
   finishedAt?: Date | string | null
   createdAt?: Date | string
@@ -2820,6 +2976,8 @@ export type WorkflowRunUpdateWithoutPipelineInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2853,6 +3011,8 @@ export type WorkflowRunUncheckedUpdateWithoutPipelineInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2885,6 +3045,8 @@ export type WorkflowRunUncheckedUpdateManyWithoutPipelineInput = {
   cancelRequestedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costActual?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  costEstimate?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -3011,6 +3173,8 @@ export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   cancelRequestedBy?: boolean
   errorMessage?: boolean
   errorCategory?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   createdAt?: boolean
@@ -3047,6 +3211,8 @@ export type WorkflowRunSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   cancelRequestedBy?: boolean
   errorMessage?: boolean
   errorCategory?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   createdAt?: boolean
@@ -3072,6 +3238,8 @@ export type WorkflowRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   cancelRequestedBy?: boolean
   errorMessage?: boolean
   errorCategory?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   createdAt?: boolean
@@ -3097,12 +3265,14 @@ export type WorkflowRunSelectScalar = {
   cancelRequestedBy?: boolean
   errorMessage?: boolean
   errorCategory?: boolean
+  costActual?: boolean
+  costEstimate?: boolean
   startedAt?: boolean
   finishedAt?: boolean
   createdAt?: boolean
 }
 
-export type WorkflowRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "pipelineId" | "status" | "triggerType" | "triggeredBy" | "graphSnapshot" | "graphVersionId" | "retryOfRunId" | "replayOfRunId" | "parentRunId" | "cycleId" | "trackingToken" | "inputContext" | "cancelRequestedAt" | "cancelRequestedBy" | "errorMessage" | "errorCategory" | "startedAt" | "finishedAt" | "createdAt", ExtArgs["result"]["workflowRun"]>
+export type WorkflowRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "pipelineId" | "status" | "triggerType" | "triggeredBy" | "graphSnapshot" | "graphVersionId" | "retryOfRunId" | "replayOfRunId" | "parentRunId" | "cycleId" | "trackingToken" | "inputContext" | "cancelRequestedAt" | "cancelRequestedBy" | "errorMessage" | "errorCategory" | "costActual" | "costEstimate" | "startedAt" | "finishedAt" | "createdAt", ExtArgs["result"]["workflowRun"]>
 export type WorkflowRunInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pipeline?: boolean | Prisma.PipelineDefaultArgs<ExtArgs>
   cycle?: boolean | Prisma.WorkflowRun$cycleArgs<ExtArgs>
@@ -3161,6 +3331,11 @@ export type $WorkflowRunPayload<ExtArgs extends runtime.Types.Extensions.Interna
     cancelRequestedBy: number | null
     errorMessage: string | null
     errorCategory: string | null
+    /**
+     * Агрегат по шагам, USD. Денормализация: пересчитывается движком из WorkflowStep.
+     */
+    costActual: number | null
+    costEstimate: number | null
     startedAt: Date
     finishedAt: Date | null
     createdAt: Date
@@ -3616,6 +3791,8 @@ export interface WorkflowRunFieldRefs {
   readonly cancelRequestedBy: Prisma.FieldRef<"WorkflowRun", 'Int'>
   readonly errorMessage: Prisma.FieldRef<"WorkflowRun", 'String'>
   readonly errorCategory: Prisma.FieldRef<"WorkflowRun", 'String'>
+  readonly costActual: Prisma.FieldRef<"WorkflowRun", 'Float'>
+  readonly costEstimate: Prisma.FieldRef<"WorkflowRun", 'Float'>
   readonly startedAt: Prisma.FieldRef<"WorkflowRun", 'DateTime'>
   readonly finishedAt: Prisma.FieldRef<"WorkflowRun", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"WorkflowRun", 'DateTime'>
