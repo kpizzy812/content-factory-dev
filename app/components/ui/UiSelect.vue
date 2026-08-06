@@ -26,8 +26,22 @@ const tone = computed(() => {
       :class="tone"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
-      <option v-for="o in options" :key="o.value" :value="o.value">{{ o.label }}</option>
+      <option v-if="placeholder" value="" disabled :selected="modelValue == null || modelValue === ''">
+        {{ placeholder }}
+      </option>
+      <!--
+        `selected` обязателен: при первом рендере значение ставится на <select>
+        раньше, чем появляются его <option>, и браузер откатывается на первый
+        пункт. Без этого селект с числовыми значениями всегда показывал первый.
+      -->
+      <option
+        v-for="o in options"
+        :key="o.value"
+        :value="o.value"
+        :selected="String(o.value) === String(modelValue ?? '')"
+      >
+        {{ o.label }}
+      </option>
     </select>
     <Icon
       name="mingcute:down-line"

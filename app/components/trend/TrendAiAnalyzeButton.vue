@@ -21,39 +21,44 @@ async function handleAnalyze() {
   try {
     await $fetch(`/api/trends/${props.trendId}/analyze`, { method: 'POST' })
     emit('analyzed')
-  } catch (e: any) {
-    error.value = e?.data?.message || e?.message || 'Ошибка AI-анализа'
-  } finally {
+  }
+  catch (e) {
+    error.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Ошибка AI-анализа'
+  }
+  finally {
     loading.value = false
   }
 }
 </script>
 
 <template>
-  <div class="space-y-2">
-    <button
-      class="btn btn-sm gap-1"
-      :class="{
-        'btn-primary': !isAnalyzed && !isFailed,
-        'btn-success btn-outline': isAnalyzed,
-        'btn-error btn-outline': isFailed,
-      }"
-      :disabled="isRunning"
+  <div class="flex flex-col gap-2">
+    <UiButton
+      :variant="isAnalyzed || isFailed ? 'secondary' : 'primary'"
+      :loading="isRunning"
+      class="w-fit"
       @click="handleAnalyze"
     >
-      <span v-if="isRunning" class="loading loading-spinner loading-xs" />
-      <Icon v-else-if="isAnalyzed" name="mingcute:check-circle-line" />
-      <Icon v-else-if="isFailed" name="mingcute:refresh-2-line" />
-      <Icon v-else name="mingcute:sparkles-2-line" />
+      <template v-if="!isRunning">
+        <Icon v-if="isAnalyzed" name="mingcute:check-circle-line" class="text-success" />
+        <Icon v-else-if="isFailed" name="mingcute:refresh-2-line" class="text-danger" />
+        <Icon v-else name="mingcute:sparkles-2-line" />
+      </template>
 
-      <template v-if="isRunning">Анализ...</template>
+      <template v-if="isRunning">Анализируем</template>
       <template v-else-if="isAnalyzed">Переанализировать</template>
       <template v-else-if="isFailed">Повторить анализ</template>
-      <template v-else>AI: Анализировать креатив</template>
-    </button>
+      <template v-else>Анализировать креатив</template>
+    </UiButton>
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm">
-      <Icon name="mingcute:warning-line" />
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
   </div>

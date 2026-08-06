@@ -19,7 +19,8 @@ import {
  * Сортировки нет — `/api/ideas` её не принимает.
  */
 const filters = useIdeaFiltersStore()
-const { canDelete } = usePermissions()
+const { can } = usePermissions()
+const canDelete = computed(() => can('canDelete'))
 const toast = useToast()
 
 const SYSTEM_VIEWS: SystemView[] = [

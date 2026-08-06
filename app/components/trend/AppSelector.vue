@@ -10,17 +10,19 @@ const emit = defineEmits<{
 }>()
 
 const { data: appsData, refresh: refreshApps } = useFetch('/api/admin/apps', { key: 'apps-for-trends' })
-const apps = computed<Array<{ id: number; name: string }>>(() => {
-  const raw = appsData.value as { data?: Array<{ id: number; name: string }> } | Array<{ id: number; name: string }> | null
+const apps = computed<Array<{ id: number, name: string }>>(() => {
+  const raw = appsData.value as { data?: Array<{ id: number, name: string }> } | Array<{ id: number, name: string }> | null
   if (Array.isArray(raw)) return raw
   return raw?.data ?? []
 })
+
+const appOptions = computed(() => apps.value.map(a => ({ value: a.id, label: a.name })))
 
 const selectedAppId = ref<number | null>(props.currentAppId)
 const isSaving = ref(false)
 const error = ref<string | null>(null)
 
-// Быстрое создание приложения
+// Быстрое создание приложения: без него оператор уходит в админку и теряет тренд.
 const showQuickCreate = ref(false)
 const newAppName = ref('')
 const isCreating = ref(false)
@@ -38,9 +40,11 @@ async function quickCreateApp() {
     selectedAppId.value = result.data.id
     newAppName.value = ''
     showQuickCreate.value = false
-  } catch (e: any) {
-    error.value = e?.data?.message || 'Не удалось создать приложение'
-  } finally {
+  }
+  catch (e) {
+    error.value = (e as { data?: { message?: string } })?.data?.message || 'Не удалось создать приложение'
+  }
+  finally {
     isCreating.value = false
   }
 }
@@ -55,64 +59,69 @@ async function saveApp() {
       body: { appId: selectedAppId.value },
     })
     emit('updated')
-  } catch (e: any) {
-    error.value = e?.data?.message || 'Не удалось привязать приложение'
-  } finally {
+  }
+  catch (e) {
+    error.value = (e as { data?: { message?: string } })?.data?.message || 'Не удалось привязать приложение'
+  }
+  finally {
     isSaving.value = false
   }
 }
 </script>
 
 <template>
-  <div class="card bg-warning/10 border border-warning/30 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <div class="flex items-center gap-2 text-warning">
-        <Icon name="mingcute:warning-line" class="text-lg" />
-        <span class="font-medium text-sm">К тренду не привязано приложение</span>
-      </div>
-      <p class="text-xs text-base-content/60">
-        Для генерации сценариев необходимо привязать приложение.
-      </p>
+  <section class="rounded-lg border border-warning-border bg-warning-bg p-3.5">
+    <div class="flex items-start gap-2.5">
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-lg text-warning" />
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-medium text-warning">К тренду не привязано приложение</div>
+        <p class="mt-1 text-sm text-muted">Без приложения сценарии не сгенерировать.</p>
 
-      <!-- Выбор существующего -->
-      <div v-if="apps.length > 0" class="flex items-center gap-2">
-        <select v-model="selectedAppId" class="select select-sm flex-1">
-          <option :value="null" disabled>Выберите приложение</option>
-          <option v-for="app in apps" :key="app.id" :value="app.id">{{ app.name }}</option>
-        </select>
-        <button class="btn btn-warning btn-sm" :disabled="!selectedAppId || isSaving" @click="saveApp">
-          <span v-if="isSaving" class="loading loading-spinner loading-xs" />
-          Привязать
-        </button>
-      </div>
+        <div v-if="appOptions.length" class="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <UiSelect
+            v-model="selectedAppId"
+            class="w-56"
+            placeholder="Выберите приложение"
+            :options="appOptions"
+          />
+          <UiButton
+            variant="primary"
+            :disabled="!selectedAppId"
+            :loading="isSaving"
+            @click="saveApp"
+          >
+            Привязать
+          </UiButton>
+        </div>
 
-      <!-- Быстрое создание -->
-      <div v-if="!showQuickCreate" class="flex items-center gap-2">
-        <button class="btn btn-ghost btn-xs gap-1" @click="showQuickCreate = true">
-          <Icon name="mingcute:add-line" />
-          Создать новое приложение
-        </button>
-      </div>
-      <div v-else class="flex items-center gap-2">
-        <input
-          v-model="newAppName"
-          type="text"
-          class="input input-sm flex-1"
-          placeholder="Название приложения"
-          @keyup.enter="quickCreateApp"
-        />
-        <button class="btn btn-primary btn-sm" :disabled="!newAppName.trim() || isCreating" @click="quickCreateApp">
-          <span v-if="isCreating" class="loading loading-spinner loading-xs" />
-          Создать
-        </button>
-        <button class="btn btn-ghost btn-sm btn-square" @click="showQuickCreate = false">
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
+        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+          <UiButton v-if="!showQuickCreate" variant="ghost" @click="showQuickCreate = true">
+            <Icon name="mingcute:add-line" />
+            Создать приложение
+          </UiButton>
+          <template v-else>
+            <UiInput
+              v-model="newAppName"
+              class="w-56"
+              placeholder="Название приложения"
+              @keyup.enter="quickCreateApp"
+            />
+            <UiButton
+              variant="primary"
+              :disabled="!newAppName.trim()"
+              :loading="isCreating"
+              @click="quickCreateApp"
+            >
+              Создать
+            </UiButton>
+            <UiButton icon-only variant="ghost" aria-label="Отменить создание" @click="showQuickCreate = false">
+              <Icon name="mingcute:close-line" />
+            </UiButton>
+          </template>
+        </div>
 
-      <div v-if="error" role="alert" class="alert alert-error alert-soft text-xs">
-        {{ error }}
+        <p v-if="error" role="alert" class="mt-2 text-sm text-danger">{{ error }}</p>
       </div>
     </div>
-  </div>
+  </section>
 </template>

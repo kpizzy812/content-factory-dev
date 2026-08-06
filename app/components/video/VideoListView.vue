@@ -28,7 +28,8 @@ const VIDEO_STATUS_LABELS: Record<string, string> = {
 }
 
 const filters = useVideoFiltersStore()
-const { canDelete } = usePermissions()
+const { can } = usePermissions()
+const canDelete = computed(() => can('canDelete'))
 const toast = useToast()
 
 const SYSTEM_VIEWS: SystemView[] = [

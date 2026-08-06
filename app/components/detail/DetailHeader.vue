@@ -52,7 +52,11 @@ function commit() {
         {{ backLabel ?? 'К списку' }}
       </NuxtLink>
 
-      <div class="flex min-w-0 flex-1 items-center gap-2">
+      <!--
+        На узком экране заголовок занимает всю строку: иначе `min-w-0` схлопывает
+        его в ноль, а бейджи наезжают на кнопки навигации.
+      -->
+      <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-1 sm:flex-nowrap">
         <template v-if="editing">
           <UiInput
             v-model="draft"

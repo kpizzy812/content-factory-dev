@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { scenarioStatus } from '~/components/scenario/ScenarioStatusMap'
+
 const props = defineProps<{
   trend: {
     id: number
@@ -9,127 +11,97 @@ const props = defineProps<{
     sourceUrl: string
     publishedAt: string | null
     importedAt: string
+    appId?: number | null
     app?: { name: string } | null
   }
   scenarios: Array<{
     id: number
     status: string
-    variants?: Array<{ title: string; status: string }>
+    variants?: Array<{ title: string, status: string }>
   }>
   hasExistingScenarios: boolean
 }>()
 
 const emit = defineEmits<{
-  statusUpdated: []
   scenariosGenerated: []
 }>()
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
-    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+function fmt(n: number | null | undefined) {
+  return (n ?? 0).toLocaleString('ru-RU')
+}
+
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleString('ru-RU', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
+
+const metrics = computed(() => [
+  { label: 'Просмотры', value: fmt(props.trend.viewCount) },
+  { label: 'Лайки', value: fmt(props.trend.likeCount) },
+  { label: 'Комментарии', value: fmt(props.trend.commentCount) },
+])
+
+const info = computed(() => [
+  { label: 'Опубликован', value: props.trend.publishedAt ? fmtDate(props.trend.publishedAt) : null },
+  { label: 'Импортирован', value: fmtDate(props.trend.importedAt) },
+  { label: 'Приложение', value: props.trend.app?.name ?? null, mono: false },
+])
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="flex flex-col gap-3">
     <!-- Метрики -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <h3 class="card-title text-sm">Метрики</h3>
-        <div class="stats stats-vertical w-full shadow-none">
-          <div class="stat px-0 py-2">
-            <div class="stat-title">Просмотры</div>
-            <div class="stat-value text-lg">{{ formatNumber(trend.viewCount) }}</div>
-          </div>
-          <div class="stat px-0 py-2">
-            <div class="stat-title">Лайки</div>
-            <div class="stat-value text-lg">{{ formatNumber(trend.likeCount) }}</div>
-          </div>
-          <div class="stat px-0 py-2">
-            <div class="stat-title">Комментарии</div>
-            <div class="stat-value text-lg">{{ formatNumber(trend.commentCount) }}</div>
-          </div>
+    <section class="rounded-lg border border-border bg-panel p-3.5">
+      <h2 class="mb-2 text-micro tracking-[.06em] text-subtle uppercase">Метрики</h2>
+      <div class="grid grid-cols-3 gap-2">
+        <div v-for="m in metrics" :key="m.label" class="min-w-0">
+          <div class="text-[11.5px] text-muted">{{ m.label }}</div>
+          <div class="tnum truncate font-mono text-lg font-semibold">{{ m.value }}</div>
         </div>
       </div>
-    </div>
-
-    <!-- Действия -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <h3 class="card-title text-sm">Действия</h3>
-        <TrendStatusActions
-          :trend-id="trend.id"
-          :current-status="trend.status"
-          @updated="emit('statusUpdated')"
-        />
-        <a
-          v-if="trend.sourceUrl"
-          :href="trend.sourceUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn btn-sm btn-outline gap-1"
-        >
-          <Icon name="mingcute:external-link-line" />
-          Оригинал
-        </a>
-      </div>
-    </div>
+    </section>
 
     <!-- Сценарии -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-3">
-        <h3 class="card-title text-sm">
-          <Icon name="mingcute:document-line" class="text-primary" />
-          Сценарии
-        </h3>
+    <section class="rounded-lg border border-border bg-panel p-3.5">
+      <h2 class="mb-2 text-micro tracking-[.06em] text-subtle uppercase">Сценарии</h2>
 
-        <ScenarioGenerateButton
-          :trend-id="trend.id"
-          :trend-status="trend.status"
-          :has-app="!!trend.app"
-          :has-existing-scenarios="hasExistingScenarios"
-          @generated="emit('scenariosGenerated')"
-        />
+      <ScenarioGenerateButton
+        :trend-id="trend.id"
+        :trend-status="trend.status"
+        :has-app="!!trend.app"
+        :app-id="trend.appId ?? null"
+        :has-existing-scenarios="hasExistingScenarios"
+        @generated="emit('scenariosGenerated')"
+      />
 
-        <template v-if="hasExistingScenarios">
-          <ul class="menu menu-sm p-0 gap-1">
-            <li v-for="s in scenarios" :key="s.id">
-              <NuxtLink :to="`/scenarios/${s.id}`" class="gap-2">
-                <ScenarioStatusBadge :status="s.status" />
-                <span class="truncate">{{ s.variants?.[0]?.title ?? `Сценарий #${s.id}` }}</span>
-              </NuxtLink>
-            </li>
-          </ul>
+      <template v-if="hasExistingScenarios">
+        <ul class="mt-2.5 flex flex-col">
+          <li v-for="s in scenarios" :key="s.id" class="border-b border-divider last:border-b-0">
+            <NuxtLink
+              :to="`/scenarios/${s.id}`"
+              class="flex items-center gap-2 py-1.5 text-sm hover:text-fg"
+            >
+              <UiStatusBadge :status="scenarioStatus(s.status)" size="xs" dot icon-only />
+              <span class="truncate">{{ s.variants?.[0]?.title ?? `Сценарий #${s.id}` }}</span>
+            </NuxtLink>
+          </li>
+        </ul>
 
-          <NuxtLink :to="`/scenarios?trendId=${trend.id}`" class="btn btn-sm btn-ghost gap-1">
-            <Icon name="mingcute:arrow-right-line" />
+        <NuxtLink :to="`/scenarios?trendId=${trend.id}`" class="mt-2 inline-block">
+          <UiButton variant="ghost">
             Все сценарии тренда
-          </NuxtLink>
-        </template>
-      </div>
-    </div>
+            <Icon name="mingcute:right-line" />
+          </UiButton>
+        </NuxtLink>
+      </template>
+    </section>
 
     <!-- Информация -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body p-4 gap-2">
-        <h3 class="card-title text-sm">Информация</h3>
-        <div class="text-sm space-y-1">
-          <p v-if="trend.publishedAt" class="text-base-content/70">
-            <span class="font-medium">Опубликовано:</span>
-            {{ formatDate(trend.publishedAt) }}
-          </p>
-          <p class="text-base-content/70">
-            <span class="font-medium">Импортировано:</span>
-            {{ formatDate(trend.importedAt) }}
-          </p>
-          <p v-if="trend.app" class="text-base-content/70">
-            <span class="font-medium">Приложение:</span>
-            {{ trend.app.name }}
-          </p>
-        </div>
-      </div>
-    </div>
+    <section class="rounded-lg border border-border bg-panel p-3.5">
+      <h2 class="mb-2 text-micro tracking-[.06em] text-subtle uppercase">Информация</h2>
+      <UiKeyValue :items="info" label-width="124px" />
+    </section>
   </div>
 </template>

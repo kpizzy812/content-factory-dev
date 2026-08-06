@@ -12,7 +12,8 @@ import { scenarioStatus, variantStatus, SCENARIO_STATUS_LABELS } from './Scenari
  * Рисовать стрелки сортировки, которые ничего не делают, хуже, чем не рисовать.
  */
 const filters = useScenarioFiltersStore()
-const { canDelete } = usePermissions()
+const { can } = usePermissions()
+const canDelete = computed(() => can('canDelete'))
 const toast = useToast()
 
 const SYSTEM_VIEWS: SystemView[] = [

@@ -12,7 +12,8 @@ import { trendStatus, TREND_STATUS_LABELS } from './TrendStatusMap'
  * помечено ЗАМЕНЯЕМАЯ ЧАСТЬ — при переносе меняется только оно.
  */
 const filters = useTrendFiltersStore()
-const { canDelete } = usePermissions()
+const { can } = usePermissions()
+const canDelete = computed(() => can('canDelete'))
 const toast = useToast()
 
 // ── ЗАМЕНЯЕМАЯ ЧАСТЬ: системные представления раздела ──────────────────
