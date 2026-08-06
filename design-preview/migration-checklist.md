@@ -46,17 +46,17 @@
 | | Файл | Заметки |
 | --- | --- | --- |
 | `+` | `videos/[id].vue` | эталон; проверена на готовом, упавшем и идущем ролике |
-| `—` | `trends/[id].vue` | |
-| `—` | `scenarios/[id].vue` | варианты и критик |
-| `—` | `ideas/[id].vue` | |
-| `—` | `characters/[id].vue` | |
-| `—` | `scenes/[id].vue` | |
-| `—` | `uploads/[id].vue` | |
-| `—` | `devices/[id].vue` | |
-| `—` | `admin/apps/[id].vue` | |
-| `—` | `admin/users/[id].vue` | |
-| `—` | `admin/cycles/[id].vue` | |
-| `—` | `analytics/[uploadId].vue` | разбор публикации, макет 07 |
+| `+` | `trends/[id].vue` | статус и удаление в меню шапки, бриф табами |
+| `+` | `scenarios/[id].vue` | варианты и критик; отчёт критика на живых данных не проверен — оценок в базе нет |
+| `+` | `ideas/[id].vue` | пять вкладок, прогресс разбора референса |
+| `+` | `characters/[id].vue` | фото в трёх состояниях разбора, ClientOnly из-за `server: false` |
+| `—` | `scenes/[id].vue` | композитор сцен, 1800 строк в `scene/` |
+| `+` | `uploads/[id].vue` | попытки публикации, выключенный постинг отдельной подачей |
+| `—` | `devices/[id].vue` | унаследованный контур, ~2200 строк в `device/` |
+| `—` | `admin/apps/[id].vue` | `AppForm` 702 строки |
+| `+` | `admin/users/[id].vue` | права из MC только на просмотр |
+| `+` | `admin/cycles/[id].vue` | логи на `UiLogRow` |
+| `+` | `analytics/[uploadId].vue` | метрик в базе нет — история проверена только пустым состоянием |
 
 ## Сложные экраны — этап 6, из своих макетов
 
@@ -104,9 +104,16 @@ curl -s -b cookies.txt http://127.0.0.1:3214/trends
 Демо-данные для проверки глазами (только тестовая БД):
 
 ```
-bun run scripts/seed-videos-demo.ts     # тренды → сценарии → ролики в трёх состояниях
-bun run scripts/seed-accounts-demo.ts   # три аккаунта, один намеренно не готов публиковать
+bun run scripts/seed-videos-demo.ts      # тренды → сценарии → ролики в трёх состояниях
+bun run scripts/seed-accounts-demo.ts    # три аккаунта, один намеренно не готов публиковать
+bun run scripts/seed-ideas-demo.ts       # идеи: разобранная, разбирающаяся, упавшая, с конфликтом синхронизации
+bun run scripts/seed-uploads-demo.ts     # публикации: опубликована, упала с попытками, запланирована, заблокирована
+bun run scripts/seed-characters-demo.ts  # персонажи с фото в трёх состояниях разбора
+bun run scripts/seed-cycles-demo.ts      # циклы: завершённый с логами, идущий, упавший
 ```
+
+Сиды рассчитаны на порядок: `seed-uploads-demo` берёт ролики и аккаунты из двух
+первых, `seed-characters-demo` и `seed-cycles-demo` — приложение из базы.
 
 Разделы `proxies`, `devices`, `google-drive` и `posting-jobs` относятся к
 унаследованному контуру: без `LEGACY_*_ENABLED` их API отдаёт 404, и страницы
