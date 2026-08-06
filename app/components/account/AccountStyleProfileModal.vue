@@ -1,46 +1,41 @@
 <script setup lang="ts">
-const emit = defineEmits<{
-  saved: []
-  close: []
-}>()
+/** Оболочка редактора стиль-профиля: заголовок и рамка, содержимое — в редакторе. */
+const emit = defineEmits<{ saved: [], close: [] }>()
 
-const dialogRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const accountId = ref<number | null>(null)
 const accountName = ref('')
 
-function open(payload: { accountId: number; accountName: string }) {
+function open(payload: { accountId: number, accountName: string }) {
   accountId.value = payload.accountId
   accountName.value = payload.accountName
-  dialogRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  dialogRef.value?.close()
+  isOpen.value = false
   accountId.value = null
   emit('close')
-}
-
-function onSaved() {
-  emit('saved')
 }
 
 defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal" @close="emit('close')">
-    <div class="modal-box max-w-3xl max-h-[90vh] flex flex-col p-0">
-      <AccountStyleProfileEditor
-        v-if="accountId"
-        :account-id="accountId"
-        :account-name="accountName"
-        class="flex-1 overflow-y-auto p-6"
-        @saved="onSaved"
-        @close="close"
-      />
-    </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+  <UiModal :open="isOpen" size="lg" @close="close">
+    <template #header>
+      <span class="flex items-baseline gap-2">
+        Стиль-профиль
+        <span class="truncate font-mono text-sm font-normal text-subtle">{{ accountName }}</span>
+      </span>
+    </template>
+
+    <AccountStyleProfileEditor
+      v-if="accountId"
+      :account-id="accountId"
+      :account-name="accountName"
+      @saved="emit('saved')"
+      @close="close"
+    />
+  </UiModal>
 </template>

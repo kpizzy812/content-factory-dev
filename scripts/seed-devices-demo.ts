@@ -15,12 +15,17 @@
  */
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../app/generated/prisma/client'
+import { encryptSecret } from '../server/utils/crypto'
 
 const connectionString = process.env.DATABASE_URL
   ?? 'postgresql://contentfactory_tests:contentfactory_tests_password@localhost:5436/contentfactory_tests_db'
 
 if (!connectionString.includes('tests')) {
   throw new Error('[cf-seed-devices] DATABASE_URL не указывает на тестовую базу. Прерываю.')
+}
+
+if (!process.env.ENCRYPTION_KEY) {
+  throw new Error('[cf-seed-devices] нет ENCRYPTION_KEY — адрес и доступы прокси нечем шифровать.')
 }
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
@@ -33,14 +38,18 @@ async function main() {
 
   // Прокси нужен двум профилям: без него запуск заблокирован, и это отдельное
   // состояние карточки.
+  //
+  // Адрес и доступы хранятся зашифрованными: DTO списка прокси их расшифровывает,
+  // и на открытом тексте `GET /api/proxies` падает с «Неверный формат
+  // зашифрованных данных» — вся зона прокси при этом недоступна.
   const usProxy = await prisma.proxy.create({
     data: {
       label: `US резидентный ${stamp % 1000}`,
       type: 'residential',
-      host: '198.51.100.20',
+      host: encryptSecret('198.51.100.20'),
       port: 8080,
-      username: 'demo',
-      password: 'demo',
+      username: encryptSecret('demo'),
+      password: encryptSecret('demo'),
       status: 'healthy',
       expectedCountry: 'US',
       expectedCity: 'New York',
@@ -52,7 +61,7 @@ async function main() {
     data: {
       label: `DE мёртвый ${stamp % 1000}`,
       type: 'datacenter',
-      host: '203.0.113.9',
+      host: encryptSecret('203.0.113.9'),
       port: 3128,
       status: 'dead',
       expectedCountry: 'DE',

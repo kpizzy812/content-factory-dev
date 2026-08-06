@@ -1,33 +1,24 @@
 <script setup lang="ts">
 /**
- * Account-level readiness tab (6-й таб в AccountEditModal).
+ * Готовность аккаунта к публикации через устройство: четыре проверки —
+ * прокси, профиль устройства, работа прокси на устройстве и вход в платформу.
  *
- * Показывает 4-точечный чек-лист (proxy/indigo/deep-check signal/login) с
- * радиальным прогрессом и actionable buttons. Если 4/4 → success alert + кнопка
- * "Создать posting job".
- *
- * Caption — per-video, не входит в score аккаунта. Выводится отдельным info-блоком
- * с указанием что Caption проверяется при создании posting job.
+ * Подпись под видео сюда не входит: она проверяется в момент создания задачи
+ * постинга и зависит от ролика, а не от аккаунта.
  */
-import type { PreflightAccount } from "~~/app/composables/useYoutubePreflight"
-import { useAccountReadiness } from "~~/app/composables/useAccountReadiness"
-import { useLoginCheck } from "~~/app/composables/useLoginCheck"
-import type { AccountDeepCheckStatus } from "~~/shared/types/deep-proxy-check"
-import type { DeviceProfileDto, DeviceTestPushResult } from "~~/shared/types/device-profile"
+import type { PreflightAccount } from '~~/app/composables/useYoutubePreflight'
+import { useAccountReadiness } from '~~/app/composables/useAccountReadiness'
+import { useLoginCheck } from '~~/app/composables/useLoginCheck'
+import type { AccountDeepCheckStatus } from '~~/shared/types/deep-proxy-check'
+import type { DeviceProfileDto, DeviceTestPushResult } from '~~/shared/types/device-profile'
 
-const props = defineProps<{
-  accountId: number
-}>()
+const props = defineProps<{ accountId: number }>()
 
 const emit = defineEmits<{
-  "open-create-modal": [accountId: number]
-  /** Оператор хочет открыть Indigo X desktop профиль (для login вручную). */
-  "open-indigo": []
+  'open-create-modal': [accountId: number]
+  /** Открыть список устройств, чтобы войти в аккаунт руками. */
+  'open-indigo': []
 }>()
-
-interface AccountResponse {
-  data: PreflightAccount[]
-}
 
 const account = ref<PreflightAccount | null>(null)
 const deepCheckStatus = ref<AccountDeepCheckStatus | null>(null)
@@ -38,26 +29,25 @@ async function fetchAccount() {
   loading.value = true
   fetchError.value = null
   try {
-    // /api/accounts возвращает список — фильтруем по id. Отдельного /api/accounts/:id
-    // GET нет (см. server/api/accounts/), поэтому минимальный лишний трафик в обмен
-    // на ноль новых endpoint'ов.
-    const res = await $fetch<AccountResponse>("/api/accounts")
-    const found = res.data.find((a) => a.id === props.accountId)
+    // Отдельного `GET /api/accounts/:id` нет, поэтому берём список и ищем в нём.
+    const res = await $fetch<{ data: PreflightAccount[] }>('/api/accounts')
+    const found = res.data.find(a => a.id === props.accountId)
     account.value = found ?? null
     if (!found) fetchError.value = `Аккаунт #${props.accountId} не найден`
-  } catch (err: unknown) {
-    const e = err as { data?: { message?: string }; message?: string }
-    fetchError.value = e?.data?.message ?? e?.message ?? "Не удалось загрузить аккаунт"
-  } finally {
+  }
+  catch (err: unknown) {
+    const e = err as { data?: { message?: string }, message?: string }
+    fetchError.value = e?.data?.message ?? e?.message ?? 'Не удалось загрузить аккаунт'
+  }
+  finally {
     loading.value = false
   }
 }
 
-// One-shot загрузка профиля для warmup-бейджа/кнопки. PreflightAccount несёт
-// только deviceProfileId (без sessionState/platformType), поэтому +1 fetch в табе.
+// Профиль устройства нужен ради состояния сессии — в списке аккаунтов его нет.
 const deviceProfile = ref<DeviceProfileDto | null>(null)
 
-async function fetchIndigoProfile() {
+async function fetchDeviceProfile() {
   const id = account.value?.deviceProfileId
   if (!id) {
     deviceProfile.value = null
@@ -66,8 +56,8 @@ async function fetchIndigoProfile() {
   try {
     const res = await $fetch<{ data: DeviceProfileDto }>(`/api/device-profiles/${id}`)
     deviceProfile.value = res.data
-  } catch {
-    // Best-effort — без профиля просто не показываем warmup-контролы.
+  }
+  catch {
     deviceProfile.value = null
   }
 }
@@ -78,33 +68,24 @@ async function fetchDeepCheckStatus() {
       `/api/accounts/${props.accountId}/deep-check-status`,
     )
     deepCheckStatus.value = res.data
-  } catch {
-    // Best-effort — composable работает в legacy mode когда status=null
+  }
+  catch {
+    // Без статуса composable считает проверку по косвенному признаку.
     deepCheckStatus.value = null
   }
 }
 
-watch(
-  () => props.accountId,
-  async () => {
-    // fetchIndigoProfile зависит от account.deviceProfileId → после fetchAccount.
-    await Promise.all([fetchAccount(), fetchDeepCheckStatus()])
-    await fetchIndigoProfile()
-  },
-  { immediate: true },
-)
+watch(() => props.accountId, async () => {
+  await Promise.all([fetchAccount(), fetchDeepCheckStatus()])
+  await fetchDeviceProfile()
+}, { immediate: true })
 
-// Детали ошибки прогрева — показываем в info-блоке (отдельной диагностической
-// модалки в этом табе нет).
 const warmupErrorDetail = ref<DeviceTestPushResult | null>(null)
 
 async function onWarmed() {
   warmupErrorDetail.value = null
-  // Перечитываем профиль (sessionState → running) и аккаунт (на случай изменений).
-  // Последовательно: fetchIndigoProfile читает account.value?.deviceProfileId в
-  // начале — при параллельном запуске мог бы прочитать устаревший account.
   await fetchAccount()
-  await fetchIndigoProfile()
+  await fetchDeviceProfile()
 }
 
 const accountRef = computed<PreflightAccount | null>(() => account.value)
@@ -114,9 +95,7 @@ const { state } = useAccountReadiness(accountRef, deepCheckRef)
 const historyModalRef = ref<{ open: (proxyId: string) => void }>()
 
 function openHistory() {
-  if (account.value?.proxyId) {
-    historyModalRef.value?.open(account.value.proxyId)
-  }
+  if (account.value?.proxyId) historyModalRef.value?.open(account.value.proxyId)
 }
 
 const { runCheck, isBusy: loginCheckBusy } = useLoginCheck()
@@ -133,228 +112,178 @@ async function runDeepCheck() {
   deepCheckBusy.value = true
   deepCheckResult.value = null
   try {
-    const res = await $fetch<{
-      result: { verdict: { recommendation: string } }
-      logId: string | null
-    }>(
+    const res = await $fetch<{ result: { verdict: { recommendation: string } } }>(
       `/api/accounts/${props.accountId}/deep-proxy-check`,
-      { method: "POST" },
+      { method: 'POST' },
     )
     deepCheckResult.value = res.result.verdict.recommendation
-    // Обновляем оба source — fetchAccount (на случай если статус прокси изменился),
-    // fetchDeepCheckStatus (новый log должен попасть в state).
     await Promise.all([fetchAccount(), fetchDeepCheckStatus()])
-  } catch (err: unknown) {
-    const e = err as { data?: { message?: string }; message?: string }
-    deepCheckResult.value =
-      e?.data?.message ?? e?.message ?? "Deep-check не запустился"
-  } finally {
+  }
+  catch (err: unknown) {
+    const e = err as { data?: { message?: string }, message?: string }
+    deepCheckResult.value = e?.data?.message ?? e?.message ?? 'Проверка не запустилась'
+  }
+  finally {
     deepCheckBusy.value = false
   }
 }
 
-const progressClass = computed(() => {
-  if (state.value.ready) return "text-success"
-  if (state.value.score >= 2) return "text-warning"
-  return "text-error"
+const scoreTone = computed(() => {
+  if (state.value.ready) return 'text-success'
+  if (state.value.score >= 2) return 'text-warning'
+  return 'text-danger'
 })
 
-const progressPercent = computed(() => (state.value.score / state.value.total) * 100)
+const barTone = computed(() => {
+  if (state.value.ready) return 'bg-success'
+  if (state.value.score >= 2) return 'bg-warning'
+  return 'bg-danger'
+})
+
+const progressPercent = computed(() =>
+  state.value.total ? (state.value.score / state.value.total) * 100 : 0,
+)
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div v-if="loading" class="flex justify-center py-4">
-      <span class="loading loading-dots loading-md" />
-    </div>
+  <div class="flex flex-col gap-4">
+    <UiSkeleton v-if="loading" variant="details" :count="4" />
 
-    <div v-else-if="fetchError" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:warning-line" class="text-sm shrink-0" />
-      <span>{{ fetchError }}</span>
-    </div>
+    <UiErrorState v-else-if="fetchError" message="Не удалось загрузить аккаунт." :details="fetchError" @retry="fetchAccount" />
 
     <template v-else-if="account">
-      <!-- Radial progress + caption -->
-      <div class="flex items-center gap-4">
-        <div
-          class="radial-progress"
-          :class="progressClass"
-          :style="{
-            '--value': progressPercent,
-            '--size': '5rem',
-            '--thickness': '6px',
-          }"
-          role="progressbar"
-        >
-          <span class="text-lg font-bold">{{ state.score }}/{{ state.total }}</span>
+      <div class="flex items-center gap-4 rounded-md border border-border bg-card p-3">
+        <div class="flex flex-col items-center gap-1">
+          <span class="tnum text-2xl font-semibold" :class="scoreTone">
+            {{ state.score }}/{{ state.total }}
+          </span>
+          <span class="h-1 w-16 overflow-hidden rounded-full bg-neutral-bg">
+            <span class="block h-full" :class="barTone" :style="{ width: `${progressPercent}%` }" />
+          </span>
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-medium text-sm">
-            {{ state.ready ? "Аккаунт готов к публикации" : "Аккаунт не готов" }}
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium">
+            {{ state.ready ? 'Аккаунт готов публиковать' : 'Аккаунт не готов' }}
           </div>
-          <div class="text-xs text-base-content/60 mt-0.5">
-            {{
-              state.ready
-                ? "Все 4 проверки пройдены. Можно создавать posting job."
-                : `Пройдено ${state.score} из ${state.total}. Исправьте красные пункты ниже.`
-            }}
-          </div>
+          <p class="text-sm text-muted">
+            {{ state.ready
+              ? 'Все проверки пройдены — можно ставить задачу постинга.'
+              : `Пройдено ${state.score} из ${state.total}. Ниже видно, что чинить.` }}
+          </p>
         </div>
       </div>
 
-      <!-- Checklist -->
-      <ul class="menu menu-sm bg-base-200/30 rounded-box">
+      <ul class="overflow-hidden rounded-md border border-border">
         <li
           v-for="check in state.checks"
           :key="check.key"
-          class="border-b last:border-b-0 border-base-300/40"
+          class="flex items-start gap-2.5 border-b border-divider bg-panel px-2.5 py-2 last:border-b-0"
         >
-          <div class="flex items-start gap-2 py-2 hover:bg-transparent cursor-default">
-            <Icon
-              :name="check.frozen ? 'mingcute:pause-circle-fill' : check.passed ? 'mingcute:check-circle-fill' : 'mingcute:close-circle-fill'"
-              class="text-base shrink-0 mt-0.5"
-              :class="check.frozen ? 'text-base-content/40' : check.passed ? 'text-success' : 'text-error'"
+          <Icon
+            :name="check.frozen
+              ? 'mingcute:pause-circle-fill'
+              : check.passed ? 'mingcute:check-circle-fill' : 'mingcute:close-circle-fill'"
+            class="mt-0.5 shrink-0"
+            :class="check.frozen ? 'text-subtle' : check.passed ? 'text-success' : 'text-danger'"
+          />
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium">{{ check.label }}</div>
+            <p v-if="check.detail" class="text-sm break-words text-muted">{{ check.detail }}</p>
+          </div>
+
+          <UiButton
+            v-if="check.key === 'login' && !check.passed && !check.frozen"
+            variant="ghost"
+            :loading="loginCheckBusy"
+            @click="runLoginCheck"
+          >
+            <Icon v-if="!loginCheckBusy" name="mingcute:refresh-3-line" />
+            Проверить вход
+          </UiButton>
+
+          <div v-else-if="check.key === 'deep_check'" class="flex shrink-0 items-center gap-1">
+            <UiButton
+              v-if="!check.passed && !check.frozen"
+              variant="ghost"
+              :loading="deepCheckBusy"
+              @click="runDeepCheck"
+            >
+              <Icon v-if="!deepCheckBusy" name="mingcute:shield-line" />
+              Проверить прокси
+            </UiButton>
+            <UiButton v-if="account?.proxyId" variant="ghost" @click="openHistory">
+              <Icon name="mingcute:history-line" />
+              История
+            </UiButton>
+          </div>
+
+          <div v-else-if="check.key === 'indigo'" class="flex shrink-0 items-center gap-1">
+            <DeviceSessionStatusBadge
+              v-if="deviceProfile"
+              variant="warmup"
+              size="xs"
+              :state="deviceProfile.sessionState"
+              :port="deviceProfile.lastSessionPort"
             />
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium">{{ check.label }}</div>
-              <div v-if="check.detail" class="text-xs text-base-content/60 mt-0.5 break-words">
-                {{ check.detail }}
-              </div>
-            </div>
-            <button
-              v-if="check.key === 'login' && !check.passed && !check.frozen"
-              type="button"
-              class="btn btn-xs btn-ghost shrink-0"
-              :disabled="loginCheckBusy"
-              @click="runLoginCheck"
-            >
-              <span v-if="loginCheckBusy" class="loading loading-spinner loading-xs" />
-              <Icon v-else name="mingcute:refresh-line" class="text-xs" />
-              Login-check
-            </button>
-            <div
-              v-else-if="check.key === 'deep_check'"
-              class="flex items-center gap-1 shrink-0"
-            >
-              <button
-                v-if="!check.passed && !check.frozen"
-                type="button"
-                class="btn btn-xs btn-ghost"
-                :disabled="deepCheckBusy"
-                @click="runDeepCheck"
-              >
-                <span
-                  v-if="deepCheckBusy"
-                  class="loading loading-spinner loading-xs"
-                />
-                <Icon v-else name="mingcute:safari-line" class="text-xs" />
-                Deep-check
-              </button>
-              <button
-                v-if="account?.proxyId"
-                type="button"
-                class="btn btn-xs btn-ghost"
-                @click="openHistory"
-              >
-                <Icon name="mingcute:history-line" class="text-xs" />
-                История
-              </button>
-            </div>
-            <div
-              v-else-if="check.key === 'indigo'"
-              class="flex items-center gap-1 shrink-0"
-            >
-              <!-- Готовность для постинга: «Прогрет ✓» / «Не прогрет». -->
-              <DeviceSessionStatusBadge
-                v-if="deviceProfile"
-                variant="warmup"
-                size="sm"
-                :state="deviceProfile.sessionState"
-                :port="deviceProfile.lastSessionPort"
-              />
-              <!-- Прогрев на сервере — поднимает профиль заранее, чтобы постинг
-                   не падал на загрузке ядра. Скрыта для mobile (selenium-транспорт). -->
-              <DeviceWarmupForPostingButton
-                v-if="account?.deviceProfileId"
-                :profile-id="account.deviceProfileId"
-                :pushed-to-cloud="Boolean(deviceProfile?.indigoId)"
-                :platform-type="deviceProfile?.platformType ?? null"
-                compact
-                @warmed="onWarmed"
-                @error-detail="(r: DeviceTestPushResult) => warmupErrorDetail = r"
-              />
-              <!-- Открыть desktop-профиль вручную (для логина руками). -->
-              <button
-                v-if="account?.deviceProfileId"
-                type="button"
-                class="btn btn-xs btn-ghost"
-                @click="emit('open-indigo')"
-              >
-                <Icon name="mingcute:external-link-line" class="text-xs" />
-                Открыть
-              </button>
-            </div>
+            <DeviceWarmupForPostingButton
+              v-if="account?.deviceProfileId"
+              :profile-id="account.deviceProfileId"
+              :pushed-to-cloud="Boolean(deviceProfile?.indigoId)"
+              :platform-type="deviceProfile?.platformType ?? null"
+              compact
+              @warmed="onWarmed"
+              @error-detail="(r: DeviceTestPushResult) => warmupErrorDetail = r"
+            />
+            <UiButton v-if="account?.deviceProfileId" variant="ghost" @click="emit('open-indigo')">
+              <Icon name="mingcute:external-link-line" />
+              Открыть
+            </UiButton>
           </div>
         </li>
       </ul>
 
-      <div
-        v-if="deepCheckResult"
-        role="alert"
-        class="alert alert-info alert-soft text-xs"
-      >
-        <Icon name="mingcute:information-line" class="text-sm shrink-0" />
+      <p v-if="deepCheckResult" class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm">
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
         <span class="whitespace-pre-wrap">{{ deepCheckResult }}</span>
-      </div>
+      </p>
 
-      <!-- Детали ошибки прогрева (raw response от /start) — для саппорта. -->
-      <div
-        v-if="warmupErrorDetail"
-        role="alert"
-        class="alert alert-error alert-soft text-xs flex-col items-start"
-      >
-        <div class="flex items-center gap-1 font-medium">
-          <Icon name="mingcute:warning-line" class="text-sm shrink-0" />
-          <span>Прогрев не удался: {{ warmupErrorDetail.error }}</span>
-          <button class="btn btn-xs btn-ghost ml-auto" @click="warmupErrorDetail = null">
-            <Icon name="mingcute:close-line" class="text-xs" />
-          </button>
+      <div v-if="warmupErrorDetail" class="flex flex-col gap-1.5 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm">
+        <div class="flex items-center gap-2">
+          <Icon name="mingcute:warning-line" class="shrink-0 text-danger" />
+          <span class="min-w-0 flex-1 font-medium">Прогрев не удался: {{ warmupErrorDetail.error }}</span>
+          <UiButton icon-only variant="ghost" aria-label="Скрыть" @click="warmupErrorDetail = null">
+            <Icon name="mingcute:close-line" />
+          </UiButton>
         </div>
         <pre
           v-if="warmupErrorDetail.responseBody"
-          class="mt-1 w-full whitespace-pre-wrap break-all bg-base-200/40 rounded p-2 overflow-x-auto"
+          class="overflow-x-auto rounded-md border border-border bg-surface p-2 font-mono text-micro break-all whitespace-pre-wrap"
         >{{ JSON.stringify(warmupErrorDetail.responseBody, null, 2) }}</pre>
       </div>
 
-      <!-- Caption hint -->
-      <div role="alert" class="alert alert-info alert-soft text-xs">
-        <Icon name="mingcute:information-line" class="text-sm shrink-0" />
+      <p class="flex gap-2 rounded-md border border-border bg-card p-2.5 text-sm text-muted">
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0" />
         <span>
-          Caption для конкретного видео проверяется в момент создания posting job.
-          Готовность аккаунта не зависит от caption.
+          Подпись под конкретным роликом проверяется при создании задачи постинга —
+          готовность аккаунта от неё не зависит.
         </span>
-      </div>
+      </p>
 
-      <!-- Action: create posting job -->
-      <div v-if="state.ready" role="alert" class="alert alert-success alert-soft">
-        <Icon name="mingcute:check-circle-line" class="text-sm shrink-0" />
-        <div class="flex-1">
+      <div
+        v-if="state.ready"
+        class="flex flex-wrap items-center gap-2 rounded-md border border-success-border bg-success-bg p-2.5"
+      >
+        <div class="min-w-0 flex-1">
           <div class="text-sm font-medium">Готов к публикации</div>
-          <div class="text-xs text-base-content/60 mt-0.5">
-            Все технические проверки пройдены. Создайте задачу постинга.
-          </div>
+          <p class="text-sm text-muted">Технические проверки пройдены — можно ставить задачу.</p>
         </div>
-        <button
-          type="button"
-          class="btn btn-sm btn-success"
-          @click="emit('open-create-modal', accountId)"
-        >
+        <UiButton variant="primary" @click="emit('open-create-modal', accountId)">
           <Icon name="mingcute:send-line" />
           Создать задачу
-        </button>
+        </UiButton>
       </div>
     </template>
 
-    <DeepCheckHistoryModal ref="historyModalRef" />
+    <AccountDeepCheckHistoryModal ref="historyModalRef" />
   </div>
 </template>

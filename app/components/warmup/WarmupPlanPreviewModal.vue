@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { PreviewResult } from "~~/app/composables/useWarmupActions"
-import type { WarmupPlan } from "~~/shared/types/warmup"
+import type { PreviewResult } from '~~/app/composables/useWarmupActions'
+import type { WarmupPlan } from '~~/shared/types/warmup'
 
 const emit = defineEmits<{
   schedule: [opts: { replace: boolean }]
@@ -8,129 +8,119 @@ const emit = defineEmits<{
 }>()
 
 defineProps<{
-  /** true когда выполняется schedule. */
   isScheduling?: boolean
-  /** Сообщение об ошибке (например 409 conflict). */
   errorMessage?: string | null
-  /** ID существующей сессии при 409, чтобы предложить replace. */
+  /** Идентификатор уже существующей сессии на этот день — тогда предлагаем замену. */
   conflictSessionId?: string | null
 }>()
 
-const dialogRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const result = ref<PreviewResult | null>(null)
 
 function open(payload: PreviewResult) {
   result.value = payload
-  dialogRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  dialogRef.value?.close()
+  isOpen.value = false
   result.value = null
-  emit("close")
+  emit('close')
 }
 
 const plan = computed<WarmupPlan | null>(() => result.value?.plan ?? null)
 
 function formatDuration(sec: number): string {
-  if (sec < 60) return `${sec} сек`
+  if (sec < 60) return `${sec} с`
   const m = Math.floor(sec / 60)
   const s = sec % 60
-  return s > 0 ? `${m} мин ${s} сек` : `${m} мин`
+  return s > 0 ? `${m} мин ${s} с` : `${m} мин`
+}
+
+const AGE_BUCKETS: Record<string, string> = {
+  new: 'Новый',
+  warming: 'На прогреве',
+  mature: 'Зрелый',
 }
 
 defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal">
-    <div class="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
-      <h3 class="font-bold text-lg flex items-center gap-2">
-        <Icon name="mingcute:fire-line" class="text-primary" />
-        Превью плана прогрева
-      </h3>
+  <UiModal :open="isOpen" title="План прогрева" size="lg" :persistent="isScheduling" @close="close">
+    <p v-if="!plan || !result" class="py-8 text-center text-subtle">План не сгенерирован.</p>
 
-      <div v-if="!plan || !result" class="py-8 text-center text-base-content/50">
-        План не сгенерирован.
+    <div v-else class="flex flex-col gap-4">
+      <div class="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-panel sm:grid-cols-4">
+        <div class="flex flex-col gap-1 border-r border-divider p-2.5 px-3.5">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Возраст</span>
+          <span class="text-lg font-semibold">{{ AGE_BUCKETS[result.ageBucket] ?? result.ageBucket }}</span>
+        </div>
+        <div class="flex flex-col gap-1 border-divider p-2.5 px-3.5 sm:border-r">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Действий</span>
+          <span class="tnum text-lg font-semibold">{{ plan.meta.actionCount }}</span>
+        </div>
+        <div class="flex flex-col gap-1 border-t border-r border-divider p-2.5 px-3.5 sm:border-t-0">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Длительность</span>
+          <span class="tnum text-lg font-semibold">{{ formatDuration(plan.meta.totalDurationSec) }}</span>
+        </div>
+        <div class="flex flex-col gap-1 border-t border-divider p-2.5 px-3.5 sm:border-t-0">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Цель</span>
+          <span class="tnum text-lg font-semibold">{{ formatDuration(plan.meta.targetDurationSec) }}</span>
+        </div>
       </div>
 
-      <template v-else>
-        <!-- Meta block -->
-        <div class="stats stats-horizontal w-full mt-3 bg-base-200">
-          <div class="stat py-2 px-3">
-            <div class="stat-title text-xs">Бакет</div>
-            <div class="stat-value text-base">{{ result.ageBucket }}</div>
-          </div>
-          <div class="stat py-2 px-3">
-            <div class="stat-title text-xs">Действий</div>
-            <div class="stat-value text-base">{{ plan.meta.actionCount }}</div>
-          </div>
-          <div class="stat py-2 px-3">
-            <div class="stat-title text-xs">Длительность</div>
-            <div class="stat-value text-base">
-              {{ formatDuration(plan.meta.totalDurationSec) }}
-            </div>
-          </div>
-          <div class="stat py-2 px-3">
-            <div class="stat-title text-xs">Цель</div>
-            <div class="stat-value text-base">
-              {{ formatDuration(plan.meta.targetDurationSec) }}
-            </div>
-          </div>
-        </div>
+      <UiKeyValue
+        :items="[
+          { label: 'Платформа', value: plan.meta.platform, mono: false },
+          { label: 'Язык комментариев', value: plan.meta.commentLanguage, mono: false },
+          { label: 'Seed', value: plan.meta.seed },
+          { label: 'Ключевых слов', value: plan.meta.keywordPoolSize },
+        ]"
+        label-width="170px"
+      />
 
-        <div class="text-xs text-base-content/50 mt-2 flex flex-wrap gap-x-4">
-          <span>Платформа: <strong>{{ plan.meta.platform }}</strong></span>
-          <span>Язык: <strong>{{ plan.meta.commentLanguage }}</strong></span>
-          <span>Seed: <code>{{ plan.meta.seed }}</code></span>
-          <span>Pool: {{ plan.meta.keywordPoolSize }} kw</span>
-        </div>
-
-        <!-- Actions list -->
-        <div class="divider my-3 text-xs">Сценарий действий</div>
+      <section>
+        <h3 class="mb-2 text-micro tracking-[.06em] text-subtle uppercase">Сценарий действий</h3>
         <WarmupActionList :actions="plan.actions" :limit="50" />
+      </section>
 
-        <!-- Error / conflict -->
-        <div v-if="errorMessage" class="alert alert-error mt-4">
-          <Icon name="mingcute:alert-line" />
-          <div class="text-sm">
-            {{ errorMessage }}
-            <p v-if="conflictSessionId" class="text-xs mt-1">
-              Существующая сессия: <code>{{ conflictSessionId.slice(0, 8) }}</code>.
-              Нажмите «Заменить», чтобы пересоздать.
-            </p>
-          </div>
+      <div
+        v-if="errorMessage"
+        class="flex gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-danger" />
+        <div>
+          {{ errorMessage }}
+          <p v-if="conflictSessionId" class="mt-1 text-micro text-muted">
+            Уже есть сессия <code class="font-mono">{{ conflictSessionId.slice(0, 8) }}</code> —
+            «Заменить» пересоздаст её.
+          </p>
         </div>
-      </template>
-
-      <div class="modal-action">
-        <button class="btn btn-sm" :disabled="isScheduling" @click="close">
-          Закрыть
-        </button>
-        <button
-          v-if="conflictSessionId"
-          class="btn btn-sm btn-warning"
-          :disabled="isScheduling || !plan"
-          @click="emit('schedule', { replace: true })"
-        >
-          <span v-if="isScheduling" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:refresh-3-line" />
-          Заменить
-        </button>
-        <button
-          v-else
-          class="btn btn-sm btn-primary"
-          :disabled="isScheduling || !plan"
-          @click="emit('schedule', { replace: false })"
-        >
-          <span v-if="isScheduling" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:calendar-add-line" />
-          Запланировать
-        </button>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isScheduling" @click="close">Закрыть</UiButton>
+      <UiButton
+        v-if="conflictSessionId"
+        :loading="isScheduling"
+        :disabled="!plan"
+        @click="emit('schedule', { replace: true })"
+      >
+        <Icon v-if="!isScheduling" name="mingcute:refresh-3-line" />
+        Заменить
+      </UiButton>
+      <UiButton
+        v-else
+        variant="primary"
+        :loading="isScheduling"
+        :disabled="!plan"
+        @click="emit('schedule', { replace: false })"
+      >
+        <Icon v-if="!isScheduling" name="mingcute:calendar-add-line" />
+        Запланировать
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

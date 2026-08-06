@@ -1,20 +1,13 @@
 <script setup lang="ts">
 /**
- * Таб «Статистика» в AccountEditModal.
+ * Статистика аккаунта: снимки метрик профиля через Apify.
  *
- * Состояния:
- *   1. loading — первичная загрузка списка снимков
- *   2. error (load) — диагностическая панель сверху
- *   3. platformHandle отсутствует — empty с подсказкой
- *   4. snapshots.length === 0 — empty + кнопка «Собрать впервые»
- *   5. lastSnapshot.status === 'error' — alert-warning сверху + кнопка обновить
- *   6. happy path — StatCards + Sparkline + PostsList + кнопка обновить
+ * Сбор платный, поэтому повторный запуск в пределах суток спрашивает
+ * подтверждение с прямым указанием, что тратится квота.
  */
-import type { NormalizedPost } from "~~/shared/types/account-metrics"
+import type { NormalizedPost } from '~~/shared/types/account-metrics'
 
-const props = defineProps<{
-  accountId: number
-}>()
+const props = defineProps<{ accountId: number }>()
 
 const accountIdRef = computed(() => props.accountId)
 
@@ -29,12 +22,12 @@ const {
   fetchNow,
 } = useAccountMetrics(accountIdRef)
 
-const confirmModalRef = ref<HTMLDialogElement>()
+const forceRef = ref<{ open: () => void, close: () => void, setBusy: (v: boolean) => void }>()
 
-// Флаг первичной инициализации — до выполнения первого load() мы не знаем
-// есть ли у аккаунта platformHandle, поэтому пока не initialized — показываем
-// спиннер (а не «Handle не указан»). Иначе при SSR/CSR-mismatch у аккаунтов
-// с handle мерцает empty state.
+/**
+ * До первого ответа неизвестно, есть ли у аккаунта handle. Показывать
+ * «handle не указан» в это время нельзя — состояние мигает.
+ */
 const initialized = ref(false)
 
 onMounted(async () => {
@@ -43,171 +36,108 @@ onMounted(async () => {
 })
 
 watch(accountIdRef, async (newId, oldId) => {
-  if (newId !== oldId) {
-    initialized.value = false
-    await load({ includeRaw: true })
-    initialized.value = true
-  }
+  if (newId === oldId) return
+  initialized.value = false
+  await load({ includeRaw: true })
+  initialized.value = true
 })
 
-// Последний 'ok'-снимок — для stat cards и posts list
-const lastOkSnapshot = computed(() => snapshots.value.find((s) => s.status === "ok"))
-// Самый свежий снимок (любой статус) — для error-alert
+const lastOkSnapshot = computed(() => snapshots.value.find(s => s.status === 'ok'))
 const latestSnapshot = computed(() => snapshots.value[0] ?? null)
+const lastPosts = computed<NormalizedPost[]>(() => lastOkSnapshot.value?.rawData?.posts ?? [])
 
-// Посты из rawData последнего ok-снимка
-const lastPosts = computed<NormalizedPost[]>(() => {
-  return lastOkSnapshot.value?.rawData?.posts ?? []
-})
-
-// UI-состояния
 const noHandle = computed(() => !platformHandle.value)
 const noSnapshots = computed(() => !loading.value && snapshots.value.length === 0)
-const hasError = computed(() => !!error.value)
-const lastIsError = computed(() => latestSnapshot.value?.status === "error")
+const lastIsError = computed(() => latestSnapshot.value?.status === 'error')
 
 async function handleFetch() {
   const res = await fetchNow({ force: false })
-  if (res?.skipped) {
-    // 24h cache hit — спрашиваем оператора надо ли force=1
-    confirmModalRef.value?.showModal()
-  }
+  // Свежий снимок в пределах суток — сервер ничего не собирал. Спрашиваем,
+  // тратить ли квоту на принудительный сбор.
+  if (res?.skipped) forceRef.value?.open()
 }
 
 async function confirmForceFetch() {
-  confirmModalRef.value?.close()
+  forceRef.value?.setBusy(true)
   await fetchNow({ force: true })
-}
-
-function cancelForceFetch() {
-  confirmModalRef.value?.close()
+  forceRef.value?.setBusy(false)
+  forceRef.value?.close()
 }
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- 2. Ошибка загрузки/fetch — диагностическая панель -->
-    <AccountDiagnosticPanel v-if="hasError" :error="error" />
+  <div class="flex flex-col gap-3">
+    <AccountDiagnosticPanel v-if="error" :error="error" />
 
-    <!-- 1. Loading (включая фазу до первого load()) -->
-    <div
-      v-if="!initialized || (loading && snapshots.length === 0)"
-      class="flex items-center justify-center py-8"
+    <UiSkeleton v-if="!initialized || (loading && !snapshots.length)" variant="details" :count="4" />
+
+    <p v-else-if="noHandle" class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm">
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+      <span>
+        <b>Handle не указан.</b>
+        Статистику собирают по нему — заполните поле на вкладке «Доступы», без символа @.
+      </span>
+    </p>
+
+    <UiEmptyState
+      v-else-if="noSnapshots"
+      variant="first"
+      icon="mingcute:chart-line-line"
+      title="Статистика ещё не собиралась"
+      :description="`Первый сбор для @${platformHandle} расходует квоту Apify.`"
     >
-      <span class="loading loading-spinner loading-lg text-primary" />
-    </div>
+      <UiButton variant="primary" :loading="fetching" @click="handleFetch">
+        <Icon v-if="!fetching" name="mingcute:download-line" />
+        Собрать впервые
+      </UiButton>
+    </UiEmptyState>
 
-    <!-- 3. Нет handle -->
-    <div v-else-if="noHandle" role="alert" class="alert alert-info alert-soft text-sm">
-      <Icon name="mingcute:information-line" />
-      <div class="flex-1">
-        <div class="font-semibold">Handle не указан</div>
-        <div class="text-xs opacity-80">
-          Чтобы собрать статистику, откройте вкладку «Доступы» и заполните поле
-          handle аккаунта (без символа @).
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. Нет снимков — empty state с CTA -->
-    <div v-else-if="noSnapshots" class="text-center py-6 space-y-3">
-      <Icon name="mingcute:chart-line-line" class="text-5xl text-base-content/30" />
-      <div class="text-sm text-base-content/70">
-        Статистика для <span class="font-mono">@{{ platformHandle }}</span> ещё не собрана.
-      </div>
-      <button
-        type="button"
-        class="btn btn-primary btn-sm"
-        :disabled="fetching"
-        @click="handleFetch"
-      >
-        <span v-if="fetching" class="loading loading-dots loading-sm" />
-        <Icon v-else name="mingcute:download-line" class="text-sm" />
-        Собрать статистику впервые
-      </button>
-    </div>
-
-    <!-- 5/6. Есть снимки -->
     <template v-else-if="lastOkSnapshot">
-      <!-- Alert если последний — error -->
-      <div
-        v-if="lastIsError"
-        role="alert"
-        class="alert alert-warning alert-soft text-sm"
-      >
-        <Icon name="mingcute:warning-line" />
-        <div class="flex-1">
-          <div class="font-semibold">Последний сбор завершился ошибкой</div>
-          <div class="text-xs opacity-80">{{ latestSnapshot?.errorMessage ?? "Без деталей" }}</div>
-        </div>
-      </div>
+      <p v-if="lastIsError" class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm">
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
+        <span>
+          <b>Последний сбор упал.</b>
+          {{ latestSnapshot?.errorMessage ?? 'Подробностей платформа не сообщила.' }}
+          Показаны данные предыдущего успешного снимка.
+        </span>
+      </p>
 
       <AccountMetricsStatCards :snapshot="lastOkSnapshot" />
-
       <AccountMetricsSparkline :snapshots="snapshots" />
-
       <AccountMetricsPostsList :posts="lastPosts" :platform="platform" />
 
-      <div class="flex items-center justify-end gap-2 pt-2 border-t border-base-300">
-        <span class="text-xs text-base-content/60">
-          @{{ platformHandle }} ({{ platform }})
+      <div class="flex items-center justify-end gap-2 border-t border-divider pt-2.5">
+        <span class="font-mono text-micro text-subtle">@{{ platformHandle }} · {{ platform }}</span>
+        <UiButton variant="primary" :loading="fetching" @click="handleFetch">
+          <Icon v-if="!fetching" name="mingcute:refresh-3-line" />
+          Обновить
+        </UiButton>
+      </div>
+    </template>
+
+    <template v-else-if="snapshots.length">
+      <p class="flex gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm">
+        <Icon name="mingcute:close-circle-line" class="mt-0.5 shrink-0 text-danger" />
+        <span>
+          <b>Все попытки сбора упали.</b>
+          {{ latestSnapshot?.errorMessage ?? 'Apify не отдал данные.' }}
         </span>
-        <button
-          type="button"
-          class="btn btn-sm btn-primary"
-          :disabled="fetching"
-          @click="handleFetch"
-        >
-          <span v-if="fetching" class="loading loading-dots loading-sm" />
-          <Icon v-else name="mingcute:refresh-1-line" class="text-sm" />
-          Обновить статистику
-        </button>
-      </div>
-    </template>
-
-    <!-- Edge: только error-снимки, нет ok вообще -->
-    <template v-else-if="snapshots.length > 0">
-      <div role="alert" class="alert alert-error alert-soft text-sm">
-        <Icon name="mingcute:close-circle-line" />
-        <div class="flex-1">
-          <div class="font-semibold">Все попытки сбора завершились ошибкой</div>
-          <div class="text-xs opacity-80">
-            {{ latestSnapshot?.errorMessage ?? "Apify не смог получить данные" }}
-          </div>
-        </div>
-      </div>
+      </p>
       <div class="flex justify-end">
-        <button
-          type="button"
-          class="btn btn-sm btn-primary"
-          :disabled="fetching"
-          @click="handleFetch"
-        >
-          <span v-if="fetching" class="loading loading-dots loading-sm" />
-          <Icon v-else name="mingcute:refresh-1-line" class="text-sm" />
+        <UiButton variant="primary" :loading="fetching" @click="handleFetch">
+          <Icon v-if="!fetching" name="mingcute:refresh-3-line" />
           Повторить
-        </button>
+        </UiButton>
       </div>
     </template>
 
-    <!-- Confirm-modal для force=1 при 24h cache hit -->
-    <dialog ref="confirmModalRef" class="modal">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg">Обновить статистику принудительно?</h3>
-        <p class="py-2 text-sm">
-          За последние 24 часа уже был успешный сбор. Принудительный refetch
-          расходует квоту Apify. Продолжить?
-        </p>
-        <div class="modal-action">
-          <button class="btn btn-sm" @click="cancelForceFetch">Отмена</button>
-          <button class="btn btn-sm btn-primary" @click="confirmForceFetch">
-            Да, обновить
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button>close</button>
-      </form>
-    </dialog>
+    <SharedConfirmModal
+      ref="forceRef"
+      title="Собрать статистику заново?"
+      message="За последние сутки сбор уже проходил успешно. Повторный расходует квоту Apify."
+      confirm-label="Собрать и списать квоту"
+      variant="warning"
+      @confirm="confirmForceFetch"
+    />
   </div>
 </template>

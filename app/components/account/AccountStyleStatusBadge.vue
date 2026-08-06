@@ -1,25 +1,25 @@
 <script setup lang="ts">
-defineProps<{
+/** Заполненность стиль-профиля. Тон из словаря, подпись доменная. */
+const props = defineProps<{
   status: 'not_set' | 'partial' | 'complete' | undefined | null
 }>()
 
-const config: Record<string, { label: string; class: string }> = {
-  not_set: { label: 'Стиль не задан', class: 'badge-ghost' },
-  partial: { label: 'Частично', class: 'badge-warning' },
-  complete: { label: 'Стиль задан', class: 'badge-success' },
+const CONFIG: Record<string, { label: string, tone: string }> = {
+  not_set: { label: 'Стиль не задан', tone: 'border-divider bg-transparent text-subtle' },
+  partial: { label: 'Стиль частичный', tone: 'border-warning-border bg-warning-bg text-warning' },
+  complete: { label: 'Стиль задан', tone: 'border-success-border bg-success-bg text-success' },
 }
+
+const config = computed(() => CONFIG[props.status ?? 'not_set'] ?? CONFIG.not_set!)
 </script>
 
 <template>
   <span
     v-if="status"
-    class="badge badge-sm gap-1"
-    :class="config[status]?.class ?? 'badge-ghost'"
+    class="inline-flex h-[22px] w-fit items-center gap-1.5 rounded-sm border px-2 text-sm whitespace-nowrap"
+    :class="config.tone"
   >
-    <Icon
-      :name="status === 'complete' ? 'mingcute:palette-line' : status === 'partial' ? 'mingcute:paint-brush-line' : 'mingcute:palette-line'"
-      class="text-xs"
-    />
-    {{ config[status]?.label ?? 'Не задан' }}
+    <Icon name="mingcute:palette-line" class="shrink-0" />
+    {{ config.label }}
   </span>
 </template>

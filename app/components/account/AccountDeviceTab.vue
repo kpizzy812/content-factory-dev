@@ -1,295 +1,241 @@
 <script setup lang="ts">
-import type { DeviceProfileDto } from "~~/shared/types/device-profile"
-import {
-  toDiagnosticError,
-  type AccountDiagnosticError,
-} from "~~/shared/types/account-diagnostic"
+import type { DeviceProfileDto } from '~~/shared/types/device-profile'
+import { toDiagnosticError, type AccountDiagnosticError } from '~~/shared/types/account-diagnostic'
 
+/**
+ * Профиль устройства аккаунта. Унаследованный контур: один аккаунт — один
+ * профиль — один прокси.
+ *
+ * Отвязка спрашивала подтверждение через `confirm()`; теперь модалка, как во
+ * всём остальном приложении.
+ */
 const props = defineProps<{
   accountId: number
   /**
-   * Платформа аккаунта. Нужна для guard: YouTube требует desktop device-профиль
-   * (studio.youtube.com работает только с desktop UA), mobile-профили (iOS/Android)
-   * для YT отключаются в селекторе. Если не передана - guard выключен (legacy callers).
+   * Платформа аккаунта: YouTube работает только с desktop-профилем, мобильные
+   * в списке остаются видимыми, но выбрать их нельзя.
    */
-  accountPlatform?: "tiktok" | "youtube" | "instagram"
+  accountPlatform?: 'tiktok' | 'youtube' | 'instagram'
 }>()
 
 const emit = defineEmits<{ updated: [] }>()
 
 const editModalRef = ref<{ open: (p?: DeviceProfileDto) => void }>()
+const unlinkRef = ref<{ open: () => void, close: () => void, setBusy: (v: boolean) => void }>()
 
 const { data, pending, error, refresh } = useFetch<{ data: DeviceProfileDto[] }>(
-  "/api/device-profiles",
+  '/api/device-profiles',
   {
     query: computed(() => ({ socialAccountId: props.accountId })),
     watch: [() => props.accountId],
   },
 )
 
-// 1:1:1: один аккаунт привязан максимум к одному device-профилю. API возвращает
-// массив для backward compat, но при 1:1:1 в нём всегда 0 или 1 элемент.
-const allMatchingProfiles = computed<DeviceProfileDto[]>(() => data.value?.data ?? [])
-const profile = computed<DeviceProfileDto | null>(() => allMatchingProfiles.value[0] ?? null)
+// API отдаёт массив ради совместимости, но при правиле один-к-одному в нём
+// всегда ноль или один элемент.
+const profile = computed<DeviceProfileDto | null>(() => (data.value?.data ?? [])[0] ?? null)
 
 const { unlinkAccount, isBusy, error: actionError } = useDeviceActions()
 
-// Structured 409/412 ошибки (profile_occupied / account_already_linked / no_proxy)
-// рендерятся через AccountDiagnosticPanel — human/JSON toggle.
 const diagnosticError = ref<AccountDiagnosticError | null>(null)
 
 const showSelector = ref(false)
-const { data: allProfilesData, pending: allPending } = useFetch<{
-  data: DeviceProfileDto[]
-}>("/api/device-profiles", { lazy: true, server: false })
-// "Свободный" профиль = тот, у которого вообще нет linked accounts (после M.1
-// multi-account профиль может не иметь socialAccountId но иметь accounts[]
-// non-primary, что не делает его свободным). Используем accounts.length === 0
-// чтобы legacy linkAccount endpoint не упирался в 409 "already linked".
-const unlinkedProfiles = computed(() => {
-  return (allProfilesData.value?.data ?? []).filter((p) => p.accounts.length === 0)
-})
+const { data: allProfilesData, pending: allPending } = useFetch<{ data: DeviceProfileDto[] }>(
+  '/api/device-profiles',
+  { lazy: true, server: false },
+)
 
-// YouTube требует desktop device-профиль (studio.youtube.com mobile-incompatible).
-// Mobile-профили в селекторе показываем disabled с пометкой - оператор видит
-// что они есть, но понимает что заведомо нерабочие. Backend guard в
-// poster-runner.ts тоже блокирует postingJob для youtube+mobile_*.
+/** Свободный профиль — тот, к которому не привязан ни один аккаунт. */
+const unlinkedProfiles = computed(
+  () => (allProfilesData.value?.data ?? []).filter(p => p.accounts.length === 0),
+)
+
 function isProfileIncompatible(p: DeviceProfileDto): boolean {
-  if (props.accountPlatform !== "youtube") return false
-  return p.platformType === "mobile_ios" || p.platformType === "mobile_android"
+  if (props.accountPlatform !== 'youtube') return false
+  return p.platformType === 'mobile_ios' || p.platformType === 'mobile_android'
 }
 
-const selectedProfileId = ref<string>("")
+const selectedProfileId = ref<string>('')
 
-// Если уже привязанный профиль mobile + аккаунт YouTube - warning над карточкой.
-const linkedProfileIncompatible = computed(() => {
-  if (!profile.value) return false
-  return isProfileIncompatible(profile.value)
+const profileOptions = computed(() => [
+  { value: '', label: 'Выберите профиль' },
+  ...unlinkedProfiles.value.map(p => ({
+    value: p.id,
+    label: [
+      p.name,
+      p.indigoId ? 'синхронизирован' : 'только локальный',
+      isProfileIncompatible(p) ? `${p.platformType} — не подходит для YouTube` : null,
+    ].filter(Boolean).join(' · '),
+  })),
+])
+
+const selectedIncompatible = computed(() => {
+  const p = unlinkedProfiles.value.find(x => x.id === selectedProfileId.value)
+  return p ? isProfileIncompatible(p) : false
 })
 
-const { linkAccount } = useDeviceActions()
+const linkedProfileIncompatible = computed(
+  () => (profile.value ? isProfileIncompatible(profile.value) : false),
+)
 
 async function linkExisting() {
-  if (!selectedProfileId.value) return
+  if (!selectedProfileId.value || selectedIncompatible.value) return
   diagnosticError.value = null
   try {
     const result = await $fetch<{ data: DeviceProfileDto }>(
       `/api/device-profiles/${selectedProfileId.value}/accounts`,
-      {
-        method: "POST",
-        body: { socialAccountId: props.accountId },
-      },
+      { method: 'POST', body: { socialAccountId: props.accountId } },
     )
     if (result?.data) {
       showSelector.value = false
-      selectedProfileId.value = ""
+      selectedProfileId.value = ''
       await refresh()
-      emit("updated")
+      emit('updated')
     }
-  } catch (e: unknown) {
+  }
+  catch (e: unknown) {
     diagnosticError.value = toDiagnosticError(e, {
-      phase: "device_link",
+      phase: 'device_link',
       url: `/api/device-profiles/${selectedProfileId.value}/accounts`,
     })
   }
 }
 
-async function createNew() {
-  // Открываем edit-modal с предзаполненной привязкой через query state
-  editModalRef.value?.open()
-}
-
-async function handleUnlink() {
+async function confirmUnlink() {
   if (!profile.value) return
-  if (!confirm("Отвязать профиль устройства от аккаунта?")) return
+  unlinkRef.value?.setBusy(true)
   await unlinkAccount(profile.value.id)
+  unlinkRef.value?.setBusy(false)
+  unlinkRef.value?.close()
   await refresh()
-  emit("updated")
+  emit('updated')
 }
 
 async function onProfileSaved() {
   await refresh()
-  emit("updated")
+  emit('updated')
 }
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div role="alert" class="alert alert-info alert-soft text-sm">
-      <Icon name="mingcute:information-line" />
+  <div class="flex flex-col gap-3">
+    <p class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm">
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       <span>
-        Профиль устройства DuoPlus обеспечивает уникальный fingerprint. Модель 1:1:1 —
-        один аккаунт = один профиль = один прокси. Защита от банов из-за общего fingerprint.
+        Профиль устройства даёт аккаунту собственный отпечаток. Правило —
+        один аккаунт, один профиль, один прокси.
       </span>
-    </div>
+    </p>
 
-    <div v-if="pending" class="flex justify-center py-8">
-      <span class="loading loading-spinner loading-md" />
-    </div>
+    <UiSkeleton v-if="pending" variant="details" :count="3" />
 
-    <div v-else-if="error" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:warning-line" />
-      <span>{{ error.message }}</span>
-    </div>
+    <UiErrorState
+      v-else-if="error"
+      message="Не удалось загрузить профиль устройства."
+      :details="error.message"
+      @retry="refresh()"
+    />
 
-    <!-- Уже привязан -->
-    <div v-else-if="profile" class="space-y-2">
-      <!-- A: warning над карточкой если привязан mobile-профиль к YouTube -->
-      <div
-        v-if="linkedProfileIncompatible"
-        role="alert"
-        class="alert alert-warning alert-soft text-sm"
-      >
-        <Icon name="mingcute:warning-line" />
-        <div class="flex flex-col gap-1">
-          <span class="font-semibold">
-            YouTube требует desktop профиль устройства
-          </span>
-          <span class="text-xs opacity-90">
-            Привязанный профиль mobile ({{ profile.platformType }}), studio.youtube.com работает
-            только с desktop UA. Отвяжите профиль и создайте новый с platformType=desktop
-            (Редактировать профиль устройства → Platform type → Desktop), либо постинг через нашу
-            автоматизацию не сработает.
-          </span>
-        </div>
-      </div>
+    <template v-else-if="profile">
+      <p v-if="linkedProfileIncompatible" class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm">
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
+        <span>
+          <b>YouTube требует desktop-профиль.</b>
+          Привязан мобильный ({{ profile.platformType }}), а studio.youtube.com не работает
+          с мобильным браузером — публикация не пройдёт. Отвяжите и создайте desktop-профиль.
+        </span>
+      </p>
 
-      <div class="card card-border bg-base-100">
-      <div class="card-body p-4 gap-2">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-          <h4 class="font-semibold">{{ profile.name }}</h4>
-          <DeviceSyncStatusBadge :status="profile.syncStatus" :indigo-id="profile.indigoId" size="sm" />
+      <div class="flex flex-col gap-2 rounded-md border border-border bg-card p-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <h4 class="min-w-0 flex-1 truncate font-medium">{{ profile.name }}</h4>
+          <DeviceSyncStatusBadge :status="profile.syncStatus" :indigo-id="profile.indigoId" size="xs" />
         </div>
 
-        <div class="text-sm space-y-1 text-base-content/70">
-          <div v-if="profile.indigoId" class="font-mono text-xs truncate">
-            {{ profile.indigoId }}
-          </div>
-          <div>
-            <Icon name="mingcute:device-line" class="text-xs" />
-            {{ profile.platformType }}
-            <template v-if="profile.os">· {{ profile.os }}</template>
-          </div>
-          <div v-if="profile.proxy">
-            <Icon name="mingcute:wifi-line" class="text-xs" />
-            Прокси: {{ profile.proxy.label }} ({{ profile.proxy.status }})
-          </div>
-          <div>
-            <Icon name="mingcute:time-line" class="text-xs" />
-            Сессий: {{ profile.totalSessions }}
-          </div>
-        </div>
+        <UiKeyValue
+          :items="[
+            ...(profile.indigoId ? [{ label: 'Идентификатор', value: profile.indigoId }] : []),
+            { label: 'Тип', value: [profile.platformType, profile.os].filter(Boolean).join(' · '), mono: false },
+            ...(profile.proxy ? [{ label: 'Прокси', value: `${profile.proxy.label} · ${profile.proxy.status}`, mono: false }] : []),
+            { label: 'Сессий', value: profile.totalSessions },
+          ]"
+          label-width="130px"
+        />
 
-        <div class="card-actions justify-end mt-2 flex-wrap gap-1">
-          <NuxtLink :to="`/devices`" class="btn btn-xs btn-ghost gap-1">
-            <Icon name="mingcute:external-link-line" class="text-xs" />
-            Открыть в браузере
-          </NuxtLink>
-          <button
-            class="btn btn-xs btn-error btn-outline gap-1"
-            :disabled="isBusy"
-            @click="handleUnlink"
-          >
-            <Icon name="mingcute:link-2-fill" class="text-xs" />
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton @click="navigateTo('/devices')">
+            <Icon name="mingcute:external-link-line" />
+            Открыть устройства
+          </UiButton>
+          <UiButton variant="danger" :disabled="isBusy" @click="unlinkRef?.open()">
+            <Icon name="mingcute:unlink-line" />
             Отвязать
-          </button>
+          </UiButton>
         </div>
 
-        <div
-          v-if="actionError"
-          role="alert"
-          class="alert alert-error alert-soft text-xs"
-        >
-          <Icon name="mingcute:warning-line" />
-          <span>{{ actionError }}</span>
-        </div>
+        <p v-if="actionError" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2 text-sm text-danger">
+          <Icon name="mingcute:warning-line" class="shrink-0" />
+          {{ actionError }}
+        </p>
       </div>
-      </div>
-    </div>
+    </template>
 
-    <!-- Не привязан -->
-    <div v-else>
-      <div v-if="!showSelector" class="flex flex-col gap-2">
-        <button class="btn btn-sm btn-primary gap-1" @click="createNew">
+    <template v-else>
+      <div v-if="!showSelector" class="flex flex-wrap gap-2">
+        <UiButton variant="primary" @click="editModalRef?.open()">
           <Icon name="mingcute:add-line" />
-          Создать новый профиль устройства
-        </button>
-        <button class="btn btn-sm btn-ghost gap-1" @click="showSelector = true">
+          Создать профиль устройства
+        </UiButton>
+        <UiButton @click="showSelector = true">
           <Icon name="mingcute:link-line" />
           Привязать существующий
-        </button>
+        </UiButton>
       </div>
 
-      <div v-else class="space-y-2">
-        <!-- B: warning для YouTube аккаунта - объясняет почему mobile профили
-             в селекторе disabled (избегает confusion "почему я не могу выбрать"). -->
-        <div
-          v-if="accountPlatform === 'youtube'"
-          role="alert"
-          class="alert alert-warning alert-soft text-xs"
-        >
-          <Icon name="mingcute:warning-line" />
+      <div v-else class="flex flex-col gap-2.5">
+        <p v-if="accountPlatform === 'youtube'" class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm">
+          <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
           <span>
-            YouTube требует desktop профиль устройства. Mobile-профили (iOS/Android)
-            недоступны для выбора - studio.youtube.com не работает с mobile UA.
+            Для YouTube нужен desktop-профиль. Мобильные в списке помечены — выбрать их нельзя.
           </span>
-        </div>
+        </p>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Свободный профиль устройства</legend>
-          <div v-if="allPending" class="flex items-center gap-2 py-2">
-            <span class="loading loading-spinner loading-sm" />
-            <span class="text-sm">Загрузка...</span>
-          </div>
-          <select
-            v-else
-            v-model="selectedProfileId"
-            class="select select-sm w-full"
-          >
-            <option value="">Выберите профиль</option>
-            <option
-              v-for="p in unlinkedProfiles"
-              :key="p.id"
-              :value="p.id"
-              :disabled="isProfileIncompatible(p)"
-            >
-              {{ p.name }}
-              <template v-if="p.indigoId">· synced</template>
-              <template v-else>· local_only</template>
-              <template v-if="isProfileIncompatible(p)">
-                · {{ p.platformType }} (несовместим с YouTube)
-              </template>
-            </option>
-          </select>
-        </fieldset>
+        <UiField label="Свободный профиль устройства">
+          <UiSkeleton v-if="allPending" variant="details" :count="1" />
+          <UiSelect v-else v-model="selectedProfileId" :options="profileOptions" />
+        </UiField>
 
-        <div
-          v-if="actionError"
-          role="alert"
-          class="alert alert-error alert-soft text-xs"
-        >
-          <Icon name="mingcute:warning-line" />
-          <span>{{ actionError }}</span>
-        </div>
+        <p v-if="actionError" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2 text-sm text-danger">
+          <Icon name="mingcute:warning-line" class="shrink-0" />
+          {{ actionError }}
+        </p>
 
         <AccountDiagnosticPanel :error="diagnosticError" />
 
         <div class="flex justify-end gap-2">
-          <button class="btn btn-sm btn-ghost" @click="showSelector = false">
-            Отмена
-          </button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="isBusy || !selectedProfileId"
+          <UiButton variant="ghost" @click="showSelector = false">Отмена</UiButton>
+          <UiButton
+            variant="primary"
+            :loading="isBusy"
+            :disabled="!selectedProfileId || selectedIncompatible"
             @click="linkExisting"
           >
-            <span v-if="isBusy" class="loading loading-spinner loading-xs" />
             Привязать
-          </button>
+          </UiButton>
         </div>
       </div>
-    </div>
+    </template>
 
     <DeviceProfileEditModal ref="editModalRef" @saved="onProfileSaved" />
+
+    <SharedConfirmModal
+      ref="unlinkRef"
+      title="Отвязать профиль устройства?"
+      :message="profile
+        ? `Профиль «${profile.name}» перестанет обслуживать этот аккаунт. Сам профиль останется на месте.`
+        : ''"
+      confirm-label="Отвязать"
+      @confirm="confirmUnlink"
+    />
   </div>
 </template>

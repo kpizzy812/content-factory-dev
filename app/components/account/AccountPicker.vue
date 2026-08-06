@@ -1,28 +1,25 @@
 <script setup lang="ts">
 /**
- * AccountPicker — двухрежимный пикер для выбора SocialAccount или AccountGroup.
+ * Выбор аккаунта или пачки аккаунтов. Используется настройкой узла публикации
+ * в конвейере.
  *
- * Используется в UploadConfig.vue (pipeline) и потенциально в UploadCreateModal.
- * Если задан appId — фильтрует по приложению (с возможностью toggle «Показать все»).
- * Если задана targetPlatform — приоритизирует/фильтрует аккаунты этой платформы.
- *
- * Эмитит:
- *  - update:mode (account | group)
- *  - update:socialAccountId (number | null)
- *  - update:accountGroupId (number | null)
- *  - update:dispatchMode (round_robin | all | first_active)
+ * Предупреждения (платформа не та, аккаунт не активен, пачка пустая) стоят
+ * прямо под списком: это причины, по которым публикация не уйдёт, и узнавать
+ * о них после запуска дорого.
  */
+import { platformMeta } from '~/components/ui/platform-meta'
+import { ACCOUNT_STATUS_LABELS } from './AccountStatusMap'
 
 interface AccountItem {
   id: number
   appId: number
   platform: string
   displayName: string
-  status: 'active' | 'expired' | 'revoked' | string
+  status: string
   expiresAt?: string | null
   lastPostedAt?: string | null
   profileCompleteness?: number
-  app?: { id: number; name: string } | null
+  app?: { id: number, name: string } | null
   styleProfile?: { status?: string } | null
 }
 
@@ -30,18 +27,12 @@ interface GroupItem {
   id: number
   appId: number
   name: string
-  dispatchMode: 'round_robin' | 'all' | 'first_active' | string
+  dispatchMode: string
   activeMembersCount: number
-  app?: { id: number; name: string } | null
+  app?: { id: number, name: string } | null
   members: Array<{
     id: number
-    socialAccount: {
-      id: number
-      platform: string
-      displayName: string
-      status: string
-      lastPostedAt?: string | null
-    }
+    socialAccount: { id: number, platform: string, displayName: string, status: string, lastPostedAt?: string | null }
   }>
 }
 
@@ -94,7 +85,7 @@ const groups = computed<GroupItem[]>(() => groupsResp.value?.data ?? [])
 const filteredAccounts = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return accounts.value
-  return accounts.value.filter((a) =>
+  return accounts.value.filter(a =>
     a.displayName.toLowerCase().includes(q)
     || a.platform.toLowerCase().includes(q)
     || (a.app?.name?.toLowerCase().includes(q) ?? false),
@@ -104,69 +95,48 @@ const filteredAccounts = computed(() => {
 const filteredGroups = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return groups.value
-  return groups.value.filter((g) =>
+  return groups.value.filter(g =>
     g.name.toLowerCase().includes(q)
     || (g.app?.name?.toLowerCase().includes(q) ?? false),
   )
 })
 
-const selectedAccount = computed(() =>
-  accounts.value.find((a) => a.id === props.socialAccountId) ?? null,
-)
-const selectedGroup = computed(() =>
-  groups.value.find((g) => g.id === props.accountGroupId) ?? null,
-)
+const selectedAccount = computed(() => accounts.value.find(a => a.id === props.socialAccountId) ?? null)
+const selectedGroup = computed(() => groups.value.find(g => g.id === props.accountGroupId) ?? null)
 
-const platformIcons: Record<string, string> = {
-  youtube: 'mingcute:youtube-line',
-  tiktok: 'mingcute:tiktok-line',
-  instagram: 'mingcute:instagram-line',
-}
+const DISPATCH_OPTIONS = [
+  { value: 'round_robin', label: 'По кругу — следующий аккаунт на каждый ролик' },
+  { value: 'all', label: 'Во все сразу — ролик уходит в каждый аккаунт' },
+  { value: 'first_active', label: 'В первый активный' },
+]
 
-const statusBadge: Record<string, string> = {
-  active: 'badge-success',
-  expired: 'badge-warning',
-  revoked: 'badge-error',
-}
-
-const dispatchLabels: Record<string, string> = {
-  round_robin: 'Round-robin (по очереди)',
-  all: 'На все активные',
-  first_active: 'Первый активный',
-}
-
-function setMode(m: 'account' | 'group') {
-  emit('update:mode', m)
-}
-
-function pickAccount(id: number) {
-  emit('update:socialAccountId', id)
+const DISPATCH_SHORT: Record<string, string> = {
+  round_robin: 'по кругу',
+  all: 'во все',
+  first_active: 'в первый',
 }
 
 function pickGroup(g: GroupItem) {
   emit('update:accountGroupId', g.id)
-  // Подхватываем dispatchMode из группы как дефолт, если ещё не задан
-  if (g.dispatchMode && (g.dispatchMode === 'round_robin' || g.dispatchMode === 'all' || g.dispatchMode === 'first_active')) {
+  // Режим раздачи у пачки уже задан — берём его как исходный.
+  if (g.dispatchMode === 'round_robin' || g.dispatchMode === 'all' || g.dispatchMode === 'first_active') {
     emit('update:dispatchMode', g.dispatchMode)
   }
 }
 
-function setDispatchMode(value: string) {
+function setDispatchMode(value: string | number) {
   if (value === 'round_robin' || value === 'all' || value === 'first_active') {
     emit('update:dispatchMode', value)
   }
 }
 
-// Платформа выбранного аккаунта несовместима с targetPlatform — предупреждение
 const platformMismatch = computed(() => {
   if (!props.targetPlatform || props.mode !== 'account' || !selectedAccount.value) return null
-  if (selectedAccount.value.platform !== props.targetPlatform) {
-    return `Аккаунт «${selectedAccount.value.displayName}» — ${selectedAccount.value.platform}, а целевая платформа видео — ${props.targetPlatform}`
-  }
-  return null
+  if (selectedAccount.value.platform === props.targetPlatform) return null
+  return `Аккаунт «${selectedAccount.value.displayName}» — ${platformMeta(selectedAccount.value.platform).label}, `
+    + `а ролик готовится под ${platformMeta(props.targetPlatform).label}.`
 })
 
-// Группа без активных members — ошибка
 const groupHasNoActiveMembers = computed(() => {
   if (props.mode !== 'group' || !selectedGroup.value) return false
   return selectedGroup.value.activeMembersCount === 0
@@ -176,165 +146,122 @@ defineExpose({ refreshAccounts, refreshGroups })
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- Tabs Account / Group -->
-    <div role="tablist" class="tabs tabs-boxed tabs-sm">
+  <div class="flex flex-col gap-3">
+    <div class="flex w-fit overflow-hidden rounded-md border border-border">
       <button
+        v-for="m in (['account', 'group'] as const)"
+        :key="m"
         type="button"
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': mode === 'account' }"
-        @click="setMode('account')"
+        class="flex h-7 cursor-pointer items-center gap-1.5 px-3 text-sm"
+        :class="mode === m ? 'bg-accent text-on-accent' : 'bg-card text-muted hover:text-fg'"
+        @click="emit('update:mode', m)"
       >
-        <Icon name="mingcute:user-3-line" class="text-sm mr-1" />
-        Аккаунт
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': mode === 'group' }"
-        @click="setMode('group')"
-      >
-        <Icon name="mingcute:group-line" class="text-sm mr-1" />
-        Группа
+        <Icon :name="m === 'account' ? 'mingcute:user-3-line' : 'mingcute:group-line'" />
+        {{ m === 'account' ? 'Аккаунт' : 'Пачка' }}
       </button>
     </div>
 
-    <!-- Search + filters -->
-    <div class="flex flex-wrap gap-2">
-      <input
-        v-model="search"
-        type="text"
-        class="input input-sm flex-1 min-w-40"
-        placeholder="Поиск..."
+    <div class="flex flex-wrap items-center gap-2">
+      <UiInput v-model="search" class="min-w-40 flex-1" placeholder="Поиск" />
+      <UiSelect
+        v-model="platformFilter"
+        class="w-40"
+        :options="[
+          { value: '', label: 'Все платформы' },
+          { value: 'youtube', label: 'YouTube' },
+          { value: 'tiktok', label: 'TikTok' },
+          { value: 'instagram', label: 'Instagram' },
+        ]"
       />
-      <select v-model="platformFilter" class="select select-sm">
-        <option value="">Все платформы</option>
-        <option value="youtube">YouTube</option>
-        <option value="tiktok">TikTok</option>
-        <option value="instagram">Instagram</option>
-      </select>
-      <label v-if="appId" class="label cursor-pointer gap-2 px-2">
-        <input
-          v-model="showAllApps"
-          type="checkbox"
-          class="checkbox checkbox-xs checkbox-primary"
-        />
-        <span class="label-text text-xs">Показать все приложения</span>
+      <label v-if="appId" class="flex cursor-pointer items-center gap-2 text-sm text-muted">
+        <input v-model="showAllApps" type="checkbox" class="size-3.5 cursor-pointer accent-(--color-accent)">
+        Все приложения
       </label>
     </div>
 
-    <!-- Список аккаунтов -->
-    <div v-if="mode === 'account'" class="space-y-1">
-      <div
-        v-if="filteredAccounts.length === 0"
-        class="text-sm text-base-content/60 py-4 text-center border border-dashed border-base-300 rounded-lg"
-      >
-        Нет доступных аккаунтов
-      </div>
-      <div
-        v-else
-        class="max-h-64 overflow-y-auto space-y-1 border border-base-300 rounded-lg p-1"
-      >
+    <div v-if="mode === 'account'">
+      <UiEmptyState
+        v-if="!filteredAccounts.length"
+        variant="search"
+        title="Аккаунтов не нашлось"
+        description="Смените фильтры или подключите аккаунт в разделе «Аккаунты»."
+      />
+      <div v-else class="max-h-64 overflow-y-auto rounded-md border border-border">
         <button
           v-for="acc in filteredAccounts"
           :key="acc.id"
           type="button"
-          class="w-full flex items-center gap-2 p-2 rounded-md text-left hover:bg-base-200 transition-colors"
-          :class="{ 'bg-primary/10 ring-1 ring-primary': socialAccountId === acc.id }"
-          @click="pickAccount(acc.id)"
+          class="flex w-full cursor-pointer items-center gap-2.5 border-b border-divider px-2.5 py-2 text-left last:border-b-0"
+          :class="socialAccountId === acc.id ? 'bg-accent-bg' : 'hover:bg-card'"
+          @click="emit('update:socialAccountId', acc.id)"
         >
-          <Icon
-            :name="platformIcons[acc.platform] ?? 'mingcute:share-2-line'"
-            class="text-lg shrink-0"
-          />
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium truncate">{{ acc.displayName }}</div>
-            <div class="text-xs text-base-content/60 truncate flex items-center gap-1">
-              <span>{{ acc.app?.name ?? `app#${acc.appId}` }}</span>
-              <span v-if="acc.lastPostedAt">· опубликован {{ new Date(acc.lastPostedAt).toLocaleDateString('ru-RU') }}</span>
-            </div>
-          </div>
-          <span class="badge badge-xs" :class="statusBadge[acc.status] ?? 'badge-ghost'">
-            {{ acc.status }}
+          <span class="h-5 w-1 shrink-0 rounded-[2px]" :style="{ background: platformMeta(acc.platform).color }" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-mono text-sm">{{ acc.displayName }}</span>
+            <span class="block truncate text-micro text-subtle">
+              {{ acc.app?.name ?? `приложение #${acc.appId}` }}
+              <template v-if="acc.lastPostedAt">
+                · публиковал {{ new Date(acc.lastPostedAt).toLocaleDateString('ru-RU') }}
+              </template>
+            </span>
           </span>
+          <AccountStatusBadge :status="acc.status" size="xs" />
         </button>
       </div>
     </div>
 
-    <!-- Список групп -->
-    <div v-else class="space-y-2">
-      <div
-        v-if="filteredGroups.length === 0"
-        class="text-sm text-base-content/60 py-4 text-center border border-dashed border-base-300 rounded-lg"
-      >
-        Нет доступных групп
-      </div>
-      <div
-        v-else
-        class="max-h-64 overflow-y-auto space-y-1 border border-base-300 rounded-lg p-1"
-      >
+    <div v-else class="flex flex-col gap-2">
+      <UiEmptyState
+        v-if="!filteredGroups.length"
+        variant="search"
+        title="Пачек не нашлось"
+        description="Пачки заводятся на странице аккаунтов или на карточке приложения."
+      />
+      <div v-else class="max-h-64 overflow-y-auto rounded-md border border-border">
         <button
           v-for="g in filteredGroups"
           :key="g.id"
           type="button"
-          class="w-full flex items-center gap-2 p-2 rounded-md text-left hover:bg-base-200 transition-colors"
-          :class="{ 'bg-primary/10 ring-1 ring-primary': accountGroupId === g.id }"
+          class="flex w-full cursor-pointer items-center gap-2.5 border-b border-divider px-2.5 py-2 text-left last:border-b-0"
+          :class="accountGroupId === g.id ? 'bg-accent-bg' : 'hover:bg-card'"
           @click="pickGroup(g)"
         >
-          <Icon name="mingcute:group-line" class="text-lg shrink-0" />
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium truncate">{{ g.name }}</div>
-            <div class="text-xs text-base-content/60 truncate">
-              {{ g.app?.name ?? `app#${g.appId}` }} · {{ g.activeMembersCount }} активных / {{ g.members.length }}
-            </div>
-          </div>
-          <span class="badge badge-xs badge-ghost">
-            {{ dispatchLabels[g.dispatchMode] ?? g.dispatchMode }}
+          <Icon name="mingcute:group-line" class="shrink-0 text-muted" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium">{{ g.name }}</span>
+            <span class="tnum block truncate text-micro text-subtle">
+              {{ g.app?.name ?? `приложение #${g.appId}` }} · активных {{ g.activeMembersCount }} из {{ g.members.length }}
+            </span>
+          </span>
+          <span class="shrink-0 rounded-sm border border-border bg-card px-1.5 py-0.5 text-micro text-muted">
+            {{ DISPATCH_SHORT[g.dispatchMode] ?? g.dispatchMode }}
           </span>
         </button>
       </div>
 
-      <!-- DispatchMode override -->
-      <fieldset v-if="selectedGroup" class="fieldset">
-        <legend class="fieldset-legend">Стратегия распределения</legend>
-        <select
-          :value="dispatchMode"
-          class="select select-sm w-full"
-          @change="setDispatchMode(($event.target as HTMLSelectElement).value)"
-        >
-          <option value="round_robin">Round-robin (по очереди)</option>
-          <option value="all">На все активные одновременно</option>
-          <option value="first_active">Первый активный</option>
-        </select>
-      </fieldset>
+      <UiField v-if="selectedGroup" label="Раздача роликов">
+        <UiSelect :model-value="dispatchMode" :options="DISPATCH_OPTIONS" @update:model-value="setDispatchMode" />
+      </UiField>
     </div>
 
-    <!-- Inline-warnings -->
-    <div
-      v-if="platformMismatch"
-      role="alert"
-      class="alert alert-warning alert-soft text-xs py-2"
-    >
-      <Icon name="mingcute:warning-line" />
-      <span>{{ platformMismatch }}</span>
-    </div>
-    <div
+    <p v-if="platformMismatch" class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm">
+      <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
+      {{ platformMismatch }}
+    </p>
+
+    <p
       v-if="mode === 'account' && selectedAccount && selectedAccount.status !== 'active'"
-      role="alert"
-      class="alert alert-error alert-soft text-xs py-2"
+      class="flex gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm"
     >
-      <Icon name="mingcute:warning-line" />
-      <span>Аккаунт «{{ selectedAccount.displayName }}» в статусе {{ selectedAccount.status }} — публикация будет отклонена.</span>
-    </div>
-    <div
-      v-if="groupHasNoActiveMembers"
-      role="alert"
-      class="alert alert-error alert-soft text-xs py-2"
-    >
-      <Icon name="mingcute:warning-line" />
-      <span>В группе «{{ selectedGroup?.name }}» нет активных аккаунтов.</span>
-    </div>
+      <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-danger" />
+      Аккаунт «{{ selectedAccount.displayName }}» —
+      {{ (ACCOUNT_STATUS_LABELS[selectedAccount.status] ?? selectedAccount.status).toLowerCase() }}.
+      Публикацию платформа отклонит.
+    </p>
+
+    <p v-if="groupHasNoActiveMembers" class="flex gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm">
+      <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-danger" />
+      В пачке «{{ selectedGroup?.name }}» нет активных аккаунтов — публиковать некуда.
+    </p>
   </div>
 </template>
