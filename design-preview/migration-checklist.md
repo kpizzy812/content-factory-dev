@@ -25,8 +25,8 @@
 | `+` | `ideas/index.vue` | форма добавления и панель синхронизации переписаны |
 | `+` | `videos/index.vue` | факт стоимости, оценка только пока факта нет |
 | `+` | `uploads/index.vue` | ошибка публикации подсказкой в строке |
-| `—` | `accounts/index.vue` | колонки лимитов — см. макет 06 |
-| `—` | `posting-jobs/index.vue` | |
+| `+` | `accounts/index.vue` | таблица по макету 06; колонки лимита нет — API его не отдаёт |
+| `+` | `posting-jobs/index.vue` | список и сетка «аккаунт × час»; зона выключается флагом |
 | `+` | `characters/index.vue` | галерея, превью 4:3 |
 | `+` | `scenes/index.vue` | галерея, превью собранного промпта |
 | `+` | `creatives/index.vue` | карточки; три сущности в одном списке |
@@ -53,7 +53,7 @@
 | `+` | `scenes/[id].vue` | сборка блоков, превью промпта, сборка сценария платная — через меню |
 | `+` | `uploads/[id].vue` | попытки публикации, выключенный постинг отдельной подачей |
 | `+` | `devices/[id].vue` | проверена с включённым флагом зоны и с выключенным |
-| `~` | `admin/apps/[id].vue` | форма и референсы перенесены и проверены; секция аккаунтов и групп ждёт этапа 6 |
+| `+` | `admin/apps/[id].vue` | форма, референсы и секция аккаунтов с пачками |
 | `+` | `admin/users/[id].vue` | права из MC только на просмотр |
 | `+` | `admin/cycles/[id].vue` | логи на `UiLogRow` |
 | `+` | `analytics/[uploadId].vue` | метрик в базе нет — история проверена только пустым состоянием |
@@ -73,7 +73,7 @@
 | `—` | `admin/balances.vue` | 08-settings-admin |
 | `—` | `admin/telegram.vue` | 08-settings-admin |
 | `—` | `admin/storage-health.vue` | 08-settings-admin |
-| `—` | `admin/accounts-health.vue` | 06-accounts-queue |
+| `+` | `admin/accounts-health.vue` | 06-accounts-queue · прогрев и 2FA видны только здесь |
 | `—` | `admin/warmup-keywords.vue` | 08-settings-admin |
 
 ## Временные, удалить в этапе 7
@@ -105,21 +105,24 @@ curl -s -b cookies.txt http://127.0.0.1:3214/trends
 
 ```
 bun run scripts/seed-videos-demo.ts      # тренды → сценарии → ролики в трёх состояниях
-bun run scripts/seed-accounts-demo.ts    # три аккаунта, один намеренно не готов публиковать
+bun run scripts/seed-accounts-demo.ts    # шесть аккаунтов: истекающий токен, истёкший, отозванный, пачка
 bun run scripts/seed-ideas-demo.ts       # идеи: разобранная, разбирающаяся, упавшая, с конфликтом синхронизации
 bun run scripts/seed-uploads-demo.ts     # публикации: опубликована, упала с попытками, запланирована, заблокирована
 bun run scripts/seed-characters-demo.ts  # персонажи с фото в трёх состояниях разбора
 bun run scripts/seed-cycles-demo.ts      # циклы: завершённый с логами, идущий, упавший
 bun run scripts/seed-scenes-demo.ts      # сцены: собранная со всеми блоками, пустая, в генерации, архивная
 bun run scripts/seed-devices-demo.ts     # устройства: синхронизирован, запущен, локальный, конфликт, без прокси
+bun run scripts/seed-posting-jobs-demo.ts # очередь публикаций во всех состояниях, часть — на ближайшие сутки
 ```
 
 `seed-scenes-demo` требует персонажей (`seed-characters-demo`) — блок «Персонаж»
 ссылается на реального. Устройства видны только при
 `LEGACY_DEVICE_AUTOMATION_ENABLED=true` у dev-сервера.
 
-Сиды рассчитаны на порядок: `seed-uploads-demo` берёт ролики и аккаунты из двух
-первых, `seed-characters-demo` и `seed-cycles-demo` — приложение из базы.
+Сиды рассчитаны на порядок: `seed-uploads-demo` и `seed-posting-jobs-demo` берут
+ролики и аккаунты из двух первых, `seed-characters-demo` и `seed-cycles-demo` —
+приложение из базы. `seed-devices-demo` шифрует адрес и доступы прокси, поэтому
+ему нужен `ENCRYPTION_KEY` в окружении.
 
 Разделы `proxies`, `devices`, `google-drive` и `posting-jobs` относятся к
 унаследованному контуру: без `LEGACY_*_ENABLED` их API отдаёт 404, и страницы
