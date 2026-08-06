@@ -30,7 +30,7 @@ export default defineNitroPlugin((nitro) => {
     })
     .catch(() => {})
 
-  const timer = setInterval(async () => {
+  const timer = trackedInterval('pipeline-schedules', 'Расписания конвейеров', TICK_INTERVAL, async () => {
     try {
       const now = new Date()
 
@@ -136,7 +136,7 @@ export default defineNitroPlugin((nitro) => {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка'
       await logAgent('pipeline-scheduler', 'error', `Pipeline scheduler: ${message}`).catch(() => {})
     }
-  }, TICK_INTERVAL)
+  })
 
   nitro.hooks.hook('close', () => {
     clearInterval(timer)

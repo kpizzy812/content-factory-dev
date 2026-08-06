@@ -174,6 +174,7 @@ async function fetchAgent(opts: FetchOpts): Promise<SourceResult> {
     module: r.module,
     message: r.message,
     details: r.details ?? undefined,
+    ...actorFromUserId((r.details as { userId?: unknown } | null)?.userId),
     resolved: r.resolved,
     rawId: r.id,
     ref: r.cycleId
@@ -188,6 +189,17 @@ async function fetchAgent(opts: FetchOpts): Promise<SourceResult> {
   }))
 
   return { source: "agent", entries, total }
+}
+
+/**
+ * Кто это сделал. Отдельной таблицы аудита нет и не заводилось: почти все
+ * действия людей уже несут userId — в деталях записи агента, в журнале
+ * доступа к секретам, в журнале AI. Признак выводится из него, а не выдумывается.
+ */
+function actorFromUserId(userId: unknown): Pick<AdminLogEntry, 'actor' | 'actorUserId'> {
+  return typeof userId === 'number' && Number.isInteger(userId) && userId > 0
+    ? { actor: 'human', actorUserId: userId }
+    : { actor: 'system' }
 }
 
 // ---------- AppEnrichmentLog
@@ -289,6 +301,7 @@ async function fetchSecretAccess(opts: FetchOpts): Promise<SourceResult> {
       clientIp: r.clientIp,
       userAgent: r.userAgent,
     },
+    ...actorFromUserId(r.userId),
     rawId: r.id,
     createdAt: r.createdAt.toISOString(),
   }))
@@ -504,6 +517,7 @@ async function fetchAiAudit(opts: FetchOpts): Promise<SourceResult> {
     level: r.status === "dismissed" ? "warn" : "info",
     module: `ai-${r.action}`,
     message: `${r.userId === null ? "system" : (userEmailById.get(r.userId) ?? `user#${r.userId}`)} · ${r.action}${r.nodeType ? ` (${r.nodeType})` : ""} · ${r.model} → ${r.status}`,
+    ...actorFromUserId(r.userId),
     details: {
       userId: r.userId,
       action: r.action,

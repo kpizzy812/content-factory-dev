@@ -11,7 +11,7 @@ export default defineNitroPlugin((nitro) => {
   // Гейт scheduler'ов (тестовая инфраструктура). См. .env.test.
   if (process.env.SCHEDULERS_ENABLED === "false") return
 
-  const timer = setInterval(async () => {
+  const timer = trackedInterval('trendwatcher', 'Расписания парсинга трендов', CHECK_INTERVAL_MS, async () => {
     try {
       await checkScheduledProfiles()
       await watchdogStuckRuns()
@@ -19,7 +19,7 @@ export default defineNitroPlugin((nitro) => {
       const msg = err instanceof Error ? err.message : "Неизвестная ошибка"
       await logAgent("trendwatcher-scheduler", "error", `Scheduler error: ${msg}`).catch(() => {})
     }
-  }, CHECK_INTERVAL_MS)
+  })
 
   nitro.hooks.hook("close", () => {
     clearInterval(timer)

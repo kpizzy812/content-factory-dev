@@ -37,7 +37,7 @@ export default defineNitroPlugin((nitro) => {
   const timers: ReturnType<typeof setInterval>[] = []
 
   // 1. Upload scheduler (по умолчанию 5 мин)
-  const uploadTimer = setInterval(async () => {
+  const uploadTimer = trackedInterval('upload', 'Публикации по расписанию', uploadIntervalMs, async () => {
     try {
       const scheduled = await prisma.upload.findMany({
         where: {
@@ -75,11 +75,11 @@ export default defineNitroPlugin((nitro) => {
       const message = err instanceof Error ? err.message : "Неизвестная ошибка"
       await logAgent("scheduler", "error", `Upload scheduler: ${message}`).catch(() => {})
     }
-  }, uploadIntervalMs)
+  })
   timers.push(uploadTimer)
 
   // 2. Metrics collector (по умолчанию 1 час)
-  const metricsTimer = setInterval(async () => {
+  const metricsTimer = trackedInterval('metrics', 'Сбор метрик публикаций', metricsIntervalMs, async () => {
     try {
       const publishedCount = await prisma.upload.count({
         where: { status: "published", platformPostId: { not: null } },
@@ -96,11 +96,11 @@ export default defineNitroPlugin((nitro) => {
       const message = err instanceof Error ? err.message : "Неизвестная ошибка"
       await logAgent("scheduler", "error", `Metrics collector: ${message}`).catch(() => {})
     }
-  }, metricsIntervalMs)
+  })
   timers.push(metricsTimer)
 
   // 3. Cycle watchdog (по умолчанию 6 часов)
-  const cycleTimer = setInterval(async () => {
+  const cycleTimer = trackedInterval('cycle-watchdog', 'Watchdog циклов', cycleCheckIntervalMs, async () => {
     try {
       const threshold = new Date(Date.now() - cycleTimeoutMs)
 
@@ -134,11 +134,11 @@ export default defineNitroPlugin((nitro) => {
       const message = err instanceof Error ? err.message : "Неизвестная ошибка"
       await logAgent("scheduler", "error", `Cycle watchdog: ${message}`).catch(() => {})
     }
-  }, cycleCheckIntervalMs)
+  })
   timers.push(cycleTimer)
 
   // 4. Reference analysis watchdog (по умолчанию 5 мин, таймаут идеи 10 мин)
-  const referenceWatchdogTimer = setInterval(async () => {
+  const referenceWatchdogTimer = trackedInterval('reference-watchdog', 'Watchdog разбора референсов', referenceWatchdogIntervalMs, async () => {
     try {
       const threshold = new Date(Date.now() - referenceWatchdogTimeoutMs)
 
@@ -161,12 +161,12 @@ export default defineNitroPlugin((nitro) => {
       const message = err instanceof Error ? err.message : "Неизвестная ошибка"
       await logAgent("scheduler", "error", `Reference watchdog: ${message}`).catch(() => {})
     }
-  }, referenceWatchdogIntervalMs)
+  })
   timers.push(referenceWatchdogTimer)
 
   // 5. Proxy health checks (по умолчанию 4 часа). Отключается PROXY_HEALTH_CHECK_ENABLED=false.
   if (proxyHealthCheckEnabled) {
-    const proxyHealthTimer = setInterval(async () => {
+    const proxyHealthTimer = trackedInterval('proxy-health', 'Проверка прокси', proxyHealthIntervalMs, async () => {
       try {
         const threshold = new Date(Date.now() - proxyHealthStaleMs)
 
@@ -265,24 +265,24 @@ export default defineNitroPlugin((nitro) => {
         const message = err instanceof Error ? err.message : "Неизвестная ошибка"
         await logAgent("scheduler", "error", `Proxy health scheduler: ${message}`).catch(() => {})
       }
-    }, proxyHealthIntervalMs)
+    })
     timers.push(proxyHealthTimer)
   }
 
   // 6. Posting jobs worker (по умолчанию 30 сек). Отключается POSTING_WORKER_ENABLED=false.
   if (postingWorkerEnabled) {
-    const postingTimer = setInterval(() => {
+    const postingTimer = trackedInterval('posting', 'Воркер публикаций', postingIntervalMs, () => {
       postingWorkerTick().catch(async (err: unknown) => {
         const message = err instanceof Error ? err.message : "Неизвестная ошибка"
         await logAgent("scheduler", "error", `Posting worker tick: ${message}`).catch(() => {})
       })
-    }, postingIntervalMs)
+    })
     timers.push(postingTimer)
   }
 
   // 7. Google Drive sync (по умолчанию 30 мин). Отключается GOOGLE_DRIVE_SCHEDULER_ENABLED=false.
   if (googleDriveSchedulerEnabled) {
-    const driveTimer = setInterval(async () => {
+    const driveTimer = trackedInterval('drive-sync', 'Синхронизация Google Drive', driveIntervalMs, async () => {
       try {
         // Guard: если нет активных Drive credentials — никаких запросов.
         const driveCredentialsCount = await prisma.pipelineCredential.count({
@@ -321,7 +321,7 @@ export default defineNitroPlugin((nitro) => {
         const message = err instanceof Error ? err.message : "Неизвестная ошибка"
         await logAgent("scheduler", "error", `Drive scheduler: ${message}`).catch(() => {})
       }
-    }, driveIntervalMs)
+    })
     timers.push(driveTimer)
   }
 

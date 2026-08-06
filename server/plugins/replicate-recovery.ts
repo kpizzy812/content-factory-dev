@@ -32,7 +32,7 @@ export default defineNitroPlugin((nitro) => {
   }
 
   void recover()
-  const timer = setInterval(recover, RECOVERY_INTERVAL_MS)
+  const timer = trackedInterval('replicate-recovery', 'Восстановление задач Replicate', RECOVERY_INTERVAL_MS, recover)
   timer.unref?.()
 
   nitro.hooks.hook("close", () => {

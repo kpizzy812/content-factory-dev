@@ -151,10 +151,20 @@ export default defineEventHandler(async (event) => {
   } catch {
     baseExists = false
   }
+  // Заполненность диска: макет рисует «74%» с порогами 80 и 90, и посчитать её
+  // есть из чего — `statfs` отдаёт и свободные блоки, и общее число.
+  let totalSpaceGB: number | null = null
+  let usedPercent: number | null = null
   try {
     const { statfs } = await import("node:fs/promises")
     const fsStats = await statfs(storageBase)
-    freeSpaceGB = Math.round((fsStats.bsize * fsStats.bavail) / 1_000_000_000 * 100) / 100
+    const freeBytes = fsStats.bsize * fsStats.bavail
+    const totalBytes = fsStats.bsize * fsStats.blocks
+    freeSpaceGB = Math.round((freeBytes / 1_000_000_000) * 100) / 100
+    if (totalBytes > 0) {
+      totalSpaceGB = Math.round((totalBytes / 1_000_000_000) * 100) / 100
+      usedPercent = Math.round(((totalBytes - freeBytes) / totalBytes) * 100)
+    }
   } catch {
     freeSpaceGB = null
   }
@@ -164,6 +174,8 @@ export default defineEventHandler(async (event) => {
       storageBase,
       baseExists,
       freeSpaceGB,
+      totalSpaceGB,
+      usedPercent,
       driver: describeStorageDriver(),
       checkedVideos: totalCompleted,
       videoFilesOnDisk: totalVideoFilesOnDisk,
