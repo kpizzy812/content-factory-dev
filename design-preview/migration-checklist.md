@@ -67,14 +67,14 @@
 | `+` | `pipeline/[id]/runs/index.vue` | 05-run-monitor · история по дням, активные закреплены |
 | `+` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor · шаги, длительности, логи, схема; стоимости нет — её не отдаёт API |
 | `—` | `analytics/index.vue` | 07-analytics |
-| `—` | `settings.vue` | 08-settings-admin |
-| `—` | `admin/index.vue` | 08-settings-admin |
-| `—` | `admin/integrations/index.vue` | 08-settings-admin |
-| `—` | `admin/balances.vue` | 08-settings-admin |
-| `—` | `admin/telegram.vue` | 08-settings-admin |
-| `—` | `admin/storage-health.vue` | 08-settings-admin |
+| `+` | `settings.vue` | 08-settings-admin · профиль, тема, состояние MarketingCamp |
+| `+` | `admin/index.vue` | 08-settings-admin · разделы, строка состояния, очередь и ошибки |
+| `+` | `admin/integrations/index.vue` | 08-settings-admin · карта настроек; ключей нет — они в окружении |
+| `+` | `admin/balances.vue` | 08-settings-admin · карточки остатков; починен вызов модалки правки |
+| `~` | `admin/telegram.vue` | 08-settings-admin · страница и вкладка «Обзор» переписаны; ещё шесть вкладок в `components/admin/telegram/` на DaisyUI |
+| `+` | `admin/storage-health.vue` | 08-settings-admin · доля найденных файлов, список пропаж |
 | `+` | `admin/accounts-health.vue` | 06-accounts-queue · прогрев и 2FA видны только здесь |
-| `—` | `admin/warmup-keywords.vue` | 08-settings-admin |
+| `+` | `admin/warmup-keywords.vue` | 08-settings-admin · карточки пулов и редактор |
 
 ## Временные, удалить в этапе 7
 

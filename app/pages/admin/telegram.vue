@@ -1,100 +1,75 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: ['admin-access'],
-})
-
+/**
+ * Telegram. Макет: design-preview/catalog/08-settings-admin.dc.html
+ *
+ * Вкладки — второй уровень внутри страницы: у каждой свой запрос, и грузить их
+ * все разом ради одной незачем. Хлебных крошек нет — путь рисует топбар.
+ */
+definePageMeta({ middleware: ['admin-access'] })
 useHead({ title: 'Telegram' })
 
-const activeTab = ref('overview')
+const TABS = [
+  { key: 'overview', label: 'Обзор' },
+  { key: 'diagnostics', label: 'Диагностика' },
+  { key: 'templates', label: 'Шаблоны' },
+  { key: 'keys', label: 'API-ключи' },
+  { key: 'chats', label: 'Чаты' },
+  { key: 'deliveries', label: 'Доставки' },
+  { key: 'audit', label: 'Аудит' },
+] as const
 
-const tabs = [
-  { key: 'overview', label: 'Обзор', icon: 'mingcute:dashboard-line' },
-  { key: 'diagnostics', label: 'Диагностика', icon: 'mingcute:radar-line' },
-  { key: 'templates', label: 'Шаблоны', icon: 'mingcute:file-line' },
-  { key: 'keys', label: 'API-ключи', icon: 'mingcute:key-2-line' },
-  { key: 'chats', label: 'Чаты', icon: 'mingcute:group-line' },
-  { key: 'deliveries', label: 'Доставки', icon: 'mingcute:send-plane-line' },
-  { key: 'audit', label: 'Аудит', icon: 'mingcute:history-line' },
-]
+type TabKey = typeof TABS[number]['key']
 
-const { data: statusData, pending: statusPending, refresh: refreshStatus } = useAdminTelegramStatus()
+const activeTab = ref<TabKey>('overview')
+
+const { data: statusData, pending, refresh } = useAdminTelegramStatus()
 const status = computed(() => statusData.value?.data ?? null)
-
-function handleTestApi() {
-  activeTab.value = 'diagnostics'
-}
-
-function navigateTab(tab: string) {
-  activeTab.value = tab
-}
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Breadcrumbs -->
-    <div class="breadcrumbs text-sm">
-      <ul>
-        <li><NuxtLink to="/admin">Админ</NuxtLink></li>
-        <li>Telegram</li>
-      </ul>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Telegram</h1>
+      <span v-if="status" class="tnum font-mono text-sm text-subtle">
+        {{ status.chats.total }} чатов · {{ status.chats.alertsEnabled }} с алертами
+      </span>
+      <span class="flex-1" />
+      <UiButton :loading="pending" @click="refresh()">
+        <Icon v-if="!pending" name="mingcute:refresh-2-line" />
+        Обновить
+      </UiButton>
     </div>
 
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-base-content">Telegram-интеграция</h1>
-      <button class="btn btn-sm btn-ghost" @click="refreshStatus()">
-        <Icon name="mingcute:refresh-2-line" />
-        Обновить
+    <div class="flex flex-wrap gap-0.5 border-b border-border">
+      <button
+        v-for="tab in TABS"
+        :key="tab.key"
+        type="button"
+        class="h-7 cursor-pointer border-b-2 px-2.5 text-sm"
+        :class="activeTab === tab.key
+          ? 'border-accent font-medium text-fg'
+          : 'border-transparent text-muted hover:text-fg'"
+        @click="activeTab = tab.key"
+      >
+        {{ tab.label }}
       </button>
     </div>
 
-    <!-- Loading -->
-    <div v-if="statusPending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
+    <UiSkeleton v-if="pending && !status" variant="details" :count="6" />
 
     <template v-else>
-      <!-- Tabs -->
-      <div role="tablist" class="tabs tabs-bordered">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          role="tab"
-          class="tab gap-1"
-          :class="{ 'tab-active': activeTab === tab.key }"
-          @click="activeTab = tab.key"
-        >
-          <Icon :name="tab.icon" class="text-sm" />
-          {{ tab.label }}
-        </button>
-      </div>
-
-      <!-- Tab content -->
-      <div class="mt-4">
-        <AdminTelegramOverview
-          v-if="activeTab === 'overview'"
-          :status="status"
-          @test-api="handleTestApi"
-          @navigate="navigateTab"
-        />
-        <AdminTelegramDiagnostics
-          v-if="activeTab === 'diagnostics'"
-        />
-        <AdminTelegramTemplates
-          v-if="activeTab === 'templates'"
-        />
-        <AdminTelegramApiKeys
-          v-if="activeTab === 'keys'"
-        />
-        <AdminTelegramChats
-          v-if="activeTab === 'chats'"
-        />
-        <AdminTelegramDeliveries
-          v-if="activeTab === 'deliveries'"
-        />
-        <AdminTelegramAudit
-          v-if="activeTab === 'audit'"
-        />
-      </div>
+      <AdminTelegramOverview
+        v-if="activeTab === 'overview'"
+        :status="status"
+        @test-api="activeTab = 'diagnostics'"
+        @navigate="(tab) => { activeTab = tab as TabKey }"
+      />
+      <AdminTelegramDiagnostics v-else-if="activeTab === 'diagnostics'" />
+      <AdminTelegramTemplates v-else-if="activeTab === 'templates'" />
+      <AdminTelegramApiKeys v-else-if="activeTab === 'keys'" />
+      <AdminTelegramChats v-else-if="activeTab === 'chats'" />
+      <AdminTelegramDeliveries v-else-if="activeTab === 'deliveries'" />
+      <AdminTelegramAudit v-else-if="activeTab === 'audit'" />
     </template>
   </div>
 </template>
