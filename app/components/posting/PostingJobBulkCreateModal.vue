@@ -42,7 +42,7 @@ function onVisibilityUpdate(v: YoutubeVisibility) {
   visibility.value = v
 }
 
-const modalRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const step = ref<1 | 2 | 3 | 4>(1)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
@@ -364,13 +364,13 @@ function open(initial?: { platform?: BulkPlatform }) {
   captionMap.value = {}
   submitError.value = null
   submitting.value = false
-  modalRef.value?.showModal()
+  isOpen.value = true
   refreshAccounts()
   refreshVideos()
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
 }
 
 async function goToStep(next: 1 | 2 | 3 | 4) {
@@ -384,344 +384,290 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-5xl max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-bold">
-          Массовое создание задач: {{ isInstagram ? "Instagram" : "YouTube" }}
-        </h3>
-        <span class="badge badge-sm">{{ step }}/4</span>
+  <UiModal :open="isOpen" size="lg" :persistent="submitting" @close="close">
+    <template #header>
+      <span class="flex flex-wrap items-baseline gap-2">
+        Распределить ролики по аккаунтам
+        <span class="tnum font-mono text-sm font-normal text-subtle">шаг {{ step }} из 4</span>
+      </span>
+    </template>
+
+    <!-- Шаг 1: платформа и аккаунты -->
+    <div v-if="step === 1" class="flex flex-col gap-3">
+      <div class="flex w-fit overflow-hidden rounded-md border border-border">
+        <button
+          v-for="p in (['youtube', 'instagram'] as const)"
+          :key="p"
+          type="button"
+          class="h-7 cursor-pointer px-3 text-sm"
+          :class="platform === p ? 'bg-accent text-on-accent' : 'bg-card text-muted hover:text-fg'"
+          @click="platform = p"
+        >
+          {{ p === 'youtube' ? 'YouTube' : 'Instagram' }}
+        </button>
       </div>
 
-      <!-- Шаг 1: Платформа + Аккаунты -->
-      <div v-if="step === 1">
-        <!-- Выбор платформы -->
-        <div role="tablist" class="tabs tabs-box mb-3">
-          <button
-            role="tab"
-            class="tab gap-1"
-            :class="{ 'tab-active': isYoutube }"
-            @click="platform = 'youtube'"
-          >
-            <Icon name="mingcute:youtube-line" />
-            YouTube
-          </button>
-          <button
-            role="tab"
-            class="tab gap-1"
-            :class="{ 'tab-active': isInstagram }"
-            @click="platform = 'instagram'"
-          >
-            <Icon name="mingcute:ins-line" />
-            Instagram
-          </button>
-        </div>
+      <p class="text-sm text-muted">
+        Массовое распределение работает только для аккаунтов, публикующих через устройство:
+        через официальный API ролики ставятся по одному. В списке — активные аккаунты выбранной платформы.
+      </p>
 
-        <p class="text-sm text-base-content/60 mb-3">
-          Выберите {{ isInstagram ? "Instagram" : "YouTube" }} аккаунты с browser_automation.
-          Видны только активные с готовностью.
-        </p>
-        <div
-          v-if="browserAccounts.length === 0"
-          class="py-6 text-center text-sm text-base-content/50"
+      <UiEmptyState
+        v-if="!browserAccounts.length"
+        variant="search"
+        title="Подходящих аккаунтов нет"
+        :description="`Для ${isInstagram ? 'Instagram' : 'YouTube'} нет активных аккаунтов с публикацией через устройство.`"
+      />
+
+      <div v-else class="max-h-[45vh] overflow-y-auto rounded-md border border-border">
+        <label
+          v-for="acc in browserAccounts"
+          :key="acc.id"
+          class="flex cursor-pointer items-center gap-2.5 border-b border-divider px-2.5 py-2 last:border-b-0 hover:bg-card"
         >
-          Нет готовых browser_automation аккаунтов для {{ isInstagram ? "Instagram" : "YouTube" }}.
-        </div>
-        <div class="space-y-2 max-h-[55vh] overflow-y-auto">
-          <label
-            v-for="acc in browserAccounts"
-            :key="acc.id"
-            class="label cursor-pointer justify-start gap-3 p-2 rounded-box border border-base-300"
-          >
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              :checked="selectedAccountIds.has(acc.id)"
-              @change="toggleAccount(acc.id)"
-            />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-medium text-sm">{{ (acc as { displayName?: string }).displayName ?? `#${acc.id}` }}</span>
-                <AccountReadinessBadge :account="acc" />
-              </div>
-            </div>
-          </label>
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-sm" @click="close">Отмена</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="selectedAccountIds.size === 0"
-            @click="goToStep(2)"
-          >
-            Далее ({{ selectedAccountIds.size }} аккаунтов)
-          </button>
-        </div>
-      </div>
-
-      <!-- Шаг 2: Видео -->
-      <div v-else-if="step === 2">
-        <p class="text-sm text-base-content/60 mb-3">
-          Выберите видео (только completed).
-          <template v-if="isInstagram">
-            Для Instagram подтягивается caption видео (≤ 2200 символов) — видео без него попадут в skipped.
-          </template>
-          <template v-else>
-            Caption для YouTube должен быть утверждён — невыбранные видео попадут в skipped.
-          </template>
-        </p>
-        <div class="space-y-2 max-h-[55vh] overflow-y-auto">
-          <label
-            v-for="v in videos"
-            :key="v.id"
-            class="label cursor-pointer justify-start gap-3 p-2 rounded-box border border-base-300"
-          >
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              :checked="selectedVideoIds.has(v.id)"
-              @change="toggleVideo(v.id)"
-            />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-medium text-sm">
-                  #{{ v.id }}
-                  {{ v.scenario?.variants?.[0]?.title ? ` — ${v.scenario.variants[0].title}` : "" }}
-                </span>
-                <span class="text-xs text-base-content/60">
-                  {{ v.duration ? `· ${v.duration}с` : "" }}
-                </span>
-              </div>
-            </div>
-          </label>
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-sm" @click="goToStep(1)">Назад</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="selectedVideoIds.size === 0"
-            @click="goToStep(3)"
-          >
-            Далее ({{ pairs.length }} пар)
-          </button>
-        </div>
-        <div
-          v-if="tooManyPairs"
-          role="alert"
-          class="alert alert-error alert-soft mt-2 text-xs"
-        >
-          <Icon name="mingcute:warning-line" />
-          Превышен лимит {{ BULK_PAIRS_LIMIT }} пар. Уменьшите выбор.
-        </div>
-      </div>
-
-      <!-- Шаг 3: Settings -->
-      <div v-else-if="step === 3" class="space-y-3">
-        <!-- YouTube-специфичные настройки (visibility/madeForKids) -->
-        <template v-if="isYoutube">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Видимость (одна на все задачи)</legend>
-            <PostingVisibilitySelector
-              :visibility="visibility"
-              @update:visibility="onVisibilityUpdate"
-            />
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Made for kids (одна на все задачи)</legend>
-            <div class="grid gap-2">
-              <label class="label cursor-pointer justify-start gap-3 p-2 rounded-box border border-base-300">
-                <input
-                  type="radio"
-                  class="radio radio-sm"
-                  :checked="madeForKids === false"
-                  @change="madeForKids = false"
-                />
-                <span class="font-medium text-sm">Не для детей</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-3 p-2 rounded-box border border-base-300">
-                <input
-                  type="radio"
-                  class="radio radio-sm"
-                  :checked="madeForKids === true"
-                  @change="madeForKids = true"
-                />
-                <span class="font-medium text-sm">Для детей (COPPA)</span>
-              </label>
-            </div>
-          </fieldset>
-        </template>
-
-        <!-- Instagram: нет visibility/madeForKids -->
-        <div
-          v-else
-          role="alert"
-          class="alert alert-info alert-soft text-xs"
-        >
-          <Icon name="mingcute:information-line" class="text-sm shrink-0" />
-          <span>
-            У Instagram нет настроек видимости и «для детей». Текст и хэштеги
-            берутся из caption каждого видео (≤ 2200 символов вместе).
-          </span>
-        </div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Окно публикации</legend>
-          <div class="grid grid-cols-2 gap-2">
-            <label class="form-control">
-              <span class="label-text text-xs">С</span>
-              <input
-                v-model="windowStartLocal"
-                type="datetime-local"
-                class="input input-sm w-full"
-              />
-            </label>
-            <label class="form-control">
-              <span class="label-text text-xs">По</span>
-              <input
-                v-model="windowEndLocal"
-                type="datetime-local"
-                class="input input-sm w-full"
-              />
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">
-            Min interval между постами одного аккаунта: {{ minIntervalHours }}ч
-          </legend>
           <input
-            v-model.number="minIntervalHours"
-            type="range"
-            min="1"
-            max="24"
-            class="range range-sm range-primary"
-          />
-          <span class="text-xs text-base-content/60">
-            Рекомендуется ≥ 4ч (anti-detect). Меньше — повышенный риск бана.
+            type="checkbox"
+            class="size-3.5 shrink-0 cursor-pointer accent-(--color-accent)"
+            :checked="selectedAccountIds.has(acc.id)"
+            @change="toggleAccount(acc.id)"
+          >
+          <span class="min-w-0 flex-1 truncate font-mono text-sm">
+            {{ (acc as { displayName?: string }).displayName ?? `аккаунт #${acc.id}` }}
           </span>
-        </fieldset>
-
-        <div class="modal-action">
-          <button class="btn btn-sm" @click="goToStep(2)">Назад</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="!settingsValid"
-            @click="goToStep(4)"
-          >
-            Далее — Pre-flight
-          </button>
-        </div>
-      </div>
-
-      <!-- Шаг 4: Pre-flight + submit -->
-      <div v-else-if="step === 4" class="space-y-3">
-        <div class="stats stats-vertical sm:stats-horizontal shadow w-full">
-          <div class="stat">
-            <div class="stat-title text-xs">Будут созданы</div>
-            <div class="stat-value text-2xl text-success">
-              {{ pairsToCreateCount }}
-            </div>
-          </div>
-          <div class="stat">
-            <div class="stat-title text-xs">Skipped (нет caption)</div>
-            <div class="stat-value text-2xl text-warning">
-              {{ pairsWithoutCaption.length }}
-            </div>
-          </div>
-          <div v-if="isInstagram" class="stat">
-            <div class="stat-title text-xs">Caption &gt; 2200 (пропущены)</div>
-            <div class="stat-value text-2xl text-warning">
-              {{ pairsOverLimit.size }}
-            </div>
-          </div>
-          <div class="stat">
-            <div class="stat-title text-xs">Unscheduled</div>
-            <div class="stat-value text-2xl text-error">
-              {{ schedule.unscheduled.length }}
-            </div>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto max-h-[40vh] overflow-y-auto">
-          <table class="table table-xs">
-            <thead>
-              <tr>
-                <th>Аккаунт</th>
-                <th>Видео</th>
-                <th>Когда</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in schedule.scheduled" :key="`${s.socialAccountId}-${s.videoId}-${s.scheduledAt}`">
-                <td>#{{ s.socialAccountId }}</td>
-                <td>#{{ s.videoId }}</td>
-                <td class="font-mono text-xs">
-                  {{ new Date(s.scheduledAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) }}
-                </td>
-                <td>
-                  <span
-                    v-if="!captionMap[s.videoId]"
-                    class="badge badge-xs badge-warning"
-                    :title="isInstagram ? 'Нет Instagram caption для видео' : 'Caption для YouTube не утверждён'"
-                  >
-                    skip (no caption)
-                  </span>
-                  <span
-                    v-else-if="pairsOverLimit.has(s.videoId)"
-                    class="badge badge-xs badge-warning"
-                    title="Caption вместе с хэштегами превышает лимит 2200 символов"
-                  >
-                    skip (&gt; 2200)
-                  </span>
-                  <span v-else class="badge badge-xs badge-success">scheduled</span>
-                </td>
-              </tr>
-              <tr
-                v-for="u in schedule.unscheduled"
-                :key="`u-${u.socialAccountId}-${u.videoId}`"
-                class="text-error"
-              >
-                <td>#{{ u.socialAccountId }}</td>
-                <td>#{{ u.videoId }}</td>
-                <td>—</td>
-                <td>
-                  <span class="badge badge-xs badge-error" :title="u.reason">
-                    unscheduled
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div
-          v-if="submitError"
-          role="alert"
-          class="alert alert-warning alert-soft text-xs"
-        >
-          <Icon name="mingcute:warning-line" class="text-sm shrink-0" />
-          <span>{{ submitError }}</span>
-        </div>
-
-        <div class="modal-action">
-          <button class="btn btn-sm" @click="goToStep(3)">Назад</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="!canSubmit"
-            @click="submit"
-          >
-            <span v-if="submitting" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:send-line" />
-            Создать {{ pairsToCreateCount }} задач
-          </button>
-        </div>
+          <AccountReadinessBadge :account="acc" />
+        </label>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <!-- Шаг 2: ролики -->
+    <div v-else-if="step === 2" class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        <template v-if="isInstagram">
+          Текст берётся из подписи ролика: подпись вместе с хэштегами должна уложиться
+          в 2200 символов, иначе пара будет пропущена.
+        </template>
+        <template v-else>
+          Текст берётся из утверждённой подписи для YouTube. Ролики без неё будут пропущены.
+        </template>
+      </p>
+
+      <UiEmptyState
+        v-if="!videos.length"
+        variant="first"
+        title="Собранных роликов нет"
+        description="В список попадают только ролики, дошедшие до готового файла."
+      />
+
+      <div v-else class="max-h-[45vh] overflow-y-auto rounded-md border border-border">
+        <label
+          v-for="v in videos"
+          :key="v.id"
+          class="flex cursor-pointer items-center gap-2.5 border-b border-divider px-2.5 py-2 last:border-b-0 hover:bg-card"
+        >
+          <input
+            type="checkbox"
+            class="size-3.5 shrink-0 cursor-pointer accent-(--color-accent)"
+            :checked="selectedVideoIds.has(v.id)"
+            @change="toggleVideo(v.id)"
+          >
+          <span class="min-w-0 flex-1 truncate text-sm">
+            Ролик {{ v.id }}
+            <template v-if="v.scenario?.variants?.[0]?.title"> · {{ v.scenario.variants[0].title }}</template>
+          </span>
+          <span v-if="v.duration" class="tnum shrink-0 font-mono text-micro text-subtle">{{ v.duration }} с</span>
+        </label>
+      </div>
+
+      <p
+        v-if="tooManyPairs"
+        class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger"
+      >
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        Пар получилось больше {{ BULK_PAIRS_LIMIT }} — сократите выбор.
+      </p>
+    </div>
+
+    <!-- Шаг 3: настройки -->
+    <div v-else-if="step === 3" class="flex flex-col gap-4">
+      <template v-if="isYoutube">
+        <UiField label="Кто увидит ролик" hint="Одинаково для всех задач этой партии.">
+          <PostingVisibilitySelector :visibility="visibility" @update:visibility="onVisibilityUpdate" />
+        </UiField>
+
+        <UiField label="Ролик для детей">
+          <div class="flex flex-col gap-2">
+            <label class="flex cursor-pointer items-center gap-2.5 rounded-md border border-border bg-card p-2.5 text-sm">
+              <input
+                type="radio"
+                class="size-3.5 cursor-pointer accent-(--color-accent)"
+                :checked="madeForKids === false"
+                @change="madeForKids = false"
+              >
+              Нет, не для детей
+            </label>
+            <label class="flex cursor-pointer items-center gap-2.5 rounded-md border border-border bg-card p-2.5 text-sm">
+              <input
+                type="radio"
+                class="size-3.5 cursor-pointer accent-(--color-accent)"
+                :checked="madeForKids === true"
+                @change="madeForKids = true"
+              >
+              Да, для детей — YouTube отключит комментарии и персонализацию
+            </label>
+          </div>
+        </UiField>
+      </template>
+
+      <p v-else class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm">
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+        <span>
+          У Instagram нет ни видимости, ни отметки «для детей». Текст и хэштеги
+          берутся из подписи каждого ролика — вместе не длиннее 2200 символов.
+        </span>
+      </p>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <UiField label="Окно публикации, с">
+          <UiInput v-model="windowStartLocal" type="datetime-local" />
+        </UiField>
+        <UiField label="Окно публикации, по">
+          <UiInput v-model="windowEndLocal" type="datetime-local" />
+        </UiField>
+      </div>
+
+      <UiField
+        :label="`Пауза между публикациями одного аккаунта · ${minIntervalHours} ч`"
+        hint="Меньше четырёх часов платформа считает подозрительным."
+      >
+        <input v-model.number="minIntervalHours" type="range" min="1" max="24" class="w-full accent-(--color-accent)">
+      </UiField>
+    </div>
+
+    <!-- Шаг 4: что получится -->
+    <div v-else-if="step === 4" class="flex flex-col gap-3">
+      <div class="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-panel sm:grid-cols-4">
+        <div class="flex flex-col gap-1 border-r border-divider p-2.5 px-3.5">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Будут созданы</span>
+          <span class="tnum text-2xl font-semibold text-success">{{ pairsToCreateCount }}</span>
+        </div>
+        <div class="flex flex-col gap-1 border-divider p-2.5 px-3.5 sm:border-r">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Без подписи</span>
+          <span class="tnum text-2xl font-semibold text-warning">{{ pairsWithoutCaption.length }}</span>
+        </div>
+        <div v-if="isInstagram" class="flex flex-col gap-1 border-t border-r border-divider p-2.5 px-3.5 sm:border-t-0">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Подпись длиннее 2200</span>
+          <span class="tnum text-2xl font-semibold text-warning">{{ pairsOverLimit.size }}</span>
+        </div>
+        <div class="flex flex-col gap-1 border-t border-divider p-2.5 px-3.5 sm:border-t-0">
+          <span class="text-micro tracking-[.06em] text-subtle uppercase">Не поместились</span>
+          <span class="tnum text-2xl font-semibold" :class="schedule.unscheduled.length ? 'text-danger' : ''">
+            {{ schedule.unscheduled.length }}
+          </span>
+        </div>
+      </div>
+
+      <div class="max-h-[40vh] overflow-y-auto">
+        <UiTable columns="120px 120px 132px minmax(160px,1fr)" min-width="560px">
+          <UiTableHead>
+            <span>Аккаунт</span>
+            <span>Ролик</span>
+            <span>Когда</span>
+            <span>Что будет</span>
+          </UiTableHead>
+
+          <UiTableRow
+            v-for="s in schedule.scheduled"
+            :key="`${s.socialAccountId}-${s.videoId}-${s.scheduledAt}`"
+            :clickable="false"
+          >
+            <span class="tnum font-mono text-sm">#{{ s.socialAccountId }}</span>
+            <span class="tnum font-mono text-sm">#{{ s.videoId }}</span>
+            <span class="tnum font-mono text-sm text-muted">
+              {{ new Date(s.scheduledAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }}
+            </span>
+            <span>
+              <span
+                v-if="!captionMap[s.videoId]"
+                class="rounded-sm border border-warning-border bg-warning-bg px-1.5 py-0.5 text-micro text-warning"
+              >
+                пропустим — нет подписи
+              </span>
+              <span
+                v-else-if="pairsOverLimit.has(s.videoId)"
+                class="rounded-sm border border-warning-border bg-warning-bg px-1.5 py-0.5 text-micro text-warning"
+              >
+                пропустим — подпись длиннее 2200
+              </span>
+              <span
+                v-else
+                class="rounded-sm border border-success-border bg-success-bg px-1.5 py-0.5 text-micro text-success"
+              >
+                поставим в очередь
+              </span>
+            </span>
+          </UiTableRow>
+
+          <UiTableRow
+            v-for="u in schedule.unscheduled"
+            :key="`u-${u.socialAccountId}-${u.videoId}`"
+            :clickable="false"
+          >
+            <span class="tnum font-mono text-sm">#{{ u.socialAccountId }}</span>
+            <span class="tnum font-mono text-sm">#{{ u.videoId }}</span>
+            <span class="text-sm text-subtle">—</span>
+            <span
+              class="rounded-sm border border-danger-border bg-danger-bg px-1.5 py-0.5 text-micro text-danger"
+              :title="u.reason"
+            >
+              не поместился в окно
+            </span>
+          </UiTableRow>
+        </UiTable>
+      </div>
+
+      <p
+        v-if="submitError"
+        class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm"
+      >
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
+        {{ submitError }}
+      </p>
+
+      <p class="text-micro text-subtle">
+        Время внутри окна расставлено случайно с соблюдением паузы — так публикации
+        не выходят по будильнику. Перед отправкой сервер проверит каждую пару заново.
+      </p>
+    </div>
+
+    <template #footer>
+      <UiButton v-if="step > 1" variant="ghost" :disabled="submitting" @click="goToStep((step - 1) as 1 | 2 | 3)">
+        Назад
+      </UiButton>
+      <UiButton v-else variant="ghost" @click="close">Отмена</UiButton>
+      <span class="flex-1" />
+      <UiButton
+        v-if="step === 1"
+        variant="primary"
+        :disabled="!selectedAccountIds.size"
+        @click="goToStep(2)"
+      >
+        Дальше · аккаунтов {{ selectedAccountIds.size }}
+      </UiButton>
+      <UiButton
+        v-else-if="step === 2"
+        variant="primary"
+        :disabled="!selectedVideoIds.size || tooManyPairs"
+        @click="goToStep(3)"
+      >
+        Дальше · пар {{ pairs.length }}
+      </UiButton>
+      <UiButton v-else-if="step === 3" variant="primary" :disabled="!settingsValid" @click="goToStep(4)">
+        Показать, что получится
+      </UiButton>
+      <UiButton v-else variant="primary" :loading="submitting" :disabled="!canSubmit" @click="submit">
+        <Icon v-if="!submitting" name="mingcute:send-line" />
+        Поставить {{ pairsToCreateCount }} публикаций
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

@@ -1,132 +1,107 @@
 <script setup lang="ts">
 /**
- * Селектор видимости публикации YouTube — radio group + warning UX.
+ * Кто увидит ролик на YouTube.
  *
- * Принципы безопасности:
- *   - НЕТ ДЕФОЛТА: visibility=null означает "оператор ещё не выбрал".
- *     Форма остаётся невалидной пока выбор не сделан (fail-safe).
- *   - public — самый опасный сценарий: badge + alert-warning + красная подсветка.
- *   - unlisted/private — относительно безопасные, нейтральные подсветки.
- *
- * v-model:visibility (YoutubeVisibility | null)
+ * Значения по умолчанию нет намеренно: пока оператор не выбрал, форма невалидна.
+ * «Публично» — самый необратимый вариант, поэтому он подписан отдельно и не
+ * выглядит как остальные два.
  */
-import type { YoutubeVisibility } from "~~/shared/types/posting-youtube"
+import type { YoutubeVisibility } from '~~/shared/types/posting-youtube'
 
 const props = defineProps<{
   visibility: YoutubeVisibility | null
   disabled?: boolean
 }>()
 
-const emit = defineEmits<{
-  "update:visibility": [v: YoutubeVisibility]
-}>()
+const emit = defineEmits<{ 'update:visibility': [v: YoutubeVisibility] }>()
 
 interface Option {
   value: YoutubeVisibility
   label: string
   description: string
   icon: string
-  radioClass: string
-  badgeClass?: string
-  badgeText?: string
+  selectedTone: string
 }
 
-const options: Option[] = [
+const OPTIONS: Option[] = [
   {
-    value: "private",
-    label: "Приватно",
-    description: "Только владелец канала и приглашённые",
-    icon: "mingcute:lock-line",
-    radioClass: "radio-warning",
+    value: 'private',
+    label: 'Только владельцу',
+    description: 'Видит владелец канала и те, кого он пригласит',
+    icon: 'mingcute:lock-line',
+    selectedTone: 'border-warning-border bg-warning-bg',
   },
   {
-    value: "unlisted",
-    label: "По ссылке",
-    description: "Только по прямой ссылке, не в поиске",
-    icon: "mingcute:link-line",
-    radioClass: "radio-info",
+    value: 'unlisted',
+    label: 'По ссылке',
+    description: 'Открывается по прямой ссылке, в поиск не попадает',
+    icon: 'mingcute:link-line',
+    selectedTone: 'border-info-border bg-info-bg',
   },
   {
-    value: "public",
-    label: "Публично",
-    description: "Доступно всем — видео уйдёт в открытый доступ сразу",
-    icon: "mingcute:earth-line",
-    radioClass: "radio-error",
-    badgeClass: "badge-error",
-    badgeText: "Публикация",
+    value: 'public',
+    label: 'Всем',
+    description: 'Ролик станет открытым сразу после публикации',
+    icon: 'mingcute:earth-line',
+    selectedTone: 'border-danger-border bg-danger-bg',
   },
 ]
 
 function select(value: YoutubeVisibility) {
   if (props.disabled) return
-  emit("update:visibility", value)
+  emit('update:visibility', value)
 }
 </script>
 
 <template>
-  <div class="space-y-2">
-    <div
+  <div class="flex flex-col gap-2">
+    <p
       v-if="visibility === null"
-      role="alert"
-      class="alert alert-info alert-soft py-2 text-xs"
+      class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm"
     >
-      <Icon name="mingcute:information-line" class="text-sm shrink-0" />
-      <span>Выберите видимость публикации — обязательное поле YouTube.</span>
-    </div>
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+      YouTube требует явного выбора — по умолчанию ничего не выбрано.
+    </p>
 
-    <div class="grid gap-2">
+    <div class="flex flex-col gap-2">
       <label
-        v-for="opt in options"
+        v-for="opt in OPTIONS"
         :key="opt.value"
-        class="label cursor-pointer justify-start gap-3 p-2 rounded-box border transition"
+        class="flex items-start gap-2.5 rounded-md border p-2.5 transition-colors duration-(--duration-fast)"
         :class="[
-          visibility === opt.value
-            ? opt.value === 'public'
-              ? 'bg-error/10 border-error/30'
-              : opt.value === 'unlisted'
-                ? 'bg-info/10 border-info/30'
-                : 'bg-warning/10 border-warning/30'
-            : 'border-base-300 hover:border-base-content/20',
-          disabled ? 'opacity-50 cursor-not-allowed' : '',
+          visibility === opt.value ? opt.selectedTone : 'border-border bg-card hover:border-accent-border',
+          disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
         ]"
       >
         <input
           type="radio"
-          class="radio radio-sm"
-          :class="opt.radioClass"
+          class="mt-0.5 size-3.5 shrink-0 cursor-pointer accent-(--color-accent)"
           :checked="visibility === opt.value"
           :disabled="disabled"
           @change="select(opt.value)"
-        />
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5">
-            <Icon :name="opt.icon" class="text-sm" />
-            <span class="font-medium text-sm">{{ opt.label }}</span>
+        >
+        <span class="min-w-0 flex-1">
+          <span class="flex items-center gap-1.5 text-sm font-medium">
+            <Icon :name="opt.icon" class="shrink-0" />
+            {{ opt.label }}
             <span
-              v-if="opt.badgeText"
-              class="badge badge-xs gap-1"
-              :class="opt.badgeClass"
+              v-if="opt.value === 'public'"
+              class="rounded-sm border border-danger-border bg-danger-bg px-1.5 text-micro text-danger"
             >
-              {{ opt.badgeText }}
+              необратимо
             </span>
-          </div>
-          <div class="text-xs text-base-content/60 mt-0.5">
-            {{ opt.description }}
-          </div>
-        </div>
+          </span>
+          <span class="block text-sm text-muted">{{ opt.description }}</span>
+        </span>
       </label>
     </div>
 
-    <div
+    <p
       v-if="visibility === 'public'"
-      role="alert"
-      class="alert alert-warning alert-soft py-2 text-xs"
+      class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm"
     >
-      <Icon name="mingcute:warning-line" class="text-sm shrink-0" />
-      <span>
-        Видео уйдёт в открытый доступ сразу после публикации. Убедитесь что
-        контент готов к публичному показу.
-      </span>
-    </div>
+      <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
+      Ролик станет виден всем сразу после отправки. Убедитесь, что он готов.
+    </p>
   </div>
 </template>

@@ -122,77 +122,54 @@ watch(formValid, (v) => emit("update:valid", v), { immediate: true })
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- Caption (текст + хэштеги считаются вместе) -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center justify-between gap-2">
-        <span>Подпись (caption)</span>
-        <span
-          class="text-xs"
-          :class="!lengthValid ? 'text-error font-medium' : 'text-base-content/40'"
-        >
-          {{ totalLength }}/{{ INSTAGRAM_CAPTION_MAX }}
+  <div class="flex flex-col gap-4">
+    <div>
+      <div class="mb-[5px] flex items-baseline justify-between gap-2">
+        <span class="text-[11.5px] text-muted">Подпись</span>
+        <span class="tnum font-mono text-micro" :class="!lengthValid ? 'text-danger' : 'text-subtle'">
+          {{ totalLength }} из {{ INSTAGRAM_CAPTION_MAX }}
         </span>
-      </legend>
-      <textarea
+      </div>
+      <UiTextarea
         v-model="captionRaw"
-        class="textarea textarea-sm w-full"
-        :class="!lengthValid ? 'textarea-error' : ''"
-        rows="4"
-        placeholder="Текст поста. Хэштеги добавляются отдельным полем ниже и считаются в общий лимит 2200."
+        :rows="4"
+        :invalid="!lengthValid"
+        placeholder="Текст поста. Хэштеги задаются отдельным полем и входят в тот же лимит."
         :disabled="disabled || captionLoading"
-        @input="userEditedCaption = true"
+        @update:model-value="userEditedCaption = true"
       />
-      <span v-if="captionLoading" class="text-xs text-base-content/40">
-        Загружаю caption…
-      </span>
-      <span
-        v-else-if="captionSourceFound"
-        class="text-xs text-success flex items-center gap-1 mt-0.5"
-      >
-        <Icon name="mingcute:check-circle-line" class="text-xs" />
-        Подтянут caption из видео — можно отредактировать
-      </span>
-      <span
-        v-if="!lengthValid"
-        class="text-xs text-error flex items-center gap-1 mt-0.5"
-      >
-        <Icon name="mingcute:warning-line" class="text-xs" />
-        Caption вместе с хэштегами превышает лимит {{ INSTAGRAM_CAPTION_MAX }} символов
-      </span>
-    </fieldset>
-
-    <!-- Hashtags -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center justify-between gap-2">
-        <span>Хэштеги (через пробел или запятую)</span>
-        <span
-          class="text-xs"
-          :class="!hashtagsCountValid ? 'text-error font-medium' : 'text-base-content/40'"
-        >
-          {{ hashtags.length }}/{{ INSTAGRAM_HASHTAGS_MAX_COUNT }}
-        </span>
-      </legend>
-      <input
-        v-model="hashtagsRaw"
-        type="text"
-        class="input input-sm w-full"
-        :class="!hashtagsCountValid ? 'input-error' : ''"
-        placeholder="#reels #fitness #motivation"
-        :disabled="disabled || captionLoading"
-        @input="userEditedHashtags = true"
-      />
-      <span
-        v-if="!hashtagsCountValid"
-        class="text-xs text-error flex items-center gap-1 mt-0.5"
-      >
-        <Icon name="mingcute:warning-line" class="text-xs" />
-        Instagram допускает не более {{ INSTAGRAM_HASHTAGS_MAX_COUNT }} хэштегов
-      </span>
-      <p class="label text-xs text-base-content/50">
-        Теги входят в общий лимит подписи 2200 символов. У Instagram нет полей
-        видимости и «для детей».
+      <p v-if="captionLoading" class="mt-1 text-micro text-subtle">Загружаю подпись…</p>
+      <p v-else-if="captionSourceFound" class="mt-1 flex items-center gap-1 text-micro text-success">
+        <Icon name="mingcute:check-circle-line" />
+        Подставлена подпись ролика — её можно поправить
       </p>
-    </fieldset>
+      <p v-if="!lengthValid" class="mt-1 flex items-center gap-1 text-micro text-danger">
+        <Icon name="mingcute:warning-line" />
+        Подпись вместе с хэштегами длиннее {{ INSTAGRAM_CAPTION_MAX }} символов
+      </p>
+    </div>
+
+    <div>
+      <div class="mb-[5px] flex items-baseline justify-between gap-2">
+        <span class="text-[11.5px] text-muted">Хэштеги</span>
+        <span class="tnum font-mono text-micro" :class="!hashtagsCountValid ? 'text-danger' : 'text-subtle'">
+          {{ hashtags.length }} из {{ INSTAGRAM_HASHTAGS_MAX_COUNT }}
+        </span>
+      </div>
+      <UiInput
+        v-model="hashtagsRaw"
+        :invalid="!hashtagsCountValid"
+        placeholder="#мебель #ремонт"
+        :disabled="disabled || captionLoading"
+        @update:model-value="userEditedHashtags = true"
+      />
+      <p v-if="!hashtagsCountValid" class="mt-1 flex items-center gap-1 text-micro text-danger">
+        <Icon name="mingcute:warning-line" />
+        Instagram принимает не больше {{ INSTAGRAM_HASHTAGS_MAX_COUNT }} хэштегов
+      </p>
+      <p class="mt-1 text-micro text-subtle">
+        Хэштеги входят в общий лимит подписи. Видимости и отметки «для детей» у Instagram нет.
+      </p>
+    </div>
   </div>
 </template>

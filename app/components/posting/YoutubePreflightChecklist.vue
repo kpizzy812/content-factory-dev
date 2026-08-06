@@ -1,75 +1,58 @@
 <script setup lang="ts">
 /**
- * Визуализация pre-flight проверок YouTube постинга.
+ * Проверки перед отправкой ролика на YouTube.
  *
- * Получает PreflightState от useYoutubePreflight, рендерит menu со статусом
- * каждой проверки + actionable кнопки для исправления (run-login-check,
- * open-caption-editor, и т.д.).
- *
- * actionType emit'ится наверх — родитель решает как обработать (открыть модалку,
- * вызвать composable, перейти на страницу).
+ * Каждая проверка, которую можно починить, приносит с собой действие — оператор
+ * чинит прямо здесь, а не уходит искать нужный экран.
  */
-import type {
-  PreflightCheck,
-  PreflightState,
-} from "~~/shared/types/posting-youtube"
+import type { PreflightCheck, PreflightState } from '~~/shared/types/posting-youtube'
 
-defineProps<{
-  state: PreflightState
-}>()
+defineProps<{ state: PreflightState }>()
 
-const emit = defineEmits<{
-  action: [check: PreflightCheck]
-}>()
+const emit = defineEmits<{ action: [check: PreflightCheck] }>()
 
-const STATUS_ICON: Record<PreflightCheck["status"], string> = {
-  ok: "mingcute:check-circle-fill",
-  warn: "mingcute:warning-fill",
-  blocker: "mingcute:close-circle-fill",
-  loading: "mingcute:loading-line",
+const STATUS_ICON: Record<PreflightCheck['status'], string> = {
+  ok: 'mingcute:check-circle-fill',
+  warn: 'mingcute:warning-fill',
+  blocker: 'mingcute:close-circle-fill',
+  loading: 'mingcute:loading-3-line',
 }
 
-const STATUS_CLASS: Record<PreflightCheck["status"], string> = {
-  ok: "text-success",
-  warn: "text-warning",
-  blocker: "text-error",
-  loading: "text-base-content/40 animate-spin",
+const STATUS_TONE: Record<PreflightCheck['status'], string> = {
+  ok: 'text-success',
+  warn: 'text-warning',
+  blocker: 'text-danger',
+  loading: 'text-subtle motion-safe:animate-spin',
 }
 </script>
 
 <template>
-  <ul class="menu menu-sm bg-base-200/30 rounded-box w-full">
-    <li v-for="check in state.checks" :key="check.key" class="border-b last:border-b-0 border-base-300/40">
-      <div class="flex items-start gap-2 py-2 hover:bg-transparent cursor-default">
-        <Icon
-          :name="STATUS_ICON[check.status]"
-          class="text-base shrink-0 mt-0.5"
-          :class="STATUS_CLASS[check.status]"
-        />
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium">{{ check.label }}</div>
-          <div
-            v-if="check.detail"
-            class="text-xs text-base-content/60 mt-0.5 break-words"
-          >
-            {{ check.detail }}
-          </div>
-        </div>
-        <button
-          v-if="check.actionLabel && check.status !== 'ok' && check.status !== 'loading'"
-          type="button"
-          class="btn btn-xs btn-ghost shrink-0"
-          @click.stop="emit('action', check)"
-        >
-          {{ check.actionLabel }}
-        </button>
+  <ul class="overflow-hidden rounded-md border border-border">
+    <li
+      v-for="check in state.checks"
+      :key="check.key"
+      class="flex items-start gap-2.5 border-b border-divider bg-panel px-2.5 py-2 last:border-b-0"
+    >
+      <Icon
+        :name="STATUS_ICON[check.status]"
+        class="mt-0.5 shrink-0"
+        :class="STATUS_TONE[check.status]"
+      />
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-medium">{{ check.label }}</div>
+        <p v-if="check.detail" class="text-sm break-words text-muted">{{ check.detail }}</p>
       </div>
+      <UiButton
+        v-if="check.actionLabel && check.status !== 'ok' && check.status !== 'loading'"
+        variant="ghost"
+        @click.stop="emit('action', check)"
+      >
+        {{ check.actionLabel }}
+      </UiButton>
     </li>
 
-    <li v-if="state.checks.length === 0 && state.loading" class="py-3">
-      <span class="text-xs text-base-content/60 loading loading-dots loading-sm">
-        Проверяю…
-      </span>
+    <li v-if="!state.checks.length && state.loading" class="bg-panel px-2.5 py-3 text-sm text-subtle">
+      Проверяю…
     </li>
   </ul>
 </template>

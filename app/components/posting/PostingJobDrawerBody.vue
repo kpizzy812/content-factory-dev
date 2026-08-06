@@ -52,6 +52,7 @@ const errorLabel = computed(() =>
   <div class="flex flex-col gap-4">
     <div class="flex flex-wrap items-center gap-2">
       <PostingJobStatusBadge :status="job.status" />
+      <PostingJobYoutubeBadges v-if="job.platform === 'youtube'" :job="job" />
       <span v-if="job.cancelReason" class="text-sm text-subtle">снята: {{ job.cancelReason }}</span>
     </div>
 

@@ -194,152 +194,135 @@ function onPreflightAction(check: PreflightCheck) {
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- Title -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center justify-between gap-2">
-        <span>Заголовок * (YouTube ≤ {{ YOUTUBE_LIMITS.TITLE_MAX }})</span>
-        <span class="text-xs" :class="title.length > YOUTUBE_LIMITS.TITLE_MAX ? 'text-error' : 'text-base-content/40'">
-          {{ title.length }}/{{ YOUTUBE_LIMITS.TITLE_MAX }}
-        </span>
-      </legend>
-      <input
-        v-model="title"
-        type="text"
-        class="input input-sm w-full"
-        :class="!titleValid && title.length > 0 ? 'input-error' : ''"
-        :maxlength="YOUTUBE_LIMITS.TITLE_MAX + 5"
-        placeholder="Название видео на YouTube"
-        :disabled="disabled || captionLoading"
-        @input="userEditedTitle = true"
-      />
-      <span v-if="captionLoading" class="text-xs text-base-content/40">
-        Загружаю caption…
-      </span>
-      <span
-        v-else-if="captionSourcePlatform === 'youtube' && captionApproved === true"
-        class="text-xs text-success flex items-center gap-1 mt-0.5"
-      >
-        <Icon name="mingcute:check-circle-line" class="text-xs" />
-        Подтянут утверждённый YouTube caption
-      </span>
-      <span
-        v-else-if="captionSourcePlatform === 'youtube' && captionApproved === false"
-        class="text-xs text-warning flex items-center gap-1 mt-0.5"
-      >
-        <Icon name="mingcute:warning-line" class="text-xs" />
-        Caption не утверждён — отредактируйте или утвердите на /videos/:id
-      </span>
-      <span
-        v-else-if="captionSourcePlatform === 'tiktok' || captionSourcePlatform === 'instagram'"
-        class="text-xs text-info flex items-center gap-1 mt-0.5"
-      >
-        <Icon name="mingcute:information-line" class="text-xs" />
-        Подтянут caption из {{ captionSourcePlatform === 'tiktok' ? 'TikTok' : 'Instagram' }}
-        — YouTube caption ещё не создан. Можно отредактировать или сгенерировать на /videos/:id.
-      </span>
-    </fieldset>
+  <div class="flex flex-col gap-4">
+    <div>
+      <div class="mb-[5px] flex items-baseline justify-between gap-2">
+          <span class="text-[11.5px] text-muted">Заголовок</span>
+          <span class="tnum font-mono text-micro" :class="title.length > YOUTUBE_LIMITS.TITLE_MAX ? 'text-danger' : 'text-subtle'">
+            {{ title.length }} из {{ YOUTUBE_LIMITS.TITLE_MAX }}
+          </span>
+        </div>
+        <UiInput
+          v-model="title"
+          :invalid="!titleValid && title.length > 0"
+          placeholder="Название ролика на YouTube"
+          :disabled="disabled || captionLoading"
+          @update:model-value="userEditedTitle = true"
+        />
+        <p v-if="captionLoading" class="mt-1 text-micro text-subtle">Загружаю подпись…</p>
+        <p
+          v-else-if="captionSourcePlatform === 'youtube' && captionApproved === true"
+          class="mt-1 flex items-center gap-1 text-micro text-success"
+        >
+          <Icon name="mingcute:check-circle-line" />
+          Подставлена утверждённая подпись для YouTube
+        </p>
+        <p
+          v-else-if="captionSourcePlatform === 'youtube' && captionApproved === false"
+          class="mt-1 flex items-center gap-1 text-micro text-warning"
+        >
+          <Icon name="mingcute:warning-line" />
+          Подпись не утверждена — поправьте здесь или утвердите на странице ролика
+        </p>
+        <p
+          v-else-if="captionSourcePlatform === 'tiktok' || captionSourcePlatform === 'instagram'"
+          class="mt-1 flex items-center gap-1 text-micro text-info"
+        >
+          <Icon name="mingcute:information-line" />
+          Подставлена подпись из {{ captionSourcePlatform === 'tiktok' ? 'TikTok' : 'Instagram' }} —
+        для YouTube своей ещё нет
+      </p>
+    </div>
 
-    <!-- Description -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center justify-between gap-2">
-        <span>Описание (≤ {{ YOUTUBE_LIMITS.DESCRIPTION_MAX }})</span>
-        <span class="text-xs" :class="!descriptionValid ? 'text-error' : 'text-base-content/40'">
-          {{ description.length }}/{{ YOUTUBE_LIMITS.DESCRIPTION_MAX }}
+    <div>
+      <div class="mb-[5px] flex items-baseline justify-between gap-2">
+        <span class="text-[11.5px] text-muted">Описание</span>
+        <span class="tnum font-mono text-micro" :class="!descriptionValid ? 'text-danger' : 'text-subtle'">
+          {{ description.length }} из {{ YOUTUBE_LIMITS.DESCRIPTION_MAX }}
         </span>
-      </legend>
-      <textarea
+      </div>
+      <UiTextarea
         v-model="description"
-        class="textarea textarea-sm w-full"
-        :class="!descriptionValid ? 'textarea-error' : ''"
-        rows="3"
-        placeholder="Описание видео. Хэштеги добавятся в конец автоматически."
+        :rows="3"
+        :invalid="!descriptionValid"
+        placeholder="Текст под роликом. Хэштеги допишутся в конец сами."
         :disabled="disabled || captionLoading"
-        @input="userEditedDescription = true"
+        @update:model-value="userEditedDescription = true"
       />
-    </fieldset>
+    </div>
 
-    <!-- Hashtags -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center justify-between gap-2">
-        <span>Хэштеги (≤ {{ YOUTUBE_LIMITS.HASHTAGS_TOTAL_MAX }} chars суммарно)</span>
-        <span class="text-xs" :class="!hashtagsValid ? 'text-error' : 'text-base-content/40'">
-          {{ hashtagsTotalChars }}/{{ YOUTUBE_LIMITS.HASHTAGS_TOTAL_MAX }}
+    <div>
+      <div class="mb-[5px] flex items-baseline justify-between gap-2">
+        <span class="text-[11.5px] text-muted">Хэштеги</span>
+        <span class="tnum font-mono text-micro" :class="!hashtagsValid ? 'text-danger' : 'text-subtle'">
+          {{ hashtagsTotalChars }} из {{ YOUTUBE_LIMITS.HASHTAGS_TOTAL_MAX }} символов
         </span>
-      </legend>
-      <input
+      </div>
+      <UiInput
         v-model="hashtagsRaw"
-        type="text"
-        class="input input-sm w-full"
-        :class="!hashtagsValid ? 'input-error' : ''"
-        placeholder="#shorts #motivation"
+        :invalid="!hashtagsValid"
+        placeholder="#shorts #мебель"
         :disabled="disabled || captionLoading"
-        @input="userEditedHashtags = true"
+        @update:model-value="userEditedHashtags = true"
       />
-    </fieldset>
+    </div>
 
-    <!-- Visibility -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Видимость *</legend>
+    <UiField label="Кто увидит ролик">
       <PostingVisibilitySelector
         :visibility="visibility"
         :disabled="disabled"
         @update:visibility="onVisibilityUpdate"
       />
-    </fieldset>
+    </UiField>
 
-    <!-- Made for kids -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Made for kids *</legend>
-      <div class="grid gap-2">
-        <label class="label cursor-pointer justify-start gap-3 p-2 rounded-box border border-base-300">
+    <UiField label="Ролик для детей">
+      <div class="flex flex-col gap-2">
+        <label
+          class="flex items-start gap-2.5 rounded-md border border-border bg-card p-2.5"
+          :class="disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
+        >
           <input
             type="radio"
-            class="radio radio-sm"
+            class="mt-0.5 size-3.5 shrink-0 cursor-pointer accent-(--color-accent)"
             :checked="madeForKids === false"
             :disabled="disabled"
             @change="madeForKids = false"
-          />
-          <div class="flex-1">
-            <div class="font-medium text-sm">Не для детей</div>
-            <div class="text-xs text-base-content/60 mt-0.5">
-              Стандартный выбор для marketing creatives. Видео доступно в обычной аудитории.
-            </div>
-          </div>
+          >
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-medium">Нет, не для детей</span>
+            <span class="block text-sm text-muted">Обычный выбор для рекламных роликов.</span>
+          </span>
         </label>
-        <label class="label cursor-pointer justify-start gap-3 p-2 rounded-box border border-base-300">
+        <label
+          class="flex items-start gap-2.5 rounded-md border border-border bg-card p-2.5"
+          :class="disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
+        >
           <input
             type="radio"
-            class="radio radio-sm"
+            class="mt-0.5 size-3.5 shrink-0 cursor-pointer accent-(--color-accent)"
             :checked="madeForKids === true"
             :disabled="disabled"
             @change="madeForKids = true"
-          />
-          <div class="flex-1">
-            <div class="font-medium text-sm">Для детей (COPPA)</div>
-            <div class="text-xs text-base-content/60 mt-0.5">
-              YouTube наложит ограничения: нет комментариев, нет персонализированной рекламы.
-            </div>
-          </div>
+          >
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-medium">Да, для детей</span>
+            <span class="block text-sm text-muted">
+              YouTube отключит комментарии и персонализированную рекламу.
+            </span>
+          </span>
         </label>
       </div>
-      <div
+      <p
         v-if="madeForKids === null"
-        role="alert"
-        class="alert alert-info alert-soft py-2 text-xs mt-1"
+        class="mt-2 flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm"
       >
-        <Icon name="mingcute:information-line" class="text-sm shrink-0" />
-        <span>YouTube требует обязательный выбор аудитории — публикация не пройдёт без этого.</span>
-      </div>
-    </fieldset>
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+        Без этого выбора YouTube не примет публикацию.
+      </p>
+    </UiField>
 
-    <!-- Pre-flight checklist -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Готовность к публикации</legend>
-      <PostingYoutubePreflightChecklist
-        :state="preflightState"
-        @action="onPreflightAction"
-      />
-    </fieldset>
+    <UiField label="Готовность к публикации">
+      <PostingYoutubePreflightChecklist :state="preflightState" @action="onPreflightAction" />
+    </UiField>
   </div>
 </template>
