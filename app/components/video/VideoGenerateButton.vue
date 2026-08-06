@@ -22,16 +22,9 @@ const config = ref({
   targetPlatform: '',
 })
 
-const isDisabled = computed(() => {
-  if (isGenerating.value) return true
-  if (props.scenarioStatus !== 'selected') return true
-  if (props.hasActiveVideo) return true
-  return false
-})
-
 const disabledReason = computed(() => {
-  if (props.hasActiveVideo) return 'Для этого сценария уже генерируется видео'
-  if (props.scenarioStatus !== 'selected') return 'Сценарий должен быть в статусе "Выбран"'
+  if (props.hasActiveVideo) return 'Для этого сценария уже генерируется ролик'
+  if (props.scenarioStatus !== 'selected') return 'Сначала нужно выбрать вариант сценария'
   return ''
 })
 
@@ -55,56 +48,36 @@ async function handleGenerate() {
 </script>
 
 <template>
-  <div v-if="can('canRunAgent')">
-    <div
-      :class="{ 'tooltip tooltip-bottom': isDisabled && !isGenerating }"
-      :data-tip="disabledReason"
-    >
-      <button
-        class="btn btn-sm btn-primary gap-1"
-        :class="{ 'btn-disabled opacity-50': isDisabled }"
-        :disabled="isDisabled"
-        @click="showConfig = true"
-      >
-        <template v-if="isGenerating">
-          <span class="loading loading-spinner loading-xs" />
-          Запуск генерации...
-        </template>
-        <template v-else>
-          <Icon name="mingcute:video-line" />
-          Создать видео
-        </template>
-      </button>
-    </div>
+  <div v-if="can('canRunAgent')" class="flex flex-col gap-2">
+    <UiTooltip v-if="disabledReason" :text="disabledReason" placement="bottom">
+      <UiButton variant="primary" disabled>
+        <Icon name="mingcute:video-line" />
+        Создать ролик
+      </UiButton>
+    </UiTooltip>
+    <UiButton v-else variant="primary" :loading="isGenerating" @click="showConfig = true">
+      <Icon v-if="!isGenerating" name="mingcute:video-line" />
+      {{ isGenerating ? 'Запускаем' : 'Создать ролик' }}
+    </UiButton>
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm mt-2">
-      <Icon name="mingcute:warning-line" />
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
 
-    <!-- Config modal -->
-    <dialog :class="{ 'modal modal-open': showConfig, 'modal': !showConfig }">
-      <div class="modal-box max-w-lg">
-        <h3 class="text-lg font-bold mb-4">Настройки генерации видео</h3>
-
-        <VideoOutputConfig v-model="config" />
-
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="showConfig = false">Отмена</button>
-          <button
-            class="btn btn-primary"
-            :disabled="isGenerating"
-            @click="handleGenerate"
-          >
-            <span v-if="isGenerating" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:play-fill" />
-            Запустить генерацию
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="showConfig = false">close</button>
-      </form>
-    </dialog>
+    <UiModal :open="showConfig" title="Настройки генерации ролика" @close="showConfig = false">
+      <VideoOutputConfig v-model="config" />
+      <template #footer>
+        <UiButton variant="ghost" @click="showConfig = false">Отмена</UiButton>
+        <UiButton variant="primary" :loading="isGenerating" @click="handleGenerate">
+          <Icon v-if="!isGenerating" name="mingcute:play-fill" />
+          Запустить · платно
+        </UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

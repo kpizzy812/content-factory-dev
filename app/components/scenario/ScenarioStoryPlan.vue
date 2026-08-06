@@ -3,17 +3,31 @@ const props = defineProps<{
   storyPlan: any
 }>()
 
-const protagonistTypeLabels: Record<string, string> = {
+const PROTAGONIST_LABELS: Record<string, string> = {
   person: 'Персона',
   object: 'Объект',
   abstract: 'Абстракция',
 }
 
-const protagonistTypeColors: Record<string, string> = {
-  person: 'badge-primary',
-  object: 'badge-secondary',
-  abstract: 'badge-accent',
+const ARC_TEMPLATE_LABELS: Record<string, string> = {
+  transformation: 'Трансформация',
+  discovery: 'Открытие',
+  challenge: 'Вызов',
+  comparison: 'Сравнение',
+  day_in_life: 'День из жизни',
+  social_proof: 'Соцдоказательство',
+  curiosity: 'Любопытство',
+  custom: 'Свободная',
 }
+
+const PACING_LABELS: Record<string, string> = {
+  slow: 'Медленный',
+  moderate: 'Умеренный',
+  fast: 'Быстрый',
+}
+
+/** Нейтральная пометка-чип: у этих значений нет статуса, только подпись. */
+const CHIP = 'rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted'
 
 const arcSteps = computed(() => {
   const arc = props.storyPlan?.storyArc
@@ -26,329 +40,280 @@ const arcSteps = computed(() => {
   ].filter(s => s.text)
 })
 
-const arcTemplateLabels: Record<string, string> = {
-  transformation: 'Трансформация',
-  discovery: 'Открытие',
-  challenge: 'Вызов',
-  comparison: 'Сравнение',
-  day_in_life: 'День из жизни',
-  social_proof: 'Соцдоказательство',
-  curiosity: 'Любопытство',
-  custom: 'Свободная',
-}
-
-const pacingLabels: Record<string, string> = {
-  slow: 'Медленный',
-  moderate: 'Умеренный',
-  fast: 'Быстрый',
-}
-
 interface AppliedRef {
   favoritePromptId: number
   aspects: string[]
 }
 
 function appliedReferencesTooltip(refs: AppliedRef[] | null | undefined): string {
-  if (!refs || refs.length === 0) return ''
-  return refs
-    .map(r => `Промт #${r.favoritePromptId}: ${r.aspects.join(', ')}`)
-    .join(' | ')
+  if (!refs?.length) return ''
+  return refs.map(r => `Промт #${r.favoritePromptId}: ${r.aspects.join(', ')}`).join(' · ')
 }
 </script>
 
 <template>
-  <div class="space-y-2">
-    <!-- Story Arc -->
-    <div v-if="storyPlan?.storyArc" class="collapse collapse-arrow bg-base-200">
-      <input type="checkbox" checked="checked">
-      <div class="collapse-title font-semibold text-sm flex items-center gap-2">
-        <Icon name="mingcute:route-line" class="text-primary text-lg" />
-        Сюжетная дуга
-        <span
-          v-if="storyPlan.storyArc.template"
-          class="badge badge-sm badge-outline badge-primary"
-        >
-          {{ arcTemplateLabels[storyPlan.storyArc.template] || storyPlan.storyArc.template }}
+  <div class="flex flex-col gap-2">
+    <!-- Сюжетная дуга -->
+    <UiDisclosure
+      v-if="storyPlan?.storyArc"
+      title="Сюжетная дуга"
+      icon="mingcute:route-line"
+      icon-tone="text-accent"
+      default-open
+    >
+      <template #header-extra>
+        <span v-if="storyPlan.storyArc.template" :class="CHIP">
+          {{ ARC_TEMPLATE_LABELS[storyPlan.storyArc.template] ?? storyPlan.storyArc.template }}
         </span>
-      </div>
-      <div class="collapse-content space-y-3">
-        <!-- Arc Steps as vertical steps -->
-        <ul v-if="arcSteps.length" class="steps steps-vertical w-full">
-          <li
-            v-for="(step, idx) in arcSteps"
-            :key="idx"
-            class="step step-primary"
-          >
-            <div class="text-left">
-              <div class="font-medium text-xs text-base-content/60 flex items-center gap-1">
-                <Icon :name="step.icon" class="text-sm" />
-                {{ step.label }}
-              </div>
-              <p class="text-sm text-base-content/80">{{ step.text }}</p>
-            </div>
-          </li>
-        </ul>
+      </template>
 
-        <!-- Emotional journey -->
-        <div v-if="storyPlan.storyArc.emotionalJourney?.length" class="flex flex-wrap items-center gap-1 pt-1">
-          <span class="text-xs text-base-content/50 mr-1">Эмоции:</span>
-          <template v-for="(emotion, idx) in storyPlan.storyArc.emotionalJourney" :key="idx">
-            <span class="badge badge-sm badge-ghost">{{ emotion }}</span>
-            <Icon
-              v-if="idx < storyPlan.storyArc.emotionalJourney.length - 1"
-              name="mingcute:arrow-right-line"
-              class="text-xs text-base-content/30"
-            />
-          </template>
-        </div>
-      </div>
-    </div>
-
-    <!-- Protagonist -->
-    <div v-if="storyPlan?.protagonist" class="collapse collapse-arrow bg-base-200">
-      <input type="checkbox">
-      <div class="collapse-title font-semibold text-sm flex items-center gap-2">
-        <Icon name="mingcute:user-star-line" class="text-secondary text-lg" />
-        Протагонист
-        <span
-          v-if="storyPlan.protagonist.type"
-          :class="['badge badge-sm', protagonistTypeColors[storyPlan.protagonist.type] || 'badge-neutral']"
+      <ol v-if="arcSteps.length" class="flex flex-col">
+        <li
+          v-for="(step, idx) in arcSteps"
+          :key="idx"
+          class="flex gap-2.5 border-b border-divider py-1.5 last:border-b-0"
         >
-          {{ protagonistTypeLabels[storyPlan.protagonist.type] || storyPlan.protagonist.type }}
-        </span>
-      </div>
-      <div class="collapse-content space-y-2">
-        <p v-if="storyPlan.protagonist.description" class="text-sm text-base-content/80">
-          {{ storyPlan.protagonist.description }}
-        </p>
-
-        <!-- State transition -->
-        <div
-          v-if="storyPlan.protagonist.initialState || storyPlan.protagonist.finalState"
-          class="flex items-center gap-2 text-sm"
-        >
-          <span v-if="storyPlan.protagonist.initialState" class="badge badge-soft badge-warning badge-sm">
-            {{ storyPlan.protagonist.initialState }}
-          </span>
-          <Icon
-            v-if="storyPlan.protagonist.initialState && storyPlan.protagonist.finalState"
-            name="mingcute:arrow-right-line"
-            class="text-base-content/40"
-          />
-          <span v-if="storyPlan.protagonist.finalState" class="badge badge-soft badge-success badge-sm">
-            {{ storyPlan.protagonist.finalState }}
-          </span>
-        </div>
-
-        <!-- Visual identifiers -->
-        <div v-if="storyPlan.protagonist.visualIdentifiers?.length" class="flex flex-wrap gap-1 pt-1">
-          <span class="text-xs text-base-content/50 mr-1">Маркеры:</span>
           <span
-            v-for="(marker, idx) in storyPlan.protagonist.visualIdentifiers"
-            :key="idx"
-            class="badge badge-sm badge-outline"
+            class="tnum mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-accent-border bg-accent-bg font-mono text-micro text-accent"
           >
-            {{ marker }}
+            {{ idx + 1 }}
           </span>
-        </div>
-      </div>
-    </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 text-micro text-subtle">
+              <Icon :name="step.icon" />
+              {{ step.label }}
+            </div>
+            <p class="text-sm">{{ step.text }}</p>
+          </div>
+        </li>
+      </ol>
 
-    <!-- Scenes -->
-    <div v-if="storyPlan?.scenes?.length" class="collapse collapse-arrow bg-base-200">
-      <input type="checkbox">
-      <div class="collapse-title font-semibold text-sm flex items-center gap-2">
-        <Icon name="mingcute:movie-line" class="text-accent text-lg" />
-        Сцены
-        <span class="badge badge-sm badge-ghost">{{ storyPlan.scenes.length }}</span>
+      <div v-if="storyPlan.storyArc.emotionalJourney?.length" class="mt-2 flex flex-wrap items-center gap-1">
+        <span class="mr-1 text-micro text-subtle">Эмоции</span>
+        <template v-for="(emotion, idx) in storyPlan.storyArc.emotionalJourney" :key="idx">
+          <span :class="CHIP">{{ emotion }}</span>
+          <Icon
+            v-if="idx < storyPlan.storyArc.emotionalJourney.length - 1"
+            name="mingcute:right-line"
+            class="text-subtle"
+          />
+        </template>
       </div>
-      <div class="collapse-content">
-        <ul class="timeline timeline-vertical timeline-compact">
-          <li v-for="(scene, idx) in storyPlan.scenes" :key="idx">
-            <hr v-if="idx > 0" class="bg-primary" />
-            <div class="timeline-middle">
-              <span class="badge badge-sm badge-primary badge-outline font-mono">
-                {{ scene.order ?? idx + 1 }}
+    </UiDisclosure>
+
+    <!-- Протагонист -->
+    <UiDisclosure
+      v-if="storyPlan?.protagonist"
+      title="Протагонист"
+      icon="mingcute:user-star-line"
+      icon-tone="text-accent"
+    >
+      <template #header-extra>
+        <span v-if="storyPlan.protagonist.type" :class="CHIP">
+          {{ PROTAGONIST_LABELS[storyPlan.protagonist.type] ?? storyPlan.protagonist.type }}
+        </span>
+      </template>
+
+      <p v-if="storyPlan.protagonist.description" class="text-sm">
+        {{ storyPlan.protagonist.description }}
+      </p>
+
+      <div
+        v-if="storyPlan.protagonist.initialState || storyPlan.protagonist.finalState"
+        class="mt-2 flex flex-wrap items-center gap-1.5"
+      >
+        <span
+          v-if="storyPlan.protagonist.initialState"
+          class="rounded-sm border border-warning-border bg-warning-bg px-1.5 py-0.5 text-micro text-warning"
+        >
+          {{ storyPlan.protagonist.initialState }}
+        </span>
+        <Icon
+          v-if="storyPlan.protagonist.initialState && storyPlan.protagonist.finalState"
+          name="mingcute:right-line"
+          class="text-subtle"
+        />
+        <span
+          v-if="storyPlan.protagonist.finalState"
+          class="rounded-sm border border-success-border bg-success-bg px-1.5 py-0.5 text-micro text-success"
+        >
+          {{ storyPlan.protagonist.finalState }}
+        </span>
+      </div>
+
+      <div v-if="storyPlan.protagonist.visualIdentifiers?.length" class="mt-2 flex flex-wrap items-center gap-1">
+        <span class="mr-1 text-micro text-subtle">Маркеры</span>
+        <span v-for="(marker, idx) in storyPlan.protagonist.visualIdentifiers" :key="idx" :class="CHIP">
+          {{ marker }}
+        </span>
+      </div>
+    </UiDisclosure>
+
+    <!-- Сцены -->
+    <UiDisclosure
+      v-if="storyPlan?.scenes?.length"
+      title="Сцены"
+      icon="mingcute:movie-line"
+      icon-tone="text-accent"
+      :count="storyPlan.scenes.length"
+    >
+      <ol class="flex flex-col">
+        <li
+          v-for="(scene, idx) in storyPlan.scenes"
+          :key="idx"
+          class="flex gap-2.5 border-b border-divider py-2 last:border-b-0"
+        >
+          <span
+            class="tnum mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-micro text-muted"
+          >
+            {{ scene.order ?? idx + 1 }}
+          </span>
+
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <div class="flex flex-wrap items-start gap-2">
+              <p v-if="scene.purpose" class="text-sm font-medium">{{ scene.purpose }}</p>
+              <span
+                v-if="scene.appliedReferences?.length"
+                class="shrink-0 cursor-help rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted"
+                :title="appliedReferencesTooltip(scene.appliedReferences)"
+              >
+                <Icon name="mingcute:bookmark-line" />
+                эталонов {{ scene.appliedReferences.length }}
               </span>
             </div>
-            <div class="timeline-end mb-4 ml-2 space-y-1 w-full">
-              <!-- Purpose + applied references badge -->
-              <div class="flex items-start gap-2 flex-wrap">
-                <p v-if="scene.purpose" class="text-sm font-medium text-base-content">
-                  {{ scene.purpose }}
-                </p>
-                <span
-                  v-if="scene.appliedReferences && scene.appliedReferences.length > 0"
-                  class="badge badge-outline badge-xs gap-1 cursor-help shrink-0"
-                  :title="appliedReferencesTooltip(scene.appliedReferences)"
-                >
-                  <Icon name="mingcute:bookmark-line" class="text-[9px]" />
-                  Эталоны: {{ scene.appliedReferences.length }}
-                </span>
-              </div>
 
-              <!-- Setting & Action -->
-              <div class="text-xs text-base-content/70 space-y-0.5">
-                <p v-if="scene.setting">
-                  <span class="text-base-content/50">Место:</span> {{ scene.setting }}
-                </p>
-                <p v-if="scene.action">
-                  <span class="text-base-content/50">Действие:</span> {{ scene.action }}
-                </p>
-              </div>
+            <UiKeyValue
+              :items="[
+                { label: 'Место', value: scene.setting, mono: false },
+                { label: 'Действие', value: scene.action, mono: false },
+              ].filter(i => i.value)"
+              label-width="72px"
+            />
 
-              <!-- Emotion + Duration -->
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span v-if="scene.emotionalState" class="badge badge-xs badge-ghost">
-                  {{ scene.emotionalState }}
-                </span>
-                <span v-if="scene.duration" class="badge badge-xs badge-outline">
-                  {{ scene.duration }}
-                </span>
-              </div>
+            <div v-if="scene.emotionalState || scene.duration" class="flex flex-wrap items-center gap-1">
+              <span v-if="scene.emotionalState" :class="CHIP">{{ scene.emotionalState }}</span>
+              <span v-if="scene.duration" :class="CHIP">{{ scene.duration }}</span>
+            </div>
 
-              <!-- Subtitle copy -->
-              <p v-if="scene.subtitleCopy" class="text-xs text-base-content/60 italic">
-                &laquo;{{ scene.subtitleCopy }}&raquo;
-              </p>
+            <p v-if="scene.subtitleCopy" class="text-sm text-muted italic">«{{ scene.subtitleCopy }}»</p>
 
-              <!-- App integration beat -->
-              <div
-                v-if="scene.appIntegrationBeat"
-                class="text-xs bg-primary/10 text-primary rounded px-2 py-1 flex items-center gap-1"
+            <div
+              v-if="scene.appIntegrationBeat"
+              class="flex items-center gap-1.5 rounded-sm border border-accent-border bg-accent-bg px-2 py-1 text-micro text-accent"
+            >
+              <Icon name="mingcute:cellphone-line" />
+              {{ scene.appIntegrationBeat }}
+            </div>
+
+            <div
+              v-if="scene.appScreenRef?.fileUrl"
+              class="flex items-center gap-2 rounded-sm border border-info-border bg-info-bg px-2 py-1.5 text-info"
+              title="Скриншот приложения идёт опорным кадром в image-to-video"
+            >
+              <img
+                :src="scene.appScreenRef.fileUrl"
+                :alt="scene.appScreenRef.intent"
+                class="size-10 shrink-0 rounded-sm border border-info-border object-cover"
               >
-                <Icon name="mingcute:cellphone-line" class="text-sm" />
-                {{ scene.appIntegrationBeat }}
-              </div>
-
-              <!-- App screen reference (image-to-video Kling) -->
-              <div
-                v-if="scene.appScreenRef?.fileUrl"
-                class="flex items-center gap-2 text-xs bg-info/10 text-info rounded px-2 py-1.5"
-                title="Сцена использует скриншот приложения как опорное изображение для Kling image-to-video"
-              >
-                <img
-                  :src="scene.appScreenRef.fileUrl"
-                  :alt="scene.appScreenRef.intent"
-                  class="w-10 h-10 rounded object-cover border border-info/30 shrink-0"
-                />
-                <div class="flex flex-col min-w-0">
-                  <span class="font-medium">Скрин приложения → image-to-video</span>
-                  <span class="text-[10px] opacity-70 truncate">{{ scene.appScreenRef.intent || 'show_interface' }}</span>
-                </div>
+              <div class="flex min-w-0 flex-col">
+                <span class="text-micro font-medium">Скрин приложения → image-to-video</span>
+                <span class="truncate font-mono text-[10px] opacity-70">
+                  {{ scene.appScreenRef.intent || 'show_interface' }}
+                </span>
               </div>
             </div>
-            <hr v-if="idx < storyPlan.scenes.length - 1" class="bg-primary" />
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- Subtitle Style -->
-    <div v-if="storyPlan?.subtitleStyle" class="collapse collapse-arrow bg-base-200">
-      <input type="checkbox">
-      <div class="collapse-title font-semibold text-sm flex items-center gap-2">
-        <Icon name="mingcute:text-line" class="text-info text-lg" />
-        Стиль субтитров
-      </div>
-      <div class="collapse-content space-y-2">
-        <!-- Typography -->
-        <div v-if="storyPlan.subtitleStyle.typography" class="text-xs text-base-content/70 space-y-0.5">
-          <p v-if="storyPlan.subtitleStyle.typography.fontIntent">
-            <span class="text-base-content/50">Шрифт:</span>
-            {{ storyPlan.subtitleStyle.typography.fontIntent }}
-          </p>
-          <p v-if="storyPlan.subtitleStyle.typography.casing">
-            <span class="text-base-content/50">Регистр:</span>
-            {{ storyPlan.subtitleStyle.typography.casing }}
-          </p>
-        </div>
-
-        <!-- Primary color swatch -->
-        <div v-if="storyPlan.subtitleStyle.visual?.primaryColor" class="flex items-center gap-2">
-          <span class="text-xs text-base-content/50">Цвет:</span>
-          <div
-            class="w-5 h-5 rounded-sm border border-base-300"
-            :style="{ backgroundColor: storyPlan.subtitleStyle.visual.primaryColor }"
-            :title="storyPlan.subtitleStyle.visual.primaryColor"
-          />
-          <span class="text-xs font-mono text-base-content/50">
-            {{ storyPlan.subtitleStyle.visual.primaryColor }}
-          </span>
-        </div>
-
-        <!-- Animation -->
-        <div v-if="storyPlan.subtitleStyle.animation" class="flex flex-wrap items-center gap-1 text-xs">
-          <span v-if="storyPlan.subtitleStyle.animation.entrance" class="badge badge-xs badge-outline badge-info">
-            in: {{ storyPlan.subtitleStyle.animation.entrance }}
-          </span>
-          <span v-if="storyPlan.subtitleStyle.animation.exit" class="badge badge-xs badge-outline badge-info">
-            out: {{ storyPlan.subtitleStyle.animation.exit }}
-          </span>
-          <span v-if="storyPlan.subtitleStyle.animation.emphasis" class="badge badge-xs badge-outline badge-accent">
-            {{ storyPlan.subtitleStyle.animation.emphasis }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Voiceover Plan -->
-    <div v-if="storyPlan?.voiceoverPlan?.enabled" class="collapse collapse-arrow bg-base-200">
-      <input type="checkbox">
-      <div class="collapse-title font-semibold text-sm flex items-center gap-2">
-        <Icon name="mingcute:voice-line" class="text-warning text-lg" />
-        Озвучка
-      </div>
-      <div class="collapse-content space-y-2">
-        <div class="text-xs text-base-content/70 space-y-0.5">
-          <p v-if="storyPlan.voiceoverPlan.narratorPersona">
-            <span class="text-base-content/50">Рассказчик:</span>
-            {{ storyPlan.voiceoverPlan.narratorPersona }}
-          </p>
-          <p v-if="storyPlan.voiceoverPlan.pacing">
-            <span class="text-base-content/50">Темп:</span>
-            {{ pacingLabels[storyPlan.voiceoverPlan.pacing] || storyPlan.voiceoverPlan.pacing }}
-          </p>
-        </div>
-
-        <!-- Lines -->
-        <div v-if="storyPlan.voiceoverPlan.lines?.length" class="space-y-1.5 pt-1">
-          <div
-            v-for="line in storyPlan.voiceoverPlan.lines"
-            :key="line.sceneOrder"
-            class="flex gap-2 text-xs"
-          >
-            <span class="badge badge-xs badge-outline font-mono shrink-0">
-              {{ line.sceneOrder }}
-            </span>
-            <span class="text-base-content/80">{{ line.text }}</span>
-            <span v-if="line.emotion" class="badge badge-xs badge-ghost shrink-0 ml-auto">
-              {{ line.emotion }}
-            </span>
           </div>
-        </div>
-      </div>
-    </div>
+        </li>
+      </ol>
+    </UiDisclosure>
 
-    <!-- Negative Constraints -->
-    <div v-if="storyPlan?.negativeConstraints?.length" class="collapse collapse-arrow bg-base-200">
-      <input type="checkbox">
-      <div class="collapse-title font-semibold text-sm flex items-center gap-2">
-        <Icon name="mingcute:close-circle-line" class="text-error text-lg" />
-        Ограничения
-        <span class="badge badge-sm badge-ghost">{{ storyPlan.negativeConstraints.length }}</span>
+    <!-- Стиль субтитров -->
+    <UiDisclosure
+      v-if="storyPlan?.subtitleStyle"
+      title="Стиль субтитров"
+      icon="mingcute:text-line"
+      icon-tone="text-info"
+    >
+      <UiKeyValue
+        :items="[
+          { label: 'Шрифт', value: storyPlan.subtitleStyle.typography?.fontIntent, mono: false },
+          { label: 'Регистр', value: storyPlan.subtitleStyle.typography?.casing, mono: false },
+        ].filter(i => i.value)"
+      />
+
+      <div v-if="storyPlan.subtitleStyle.visual?.primaryColor" class="mt-2 flex items-center gap-2">
+        <span class="text-micro text-subtle">Цвет</span>
+        <span
+          class="size-5 rounded-sm border border-border"
+          :style="{ backgroundColor: storyPlan.subtitleStyle.visual.primaryColor }"
+          :title="storyPlan.subtitleStyle.visual.primaryColor"
+        />
+        <span class="font-mono text-micro text-muted">{{ storyPlan.subtitleStyle.visual.primaryColor }}</span>
       </div>
-      <div class="collapse-content">
-        <div class="flex flex-wrap gap-1.5">
-          <span
-            v-for="(constraint, idx) in storyPlan.negativeConstraints"
-            :key="idx"
-            class="badge badge-sm badge-soft badge-error"
-          >
-            {{ constraint }}
-          </span>
+
+      <div v-if="storyPlan.subtitleStyle.animation" class="mt-2 flex flex-wrap items-center gap-1">
+        <span v-if="storyPlan.subtitleStyle.animation.entrance" :class="CHIP">
+          вход: {{ storyPlan.subtitleStyle.animation.entrance }}
+        </span>
+        <span v-if="storyPlan.subtitleStyle.animation.exit" :class="CHIP">
+          выход: {{ storyPlan.subtitleStyle.animation.exit }}
+        </span>
+        <span v-if="storyPlan.subtitleStyle.animation.emphasis" :class="CHIP">
+          акцент: {{ storyPlan.subtitleStyle.animation.emphasis }}
+        </span>
+      </div>
+    </UiDisclosure>
+
+    <!-- Озвучка -->
+    <UiDisclosure
+      v-if="storyPlan?.voiceoverPlan?.enabled"
+      title="Озвучка"
+      icon="mingcute:voice-line"
+      icon-tone="text-warning"
+    >
+      <UiKeyValue
+        :items="[
+          { label: 'Рассказчик', value: storyPlan.voiceoverPlan.narratorPersona, mono: false },
+          {
+            label: 'Темп',
+            value: storyPlan.voiceoverPlan.pacing
+              ? (PACING_LABELS[storyPlan.voiceoverPlan.pacing] ?? storyPlan.voiceoverPlan.pacing)
+              : null,
+            mono: false,
+          },
+        ].filter(i => i.value)"
+      />
+
+      <div v-if="storyPlan.voiceoverPlan.lines?.length" class="mt-2 flex flex-col">
+        <div
+          v-for="line in storyPlan.voiceoverPlan.lines"
+          :key="line.sceneOrder"
+          class="flex items-start gap-2 border-b border-divider py-1.5 text-sm last:border-b-0"
+        >
+          <span class="tnum shrink-0 font-mono text-micro text-subtle">{{ line.sceneOrder }}</span>
+          <span class="min-w-0 flex-1">{{ line.text }}</span>
+          <span v-if="line.emotion" :class="[CHIP, 'shrink-0']">{{ line.emotion }}</span>
         </div>
       </div>
-    </div>
+    </UiDisclosure>
+
+    <!-- Ограничения -->
+    <UiDisclosure
+      v-if="storyPlan?.negativeConstraints?.length"
+      title="Ограничения"
+      icon="mingcute:close-circle-line"
+      icon-tone="text-danger"
+      :count="storyPlan.negativeConstraints.length"
+    >
+      <div class="flex flex-wrap gap-1">
+        <span
+          v-for="(constraint, idx) in storyPlan.negativeConstraints"
+          :key="idx"
+          class="rounded-sm border border-danger-border bg-danger-bg px-1.5 py-0.5 text-micro text-danger"
+        >
+          {{ constraint }}
+        </span>
+      </div>
+    </UiDisclosure>
   </div>
 </template>

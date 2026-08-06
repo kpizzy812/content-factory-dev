@@ -42,9 +42,7 @@ async function suggestHook() {
   const res = await hookAi.suggest({
     scenario: { title: form.title, hook: form.hook, body: form.body, cta: form.cta, visualStyle: form.visualStyleText },
   })
-  if (res?.hooks?.length) {
-    form.hook = res.hooks[0]!.text
-  }
+  if (res?.hooks?.length) form.hook = res.hooks[0]!.text
 }
 
 async function suggestVisualStyle() {
@@ -63,7 +61,6 @@ async function suggestVisualStyle() {
 async function handleSave() {
   isSaving.value = true
   errorMessage.value = ''
-
   try {
     await updateVariant(props.scenarioId, props.variantId, {
       title: form.title,
@@ -73,102 +70,69 @@ async function handleSave() {
       visualStyleText: form.visualStyleText,
     })
     emit('saved')
-  } catch {
+  }
+  catch {
     errorMessage.value = 'Не удалось сохранить изменения. Попробуйте ещё раз.'
-  } finally {
+  }
+  finally {
     isSaving.value = false
   }
 }
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <h3 class="card-title text-sm">
-        <Icon name="mingcute:edit-line" class="text-primary" />
-        Редактирование варианта
-      </h3>
+  <section class="overflow-hidden rounded-lg border border-border bg-panel">
+    <header class="flex items-center gap-2 border-b border-border bg-card px-3.5 py-2.5">
+      <Icon name="mingcute:edit-line" class="text-accent" />
+      <h2 class="text-sm font-medium">Редактирование варианта</h2>
+    </header>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Заголовок</legend>
-        <input
-          v-model="form.title"
-          type="text"
-          class="input w-full"
-          placeholder="Заголовок сценария"
-        >
-      </fieldset>
+    <div class="flex flex-col gap-3 p-3.5">
+      <UiField label="Заголовок">
+        <UiInput v-model="form.title" placeholder="Заголовок сценария" />
+      </UiField>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend flex items-center gap-2">
-          Хук
-          <SharedAiSuggestButton :loading="hookAi.loading.value" @click="suggestHook" />
-        </legend>
-        <textarea
-          v-model="form.hook"
-          class="textarea w-full"
-          rows="3"
-          placeholder="Зацепка для зрителя"
-        />
-        <p v-if="hookAi.error.value" class="text-xs text-error mt-1">{{ hookAi.error.value }}</p>
-      </fieldset>
+      <UiField :error="hookAi.error.value ?? undefined">
+        <template #default>
+          <div class="mb-[5px] flex items-center gap-2">
+            <span class="text-[11.5px] text-muted">Хук</span>
+            <SharedAiSuggestButton :loading="hookAi.loading.value" @click="suggestHook" />
+          </div>
+          <UiTextarea v-model="form.hook" :rows="3" placeholder="Зацепка для зрителя" />
+        </template>
+      </UiField>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Основная часть</legend>
-        <textarea
-          v-model="form.body"
-          class="textarea w-full"
-          rows="6"
-          placeholder="Основной контент"
-        />
-      </fieldset>
+      <UiField label="Основная часть">
+        <UiTextarea v-model="form.body" :rows="6" placeholder="Основной текст ролика" />
+      </UiField>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Призыв к действию</legend>
-        <textarea
-          v-model="form.cta"
-          class="textarea w-full"
-          rows="3"
-          placeholder="CTA"
-        />
-      </fieldset>
+      <UiField label="Призыв к действию">
+        <UiTextarea v-model="form.cta" :rows="3" placeholder="Что зритель должен сделать" />
+      </UiField>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend flex items-center gap-2">
-          Визуальный стиль
-          <SharedAiSuggestButton :loading="visualAi.loading.value" @click="suggestVisualStyle" />
-        </legend>
-        <textarea
-          v-model="form.visualStyleText"
-          class="textarea w-full"
-          rows="4"
-          placeholder="Описание визуального оформления"
-        />
-        <p v-if="visualAi.error.value" class="text-xs text-error mt-1">{{ visualAi.error.value }}</p>
-      </fieldset>
+      <UiField :error="visualAi.error.value ?? undefined">
+        <template #default>
+          <div class="mb-[5px] flex items-center gap-2">
+            <span class="text-[11.5px] text-muted">Визуальный стиль</span>
+            <SharedAiSuggestButton :loading="visualAi.loading.value" @click="suggestVisualStyle" />
+          </div>
+          <UiTextarea v-model="form.visualStyleText" :rows="4" placeholder="Описание визуального оформления" />
+        </template>
+      </UiField>
 
-      <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft text-sm">
-        <Icon name="mingcute:warning-line" />
+      <div
+        v-if="errorMessage"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
         <span>{{ errorMessage }}</span>
       </div>
 
-      <div class="flex gap-2 justify-end">
-        <button
-          class="btn btn-sm btn-ghost"
-          :disabled="isSaving"
-          @click="emit('cancel')"
-        >
-          Отмена
-        </button>
-        <button
-          class="btn btn-sm btn-primary"
-          :disabled="isSaving"
-          @click="handleSave"
-        >
-          <span v-if="isSaving" class="loading loading-spinner loading-xs" />
-          Сохранить
-        </button>
+      <div class="flex justify-end gap-1.5">
+        <UiButton variant="ghost" :disabled="isSaving" @click="emit('cancel')">Отмена</UiButton>
+        <UiButton variant="primary" :loading="isSaving" @click="handleSave">Сохранить</UiButton>
       </div>
     </div>
-  </div>
+  </section>
 </template>

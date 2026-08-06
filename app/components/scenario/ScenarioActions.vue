@@ -37,10 +37,12 @@ async function handleSelect() {
   try {
     await selectVariant(props.scenarioId, props.variantId)
     emit('updated')
-  } catch (err) {
+  }
+  catch (err) {
     errorMessage.value = extractErrorMessage(err, 'Не удалось выбрать вариант')
     clearError()
-  } finally {
+  }
+  finally {
     isUpdating.value = false
   }
 }
@@ -59,26 +61,25 @@ async function submitReasonAction() {
   try {
     if (reasonAction.value === 'reject') {
       await rejectVariant(props.scenarioId, props.variantId, reasonText.value || undefined)
-    } else {
+    }
+    else {
       await reworkVariant(props.scenarioId, props.variantId, reasonText.value || undefined)
     }
     emit('updated')
-  } catch (err) {
+  }
+  catch (err) {
     errorMessage.value = extractErrorMessage(
       err,
       `Не удалось ${reasonAction.value === 'reject' ? 'отклонить' : 'отправить на доработку'}`,
     )
     clearError()
-  } finally {
+  }
+  finally {
     isUpdating.value = false
   }
 }
 
 const showDeleteModal = ref(false)
-
-function openDeleteModal() {
-  showDeleteModal.value = true
-}
 
 async function handleDelete() {
   showDeleteModal.value = false
@@ -86,11 +87,13 @@ async function handleDelete() {
   errorMessage.value = ''
   try {
     await deleteScenario(props.scenarioId)
-    navigateTo('/scenarios')
-  } catch (err) {
+    await navigateTo('/scenarios')
+  }
+  catch (err) {
     errorMessage.value = extractErrorMessage(err, 'Не удалось удалить сценарий')
     clearError()
-  } finally {
+  }
+  finally {
     isUpdating.value = false
   }
 }
@@ -103,10 +106,12 @@ async function handleReworkRegenerate() {
   try {
     await reworkRegenerate(props.scenarioId, props.variantId)
     emit('updated')
-  } catch (err) {
+  }
+  catch (err) {
     errorMessage.value = extractErrorMessage(err, 'Не удалось запустить переработку')
     clearError()
-  } finally {
+  }
+  finally {
     isRegenerating.value = false
   }
 }
@@ -132,145 +137,105 @@ const canEdit = computed(() =>
   && !props.isDeleted,
 )
 
-const canDeleteScenario = computed(() => !props.isDeleted)
+// Редкое и разрушающее живёт в меню, частое — в строке.
+const menuItems = computed(() => {
+  const items: Array<{ key: string, label: string, icon?: string, cost?: string, danger?: boolean }> = []
+  if (canRework.value && can('canApprove')) {
+    items.push({ key: 'rework', label: 'Отправить на доработку', icon: 'mingcute:refresh-2-line' })
+  }
+  if (props.variantStatus === 'needs_rework' && !props.isDeleted && can('canRunAgent')) {
+    items.push({ key: 'ai-rework', label: 'AI-переработка варианта', icon: 'mingcute:ai-line', cost: 'платно' })
+  }
+  if (!props.isDeleted && can('canDelete')) {
+    items.push({ key: 'delete', label: 'Удалить сценарий', icon: 'mingcute:delete-2-line', danger: true })
+  }
+  return items
+})
+
+function onMenu(key: string) {
+  if (key === 'rework') openReasonModal('rework')
+  else if (key === 'ai-rework') void handleReworkRegenerate()
+  else if (key === 'delete') showDeleteModal.value = true
+}
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-2">
-    <!-- Принять -->
-    <button
-      v-if="canSelect && can('canApprove')"
-      class="btn btn-sm btn-primary gap-1"
-      :disabled="isUpdating"
-      @click="handleSelect"
+  <div class="flex flex-col gap-2">
+    <div class="flex flex-wrap items-center gap-1.5">
+      <UiButton
+        v-if="canSelect && can('canApprove')"
+        variant="primary"
+        :loading="isUpdating"
+        @click="handleSelect"
+      >
+        <Icon v-if="!isUpdating" name="mingcute:check-line" />
+        Принять
+      </UiButton>
+
+      <UiButton
+        v-if="canReject && can('canApprove')"
+        variant="danger"
+        :disabled="isUpdating"
+        @click="openReasonModal('reject')"
+      >
+        <Icon name="mingcute:close-line" />
+        Отклонить
+      </UiButton>
+
+      <UiButton v-if="canEdit" @click="emit('edit')">
+        <Icon name="mingcute:edit-line" />
+        Редактировать
+      </UiButton>
+
+      <UiButton v-if="isRegenerating" loading>AI-переработка</UiButton>
+
+      <UiActionMenu v-if="menuItems.length" :items="menuItems" @select="onMenu" />
+    </div>
+
+    <div
+      v-if="errorMessage"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
     >
-      <span v-if="isUpdating" class="loading loading-spinner loading-xs" />
-      <Icon v-else name="mingcute:check-line" />
-      Принять
-    </button>
-
-    <!-- Отклонить -->
-    <button
-      v-if="canReject && can('canApprove')"
-      class="btn btn-sm btn-error btn-outline gap-1"
-      :disabled="isUpdating"
-      @click="openReasonModal('reject')"
-    >
-      <Icon name="mingcute:close-line" />
-      Отклонить
-    </button>
-
-    <!-- На доработку -->
-    <button
-      v-if="canRework && can('canApprove')"
-      class="btn btn-sm btn-warning btn-outline gap-1"
-      :disabled="isUpdating"
-      @click="openReasonModal('rework')"
-    >
-      <Icon name="mingcute:refresh-2-line" />
-      Переработать
-    </button>
-
-    <!-- Запустить AI-переработку (для вариантов в needs_rework) -->
-    <button
-      v-if="variantStatus === 'needs_rework' && !isDeleted && can('canRunAgent')"
-      class="btn btn-sm btn-warning gap-1"
-      :disabled="isUpdating || isRegenerating"
-      @click="handleReworkRegenerate"
-    >
-      <span v-if="isRegenerating" class="loading loading-spinner loading-xs" />
-      <Icon v-else name="mingcute:ai-line" />
-      {{ isRegenerating ? 'Переработка...' : 'Запустить AI-переработку' }}
-    </button>
-
-    <!-- Редактировать -->
-    <button
-      v-if="canEdit"
-      class="btn btn-sm btn-outline gap-1"
-      @click="emit('edit')"
-    >
-      <Icon name="mingcute:edit-line" />
-      Редактировать
-    </button>
-
-    <!-- Удалить -->
-    <button
-      v-if="canDeleteScenario && can('canDelete')"
-      class="btn btn-sm btn-ghost text-error gap-1"
-      :disabled="isUpdating"
-      @click="openDeleteModal"
-    >
-      <Icon name="mingcute:delete-2-line" />
-      Удалить
-    </button>
-
-    <!-- Модалка подтверждения удаления -->
-    <dialog class="modal" :class="{ 'modal-open': showDeleteModal }">
-      <div class="modal-box max-w-lg">
-        <h3 class="font-bold text-lg mb-1">Удалить сценарий?</h3>
-        <p class="text-xs text-base-content/60 mb-4">
-          Все варианты будут архивированы. Сценарий можно восстановить только через бэкенд.
-        </p>
-        <div class="modal-action">
-          <button class="btn btn-sm btn-ghost" @click="showDeleteModal = false">
-            Отмена
-          </button>
-          <button
-            class="btn btn-sm btn-error"
-            :disabled="isUpdating"
-            @click="handleDelete"
-          >
-            <span v-if="isUpdating" class="loading loading-spinner loading-xs" />
-            Удалить
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="showDeleteModal = false">close</button>
-      </form>
-    </dialog>
-
-    <!-- Ошибка -->
-    <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft mt-2 text-sm w-full">
-      <Icon name="mingcute:warning-line" />
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ errorMessage }}</span>
     </div>
 
-    <!-- Модалка причины reject/rework -->
-    <dialog v-if="showReasonModal" class="modal modal-open">
-      <div class="modal-box max-w-lg">
-        <h3 class="font-bold text-lg mb-1">
-          {{ reasonAction === 'reject' ? 'Причина отклонения' : 'Причина доработки' }}
-        </h3>
-        <p class="text-xs text-base-content/60 mb-4">
-          Комментарий сохранится в истории варианта и поможет AI учесть фидбек.
-        </p>
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Комментарий</legend>
-          <textarea
-            v-model="reasonText"
-            class="textarea textarea-sm w-full"
-            rows="3"
-            :placeholder="reasonAction === 'reject' ? 'Почему этот вариант не подходит?' : 'Что нужно доработать?'"
-          />
-        </fieldset>
-        <div class="modal-action">
-          <button class="btn btn-sm btn-ghost" @click="showReasonModal = false">
-            Отмена
-          </button>
-          <button
-            class="btn btn-sm"
-            :class="reasonAction === 'reject' ? 'btn-error' : 'btn-warning'"
-            :disabled="isUpdating"
-            @click="submitReasonAction"
-          >
-            {{ reasonAction === 'reject' ? 'Отклонить' : 'Отправить на доработку' }}
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="showReasonModal = false">close</button>
-      </form>
-    </dialog>
+    <UiModal :open="showDeleteModal" title="Удалить сценарий?" size="sm" @close="showDeleteModal = false">
+      <p class="text-sm text-muted">
+        Все варианты будут архивированы. Вернуть сценарий можно только через бэкенд.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="showDeleteModal = false">Отмена</UiButton>
+        <UiButton variant="danger" :loading="isUpdating" @click="handleDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      :open="showReasonModal"
+      :title="reasonAction === 'reject' ? 'Причина отклонения' : 'Причина доработки'"
+      @close="showReasonModal = false"
+    >
+      <UiField
+        label="Комментарий"
+        hint="Сохранится в истории варианта и попадёт в контекст AI при переработке."
+      >
+        <UiTextarea
+          v-model="reasonText"
+          :rows="3"
+          :placeholder="reasonAction === 'reject' ? 'Почему вариант не подходит?' : 'Что нужно доработать?'"
+        />
+      </UiField>
+      <template #footer>
+        <UiButton variant="ghost" @click="showReasonModal = false">Отмена</UiButton>
+        <UiButton
+          :variant="reasonAction === 'reject' ? 'danger' : 'primary'"
+          :loading="isUpdating"
+          @click="submitReasonAction"
+        >
+          {{ reasonAction === 'reject' ? 'Отклонить' : 'Отправить на доработку' }}
+        </UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

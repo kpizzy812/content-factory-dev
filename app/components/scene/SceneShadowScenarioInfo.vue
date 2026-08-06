@@ -1,10 +1,8 @@
 <script setup lang="ts">
 /**
- * SceneShadowScenarioInfo — информационный баннер на /scenarios/[id] для shadow
- * Scenario (scenarioId с trendId=null, sceneId!==null).
- *
- * НЕ блокирует никакие действия — просто объясняет оператору, что сценарий собран
- * из сцены композитора, и даёт ссылку обратно на /scenes/[sceneId].
+ * Баннер на /scenarios/[id] для сценария, собранного из сцены композитора
+ * (trendId=null, sceneId!==null). Ничего не блокирует — объясняет, откуда
+ * сценарий взялся и куда идти за его исходником.
  */
 defineProps<{
   sceneId: string
@@ -13,23 +11,22 @@ defineProps<{
 </script>
 
 <template>
-  <div role="alert" class="alert alert-info alert-soft">
-    <Icon name="mingcute:layers-line" class="size-5" />
-    <div class="flex-1">
-      <h4 class="font-semibold text-sm">
-        Сценарий собран из сцены композитора
-      </h4>
-      <p class="text-xs text-base-content/70">
-        AI-переработка работает по контексту сцены и приложения (а не тренда).
-        Изменения блоков сцены влияют на следующие итерации rework.
-      </p>
+  <section role="note" class="rounded-lg border border-info-border bg-info-bg p-3">
+    <div class="flex flex-wrap items-start gap-2.5">
+      <Icon name="mingcute:layers-line" class="mt-0.5 shrink-0 text-lg text-info" />
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-medium text-info">Сценарий собран из сцены композитора</div>
+        <p class="mt-1 text-sm text-muted">
+          AI-переработка идёт по контексту сцены и приложения, а не тренда. Правки блоков
+          сцены попадут в следующие итерации.
+        </p>
+      </div>
+      <NuxtLink :to="`/scenes/${sceneId}`">
+        <UiButton>
+          Открыть сцену{{ sceneName ? `: ${sceneName}` : '' }}
+          <Icon name="mingcute:right-line" />
+        </UiButton>
+      </NuxtLink>
     </div>
-    <NuxtLink
-      :to="`/scenes/${sceneId}`"
-      class="btn btn-sm btn-ghost gap-1"
-    >
-      <Icon name="mingcute:arrow-right-line" class="size-4" />
-      Открыть сцену{{ sceneName ? `: ${sceneName}` : '' }}
-    </NuxtLink>
-  </div>
+  </section>
 </template>

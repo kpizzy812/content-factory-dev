@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { VariantQualityScore } from '~~/shared/types/scenario'
+import { variantStatus, VARIANT_STATUS_LABELS } from './ScenarioStatusMap'
 
 interface VariantTabItem {
   id: number
@@ -21,46 +22,58 @@ const emit = defineEmits<{
   'open-critic-report': [variantId: number]
 }>()
 
-function onBadgeClick(event: MouseEvent, variantId: number) {
-  // Не дать кнопке-родителю переключить активный variant — клик по бейджу
-  // открывает модалку с отчётом, а не выбирает таб.
+function openReport(event: Event, variantId: number) {
+  // Клик по оценке открывает отчёт критика, а не переключает вариант.
   event.stopPropagation()
   emit('open-critic-report', variantId)
 }
 </script>
 
 <template>
-  <div class="flex gap-1 flex-wrap">
-    <button
+  <div role="tablist" class="flex flex-wrap gap-1.5">
+    <div
       v-for="v in props.variants"
       :key="v.id"
-      class="btn btn-sm gap-1"
-      :class="{
-        'btn-primary': v.id === props.activeVariantId,
-        'btn-outline': v.id !== props.activeVariantId,
-        'btn-success btn-outline': v.id === props.selectedVariantId && v.id !== props.activeVariantId,
-        'opacity-50': v.status === 'rejected' || v.status === 'superseded',
-      }"
-      @click="emit('select', v.id)"
+      class="flex items-center gap-1.5 rounded-md border px-2 py-1"
+      :class="[
+        v.id === props.activeVariantId
+          ? 'border-accent bg-accent-bg'
+          : 'border-border bg-card hover:border-subtle',
+        ['rejected', 'superseded'].includes(v.status) && v.id !== props.activeVariantId && 'opacity-60',
+      ]"
     >
-      <Icon
-        v-if="v.id === props.selectedVariantId"
-        name="mingcute:check-circle-line"
-        class="text-xs"
-      />
-      Вариант {{ v.variantIndex + 1 }}
-      <ScenarioVariantStatusBadge :status="v.status" />
-      <span
-        role="button"
-        tabindex="0"
-        class="cursor-pointer flex items-center justify-center min-h-[44px] min-w-[44px] -m-2 p-2"
-        :aria-label="`Отчёт критика по варианту ${v.variantIndex + 1}`"
-        @click="onBadgeClick($event, v.id)"
-        @keydown.enter.stop.prevent="emit('open-critic-report', v.id)"
-        @keydown.space.stop.prevent="emit('open-critic-report', v.id)"
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="v.id === props.activeVariantId"
+        class="flex cursor-pointer items-center gap-1.5 text-sm"
+        @click="emit('select', v.id)"
       >
-        <ScenarioCriticBadge :score="v.qualityScore ?? null" size="sm" />
-      </span>
-    </button>
+        <Icon
+          v-if="v.id === props.selectedVariantId"
+          name="mingcute:check-circle-line"
+          class="shrink-0 text-success"
+          :title="'Выбран для производства'"
+        />
+        <span class="font-medium">Вариант {{ v.variantIndex + 1 }}</span>
+        <UiStatusBadge
+          :status="variantStatus(v.status)"
+          size="xs"
+          dot
+          icon-only
+          :title="VARIANT_STATUS_LABELS[v.status] ?? v.status"
+        />
+      </button>
+
+      <button
+        type="button"
+        class="cursor-pointer"
+        :aria-label="`Отчёт критика по варианту ${v.variantIndex + 1}`"
+        @click="openReport($event, v.id)"
+        @keydown.enter.stop.prevent="emit('open-critic-report', v.id)"
+      >
+        <ScenarioCriticBadge :score="v.qualityScore ?? null" size="xs" />
+      </button>
+    </div>
   </div>
 </template>
