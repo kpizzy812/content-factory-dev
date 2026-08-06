@@ -17,6 +17,7 @@ export default defineConfig({
     include: [
       "tests/unit/replicate/**/*.spec.ts",
       "tests/unit/media-provider/**/*.spec.ts",
+      "tests/unit/subtitles/**/*.spec.ts",
       "tests/unit/lip-sync-provider.spec.ts",
       "tests/unit/content-factory-*.spec.ts",
       "tests/unit/content-quality-gate.spec.ts",

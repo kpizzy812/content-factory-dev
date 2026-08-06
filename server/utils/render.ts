@@ -11,6 +11,7 @@ import {
 import type { AnySubtitlePresetKey } from "~~/shared/types/subtitle-preset"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import { tryRenderAssFilter } from "./subtitles/render-ass"
+import { chunkSceneSpeech, maxCharsForWidth } from "./subtitles/phrase-chunker"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 
 interface AssembleOptions {
@@ -771,6 +772,11 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       topText,
       bottomText,
       keywordHints: options.keywordHints,
+      maxChars: maxCharsForWidth(
+        format === 'portrait' ? 1080 : 1920,
+        format === 'portrait' ? presetMeta.fontSizePortrait : presetMeta.fontSizeLandscape,
+        format === 'portrait' ? 60 : 100,
+      ),
     })
     if (assSegments.length > 0) {
       // videoId используется только для имени директории — выдёргиваем из outputPath.
@@ -808,6 +814,16 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       if (!sub.text || !window) continue
 
       const position = sub.placement?.position || 'bottom'
+      const styleForChunking = resolveSubtitleStyle(format, subtitleStyle, position, subtitlePreset)
+      // Реплика сцены идёт не одним блоком на девять секунд, а короткими
+      // фразами: так субтитр читается вслед за речью и не вылезает по ширине.
+      const chunks = chunkSceneSpeech(sub.text, window.start, window.end - 0.1, {
+        maxChars: maxCharsForWidth(
+          format === 'portrait' ? 1080 : 1920,
+          styleForChunking.fontSize,
+          format === 'portrait' ? 60 : 100,
+        ),
+      })
 
       // Anti-occlusion: alternate positions for consecutive same-position scenes
       let effectivePosition = position
@@ -822,11 +838,13 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       const style = resolveSubtitleStyle(format, subtitleStyle, effectivePosition, subtitlePreset)
       const role = effectivePosition === 'top' ? 'top' : effectivePosition === 'center' ? 'scene' : 'bottom'
 
-      subtitleFilters.push(...buildDrawtextFilters(sub.text, style, format, role, {
-        casing,
-        enableStart: window.start,
-        enableEnd: window.end - 0.1, // Small gap for clean transition
-      }))
+      for (const chunk of chunks) {
+        subtitleFilters.push(...buildDrawtextFilters(chunk.text, style, format, role, {
+          casing,
+          enableStart: chunk.startSec,
+          enableEnd: chunk.endSec,
+        }))
+      }
     }
   } else if (subtitleFilters.length === 0 && sceneSubtitles && sceneSubtitles.length > 0 && clips.length === 1) {
     // Single clip with scene subtitles — show all subtitles
@@ -1016,6 +1034,8 @@ async function buildAssSegments(opts: {
   topText: string
   bottomText: string
   keywordHints?: Array<{ order: number; keywords: Array<{ word: string; weight: number }> }>
+  /** Потолок длины фразы под ширину кадра и кегль выбранного пресета. */
+  maxChars?: number
 }): Promise<Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput>> {
   const segs: Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput> = []
 
@@ -1039,13 +1059,16 @@ async function buildAssSegments(opts: {
       const end = currentTime + dur - 0.1
       currentTime += dur
       if (!sub.text) continue
-      segs.push({
-        startSec: start,
-        endSec: end,
-        text: sub.text,
-        placement: sub.placement,
-        aiKeywords: aiMap.get(i + 1),
-      })
+      // Та же нарезка, что и в drawtext-ветке: фраза за фразой вслед за речью.
+      for (const chunk of chunkSceneSpeech(sub.text, start, end, { maxChars: opts.maxChars })) {
+        segs.push({
+          startSec: chunk.startSec,
+          endSec: chunk.endSec,
+          text: chunk.text,
+          placement: sub.placement,
+          aiKeywords: aiMap.get(i + 1),
+        })
+      }
     }
     return segs
   }

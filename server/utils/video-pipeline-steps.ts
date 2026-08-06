@@ -1396,13 +1396,18 @@ export async function runAssembly(
 
   if (isStoryDriven) {
     if (!subtitleStyle) subtitleStyle = videoPlan.subtitleStyle ?? null
+    // Субтитр обязан повторять то, что звучит, слово в слово. subtitleCopy —
+    // это пересказ сценариста («0% жира — на 35% больше сахара»), тогда как в
+    // кадре произносится совсем другая фраза. Берём произносимый текст: реплику
+    // ведущей в кадре или закадровую строку, а пересказ оставляем на случай
+    // немой сцены.
     sceneSubtitles = videoPlan.scenes
-      .filter(s => s.subtitleCopy)
       .map(s => ({
-        text: s.subtitleCopy,
+        text: (s.spokenLine?.trim() || s.voiceoverLine?.trim() || s.subtitleCopy || '').trim(),
         placement: s.subtitlePlacement,
         durationSec: s.durationSec,
       }))
+      .filter(s => s.text.length > 0)
   }
 
   const hasSceneSubs = subtitlesEnabled && sceneSubtitles && sceneSubtitles.length > 0
