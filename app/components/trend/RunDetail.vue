@@ -1,4 +1,16 @@
 <script setup lang="ts">
+/**
+ * Разбор запуска парсинга.
+ *
+ * Отвечает по порядку на три вопроса: что случилось, что делать дальше и
+ * какие цифры приехали. Поэтому подсказка «исправьте профиль» стоит выше
+ * счётчиков, а не в конце, куда её сдвинула бы хронология.
+ *
+ * «Копировать диагностику» собирает всё, что нужно инженеру, одной строкой:
+ * иначе оператор пересказывает ошибку своими словами.
+ */
+import { isTrendRunActive, trendRunStatus } from './TrendRunStatusMap'
+
 const props = defineProps<{
   runId: number
 }>()
@@ -11,55 +23,46 @@ const emit = defineEmits<{
 const runIdRef = computed(() => props.runId)
 const { run, pending, isActive, cancelRun, retryRun } = useTrendwatcherRunDetail(runIdRef as Ref<number | null>)
 
+const toast = useToast()
+
 const canceling = ref(false)
 const retrying = ref(false)
-const showRawDiagnostics = ref(false)
-const copySuccess = ref(false)
+const confirmCancel = ref(false)
+const copied = ref(false)
 
-const statusLabels: Record<string, string> = {
-  pending: 'Ожидание запуска',
-  starting: 'Запускается...',
-  running: 'Apify выполняет парсинг...',
-  importing: 'Импорт трендов в базу...',
-  analyzing: 'AI-анализ трендов...',
+/** Подписи подробнее общего словаря: у парсинга четыре разных «идёт». */
+const STATUS_HEADLINE: Record<string, string> = {
+  pending: 'Ожидает запуска',
+  starting: 'Запускается',
+  running: 'Apify выполняет парсинг',
+  importing: 'Импорт трендов в базу',
+  analyzing: 'Анализ трендов',
   completed: 'Успешно завершён',
   failed: 'Завершился с ошибкой',
   canceled: 'Отменён оператором',
   partially_completed: 'Частично завершён',
 }
 
-const statusColors: Record<string, string> = {
-  pending: 'text-warning',
-  starting: 'text-warning',
-  running: 'text-info',
-  importing: 'text-info',
-  analyzing: 'text-info',
-  completed: 'text-success',
-  failed: 'text-error',
-  canceled: 'text-base-content/50',
-  partially_completed: 'text-warning',
-}
-
-const logLevelColors: Record<string, string> = {
-  info: 'text-info',
-  warn: 'text-warning',
-  error: 'text-error',
-}
-
-const errorCategoryLabels: Record<string, string> = {
+const ERROR_CATEGORY_LABELS: Record<string, string> = {
   profile_validation_error: 'Ошибка профиля',
   apify_start_failed: 'Apify не запустился',
-  apify_run_failed: 'Apify run упал',
+  apify_run_failed: 'Прогон Apify упал',
   apify_timeout: 'Таймаут Apify',
-  dataset_empty: 'Пустой dataset',
+  dataset_empty: 'Пустой набор данных',
   import_failed: 'Ошибка импорта',
-  import_partial_failure: 'Частичный импорт',
+  import_partial_failure: 'Импорт прошёл частично',
   canceled: 'Отменён',
-  watchdog_failed: 'Watchdog таймаут',
-  unknown_external_error: 'Неизвестная ошибка',
+  watchdog_failed: 'Watchdog не дождался',
+  unknown_external_error: 'Неизвестная внешняя ошибка',
 }
 
-const stepLabels: Record<string, string> = {
+const TRIGGER_LABELS: Record<string, string> = {
+  manual: 'вручную',
+  scheduled: 'по расписанию',
+  pipeline: 'из конвейера',
+}
+
+const STEP_LABELS: Record<string, string> = {
   init: 'Инициализация',
   starting: 'Запуск актора',
   running: 'Выполнение Apify',
@@ -70,80 +73,115 @@ const stepLabels: Record<string, string> = {
   watchdog: 'Watchdog',
 }
 
-const isTerminal = computed(() => {
-  if (!run.value) return false
-  return ['failed', 'canceled', 'partially_completed', 'completed'].includes(run.value.status)
-})
+const status = computed(() => trendRunStatus(run.value?.status))
+const headline = computed(() =>
+  run.value ? STATUS_HEADLINE[run.value.status] ?? status.value.label : '',
+)
 
-const canRetryRun = computed(() => {
-  if (!run.value) return false
-  return ['failed', 'canceled', 'partially_completed'].includes(run.value.status) && run.value.canRetry
-})
+const isTerminal = computed(() =>
+  !!run.value && !isTrendRunActive(run.value.status),
+)
 
-const nextActionHint = computed(() => {
-  if (!run.value) return null
-  if (run.value.status === 'completed') return null
-  if (run.value.needsProfileFix) return { text: 'Исправьте настройки профиля и запустите снова', icon: 'mingcute:settings-2-line' }
-  if (run.value.canRetry) return { text: 'Можно повторить запуск', icon: 'mingcute:refresh-2-line' }
+const canRetryRun = computed(() =>
+  !!run.value
+  && ['failed', 'canceled', 'partially_completed'].includes(run.value.status)
+  && run.value.canRetry,
+)
+
+const nextAction = computed(() => {
+  if (!run.value || run.value.status === 'completed') return null
+  if (run.value.needsProfileFix) {
+    return { text: 'Исправьте настройки профиля и запустите снова', icon: 'mingcute:settings-2-line' }
+  }
+  if (run.value.canRetry) {
+    return { text: 'Причина временная — запуск можно повторить', icon: 'mingcute:refresh-2-line' }
+  }
   return null
 })
 
-/** Timeline шагов */
+/** Шаги по логам: одна строка на шаг, уровень — самый тревожный из его записей. */
 const timeline = computed(() => {
-  if (!run.value?.logs?.length) return []
-  const steps: Array<{ step: string; label: string; level: string; time: string; messages: string[] }> = []
-  const seen = new Map<string, typeof steps[0]>()
+  const logs = run.value?.logs ?? []
+  if (!logs.length) return []
+  const order: Array<{ step: string; label: string; level: string; time: string; count: number }> = []
+  const seen = new Map<string, (typeof order)[number]>()
 
-  for (const log of run.value.logs) {
+  for (const log of logs) {
     const step = log.step || 'unknown'
-    if (!seen.has(step)) {
-      const entry = {
+    const entry = seen.get(step)
+    if (!entry) {
+      const created = {
         step,
-        label: stepLabels[step] || step,
+        label: STEP_LABELS[step] ?? step,
         level: log.level,
         time: new Date(log.createdAt).toLocaleTimeString('ru-RU'),
-        messages: [log.message],
+        count: 1,
       }
-      seen.set(step, entry)
-      steps.push(entry)
-    } else {
-      const entry = seen.get(step)!
-      entry.messages.push(log.message)
-      // Upgrade level: info < warn < error
+      seen.set(step, created)
+      order.push(created)
+    }
+    else {
+      entry.count += 1
       if (log.level === 'error') entry.level = 'error'
       else if (log.level === 'warn' && entry.level !== 'error') entry.level = 'warn'
     }
   }
-  return steps
+  return order
 })
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+const stepTone: Record<string, string> = {
+  info: 'bg-info',
+  warn: 'bg-warning',
+  error: 'bg-danger',
+}
+
+const infoItems = computed(() => {
+  const value = run.value
+  if (!value) return []
+  return [
+    { label: 'Профиль', value: value.profile.name },
+    { label: 'Актор', value: value.profile.actorId },
+    { label: 'Способ', value: TRIGGER_LABELS[value.triggerType] ?? value.triggerType },
+    { label: 'Инициатор', value: value.initiatedBy ?? '—' },
+    { label: 'Старт', value: formatDate(value.startedAt) },
+    { label: 'Завершение', value: formatDate(value.completedAt) },
+    { label: 'Длительность', value: formatDuration(value.startedAt, value.completedAt) },
+    ...(value.externalRunId ? [{ label: 'Прогон Apify', value: value.externalRunId }] : []),
+  ]
+})
+
+const apifyTone = computed(() => {
+  const value = run.value?.apifyStatus
+  if (!value) return 'text-muted'
+  if (value === 'SUCCEEDED') return 'text-success'
+  if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(value)) return 'text-danger'
+  return 'text-info'
+})
+
+function formatDate(value: string | null): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
 }
 
 function formatDuration(start: string, end: string | null): string {
-  if (!end) return 'в процессе...'
+  if (!end) return 'идёт'
   const ms = new Date(end).getTime() - new Date(start).getTime()
-  if (ms < 1000) return `${ms}мс`
+  if (ms < 1000) return `${ms} мс`
   const sec = Math.round(ms / 1000)
-  if (sec < 60) return `${sec}с`
-  return `${Math.floor(sec / 60)}м ${sec % 60}с`
+  if (sec < 60) return `${sec} с`
+  return `${Math.floor(sec / 60)} м ${String(sec % 60).padStart(2, '0')} с`
 }
 
 async function handleCancel() {
-  if (!confirm('Отменить запуск?')) return
+  confirmCancel.value = false
   canceling.value = true
   try {
     await cancelRun()
-  } finally {
+  }
+  finally {
     canceling.value = false
   }
 }
@@ -152,245 +190,192 @@ async function handleRetry() {
   retrying.value = true
   try {
     const result = await retryRun()
-    if (result?.runId) {
-      emit('showDetail', result.runId)
-    }
-  } finally {
+    if (result?.runId) emit('showDetail', result.runId)
+  }
+  finally {
     retrying.value = false
   }
 }
 
 async function copyDiagnostics() {
-  if (!run.value) return
+  const value = run.value
+  if (!value) return
   const lines = [
-    `Запуск #${run.value.id}`,
-    `Статус: ${run.value.status}`,
-    run.value.errorSummary ? `Ошибка: ${run.value.errorSummary}` : '',
-    run.value.errorCategory ? `Категория: ${run.value.errorCategory}` : '',
-    run.value.errorStep ? `Шаг: ${run.value.errorStep}` : '',
-    run.value.apifyStatus ? `Apify статус: ${run.value.apifyStatus}` : '',
-    run.value.apifyStatusMessage ? `Apify сообщение: ${run.value.apifyStatusMessage}` : '',
-    run.value.failureReason ? `Raw error: ${run.value.failureReason}` : '',
-    run.value.externalRunId ? `Apify Run ID: ${run.value.externalRunId}` : '',
-    `Профиль: ${run.value.profile.name} (${run.value.profile.actorId})`,
-    `Старт: ${formatDate(run.value.startedAt)}`,
-    `Завершение: ${formatDate(run.value.completedAt)}`,
-    `Found: ${run.value.foundCount}, Imported: ${run.value.importedCount}, Skipped: ${run.value.skippedCount}, Warnings: ${run.value.warningCount}`,
+    `Запуск #${value.id}`,
+    `Статус: ${value.status}`,
+    value.errorSummary ? `Ошибка: ${value.errorSummary}` : '',
+    value.errorCategory ? `Категория: ${value.errorCategory}` : '',
+    value.errorStep ? `Шаг: ${value.errorStep}` : '',
+    value.apifyStatus ? `Статус Apify: ${value.apifyStatus}` : '',
+    value.apifyStatusMessage ? `Сообщение Apify: ${value.apifyStatusMessage}` : '',
+    value.failureReason ? `Полный текст ошибки: ${value.failureReason}` : '',
+    value.externalRunId ? `Прогон Apify: ${value.externalRunId}` : '',
+    `Профиль: ${value.profile.name} (${value.profile.actorId})`,
+    `Старт: ${formatDate(value.startedAt)}`,
+    `Завершение: ${formatDate(value.completedAt)}`,
+    `Найдено ${value.foundCount}, импортировано ${value.importedCount}, пропущено ${value.skippedCount}, предупреждений ${value.warningCount}`,
   ].filter(Boolean).join('\n')
 
-  await navigator.clipboard.writeText(lines)
-  copySuccess.value = true
-  setTimeout(() => { copySuccess.value = false }, 2000)
+  try {
+    await navigator.clipboard.writeText(lines)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  }
+  catch {
+    toast.error('Буфер обмена недоступен')
+  }
 }
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="card-title text-lg">
-          <Icon name="mingcute:file-info-line" class="text-lg" />
-          Запуск #{{ runId }}
-          <span v-if="isActive" class="loading loading-ring loading-sm text-primary" />
-        </h3>
-        <button class="btn btn-ghost btn-sm btn-square" @click="emit('close')">
-          <Icon name="mingcute:close-line" class="text-lg" />
-        </button>
+  <section class="overflow-hidden rounded-lg border border-border bg-panel">
+    <header class="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2.5">
+      <h3 class="text-base font-semibold">Запуск #{{ runId }}</h3>
+      <TrendRunStatusBadge v-if="run" :status="run.status" size="xs" />
+      <Icon v-if="isActive" name="mingcute:loading-line" class="animate-spin text-info" />
+      <span class="flex-1" />
+      <UiButton variant="ghost" aria-label="Закрыть" @click="emit('close')">
+        <Icon name="mingcute:close-line" />
+      </UiButton>
+    </header>
+
+    <UiSkeleton v-if="pending && !run" variant="details" :count="6" class="p-3" />
+
+    <div v-else-if="run" class="flex flex-col gap-3 p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-lg font-semibold">{{ headline }}</span>
+        <span class="flex-1" />
+        <UiButton v-if="isActive" variant="danger" :loading="canceling" @click="confirmCancel = true">
+          <Icon v-if="!canceling" name="mingcute:forbid-circle-line" />
+          Отменить
+        </UiButton>
+        <UiButton v-if="canRetryRun" variant="primary" :loading="retrying" @click="handleRetry">
+          <Icon v-if="!retrying" name="mingcute:refresh-2-line" />
+          Повторить · платно
+        </UiButton>
+        <UiButton v-if="isTerminal" variant="ghost" @click="copyDiagnostics">
+          <Icon :name="copied ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
+          {{ copied ? 'Скопировано' : 'Копировать диагностику' }}
+        </UiButton>
       </div>
 
-      <!-- Loading -->
-      <div v-if="pending && !run" class="flex justify-center py-8">
-        <span class="loading loading-spinner loading-md" />
+      <p
+        v-if="run.errorSummary && run.status !== 'completed'"
+        class="flex items-start gap-2 rounded-md border px-2.5 py-2 text-sm text-fg"
+        :class="run.status === 'canceled'
+          ? 'border-warning-border bg-warning-bg'
+          : 'border-danger-border bg-danger-bg'"
+      >
+        <Icon
+          :name="run.status === 'canceled' ? 'mingcute:information-line' : 'mingcute:alert-line'"
+          class="mt-0.5 shrink-0"
+          :class="run.status === 'canceled' ? 'text-warning' : 'text-danger'"
+        />
+        <span class="min-w-0 flex-1">
+          <span class="block font-medium">{{ run.errorSummary }}</span>
+          <span v-if="run.errorCategory" class="mt-0.5 block text-micro text-muted">
+            {{ ERROR_CATEGORY_LABELS[run.errorCategory] ?? run.errorCategory }}
+            <template v-if="run.errorStep">
+              · {{ STEP_LABELS[run.errorStep] ?? run.errorStep }}
+            </template>
+          </span>
+        </span>
+      </p>
+
+      <p
+        v-if="nextAction"
+        class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon :name="nextAction.icon" class="mt-0.5 shrink-0 text-info" />
+        <span>{{ nextAction.text }}</span>
+      </p>
+
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="rounded-md border border-border bg-card px-2.5 py-2">
+          <span class="block text-micro tracking-[.06em] text-subtle uppercase">Найдено</span>
+          <span class="tnum block font-mono text-lg">{{ run.foundCount }}</span>
+        </div>
+        <div class="rounded-md border border-border bg-card px-2.5 py-2">
+          <span class="block text-micro tracking-[.06em] text-subtle uppercase">Импортировано</span>
+          <span class="tnum block font-mono text-lg text-success">{{ run.importedCount }}</span>
+        </div>
+        <div class="rounded-md border border-border bg-card px-2.5 py-2">
+          <span class="block text-micro tracking-[.06em] text-subtle uppercase">Пропущено</span>
+          <span class="tnum block font-mono text-lg">{{ run.skippedCount }}</span>
+        </div>
+        <div class="rounded-md border border-border bg-card px-2.5 py-2">
+          <span class="block text-micro tracking-[.06em] text-subtle uppercase">Предупреждений</span>
+          <span
+            class="tnum block font-mono text-lg"
+            :class="run.warningCount > 0 && 'text-warning'"
+          >{{ run.warningCount }}</span>
+        </div>
       </div>
 
-      <template v-else-if="run">
-        <!-- Status header + actions -->
-        <div class="flex items-center gap-3 mb-4 flex-wrap">
-          <div class="text-2xl font-bold" :class="statusColors[run.status]">
-            {{ statusLabels[run.status] ?? run.status }}
-          </div>
-          <button
-            v-if="isActive"
-            class="btn btn-error btn-sm"
-            :disabled="canceling"
-            @click="handleCancel"
-          >
-            <span v-if="canceling" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:stop-circle-line" class="text-sm" />
-            Отменить
-          </button>
-          <button
-            v-if="canRetryRun"
-            class="btn btn-primary btn-sm"
-            :disabled="retrying"
-            @click="handleRetry"
-          >
-            <span v-if="retrying" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:refresh-2-line" class="text-sm" />
-            Повторить запуск
-          </button>
-          <button
-            v-if="isTerminal"
-            class="btn btn-ghost btn-sm"
-            :class="{ 'btn-success': copySuccess }"
-            @click="copyDiagnostics"
-          >
-            <Icon :name="copySuccess ? 'mingcute:check-line' : 'mingcute:copy-2-line'" class="text-sm" />
-            {{ copySuccess ? 'Скопировано' : 'Копировать диагностику' }}
-          </button>
+      <div
+        v-if="run.apifyStatus || run.apifyStatusMessage"
+        class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-card px-2.5 py-2 text-sm text-muted"
+      >
+        <span v-if="run.apifyStatus" class="inline-flex items-center gap-1.5">
+          Статус Apify<span class="font-mono" :class="apifyTone">{{ run.apifyStatus }}</span>
+        </span>
+        <span v-if="run.apifyStatusMessage" class="min-w-0 flex-1 truncate">
+          {{ run.apifyStatusMessage }}
+        </span>
+      </div>
+
+      <ClientOnly>
+        <UiKeyValue :items="infoItems" label-width="128px" />
+      </ClientOnly>
+
+      <div v-if="timeline.length" class="flex flex-col gap-1.5">
+        <span class="text-micro tracking-[.06em] text-subtle uppercase">Шаги</span>
+        <div
+          v-for="step in timeline"
+          :key="step.step"
+          class="flex items-center gap-2.5 rounded-md border border-divider px-2.5 py-1.5"
+        >
+          <span class="size-1.5 shrink-0 rounded-full" :class="stepTone[step.level] ?? 'bg-neutral'" />
+          <span class="min-w-0 flex-1 truncate text-sm">{{ step.label }}</span>
+          <span v-if="step.count > 1" class="tnum font-mono text-micro text-subtle">{{ step.count }} записей</span>
+          <ClientOnly>
+            <span class="tnum font-mono text-micro text-subtle">{{ step.time }}</span>
+          </ClientOnly>
         </div>
+      </div>
 
-        <!-- Error Summary (human-readable) -->
-        <div v-if="run.errorSummary && run.status !== 'completed'" role="alert" class="alert mb-4" :class="run.status === 'canceled' ? 'alert-warning' : 'alert-error'">
-          <Icon :name="run.status === 'canceled' ? 'mingcute:information-line' : 'mingcute:warning-line'" />
-          <div>
-            <div class="font-semibold">{{ run.errorSummary }}</div>
-            <div v-if="run.errorCategory" class="text-xs mt-1 opacity-70">
-              Категория: {{ errorCategoryLabels[run.errorCategory] ?? run.errorCategory }}
-              <span v-if="run.errorStep"> · Шаг: {{ stepLabels[run.errorStep] ?? run.errorStep }}</span>
-            </div>
-          </div>
-        </div>
+      <UiDisclosure v-if="run.failureReason" title="Полный текст ошибки">
+        <pre class="overflow-x-auto rounded-md bg-surface p-2.5 font-mono text-micro break-words whitespace-pre-wrap text-muted">{{ run.failureReason }}</pre>
+      </UiDisclosure>
 
-        <!-- Next action hint -->
-        <div v-if="nextActionHint" class="alert alert-info mb-4">
-          <Icon :name="nextActionHint.icon" />
-          <span>{{ nextActionHint.text }}</span>
-        </div>
-
-        <!-- Apify external info -->
-        <div v-if="run.apifyStatus || run.apifyStatusMessage" class="bg-base-200 rounded-lg p-3 mb-4">
-          <h4 class="font-semibold text-xs mb-1 text-base-content/60">Apify диагностика</h4>
-          <div class="text-sm space-y-1">
-            <div v-if="run.apifyStatus">
-              <span class="text-base-content/50">Статус Apify:</span>
-              <span class="font-mono ml-1" :class="{
-                'text-success': run.apifyStatus === 'SUCCEEDED',
-                'text-error': ['FAILED', 'ABORTED', 'TIMED-OUT'].includes(run.apifyStatus),
-                'text-info': ['RUNNING', 'READY'].includes(run.apifyStatus),
-              }">{{ run.apifyStatus }}</span>
-            </div>
-            <div v-if="run.apifyStatusMessage">
-              <span class="text-base-content/50">Сообщение:</span>
-              <span class="ml-1">{{ run.apifyStatusMessage }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stats grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div class="stat bg-base-200 rounded-lg p-3">
-            <div class="stat-title text-xs">Найдено</div>
-            <div class="stat-value text-lg">{{ run.foundCount }}</div>
-          </div>
-          <div class="stat bg-base-200 rounded-lg p-3">
-            <div class="stat-title text-xs">Импортировано</div>
-            <div class="stat-value text-lg text-success">{{ run.importedCount }}</div>
-          </div>
-          <div class="stat bg-base-200 rounded-lg p-3">
-            <div class="stat-title text-xs">Пропущено</div>
-            <div class="stat-value text-lg">{{ run.skippedCount }}</div>
-          </div>
-          <div class="stat bg-base-200 rounded-lg p-3">
-            <div class="stat-title text-xs">Warnings</div>
-            <div class="stat-value text-lg" :class="{ 'text-warning': run.warningCount > 0 }">
-              {{ run.warningCount }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Info -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mb-4">
-          <div><span class="text-base-content/50">Профиль:</span> {{ run.profile.name }}</div>
-          <div><span class="text-base-content/50">Актор:</span> {{ run.profile.actorId }}</div>
-          <div><span class="text-base-content/50">Тип запуска:</span> {{ run.triggerType }}</div>
-          <div><span class="text-base-content/50">Инициатор:</span> {{ run.initiatedBy ?? '—' }}</div>
-          <div><span class="text-base-content/50">Старт:</span> {{ formatDate(run.startedAt) }}</div>
-          <div><span class="text-base-content/50">Завершение:</span> {{ formatDate(run.completedAt) }}</div>
-          <div><span class="text-base-content/50">Длительность:</span> {{ formatDuration(run.startedAt, run.completedAt) }}</div>
-          <div v-if="run.externalRunId">
-            <span class="text-base-content/50">Apify Run:</span>
-            <span class="font-mono text-xs ml-1">{{ run.externalRunId }}</span>
-          </div>
-        </div>
-
-        <!-- Timeline -->
-        <div v-if="timeline.length > 0" class="mb-4">
-          <h4 class="font-semibold text-sm mb-2">
-            <Icon name="mingcute:time-line" class="text-sm" />
-            Timeline шагов
-          </h4>
-          <ul class="steps steps-vertical text-sm">
-            <li
-              v-for="(step, idx) in timeline"
-              :key="idx"
-              class="step"
-              :class="{
-                'step-success': step.level === 'info' && run.status === 'completed',
-                'step-info': step.level === 'info' && run.status !== 'completed',
-                'step-warning': step.level === 'warn',
-                'step-error': step.level === 'error',
-              }"
-            >
-              <div class="text-left">
-                <span class="font-medium">{{ step.label }}</span>
-                <span class="text-xs text-base-content/40 ml-1">{{ step.time }}</span>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Raw diagnostics (collapsible) -->
-        <div v-if="run.failureReason" class="mb-4">
-          <button
-            class="btn btn-ghost btn-xs"
-            @click="showRawDiagnostics = !showRawDiagnostics"
-          >
-            <Icon :name="showRawDiagnostics ? 'mingcute:up-line' : 'mingcute:down-line'" class="text-sm" />
-            Raw diagnostics
-          </button>
-          <div v-if="showRawDiagnostics" class="mt-2 bg-base-200 rounded-lg p-3">
-            <pre class="text-xs font-mono whitespace-pre-wrap break-all text-base-content/70">{{ run.failureReason }}</pre>
-          </div>
-        </div>
-
-        <!-- Logs -->
-        <div class="mb-2">
-          <h4 class="font-semibold text-sm mb-2">
-            <Icon name="mingcute:list-check-line" class="text-sm" />
-            Лог запуска ({{ run.logs.length }})
-          </h4>
-
-          <div v-if="run.logs.length === 0" class="text-sm text-base-content/40 italic">
-            Логов пока нет
-          </div>
-
-          <div v-else class="max-h-96 overflow-y-auto bg-base-200 rounded-lg p-2 space-y-1">
-            <div
+      <div class="flex flex-col gap-1">
+        <span class="text-micro tracking-[.06em] text-subtle uppercase">
+          Лог запуска · {{ run.logs.length }}
+        </span>
+        <p v-if="!run.logs.length" class="text-sm text-subtle">Записей пока нет.</p>
+        <ClientOnly v-else>
+          <div class="max-h-96 overflow-y-auto rounded-md border border-divider p-1">
+            <UiLogRow
               v-for="log in run.logs"
               :key="log.id"
-              class="flex items-start gap-2 text-xs font-mono"
-            >
-              <span class="text-base-content/40 min-w-16 shrink-0">
-                {{ new Date(log.createdAt).toLocaleTimeString('ru-RU') }}
-              </span>
-              <span
-                class="uppercase font-bold min-w-10 shrink-0"
-                :class="logLevelColors[log.level] ?? 'text-base-content/50'"
-              >
-                {{ log.level }}
-              </span>
-              <span v-if="log.step" class="badge badge-ghost badge-xs shrink-0">
-                {{ log.step }}
-              </span>
-              <span class="text-base-content/80 break-all">
-                {{ log.message }}
-              </span>
-            </div>
+              :time="new Date(log.createdAt).toLocaleTimeString('ru-RU')"
+              :level="log.level as 'debug' | 'info' | 'warn' | 'error'"
+              :message="log.step ? `[${log.step}] ${log.message}` : log.message"
+            />
           </div>
-        </div>
-      </template>
+        </ClientOnly>
+      </div>
     </div>
-  </div>
+
+    <UiModal :open="confirmCancel" size="sm" title="Отменить запуск?" @close="confirmCancel = false">
+      <p class="text-sm text-muted">
+        Прогон Apify будет остановлен. Уже импортированные тренды останутся в базе,
+        а деньги за отработанную часть прогона Apify не возвращает.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="confirmCancel = false">Не отменять</UiButton>
+        <UiButton variant="danger" :loading="canceling" @click="handleCancel">Отменить запуск</UiButton>
+      </template>
+    </UiModal>
+  </section>
 </template>

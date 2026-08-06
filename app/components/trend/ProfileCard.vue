@@ -1,4 +1,17 @@
 <script setup lang="ts">
+/**
+ * Карточка профиля парсинга.
+ *
+ * Запуск — главное действие раздела и остаётся видимой кнопкой, хотя он
+ * платный (Apify тарифицирует прогон): тот же компромисс, что у включения
+ * устройства. Цена объясняется в подтверждении на странице.
+ *
+ * Редкое и разрушающее — в меню. Проверка конфигурации там же: она бесплатна,
+ * но нужна раз в жизни профиля, а в строке съедала бы место у запуска.
+ */
+import { profileValidation, trendRunStatus } from './TrendRunStatusMap'
+import { platformMeta } from '~/components/ui/platform-meta'
+
 const props = defineProps<{
   profile: {
     id: number
@@ -49,257 +62,186 @@ const emit = defineEmits<{
   validate: [id: number]
 }>()
 
-const platformLabels: Record<string, string> = {
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
-  youtube: 'YouTube',
-}
+const isActive = computed(() => props.profile.hasActiveRun || !!props.isRunning)
 
-const platformColors: Record<string, string> = {
-  tiktok: 'badge-primary',
-  instagram: 'badge-secondary',
-  youtube: 'badge-error',
-}
+const validation = computed(() => profileValidation(props.profile.validationStatus))
+const hasConfigError = computed(() =>
+  !!props.profile.validationStatus && props.profile.validationStatus !== 'valid',
+)
 
-const runStatusLabels: Record<string, string> = {
-  pending: 'Ожидание...',
-  starting: 'Запускается...',
-  running: 'Apify работает...',
-  importing: 'Импорт трендов...',
-  analyzing: 'Анализ...',
-  completed: 'Завершён',
-  failed: 'Ошибка',
-  canceled: 'Отменён',
-  partially_completed: 'Частично',
-}
+const canLaunch = computed(() => props.profile.enabled && !isActive.value && !hasConfigError.value)
 
-const runStatusColors: Record<string, string> = {
-  pending: 'badge-warning',
-  starting: 'badge-warning',
-  running: 'badge-info',
-  importing: 'badge-info',
-  analyzing: 'badge-info',
-  completed: 'badge-success',
-  failed: 'badge-error',
-  canceled: 'badge-neutral',
-  partially_completed: 'badge-warning',
-}
+const lastRunStatus = computed(() =>
+  props.profile.lastRun ? trendRunStatus(props.profile.lastRun.status) : null,
+)
 
-const isActive = computed(() => props.profile.hasActiveRun || props.isRunning)
-const showActiveIndicator = computed(() => isActive.value)
+const KEYWORDS_VISIBLE = 6
+const visibleKeywords = computed(() => props.profile.keywords.slice(0, KEYWORDS_VISIBLE))
+const hiddenKeywords = computed(() => Math.max(0, props.profile.keywords.length - KEYWORDS_VISIBLE))
 
-const validationBadge = computed(() => {
-  const status = props.profile.validationStatus
-  if (!status) return { label: 'Не проверен', color: 'badge-ghost', icon: 'mingcute:question-line' }
-  if (status === 'valid') return { label: 'Конфиг OK', color: 'badge-success', icon: 'mingcute:check-circle-line' }
-  return { label: 'Ошибка конфига', color: 'badge-error', icon: 'mingcute:warning-line' }
+const viewsRange = computed(() => {
+  const { viewCountMin, viewCountMax } = props.profile
+  if (!viewCountMin && !viewCountMax) return null
+  return `${viewCountMin ?? 0}–${viewCountMax ?? '∞'} просмотров`
 })
 
-const hasConfigError = computed(() => {
-  const status = props.profile.validationStatus
-  return status && status !== 'valid'
-})
-
-const canLaunch = computed(() => {
-  return props.profile.enabled && !isActive.value && !hasConfigError.value
-})
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+function formatDate(value: string | null): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   })
+}
+
+const menuItems = computed(() => [
+  { key: 'runs', label: 'История запусков', icon: 'mingcute:history-line' },
+  { key: 'schedule', label: 'Расписание', icon: 'mingcute:time-line' },
+  { key: 'validate', label: 'Проверить конфигурацию', icon: 'mingcute:shield-line' },
+  { key: 'duplicate', label: 'Дублировать', icon: 'mingcute:copy-2-line' },
+  { key: 'edit', label: 'Изменить', icon: 'mingcute:edit-line' },
+  { key: 'delete', label: 'Удалить профиль', icon: 'mingcute:delete-2-line', danger: true },
+])
+
+function onMenuSelect(key: string) {
+  if (key === 'runs') emit('showRuns', props.profile.id)
+  else if (key === 'schedule') emit('schedule', props.profile.id)
+  else if (key === 'validate') emit('validate', props.profile.id)
+  else if (key === 'duplicate') emit('duplicate', props.profile.id)
+  else if (key === 'edit') emit('edit', props.profile.id)
+  else if (key === 'delete') emit('delete', props.profile.id)
 }
 </script>
 
 <template>
-  <div
-    class="card bg-base-100 shadow-sm border"
-    :class="{
-      'opacity-50': !profile.enabled,
-      'border-primary/30': showActiveIndicator,
-      'border-base-300': !showActiveIndicator,
-    }"
+  <!-- Без overflow-hidden: меню действий выпадает за нижнюю границу карточки -->
+  <article
+    class="flex flex-col gap-2.5 rounded-lg border bg-card p-3"
+    :class="[
+      isActive ? 'border-info-border' : 'border-border',
+      !profile.enabled && 'opacity-60',
+    ]"
   >
-    <div class="card-body p-4 gap-3">
-      <!-- Header -->
-      <div class="flex items-start justify-between gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <h3 class="font-semibold text-base-content truncate">
-              {{ profile.name }}
-            </h3>
-            <!-- Active run indicator -->
-            <span v-if="showActiveIndicator" class="loading loading-ring loading-xs text-primary" />
-          </div>
-          <p class="text-xs text-base-content/50 mt-0.5">
-            {{ profile.app.name }} &middot; {{ profile.actorId }}
-            <span
-              class="badge badge-xs ml-1"
-              :class="validationBadge.color"
-              :title="profile.validationSummary ?? validationBadge.label"
-            >
-              <Icon :name="validationBadge.icon" class="text-[10px]" />
-              {{ validationBadge.label }}
-            </span>
-          </p>
-        </div>
-        <input
-          type="checkbox"
-          class="toggle toggle-sm toggle-primary"
-          :checked="profile.enabled"
-          @change="emit('toggle', profile.id, !profile.enabled)"
+    <div class="flex items-start gap-2">
+      <div class="flex min-w-0 flex-1 flex-col">
+        <span class="flex items-center gap-1.5">
+          <span class="truncate font-medium">{{ profile.name }}</span>
+          <Icon
+            v-if="isActive"
+            name="mingcute:loading-line"
+            class="shrink-0 animate-spin text-info"
+            title="Запуск идёт"
+          />
+        </span>
+        <span class="truncate font-mono text-micro text-subtle">
+          {{ profile.app.name }} · {{ profile.actorId }}
+        </span>
+      </div>
+
+      <UiToggle
+        :model-value="profile.enabled"
+        :label="profile.enabled ? 'Включён' : 'Выключен'"
+        class="shrink-0"
+        @update:model-value="emit('toggle', profile.id, !profile.enabled)"
+      />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-1.5">
+      <TrendRunStatusBadge
+        kind="validation"
+        :status="profile.validationStatus"
+        size="xs"
+        :title="profile.validationSummary ?? validation.label"
+      />
+      <span
+        v-for="platform in profile.platforms"
+        :key="platform"
+        class="inline-flex h-[18px] items-center gap-1 rounded-sm border border-divider px-1.5 text-micro text-muted"
+      >
+        <span class="size-1.5 rounded-full" :style="{ background: platformMeta(platform).color }" />
+        {{ platformMeta(platform).label }}
+      </span>
+      <span v-if="profile.language" class="rounded-sm border border-divider px-1.5 text-micro text-muted">
+        {{ profile.language }}
+      </span>
+      <span v-if="profile.geo" class="rounded-sm border border-divider px-1.5 text-micro text-muted">
+        {{ profile.geo }}
+      </span>
+      <span v-if="viewsRange" class="tnum rounded-sm border border-divider px-1.5 font-mono text-micro text-muted">
+        {{ viewsRange }}
+      </span>
+    </div>
+
+    <div v-if="visibleKeywords.length" class="flex flex-wrap gap-1">
+      <span
+        v-for="keyword in visibleKeywords"
+        :key="keyword"
+        class="rounded-sm bg-surface px-1.5 py-0.5 text-micro text-muted"
+      >{{ keyword }}</span>
+      <span v-if="hiddenKeywords" class="rounded-sm bg-surface px-1.5 py-0.5 text-micro text-subtle">
+        +{{ hiddenKeywords }}
+      </span>
+    </div>
+    <p v-else class="text-micro text-subtle">Ключевых слов нет — парсер возьмёт всё, что найдёт актор.</p>
+
+    <p
+      v-if="hasConfigError"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2 py-1.5 text-sm text-fg"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-danger" />
+      <span class="min-w-0 flex-1">
+        {{ profile.validationSummary ?? 'Конфигурация не прошла проверку' }}
+        <button
+          type="button"
+          class="mt-0.5 block cursor-pointer text-sm text-danger underline"
+          @click="emit('validate', profile.id)"
         >
-      </div>
+          Проверить снова
+        </button>
+      </span>
+    </p>
 
-      <!-- Keywords -->
-      <div v-if="profile.keywords.length > 0" class="flex flex-wrap gap-1">
-        <span
-          v-for="kw in profile.keywords.slice(0, 6)"
-          :key="kw"
-          class="badge badge-ghost badge-sm"
-        >
-          {{ kw }}
+    <div v-if="profile.scheduleEnabled && profile.scheduleCron" class="flex flex-wrap items-center gap-1.5 text-sm text-muted">
+      <Icon name="mingcute:time-line" class="shrink-0" />
+      <span class="font-mono">{{ profile.scheduleCron }}</span>
+      <ClientOnly>
+        <span v-if="profile.scheduleNextRunAt" class="tnum font-mono text-micro text-subtle">
+          след. {{ formatDate(profile.scheduleNextRunAt) }}
         </span>
-        <span v-if="profile.keywords.length > 6" class="badge badge-ghost badge-sm">
-          +{{ profile.keywords.length - 6 }}
-        </span>
-      </div>
-      <p v-else class="text-xs text-base-content/40 italic">
-        Нет ключевых слов
-      </p>
+      </ClientOnly>
+    </div>
 
-      <!-- Platforms + filters -->
-      <div class="flex flex-wrap gap-1">
-        <span
-          v-for="p in profile.platforms"
-          :key="p"
-          class="badge badge-sm"
-          :class="platformColors[p] ?? 'badge-neutral'"
-        >
-          {{ platformLabels[p] ?? p }}
-        </span>
-        <span v-if="profile.language" class="badge badge-outline badge-sm">
-          {{ profile.language }}
-        </span>
-        <span v-if="profile.geo" class="badge badge-outline badge-sm">
-          {{ profile.geo }}
-        </span>
-        <span v-if="profile.viewCountMin || profile.viewCountMax" class="badge badge-outline badge-sm">
-          {{ profile.viewCountMin ?? 0 }}–{{ profile.viewCountMax ?? '∞' }} views
-        </span>
-      </div>
-
-      <!-- Config error alert -->
-      <div v-if="hasConfigError" class="flex items-start gap-2 p-2 rounded-lg bg-error/10 text-error text-xs">
-        <Icon name="mingcute:warning-line" class="text-sm shrink-0 mt-0.5" />
-        <div>
-          <p class="font-medium">{{ profile.validationSummary ?? 'Ошибка конфигурации' }}</p>
-          <button
-            class="btn btn-ghost btn-xs text-error p-0 mt-1 h-auto min-h-0"
-            @click="emit('validate', profile.id)"
-          >
-            Проверить снова
-          </button>
-        </div>
-      </div>
-
-      <!-- Schedule badge -->
-      <div v-if="profile.scheduleEnabled && profile.scheduleCron" class="flex items-center gap-1 text-xs text-base-content/60">
-        <Icon name="mingcute:time-line" class="text-sm" />
-        <span>{{ profile.scheduleCron }}</span>
-        <span v-if="profile.scheduleNextRunAt" class="text-base-content/40">
-          &middot; след: {{ formatDate(profile.scheduleNextRunAt) }}
-        </span>
-      </div>
-
-      <!-- Last run summary -->
-      <div v-if="profile.lastRun" class="flex items-center gap-2 text-xs">
-        <span
-          class="badge badge-xs"
-          :class="runStatusColors[profile.lastRun.status] ?? 'badge-neutral'"
-        >
-          {{ runStatusLabels[profile.lastRun.status] ?? profile.lastRun.status }}
-        </span>
-        <span class="text-base-content/50">
+    <button
+      v-if="profile.lastRun && lastRunStatus"
+      type="button"
+      class="flex cursor-pointer flex-wrap items-center gap-2 rounded-md border border-divider px-2 py-1.5 text-left hover:bg-surface"
+      @click="emit('showRunDetail', profile.lastRun.id)"
+    >
+      <TrendRunStatusBadge :status="profile.lastRun.status" size="xs" />
+      <ClientOnly>
+        <span class="tnum font-mono text-micro text-subtle">
           {{ formatDate(profile.lastRun.completedAt ?? profile.lastRun.startedAt) }}
         </span>
-        <span v-if="profile.lastRun.importedCount > 0" class="text-success">
-          +{{ profile.lastRun.importedCount }}
-        </span>
-        <button
-          class="btn btn-ghost btn-xs p-0 min-h-0 h-auto"
-          title="Подробнее"
-          @click="emit('showRunDetail', profile.lastRun.id)"
-        >
-          <Icon name="mingcute:external-link-line" class="text-xs" />
-        </button>
-      </div>
-      <div v-else class="text-xs text-base-content/40 italic">
-        Ещё не запускался
-      </div>
+      </ClientOnly>
+      <span v-if="profile.lastRun.importedCount > 0" class="tnum font-mono text-micro text-success">
+        +{{ profile.lastRun.importedCount }}
+      </span>
+      <span class="flex-1" />
+      <Icon name="mingcute:right-line" class="shrink-0 text-subtle" />
+    </button>
+    <p v-else class="text-sm text-subtle">Ещё не запускался.</p>
 
-      <!-- Actions -->
-      <div class="card-actions justify-between mt-1">
-        <div class="flex gap-1">
-          <button
-            class="btn btn-ghost btn-xs"
-            title="История запусков"
-            @click="emit('showRuns', profile.id)"
-          >
-            <Icon name="mingcute:history-line" class="text-sm" />
-          </button>
-          <button
-            class="btn btn-ghost btn-xs"
-            title="Расписание"
-            @click="emit('schedule', profile.id)"
-          >
-            <Icon name="mingcute:time-line" class="text-sm" />
-          </button>
-          <button
-            class="btn btn-ghost btn-xs"
-            title="Проверить конфигурацию"
-            @click="emit('validate', profile.id)"
-          >
-            <Icon name="mingcute:shield-check-line" class="text-sm" />
-          </button>
-          <button
-            class="btn btn-ghost btn-xs"
-            title="Дублировать"
-            @click="emit('duplicate', profile.id)"
-          >
-            <Icon name="mingcute:copy-2-line" class="text-sm" />
-          </button>
-        </div>
-        <div class="flex gap-1">
-          <button
-            class="btn btn-ghost btn-xs"
-            @click="emit('edit', profile.id)"
-          >
-            <Icon name="mingcute:edit-line" class="text-sm" />
-            Изменить
-          </button>
-          <button
-            class="btn btn-ghost btn-xs text-error"
-            @click="emit('delete', profile.id)"
-          >
-            <Icon name="mingcute:delete-2-line" class="text-sm" />
-          </button>
-          <button
-            class="btn btn-primary btn-xs"
-            :disabled="!canLaunch"
-            :title="hasConfigError ? 'Исправьте конфигурацию перед запуском' : ''"
-            @click="emit('run', profile.id)"
-          >
-            <span v-if="isActive" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:play-circle-line" class="text-sm" />
-            {{ isActive ? 'Работает...' : 'Запустить' }}
-          </button>
-        </div>
-      </div>
+    <div class="flex items-center gap-1.5 border-t border-divider pt-2">
+      <UiButton
+        variant="primary"
+        :disabled="!canLaunch"
+        :title="hasConfigError ? 'Исправьте конфигурацию перед запуском' : 'Прогон тарифицируется Apify'"
+        @click="emit('run', profile.id)"
+      >
+        <Icon v-if="!isActive" name="mingcute:play-circle-line" />
+        <Icon v-else name="mingcute:loading-line" class="animate-spin" />
+        {{ isActive ? 'Работает' : 'Запустить · платно' }}
+      </UiButton>
+      <span class="flex-1" />
+      <UiActionMenu :items="menuItems" @select="onMenuSelect" />
     </div>
-  </div>
+  </article>
 </template>

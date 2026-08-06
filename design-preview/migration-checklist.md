@@ -20,7 +20,7 @@
 
 | | Файл | Заметки |
 | --- | --- | --- |
-| `+` | `trends/index.vue` | эталон, проверен на живой базе (SSR); табы «Профили» и «Запуски» ещё на старых компонентах |
+| `+` | `trends/index.vue` | три вкладки: список, профили парсинга, запуски — все проверены вживую |
 | `+` | `scenarios/index.vue` | сортировки нет — API её не принимает |
 | `+` | `ideas/index.vue` | форма добавления и панель синхронизации переписаны |
 | `+` | `videos/index.vue` | факт стоимости, оценка только пока факта нет |
@@ -62,15 +62,16 @@
 
 | | Файл | Макет |
 | --- | --- | --- |
-| `+` | `index.vue` | 01-dashboard · без расхода, интеграций, воронки и итогов периода — нет данных |
+| `+` | `index.vue` | 01-dashboard · расход за сутки вернулся, у запусков прогресс и стоимость; интеграций, воронки и итогов периода по-прежнему нет |
 | `—` | `pipeline/[id]/index.vue` | 04-pipeline-editor |
-| `+` | `pipeline/[id]/runs/index.vue` | 05-run-monitor · история по дням, активные закреплены |
-| `+` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor · шаги, длительности, логи, схема; стоимости нет — её не отдаёт API |
+| `+` | `pipeline/[id]/runs/index.vue` | 05-run-monitor · история по дням, отбор упавших считает сервер |
+| `+` | `pipeline/runs.vue` | 05-run-monitor · все конвейеры, фильтры по конвейеру, статусу и дню |
+| `+` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor · шаги со стоимостью, нормы длительности, пропуск шага, логи, схема |
 | `—` | `analytics/index.vue` | 07-analytics |
 | `+` | `settings.vue` | 08-settings-admin · профиль, тема, состояние MarketingCamp |
 | `+` | `admin/index.vue` | 08-settings-admin · разделы, строка состояния, очередь и ошибки |
 | `+` | `admin/integrations/index.vue` | 08-settings-admin · карта настроек; ключей нет — они в окружении |
-| `+` | `admin/balances.vue` | 08-settings-admin · карточки остатков; починен вызов модалки правки |
+| `+` | `admin/balances.vue` | 08-settings-admin · карточки остатков и расход за сутки по типам операций |
 | `~` | `admin/telegram.vue` | 08-settings-admin · страница и вкладка «Обзор» переписаны; ещё шесть вкладок в `components/admin/telegram/` на DaisyUI |
 | `+` | `admin/storage-health.vue` | 08-settings-admin · доля найденных файлов, список пропаж |
 | `+` | `admin/accounts-health.vue` | 06-accounts-queue · прогрев и 2FA видны только здесь |
@@ -116,6 +117,7 @@ bun run scripts/seed-devices-demo.ts     # устройства: синхрон�
 bun run scripts/seed-posting-jobs-demo.ts # очередь публикаций во всех состояниях, часть — на ближайшие сутки
 bun run scripts/seed-pipeline-runs-demo.ts # конвейер из 9 блоков и 8 запусков во всех состояниях
 bun run scripts/seed-cost-ledger-demo.ts # журнал списаний из шагов роликов — расход в админке
+bun run scripts/seed-trend-profiles-demo.ts # профили парсинга и их запуски — вкладки на /trends
 ```
 
 `seed-dev-user` запускать первым: без пользователя не работает ни вход, ни

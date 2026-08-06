@@ -1,4 +1,15 @@
 <script setup lang="ts">
+/**
+ * Форма профиля парсинга.
+ *
+ * Приложение при редактировании не меняется: профиль уже привязан к чужим
+ * трендам, и перенос между приложениями — это не правка формы, а миграция.
+ *
+ * Проверка актора стоит прямо у поля: без неё ошибка «актор не найден»
+ * всплывает только на первом платном прогоне.
+ */
+import { platformMeta } from '~/components/ui/platform-meta'
+
 const props = defineProps<{
   initialData?: {
     id?: number
@@ -38,23 +49,21 @@ const testMessage = ref('')
 
 defineExpose({ testStatus, testMessage })
 
-const POPULAR_ACTORS = [
-  { id: 'clockworks/tiktok-scraper', label: 'Clockworks — TikTok' },
-  { id: 'apidojo/tiktok-scraper', label: 'Apidojo — TikTok' },
-  { id: 'apify/instagram-scraper', label: 'Apify — Instagram' },
-  { id: 'streamers/youtube-scraper', label: 'Streamers — YouTube' },
-  { id: 'apidojo/youtube-scraper', label: 'Apidojo — YouTube' },
-  { id: 'custom', label: 'Свой актор...' },
+const CUSTOM_ACTOR = 'custom'
+
+const ACTOR_OPTIONS = [
+  { value: 'clockworks/tiktok-scraper', label: 'Clockworks — TikTok' },
+  { value: 'apidojo/tiktok-scraper', label: 'Apidojo — TikTok' },
+  { value: 'apify/instagram-scraper', label: 'Apify — Instagram' },
+  { value: 'streamers/youtube-scraper', label: 'Streamers — YouTube' },
+  { value: 'apidojo/youtube-scraper', label: 'Apidojo — YouTube' },
+  { value: CUSTOM_ACTOR, label: 'Свой актор…' },
 ]
 
-const PLATFORM_OPTIONS = [
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'youtube', label: 'YouTube' },
-]
+const PLATFORMS = ['tiktok', 'instagram', 'youtube']
 
 const form = reactive({
-  appId: props.initialData?.appId ?? (props.apps[0]?.id || 0),
+  appId: props.initialData?.appId ?? (props.apps[0]?.id ?? 0),
   name: props.initialData?.name ?? '',
   actorId: props.initialData?.actorId ?? 'clockworks/tiktok-scraper',
   customActorId: '',
@@ -67,32 +76,45 @@ const form = reactive({
   maxItems: props.initialData?.maxItems ?? 20,
 })
 
-const isCustomActor = computed(() => form.actorId === 'custom')
+// Сохранённый актор может не входить в список известных — тогда это «свой»,
+// и поле должно открыться с уже подставленным значением.
+if (props.initialData?.actorId && !ACTOR_OPTIONS.some(o => o.value === props.initialData!.actorId)) {
+  form.customActorId = props.initialData.actorId
+  form.actorId = CUSTOM_ACTOR
+}
+
+const appOptions = computed(() => props.apps.map(app => ({ value: app.id, label: app.name })))
+
+const isCustomActor = computed(() => form.actorId === CUSTOM_ACTOR)
 const isEditing = computed(() => !!props.initialData?.id)
 
+const effectiveActorId = computed(() =>
+  isCustomActor.value ? form.customActorId.trim() : form.actorId,
+)
+
+const nameError = ref('')
+const actorError = ref('')
+
 function togglePlatform(platform: string) {
-  const idx = form.platforms.indexOf(platform)
-  if (idx >= 0) {
-    if (form.platforms.length > 1) {
-      form.platforms.splice(idx, 1)
-    }
-  } else {
+  const index = form.platforms.indexOf(platform)
+  // Последнюю платформу снять нельзя: профиль без площадки парсить нечего
+  if (index >= 0) {
+    if (form.platforms.length > 1) form.platforms.splice(index, 1)
+  }
+  else {
     form.platforms.push(platform)
   }
 }
 
 function handleSubmit() {
-  const actorId = isCustomActor.value ? form.customActorId.trim() : form.actorId
-
-  if (!form.name.trim()) return
-  if (!form.appId) return
-  if (!actorId) return
-  if (form.platforms.length === 0) return
+  nameError.value = form.name.trim() ? '' : 'Без названия профиль не найти в списке'
+  actorError.value = effectiveActorId.value ? '' : 'Укажите актор Apify'
+  if (nameError.value || actorError.value || !form.appId || form.platforms.length === 0) return
 
   emit('submit', {
     appId: form.appId,
     name: form.name.trim(),
-    actorId,
+    actorId: effectiveActorId.value,
     keywords: form.keywords,
     platforms: form.platforms,
     language: form.language.trim() || undefined,
@@ -105,175 +127,97 @@ function handleSubmit() {
 </script>
 
 <template>
-  <form class="space-y-4" @submit.prevent="handleSubmit">
-    <!-- Название -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Название профиля *</legend>
-      <input
-        v-model="form.name"
-        type="text"
-        class="input w-full"
-        placeholder="Например: Тренды TikTok по фитнесу"
-        required
+  <form class="flex flex-col gap-3" @submit.prevent="handleSubmit">
+    <div class="grid gap-3 sm:grid-cols-2">
+      <UiField label="Название профиля" :error="nameError">
+        <UiInput v-model="form.name" placeholder="Тренды TikTok по фитнесу" />
+      </UiField>
+
+      <UiField
+        label="Приложение"
+        :hint="isEditing ? 'У существующего профиля не меняется: к нему привязаны тренды' : undefined"
       >
-    </fieldset>
+        <UiSelect v-model="form.appId" :options="appOptions" :disabled="isEditing" />
+      </UiField>
+    </div>
 
-    <!-- Приложение -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Приложение *</legend>
-      <select v-model="form.appId" class="select w-full" :disabled="isEditing">
-        <option v-for="app in apps" :key="app.id" :value="app.id">
-          {{ app.name }}
-        </option>
-      </select>
-    </fieldset>
-
-    <!-- Актор -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Apify-актор *</legend>
-      <select v-model="form.actorId" class="select w-full">
-        <option v-for="actor in POPULAR_ACTORS" :key="actor.id" :value="actor.id">
-          {{ actor.label }}
-        </option>
-      </select>
-      <input
+    <UiField label="Apify-актор" :error="actorError">
+      <UiSelect v-model="form.actorId" :options="ACTOR_OPTIONS" />
+      <UiInput
         v-if="isCustomActor"
         v-model="form.customActorId"
-        type="text"
-        class="input w-full mt-2"
+        class="mt-1.5"
+        mono
         placeholder="owner/actor-name"
-        required
-      >
-      <!-- Test connection inline -->
-      <div class="flex items-center gap-2 mt-2">
-        <button
+      />
+      <div class="mt-1.5 flex flex-wrap items-center gap-2">
+        <UiButton
           type="button"
-          class="btn btn-ghost btn-xs"
-          :disabled="testStatus === 'testing'"
-          @click="emit('testConnection', isCustomActor ? form.customActorId.trim() : form.actorId)"
+          :loading="testStatus === 'testing'"
+          @click="emit('testConnection', effectiveActorId)"
         >
-          <span v-if="testStatus === 'testing'" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:shield-check-line" class="text-sm" />
+          <Icon v-if="testStatus !== 'testing'" name="mingcute:shield-line" />
           Проверить актор
-        </button>
-        <span
-          v-if="testStatus === 'success'"
-          class="text-xs text-success flex items-center gap-1"
-        >
-          <Icon name="mingcute:check-circle-line" class="text-sm" />
-          Актор найден, токен валиден
+        </UiButton>
+        <span v-if="testStatus === 'success'" class="flex items-center gap-1 text-sm text-success">
+          <Icon name="mingcute:check-line" />
+          Актор найден, токен принят
         </span>
-        <span
-          v-if="testStatus === 'error'"
-          class="text-xs text-error flex items-center gap-1"
-        >
-          <Icon name="mingcute:warning-line" class="text-sm" />
+        <span v-else-if="testStatus === 'error'" class="flex items-center gap-1 text-sm text-danger">
+          <Icon name="mingcute:alert-line" />
           {{ testMessage }}
         </span>
       </div>
-    </fieldset>
+    </UiField>
 
-    <!-- Keywords -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Ключевые слова</legend>
+    <UiField label="Ключевые слова" hint="По ним актор ищет трендовый контент">
       <SharedTagInput
         v-model="form.keywords"
         placeholder="Добавьте слово и нажмите Enter"
         :show-ai-button="false"
       />
-      <p class="label text-xs">
-        Слова для поиска трендового контента
-      </p>
-    </fieldset>
+    </UiField>
 
-    <!-- Platforms -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Платформы *</legend>
-      <div class="flex gap-3">
-        <label
-          v-for="p in PLATFORM_OPTIONS"
-          :key="p.value"
-          class="flex items-center gap-2 cursor-pointer"
+    <UiField label="Площадки" hint="Последнюю снять нельзя — парсить будет нечего">
+      <div class="flex flex-wrap gap-3">
+        <UiCheckbox
+          v-for="platform in PLATFORMS"
+          :key="platform"
+          :model-value="form.platforms.includes(platform)"
+          @update:model-value="togglePlatform(platform)"
         >
-          <input
-            type="checkbox"
-            class="checkbox checkbox-sm checkbox-primary"
-            :checked="form.platforms.includes(p.value)"
-            @change="togglePlatform(p.value)"
-          >
-          <span class="text-sm">{{ p.label }}</span>
-        </label>
+          <span class="flex items-center gap-1.5">
+            <span class="size-2 rounded-full" :style="{ background: platformMeta(platform).color }" />
+            {{ platformMeta(platform).label }}
+          </span>
+        </UiCheckbox>
       </div>
-    </fieldset>
+    </UiField>
 
-    <!-- Language + Geo -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Язык</legend>
-        <input
-          v-model="form.language"
-          type="text"
-          class="input w-full"
-          placeholder="ru, en, es..."
-        >
-      </fieldset>
-
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Гео</legend>
-        <input
-          v-model="form.geo"
-          type="text"
-          class="input w-full"
-          placeholder="RU, US, DE..."
-        >
-      </fieldset>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <UiField label="Язык">
+        <UiInput v-model="form.language" placeholder="ru, en, es…" />
+      </UiField>
+      <UiField label="Гео">
+        <UiInput v-model="form.geo" placeholder="RU, US, DE…" />
+      </UiField>
     </div>
 
-    <!-- View count filters + Max items -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Мин. просмотров</legend>
-        <input
-          v-model.number="form.viewCountMin"
-          type="number"
-          class="input w-full"
-          placeholder="0"
-          min="0"
-        >
-      </fieldset>
-
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Макс. просмотров</legend>
-        <input
-          v-model.number="form.viewCountMax"
-          type="number"
-          class="input w-full"
-          placeholder="Без ограничений"
-          min="0"
-        >
-      </fieldset>
-
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Макс. результатов</legend>
-        <input
-          v-model.number="form.maxItems"
-          type="number"
-          class="input w-full"
-          placeholder="20"
-          min="1"
-          max="100"
-        >
-      </fieldset>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <UiField label="Просмотров от">
+        <UiInput v-model.number="form.viewCountMin" type="number" mono placeholder="0" />
+      </UiField>
+      <UiField label="Просмотров до">
+        <UiInput v-model.number="form.viewCountMax" type="number" mono placeholder="без ограничения" />
+      </UiField>
+      <UiField label="Результатов за прогон" hint="Каждый результат стоит денег у Apify">
+        <UiInput v-model.number="form.maxItems" type="number" mono placeholder="20" />
+      </UiField>
     </div>
 
-    <!-- Actions -->
-    <div class="flex justify-end gap-2">
-      <button type="button" class="btn btn-ghost" @click="emit('cancel')">
-        Отмена
-      </button>
-      <button type="submit" class="btn btn-primary">
-        {{ isEditing ? 'Сохранить' : 'Создать' }}
-      </button>
+    <div class="flex justify-end gap-1.5 border-t border-divider pt-3">
+      <UiButton type="button" variant="ghost" @click="emit('cancel')">Отмена</UiButton>
+      <UiButton type="submit" variant="primary">{{ isEditing ? 'Сохранить' : 'Создать' }}</UiButton>
     </div>
   </form>
 </template>

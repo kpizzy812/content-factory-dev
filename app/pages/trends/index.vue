@@ -1,34 +1,33 @@
 <script setup lang="ts">
+/**
+ * Тренды: список, профили парсинга и запуски.
+ *
+ * Три вкладки, а не три страницы: оператор заводит профиль, запускает его и
+ * тут же смотрит, что приехало — разводить это по разделам значит заставить
+ * его ходить кругами.
+ *
+ * Вкладка выбирается адресом (`?tab=profiles`): ссылку на профили дают в чате,
+ * и она должна открывать профили, а не список трендов.
+ */
 definePageMeta({ middleware: 'module-access', moduleSlug: 'trendwatcher' })
 useHead({ title: 'Тренды' })
 
-const activeTab = ref<'trends' | 'profiles' | 'runs'>('trends')
+type Tab = 'trends' | 'profiles' | 'runs'
 
-// --- Trends tab ---
-const filtersStore = useTrendFiltersStore()
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
 
-// URL ↔ state sync для runId/pipelineId (из кнопки «К юниту» монитора исполнений)
-useRunPipelineFilter(filtersStore)
+const activeTab = computed<Tab>(() => {
+  const value = route.query.tab
+  return value === 'profiles' || value === 'runs' ? value : 'trends'
+})
 
-const { data, pending, error, refresh: refreshTrends } = useTrends(computed(() => filtersStore.query))
-const trends = computed(() => data.value?.data ?? [])
-const meta = computed(() => data.value?.meta ?? { total: 0, page: 1, perPage: 20, totalPages: 1 })
-
-function onPageUpdate(p: number) {
-  filtersStore.page = p
+function setTab(tab: Tab) {
+  router.replace({ query: { ...route.query, tab: tab === 'trends' ? undefined : tab } })
 }
 
-function clearRunFilter() {
-  filtersStore.runId = undefined
-  filtersStore.resetPage()
-}
-
-function clearPipelineFilter() {
-  filtersStore.pipelineId = undefined
-  filtersStore.resetPage()
-}
-
-// --- Profiles tab ---
+// ── Профили ───────────────────────────────────────────────────────────────
 const {
   profiles,
   pending: profilesPending,
@@ -37,6 +36,7 @@ const {
   deleteProfile,
   runParsing,
   duplicateProfile,
+  validateProfile,
   refresh: refreshProfiles,
 } = useTrendwatcherProfiles()
 
@@ -45,43 +45,37 @@ const apps = computed<Array<{ id: number; name: string }>>(() =>
   (appsData.value as { data: Array<{ id: number; name: string }> } | null)?.data ?? [],
 )
 
-// Active runs polling
 const { activeRuns, isProfileRunning, refresh: refreshActiveRuns } = useTrendwatcherActiveRuns()
+
+// Список активных запусков приезжает только в браузере, а карточки профилей
+// рисуются на сервере: без этой отсечки первый клиентский рендер расходился
+// бы с разметкой у любого работающего профиля.
+const mounted = ref(false)
+onMounted(() => { mounted.value = true })
 
 const showForm = ref(false)
 const editingProfile = ref<Record<string, unknown> | null>(null)
 
-// --- Panels ---
-const showRunHistory = ref(false)
-const runHistoryProfileId = ref<number | undefined>(undefined)
-const runHistoryProfileName = ref<string | undefined>(undefined)
-
-const showRunDetail = ref(false)
-const runDetailId = ref<number>(0)
-
-const showScheduleForm = ref(false)
 const scheduleProfile = ref<Record<string, unknown> | null>(null)
 
-// Toast notifications
-const toast = ref<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+const deleteTarget = ref<{ id: number; name: string } | null>(null)
+const runTarget = ref<{ id: number; name: string; maxItems: number } | null>(null)
 
-function showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
-  toast.value = { message, type }
-  setTimeout(() => { toast.value = null }, 4000)
-}
+// ── Панели запусков ───────────────────────────────────────────────────────
+const runHistoryProfileId = ref<number | undefined>(undefined)
+const runHistoryProfileName = ref<string | undefined>(undefined)
+const runDetailId = ref<number | null>(null)
 
-// --- Profile actions ---
 function openCreateForm() {
   editingProfile.value = null
   showForm.value = true
 }
 
 function openEditForm(id: number) {
-  const profile = profiles.value.find((p) => p.id === id)
-  if (profile) {
-    editingProfile.value = { ...profile }
-    showForm.value = true
-  }
+  const profile = profiles.value.find(p => p.id === id)
+  if (!profile) return
+  editingProfile.value = { ...profile }
+  showForm.value = true
 }
 
 function closeForm() {
@@ -104,14 +98,16 @@ async function handleSubmit(formData: {
   try {
     if (editingProfile.value?.id) {
       await updateProfile(editingProfile.value.id as number, formData)
-      showToast('Профиль обновлён')
-    } else {
+      toast.success('Профиль обновлён')
+    }
+    else {
       await createProfile(formData)
-      showToast('Профиль создан')
+      toast.success('Профиль создан')
     }
     closeForm()
-  } catch {
-    showToast('Ошибка сохранения профиля', 'error')
+  }
+  catch (err: unknown) {
+    toast.error((err as { data?: { message?: string } })?.data?.message ?? 'Не удалось сохранить профиль')
   }
 }
 
@@ -119,210 +115,186 @@ async function handleToggle(id: number, enabled: boolean) {
   await updateProfile(id, { enabled })
 }
 
-async function handleRun(id: number) {
+function requestRun(id: number) {
+  const profile = profiles.value.find(p => p.id === id)
+  if (!profile) return
+  runTarget.value = { id, name: profile.name, maxItems: profile.maxItems }
+}
+
+async function handleRun() {
+  const target = runTarget.value
+  runTarget.value = null
+  if (!target) return
   try {
-    const result = await runParsing(id) as { data: { runId: number } }
-    showToast(`Запуск #${result.data.runId} создан`, 'info')
-    // Start polling active runs
+    const result = await runParsing(target.id) as { data: { runId: number } }
+    toast.success(`Запуск #${result.data.runId} создан`)
     refreshActiveRuns()
-  } catch (err: unknown) {
-    const e = err as { data?: { message?: string } }
-    showToast(e?.data?.message ?? 'Ошибка запуска', 'error')
+  }
+  catch (err: unknown) {
+    toast.error((err as { data?: { message?: string } })?.data?.message ?? 'Не удалось запустить парсинг')
   }
 }
 
-async function handleDelete(id: number) {
-  if (!confirm('Удалить профиль парсинга?')) return
-  await deleteProfile(id)
-  showToast('Профиль удалён')
+function requestDelete(id: number) {
+  const profile = profiles.value.find(p => p.id === id)
+  if (profile) deleteTarget.value = { id, name: profile.name }
+}
+
+async function handleDelete() {
+  const target = deleteTarget.value
+  deleteTarget.value = null
+  if (!target) return
+  try {
+    await deleteProfile(target.id)
+    toast.success('Профиль удалён')
+  }
+  catch {
+    toast.error('Не удалось удалить профиль')
+  }
 }
 
 async function handleDuplicate(id: number) {
   try {
     await duplicateProfile(id)
-    showToast('Профиль дублирован')
-  } catch {
-    showToast('Ошибка дублирования', 'error')
+    toast.success('Профиль продублирован')
+  }
+  catch {
+    toast.error('Не удалось продублировать профиль')
+  }
+}
+
+async function handleValidate(id: number) {
+  try {
+    await validateProfile(id)
+    toast.success('Конфигурация проверена')
+  }
+  catch (err: unknown) {
+    toast.error((err as { data?: { message?: string } })?.data?.message ?? 'Проверка не прошла')
   }
 }
 
 function openSchedule(id: number) {
-  const profile = profiles.value.find((p) => p.id === id)
-  if (profile) {
-    scheduleProfile.value = { ...profile }
-    showScheduleForm.value = true
-  }
-}
-
-function closeSchedule() {
-  showScheduleForm.value = false
-  scheduleProfile.value = null
+  const profile = profiles.value.find(p => p.id === id)
+  if (profile) scheduleProfile.value = { ...profile }
 }
 
 function onScheduleSaved() {
   refreshProfiles()
-  showToast('Расписание сохранено')
+  toast.success('Расписание сохранено')
 }
 
-function openRunHistory(profileId: number) {
-  const profile = profiles.value.find((p) => p.id === profileId)
+function openRunHistory(profileId?: number) {
+  const profile = profileId != null ? profiles.value.find(p => p.id === profileId) : null
   runHistoryProfileId.value = profileId
   runHistoryProfileName.value = profile?.name
-  showRunDetail.value = false
-  showRunHistory.value = true
-  activeTab.value = 'runs'
-}
-
-function openRunHistoryAll() {
-  runHistoryProfileId.value = undefined
-  runHistoryProfileName.value = undefined
-  showRunDetail.value = false
-  showRunHistory.value = true
+  runDetailId.value = null
+  setTab('runs')
 }
 
 function openRunDetail(runId: number) {
   runDetailId.value = runId
-  showRunHistory.value = false
-  showRunDetail.value = true
-  activeTab.value = 'runs'
+  setTab('runs')
 }
 
-function closeRunPanel() {
-  showRunHistory.value = false
-  showRunDetail.value = false
-}
-
-// Polling-driven refresh of profiles every 5s when there are active runs
+// Пока идут запуски, список профилей и трендов обновляется сам: карточка
+// показывает состояние прогона, и без опроса она врёт до перезагрузки.
 const hasAnyActive = computed(() => activeRuns.value.length > 0)
 let profileRefreshTimer: ReturnType<typeof setInterval> | null = null
 
 watch(hasAnyActive, (active) => {
   if (active && !profileRefreshTimer) {
     profileRefreshTimer = setInterval(() => refreshProfiles(), 5000)
-  } else if (!active && profileRefreshTimer) {
+  }
+  else if (!active && profileRefreshTimer) {
     clearInterval(profileRefreshTimer)
     profileRefreshTimer = null
-    refreshProfiles() // Final refresh
-    refreshTrends()   // Refresh trends to show newly imported
+    refreshProfiles()
   }
 }, { immediate: true })
 
 onUnmounted(() => {
   if (profileRefreshTimer) clearInterval(profileRefreshTimer)
 })
+
+const TABS: Array<{ key: Tab; label: string; icon: string }> = [
+  { key: 'trends', label: 'Тренды', icon: 'mingcute:fire-line' },
+  { key: 'profiles', label: 'Профили парсинга', icon: 'mingcute:settings-3-line' },
+  { key: 'runs', label: 'Запуски', icon: 'mingcute:history-line' },
+]
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Active runs banner -->
-    <div v-if="activeRuns.length > 0" role="alert" class="alert alert-info">
-      <span class="loading loading-ring loading-sm" />
-      <div>
-        <span class="font-semibold">{{ activeRuns.length }} {{ activeRuns.length === 1 ? 'запуск' : 'запусков' }} в работе</span>
-        <span class="text-sm ml-2">
-          {{ activeRuns.map((r) => r.profile.name).join(', ') }}
+  <div class="flex flex-col gap-3">
+    <!-- Активные запуски приезжают только в браузере (`server: false`). -->
+    <ClientOnly>
+      <div
+        v-if="activeRuns.length"
+        class="flex flex-wrap items-center gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:loading-line" class="shrink-0 animate-spin text-info" />
+        <span class="font-medium">Парсинг идёт: {{ activeRuns.length }}</span>
+        <span class="min-w-0 flex-1 truncate text-muted">
+          {{ activeRuns.map(r => r.profile.name).join(', ') }}
         </span>
+        <UiButton variant="ghost" @click="openRunHistory()">Подробнее</UiButton>
       </div>
-      <button class="btn btn-sm btn-ghost" @click="openRunHistoryAll">
-        Подробнее
+    </ClientOnly>
+
+    <div class="flex gap-0.5 border-b border-divider">
+      <button
+        v-for="tab in TABS"
+        :key="tab.key"
+        type="button"
+        class="flex h-8 cursor-pointer items-center gap-1.5 border-b-2 px-2.5 text-base"
+        :class="activeTab === tab.key
+          ? 'border-accent font-medium text-fg'
+          : 'border-transparent text-muted hover:text-fg'"
+        @click="setTab(tab.key)"
+      >
+        <Icon :name="tab.icon" />
+        {{ tab.label }}
+        <ClientOnly>
+          <span
+            v-if="tab.key === 'runs' && activeRuns.length"
+            class="tnum ml-0.5 font-mono text-micro text-info"
+          >{{ activeRuns.length }}</span>
+        </ClientOnly>
       </button>
     </div>
 
-    <!-- DaisyUI Tabs -->
-    <div role="tablist" class="tabs tabs-box">
-      <button
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'trends' }"
-        @click="activeTab = 'trends'"
-      >
-        <Icon name="mingcute:fire-line" class="mr-1" />
-        Тренды
-      </button>
-      <button
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'profiles' }"
-        @click="activeTab = 'profiles'"
-      >
-        <Icon name="mingcute:settings-3-line" class="mr-1" />
-        Профили парсинга
-      </button>
-      <button
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'runs' }"
-        @click="activeTab = 'runs'; openRunHistoryAll()"
-      >
-        <Icon name="mingcute:history-line" class="mr-1" />
-        Запуски
-        <span v-if="activeRuns.length > 0" class="badge badge-primary badge-xs ml-1">
-          {{ activeRuns.length }}
-        </span>
-      </button>
-    </div>
-
-    <!-- Tab 1: Тренды — эталонный список -->
     <TrendListView v-if="activeTab === 'trends'" />
 
-    <!-- Tab 2: Профили парсинга -->
-    <div v-if="activeTab === 'profiles'">
-      <!-- Schedule form modal -->
-      <TrendScheduleForm
-        v-if="showScheduleForm && scheduleProfile"
-        :profile="scheduleProfile as any"
-        @close="closeSchedule"
-        @saved="onScheduleSaved"
-      />
-
-      <!-- Форма создания/редактирования -->
-      <div v-if="showForm" class="card bg-base-100 shadow-sm mb-4">
-        <div class="card-body">
-          <h3 class="card-title text-lg mb-2">
-            {{ editingProfile ? 'Редактировать профиль' : 'Новый профиль парсинга' }}
-          </h3>
-          <TrendProfileForm
-            :initial-data="editingProfile ?? undefined"
-            :apps="apps"
-            @submit="handleSubmit"
-            @cancel="closeForm"
-          />
-        </div>
-      </div>
-
-      <!-- Кнопка создания -->
-      <div v-if="!showForm && !showScheduleForm" class="flex justify-end mb-4">
-        <button class="btn btn-primary btn-sm" @click="openCreateForm">
-          <Icon name="mingcute:add-line" class="text-lg" />
+    <div v-else-if="activeTab === 'profiles'" class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="tnum font-mono text-sm text-subtle">{{ profiles.length }} профилей</span>
+        <span class="flex-1" />
+        <UiButton variant="primary" @click="openCreateForm">
+          <Icon name="mingcute:add-line" />
           Создать профиль
-        </button>
+        </UiButton>
       </div>
 
-      <!-- Загрузка -->
-      <div v-if="profilesPending" class="flex justify-center py-12">
-        <span class="loading loading-spinner loading-lg" />
-      </div>
+      <UiSkeleton v-if="profilesPending && !profiles.length" variant="cards" :count="6" />
 
-      <!-- Пусто -->
-      <SharedEmptyState
-        v-else-if="profiles.length === 0"
-        icon="mingcute:settings-3-line"
-        title="Нет профилей парсинга"
-        description="Создайте профиль для автоматического поиска трендов через Apify."
+      <UiEmptyState
+        v-else-if="!profiles.length"
+        variant="first"
+        title="Профилей парсинга нет"
+        description="Профиль описывает, что и где искать: актор Apify, ключевые слова, площадки и порог просмотров."
       />
 
-      <!-- Список профилей -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <TrendProfileCard
           v-for="profile in profiles"
           :key="profile.id"
           :profile="profile"
-          :is-running="isProfileRunning(profile.id)"
+          :is-running="mounted && isProfileRunning(profile.id)"
           @toggle="handleToggle"
-          @run="handleRun"
+          @run="requestRun"
           @edit="openEditForm"
-          @delete="handleDelete"
+          @delete="requestDelete"
           @duplicate="handleDuplicate"
+          @validate="handleValidate"
           @schedule="openSchedule"
           @show-runs="openRunHistory"
           @show-run-detail="openRunDetail"
@@ -330,34 +302,79 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Tab 3: Запуски -->
-    <div v-if="activeTab === 'runs'">
+    <!-- История и разбор запуска ходят с `server: false`: на сервере они всегда
+         в загрузке, а в браузере — уже нет, и Vue бросал поддерево. -->
+    <ClientOnly v-else>
       <TrendRunDetail
-        v-if="showRunDetail && runDetailId"
+        v-if="runDetailId"
         :run-id="runDetailId"
-        @close="closeRunPanel(); showRunHistory = true"
+        @close="runDetailId = null"
+        @show-detail="openRunDetail"
       />
       <TrendRunHistory
         v-else
         :profile-id="runHistoryProfileId"
         :profile-name="runHistoryProfileName"
-        @close="closeRunPanel(); activeTab = 'profiles'"
+        @close="setTab('profiles')"
         @show-detail="openRunDetail"
       />
-    </div>
+      <template #fallback>
+        <UiSkeleton variant="details" :count="6" />
+      </template>
+    </ClientOnly>
 
-    <!-- Toast -->
-    <div v-if="toast" class="toast toast-end toast-bottom z-50">
-      <div
-        class="alert"
-        :class="{
-          'alert-success': toast.type === 'success',
-          'alert-error': toast.type === 'error',
-          'alert-info': toast.type === 'info',
-        }"
-      >
-        <span>{{ toast.message }}</span>
-      </div>
-    </div>
+    <UiModal
+      :open="showForm"
+      size="lg"
+      :title="editingProfile ? 'Профиль парсинга' : 'Новый профиль парсинга'"
+      @close="closeForm"
+    >
+      <TrendProfileForm
+        :initial-data="editingProfile ?? undefined"
+        :apps="apps"
+        @submit="handleSubmit"
+        @cancel="closeForm"
+      />
+    </UiModal>
+
+    <TrendScheduleForm
+      v-if="scheduleProfile"
+      :profile="scheduleProfile as any"
+      @close="scheduleProfile = null"
+      @saved="onScheduleSaved"
+    />
+
+    <UiModal
+      :open="!!runTarget"
+      size="sm"
+      title="Запустить парсинг?"
+      @close="runTarget = null"
+    >
+      <p class="text-sm text-muted">
+        Профиль «{{ runTarget?.name }}» соберёт до {{ runTarget?.maxItems }} результатов.
+        Прогон тарифицируется Apify: платится за собранные элементы, а не за запуск,
+        поэтому остановка на середине деньги за уже собранное не вернёт.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="runTarget = null">Отмена</UiButton>
+        <UiButton variant="primary" @click="handleRun">Запустить</UiButton>
+      </template>
+    </UiModal>
+
+    <UiModal
+      :open="!!deleteTarget"
+      size="sm"
+      title="Удалить профиль?"
+      @close="deleteTarget = null"
+    >
+      <p class="text-sm text-muted">
+        Профиль «{{ deleteTarget?.name }}» и его расписание удалятся. Уже
+        импортированные тренды останутся — они живут отдельно от профиля.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="deleteTarget = null">Отмена</UiButton>
+        <UiButton variant="danger" @click="handleDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>
