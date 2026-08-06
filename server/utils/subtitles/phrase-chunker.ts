@@ -34,6 +34,23 @@ const HARD_BREAK = /[.!?…]$/
 /** После этих — пауза послабее, но тоже уместная граница. */
 const SOFT_BREAK = /[,;:—–-]$/
 
+/**
+ * Служебные слова, которые нельзя оставлять в конце фразы: они держатся за
+ * следующее слово, и разрыв «салаты вместо» / «фастфуда» читается как обрубок.
+ */
+const DANGLING_WORDS = new Set([
+  "в", "во", "на", "с", "со", "из", "изо", "к", "ко", "по", "за", "под", "над",
+  "для", "без", "при", "про", "о", "об", "обо", "от", "ото", "до", "у", "через",
+  "между", "перед", "после", "около", "вместо", "кроме", "среди", "сквозь",
+  "и", "а", "но", "или", "либо", "что", "чтобы", "как", "чем", "если", "когда",
+  "хотя", "потому", "поэтому", "ведь", "же", "ли", "не", "ни", "это",
+])
+
+function isDanglingWord(word: string): boolean {
+  const bare = word.replace(/[.,;:!?…«»"'`()\[\]{}—–-]/g, "").toLowerCase()
+  return DANGLING_WORDS.has(bare)
+}
+
 export function chunkSceneSpeech(
   rawText: string,
   startSec: number,
@@ -88,15 +105,31 @@ function splitIntoPhrases(text: string, maxChars: number, maxWords: number): str
 
   const phrases: string[] = []
   let current: string[] = []
+  // Служебное слово, снятое с хвоста предыдущей фразы, открывает следующую.
+  let carried: string[] = []
 
   const flush = () => {
-    if (current.length > 0) {
-      phrases.push(current.join(" "))
-      current = []
+    if (current.length === 0) return
+    // Предлог или союз в конце фразы уводим в следующую — вместе с тем словом,
+    // к которому он относится. Одинокое служебное слово фразой не бывает.
+    const tail: string[] = []
+    while (current.length > 1 && isDanglingWord(current[current.length - 1]!)) {
+      tail.unshift(current.pop()!)
     }
+    phrases.push(current.join(" "))
+    current = []
+    carried = tail
+  }
+
+  const startNext = (): string[] => {
+    const opening = carried
+    carried = []
+    return opening
   }
 
   for (const word of words) {
+    if (current.length === 0) current = startNext()
+
     const candidate = [...current, word]
     const candidateLength = candidate.join(" ").length
 
@@ -110,7 +143,7 @@ function splitIntoPhrases(text: string, maxChars: number, maxWords: number): str
 
     if (candidateLength > maxChars || candidate.length > maxWords) {
       flush()
-      current = [word]
+      current = [...startNext(), word]
       if (HARD_BREAK.test(word)) flush()
       continue
     }
@@ -123,6 +156,13 @@ function splitIntoPhrases(text: string, maxChars: number, maxWords: number): str
   }
 
   flush()
+  // Служебное слово, оставшееся без пары, возвращаем в конец последней фразы:
+  // отдельной строкой «вместо» смотреть нельзя.
+  if (carried.length > 0) {
+    if (phrases.length > 0) phrases[phrases.length - 1] += ` ${carried.join(" ")}`
+    else phrases.push(carried.join(" "))
+    carried = []
+  }
   return phrases
 }
 

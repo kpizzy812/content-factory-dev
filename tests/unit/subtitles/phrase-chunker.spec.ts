@@ -58,6 +58,28 @@ describe("нарезка реплики на субтитры", () => {
     }
   })
 
+  it("не оставляет предлог в конце фразы", () => {
+    const chunks = chunkSceneSpeech(
+      "Она делает всё, что советуют: салаты вместо фастфуда, йогурты без жира",
+      0, 9,
+    )
+
+    for (const chunk of chunks) {
+      const lastWord = chunk.text.split(/\s+/).at(-1)!.toLowerCase()
+      expect(["вместо", "без", "что", "и", "на", "в"]).not.toContain(lastWord)
+    }
+    expect(chunks.map(c => c.text).join(" "))
+      .toBe("Она делает всё, что советуют: салаты вместо фастфуда, йогурты без жира")
+  })
+
+  it("не выносит одинокий предлог отдельной фразой", () => {
+    const chunks = chunkSceneSpeech("Сахара здесь на треть больше чем в", 0, 5, { maxChars: 16 })
+
+    for (const chunk of chunks) {
+      expect(chunk.text.split(/\s+/).length).toBeGreaterThan(1)
+    }
+  })
+
   it("на пустой реплике не выдаёт ничего", () => {
     expect(chunkSceneSpeech("   ", 0, 5)).toEqual([])
   })
