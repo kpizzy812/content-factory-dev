@@ -456,7 +456,7 @@ async function onGenerate() {
       </section>
     </aside>
 
-    <GenerateAgainModal
+    <SharedGenerateAgainModal
       v-model:open="regenerateModalOpen"
       :last-prompt="regenerateLastPrompt"
       @same="onRegenerateSame"

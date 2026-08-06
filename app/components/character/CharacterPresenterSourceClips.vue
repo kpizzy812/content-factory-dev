@@ -20,7 +20,22 @@ const gesture = ref('')
 
 function formatBytes(bytes?: number | null): string {
   if (!bytes) return '—'
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+}
+
+function errorText(e: unknown, fallback: string) {
+  return (e as { data?: { message?: string }, message?: string })?.data?.message
+    || (e as Error)?.message
+    || fallback
+}
+
+function metaForm() {
+  const form = new FormData()
+  if (tagsInput.value.trim()) form.append('tags', tagsInput.value.trim())
+  if (outfit.value.trim()) form.append('outfit', outfit.value.trim())
+  if (background.value.trim()) form.append('background', background.value.trim())
+  if (gesture.value.trim()) form.append('gesture', gesture.value.trim())
+  return form
 }
 
 async function uploadFiles(files: File[]) {
@@ -33,21 +48,15 @@ async function uploadFiles(files: File[]) {
   uploading.value = true
   error.value = ''
   try {
-    const form = new FormData()
+    const form = metaForm()
     for (const file of videos) form.append('files', file)
-    if (tagsInput.value.trim()) form.append('tags', tagsInput.value.trim())
-    if (outfit.value.trim()) form.append('outfit', outfit.value.trim())
-    if (background.value.trim()) form.append('background', background.value.trim())
-    if (gesture.value.trim()) form.append('gesture', gesture.value.trim())
-
-    await $fetch(`/api/characters/${props.characterId}/source-clips`, {
-      method: 'POST',
-      body: form,
-    })
+    await $fetch(`/api/characters/${props.characterId}/source-clips`, { method: 'POST', body: form })
     await refresh()
-  } catch (e: any) {
-    error.value = e?.data?.message || e?.message || 'Ошибка загрузки исходников'
-  } finally {
+  }
+  catch (e) {
+    error.value = errorText(e, 'Не удалось загрузить исходники')
+  }
+  finally {
     uploading.value = false
     if (fileInput.value) fileInput.value.value = ''
   }
@@ -58,10 +67,10 @@ async function onFileInputChange(event: Event) {
   await uploadFiles(Array.from(target.files ?? []))
 }
 
-// ─── Длинная запись: сервер сам размечает сцены и режет её на фрагменты ───
+// ─── Длинная запись: сервер размечает сцены и режет её на фрагменты ──────────
 const recordingInput = ref<HTMLInputElement | null>(null)
 const ingesting = ref(false)
-const ingestReport = ref<{ accepted: number; duplicates: number; errors: number } | null>(null)
+const ingestReport = ref<{ accepted: number, duplicates: number, errors: number } | null>(null)
 
 interface IngestResponse {
   data: {
@@ -79,13 +88,8 @@ async function onRecordingChange(event: Event) {
   error.value = ''
   ingestReport.value = null
   try {
-    const form = new FormData()
+    const form = metaForm()
     form.append('file', file)
-    if (tagsInput.value.trim()) form.append('tags', tagsInput.value.trim())
-    if (outfit.value.trim()) form.append('outfit', outfit.value.trim())
-    if (background.value.trim()) form.append('background', background.value.trim())
-    if (gesture.value.trim()) form.append('gesture', gesture.value.trim())
-
     const response = await $fetch<IngestResponse>(
       `/api/characters/${props.characterId}/source-recordings`,
       { method: 'POST', body: form },
@@ -97,8 +101,8 @@ async function onRecordingChange(event: Event) {
     }
     await refresh()
   }
-  catch (e: any) {
-    error.value = e?.data?.message || e?.message || 'Не удалось разобрать запись'
+  catch (e) {
+    error.value = errorText(e, 'Не удалось разобрать запись')
   }
   finally {
     ingesting.value = false
@@ -115,30 +119,30 @@ async function deactivateClip(clip: PresenterSourceClip) {
   deletingId.value = clip.id
   error.value = ''
   try {
-    await $fetch(`/api/characters/${props.characterId}/source-clips/${clip.id}`, {
-      method: 'DELETE',
-    })
+    await $fetch(`/api/characters/${props.characterId}/source-clips/${clip.id}`, { method: 'DELETE' })
     await refresh()
-  } catch (e: any) {
-    error.value = e?.data?.message || e?.message || 'Ошибка удаления исходника'
-  } finally {
+  }
+  catch (e) {
+    error.value = errorText(e, 'Не удалось убрать исходник')
+  }
+  finally {
     deletingId.value = null
   }
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-      <input v-model="outfit" class="input input-sm w-full" placeholder="Одежда, например белая рубашка">
-      <input v-model="background" class="input input-sm w-full" placeholder="Фон, например светлая студия">
-      <input v-model="gesture" class="input input-sm w-full" placeholder="Жесты, например активно руками">
-      <input v-model="tagsInput" class="input input-sm w-full" placeholder="Теги через запятую">
+  <div class="flex flex-col gap-3.5">
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <UiInput v-model="outfit" placeholder="Одежда, например белая рубашка" />
+      <UiInput v-model="background" placeholder="Фон, например светлая студия" />
+      <UiInput v-model="gesture" placeholder="Жесты, например активно руками" />
+      <UiInput v-model="tagsInput" placeholder="Теги через запятую" />
     </div>
 
     <div
-      class="border-2 border-dashed rounded-lg p-5 transition-colors cursor-pointer"
-      :class="dragOver ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/40'"
+      class="cursor-pointer rounded-lg border-2 border-dashed p-5 transition-colors duration-(--duration-fast)"
+      :class="dragOver ? 'border-accent bg-accent-bg' : 'border-border hover:border-subtle'"
       role="button"
       tabindex="0"
       @click="fileInput?.click()"
@@ -157,35 +161,33 @@ async function deactivateClip(clip: PresenterSourceClip) {
       >
       <div class="flex flex-col items-center gap-1 text-center">
         <Icon
-          :name="uploading ? 'mingcute:loading-3-line' : 'mingcute:video-upload-line'"
-          class="size-7 text-base-content/50"
-          :class="{ 'animate-spin': uploading }"
+          :name="uploading ? 'mingcute:loading-3-line' : 'mingcute:video-line'"
+          class="text-2xl text-subtle"
+          :class="uploading && 'animate-spin'"
         />
         <span class="text-sm font-medium">
-          {{ uploading ? 'Проверяю и загружаю…' : 'Добавить talking-head исходники' }}
+          {{ uploading ? 'Проверяем и загружаем' : 'Добавить фрагменты с ведущим' }}
         </span>
-        <span class="text-xs text-base-content/50">
-          MP4, MOV или WebM, каждый фрагмент 2–10 секунд и до 100 MB. Lip-sync берёт наименее использованные клипы.
+        <span class="text-micro text-subtle">
+          MP4, MOV или WebM. Фрагмент 2–10 секунд, до 100 МБ. Липсинк берёт наименее использованные.
         </span>
       </div>
     </div>
 
-    <div class="rounded-lg border border-base-300 p-4 space-y-2">
+    <section class="rounded-lg border border-border p-3.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div class="min-w-0">
           <div class="text-sm font-medium">Длинная запись целиком</div>
-          <div class="text-xs text-base-content/50">
+          <div class="text-micro text-subtle">
             Разметим сцены, нарежем на фрагменты 2–10 секунд и выбросим похожие.
           </div>
         </div>
-        <button type="button" class="btn btn-sm btn-primary" :disabled="ingesting" @click="recordingInput?.click()">
-          <Icon
-            :name="ingesting ? 'mingcute:loading-3-line' : 'mingcute:scissors-line'"
-            :class="{ 'animate-spin': ingesting }"
-          />
-          {{ ingesting ? 'Разбираю запись…' : 'Загрузить и нарезать' }}
-        </button>
+        <UiButton variant="primary" :loading="ingesting" @click="recordingInput?.click()">
+          <Icon v-if="!ingesting" name="mingcute:scissors-line" />
+          {{ ingesting ? 'Разбираем запись' : 'Загрузить и нарезать' }}
+        </UiButton>
       </div>
+
       <input
         ref="recordingInput"
         type="file"
@@ -193,48 +195,78 @@ async function deactivateClip(clip: PresenterSourceClip) {
         class="hidden"
         @change="onRecordingChange"
       >
-      <div v-if="ingestReport" class="text-xs text-base-content/70">
-        Принято фрагментов: {{ ingestReport.accepted }}.
-        <span v-if="ingestReport.duplicates"> Похожих отброшено: {{ ingestReport.duplicates }}.</span>
-        <span v-if="ingestReport.errors"> С ошибкой: {{ ingestReport.errors }}.</span>
-      </div>
-    </div>
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm py-2">
-      <Icon name="mingcute:warning-line" />
+      <p v-if="ingestReport" class="mt-2 text-sm text-muted">
+        Принято фрагментов: <span class="tnum font-mono">{{ ingestReport.accepted }}</span>.
+        <span v-if="ingestReport.duplicates">
+          Похожих отброшено: <span class="tnum font-mono">{{ ingestReport.duplicates }}</span>.
+        </span>
+        <span v-if="ingestReport.errors">
+          С ошибкой: <span class="tnum font-mono">{{ ingestReport.errors }}</span>.
+        </span>
+      </p>
+    </section>
+
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
 
-    <div v-if="pending" class="flex justify-center py-6">
-      <span class="loading loading-spinner" />
-    </div>
-    <div v-else-if="clips.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      <article v-for="clip in clips" :key="clip.id" class="rounded-lg border border-base-300 overflow-hidden bg-base-100">
-        <video :src="clip.fileUrl" muted playsinline controls preload="metadata" class="w-full aspect-[9/16] max-h-64 object-cover bg-black" />
-        <div class="p-2 space-y-1.5 text-xs">
+    <UiSkeleton v-if="pending && !clips.length" variant="cards" :count="4" />
+
+    <div v-else-if="clips.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <article
+        v-for="clip in clips"
+        :key="clip.id"
+        class="overflow-hidden rounded-md border border-border bg-card"
+      >
+        <video
+          :src="clip.fileUrl"
+          muted
+          playsinline
+          controls
+          preload="metadata"
+          class="aspect-[9/16] max-h-64 w-full bg-surface object-cover"
+        />
+        <div class="flex flex-col gap-1.5 p-2 text-micro">
           <div class="flex items-center justify-between gap-2">
-            <span class="font-medium truncate" :title="clip.name || undefined">{{ clip.name || 'Исходник' }}</span>
-            <button
-              type="button"
-              class="btn btn-ghost btn-xs text-error"
-              :disabled="deletingId === clip.id"
+            <span class="truncate text-sm font-medium" :title="clip.name || undefined">
+              {{ clip.name || 'Исходник' }}
+            </span>
+            <UiButton
+              icon-only
+              variant="ghost"
+              :loading="deletingId === clip.id"
               title="Убрать из ротации"
+              aria-label="Убрать из ротации"
               @click="deactivateClip(clip)"
             >
-              <Icon :name="deletingId === clip.id ? 'mingcute:loading-3-line' : 'mingcute:delete-2-line'" :class="{ 'animate-spin': deletingId === clip.id }" />
-            </button>
+              <Icon v-if="deletingId !== clip.id" name="mingcute:delete-2-line" />
+            </UiButton>
           </div>
-          <div class="text-base-content/60">
-            {{ clip.durationSec.toFixed(1) }} сек · {{ formatBytes(clip.bytes) }} · использован {{ clip.usageCount }} раз
+          <div class="tnum font-mono text-subtle">
+            {{ clip.durationSec.toFixed(1) }} с · {{ formatBytes(clip.bytes) }} ·
+            использован {{ clip.usageCount }}
           </div>
           <div v-if="clip.tags.length" class="flex flex-wrap gap-1">
-            <span v-for="tag in clip.tags.slice(0, 5)" :key="tag" class="badge badge-xs badge-ghost">{{ tag }}</span>
+            <span
+              v-for="tag in clip.tags.slice(0, 5)"
+              :key="tag"
+              class="rounded-sm border border-divider px-1.5 py-0.5 text-subtle"
+            >
+              {{ tag }}
+            </span>
           </div>
         </div>
       </article>
     </div>
-    <div v-else class="text-sm text-base-content/60 text-center py-4">
-      Исходников пока нет. Без них pipeline использует сгенерированный клип как запасной вариант.
-    </div>
+
+    <p v-else class="py-4 text-center text-sm text-subtle">
+      Исходников нет. Без них конвейер подставит сгенерированный клип.
+    </p>
   </div>
 </template>

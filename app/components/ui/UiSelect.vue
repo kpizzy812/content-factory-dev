@@ -8,7 +8,20 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
 }>(), {})
 
-defineEmits<{ 'update:modelValue': [value: string] }>()
+const emit = defineEmits<{ 'update:modelValue': [value: string | number] }>()
+
+/**
+ * Значение идёт через v-model, а не через :value на `<select>`.
+ *
+ * С `:value` браузер получает значение раньше, чем появляются `<option>`, и
+ * откатывается на первый пункт — селект с числовыми значениями всегда показывал
+ * первый вариант. Директива v-model выставляет выбранный пункт после монтирования
+ * и одинаково ведёт себя на сервере и в браузере, поэтому гидратация не ломается.
+ */
+const inner = computed({
+  get: () => props.modelValue ?? '',
+  set: value => emit('update:modelValue', value),
+})
 
 const tone = computed(() => {
   if (props.disabled) return 'bg-surface border border-dashed border-divider text-subtle cursor-not-allowed'
@@ -20,28 +33,13 @@ const tone = computed(() => {
 <template>
   <div class="relative">
     <select
-      :value="modelValue ?? ''"
+      v-model="inner"
       :disabled="disabled"
       class="h-8 w-full appearance-none rounded-md pr-[30px] pl-2.5 text-base outline-offset-1"
       :class="tone"
-      @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-if="placeholder" value="" disabled :selected="modelValue == null || modelValue === ''">
-        {{ placeholder }}
-      </option>
-      <!--
-        `selected` обязателен: при первом рендере значение ставится на <select>
-        раньше, чем появляются его <option>, и браузер откатывается на первый
-        пункт. Без этого селект с числовыми значениями всегда показывал первый.
-      -->
-      <option
-        v-for="o in options"
-        :key="o.value"
-        :value="o.value"
-        :selected="String(o.value) === String(modelValue ?? '')"
-      >
-        {{ o.label }}
-      </option>
+      <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
+      <option v-for="o in options" :key="o.value" :value="o.value">{{ o.label }}</option>
     </select>
     <Icon
       name="mingcute:down-line"

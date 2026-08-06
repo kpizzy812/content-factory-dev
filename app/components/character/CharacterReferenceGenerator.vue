@@ -1,14 +1,9 @@
 <script setup lang="ts">
 /**
- * AI-генератор референс-изображений персонажа через fal.ai (FLUX Schnell / Dev).
- * Эта панель — pair к CharacterReferenceUploader на /characters/[id]:
- * uploader = ручная загрузка, generator = генерация по промту.
+ * Генерация референс-фото персонажа по промпту. Пара к CharacterReferenceUploader:
+ * тот принимает готовые файлы, этот рисует новые.
  *
- * Результат отправляется на POST /api/characters/[id]/generate-reference,
- * сервер сохраняет в GCS, создаёт CharacterReferenceImage и эмитит
- * 'generated' с записью (родитель обновляет галерею через refresh).
- *
- * UI — DaisyUI collapse (свёрнут по умолчанию, чтобы не съедать карточку).
+ * Свёрнут по умолчанию — на карточке персонажа главное всё-таки галерея.
  */
 import type { CharacterReferenceImage, CharacterReferenceKind } from '~~/shared/types/character'
 import { CHARACTER_REFERENCE_KINDS, CHARACTER_REFERENCE_KIND_LABELS } from '~~/shared/types/character'
@@ -22,7 +17,7 @@ import {
 const props = defineProps<{
   characterId: string
   appId: number
-  /** Если задан — pre-fill промта (used by "Сгенерировать снова" с тем же промтом). */
+  /** Пре-заполнение промпта — приходит из «Сгенерировать снова». */
   initialPrompt?: string
 }>()
 
@@ -40,10 +35,16 @@ const generating = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-watch(() => props.initialPrompt, (v) => { if (v) { prompt.value = v; isOpen.value = true } })
+watch(() => props.initialPrompt, (v) => {
+  if (v) {
+    prompt.value = v
+    isOpen.value = true
+  }
+})
 
 const estimatedCost = computed(() => estimateImageGenerationCostUsd(modelId.value, aspect.value))
 const canGenerate = computed(() => !generating.value && prompt.value.trim().length > 0)
+const modelHint = computed(() => IMAGE_GENERATION_MODELS.find(m => m.id === modelId.value)?.hint)
 
 async function onGenerate() {
   if (!canGenerate.value) return
@@ -65,92 +66,97 @@ async function onGenerate() {
     )
     emit('generated', res.data.reference)
     successMessage.value = res.data.deduplicated
-      ? 'Такое же изображение уже есть — добавили существующее'
-      : 'Сгенерировано! AI vision разбирает результат…'
+      ? 'Такое изображение уже было — добавили существующее'
+      : 'Готово, разбираем внешность'
     setTimeout(() => { successMessage.value = '' }, 3000)
-  } catch (e: any) {
-    errorMessage.value = e?.data?.message || e?.message || 'Ошибка генерации'
-  } finally {
+  }
+  catch (e) {
+    errorMessage.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Не удалось сгенерировать'
+  }
+  finally {
     generating.value = false
   }
 }
 </script>
 
 <template>
-  <div class="collapse collapse-arrow border border-base-300 bg-base-200/40 rounded-lg">
-    <input v-model="isOpen" type="checkbox" />
-    <div class="collapse-title text-sm font-medium flex items-center gap-2">
-      <Icon name="mingcute:magic-2-line" class="size-4 text-secondary" />
-      <span>Сгенерировать через AI (fal.ai)</span>
-      <span class="badge badge-xs badge-soft badge-secondary">beta</span>
-    </div>
-    <div class="collapse-content space-y-3">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Промт (RU/EN, что должно быть на фото)</legend>
-        <textarea
-          v-model="prompt"
-          class="textarea textarea-sm w-full"
-          rows="3"
-          placeholder="Девушка 25 лет, выразительные глаза, темные волосы, мягкое освещение, кадр выше плеч, нейтральный фон"
+  <section class="overflow-hidden rounded-md border border-border">
+    <div class="flex items-center gap-2 bg-card px-2.5 py-1.5">
+      <button
+        type="button"
+        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-sm font-medium"
+        :aria-expanded="isOpen"
+        @click="isOpen = !isOpen"
+      >
+        <Icon
+          name="mingcute:right-line"
+          class="shrink-0 text-subtle transition-transform duration-(--duration-fast)"
+          :class="isOpen && 'rotate-90'"
         />
-      </fieldset>
+        <Icon name="mingcute:magic-2-line" class="shrink-0 text-accent" />
+        Сгенерировать фото по промпту
+      </button>
+      <span class="tnum shrink-0 font-mono text-micro text-subtle">≈ ${{ estimatedCost }}</span>
+    </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Модель</legend>
-          <select v-model="modelId" class="select select-sm w-full">
-            <option v-for="m in IMAGE_GENERATION_MODELS" :key="m.id" :value="m.id">
-              {{ m.name }} (${{ m.pricePerMpUsd.toFixed(3) }}/Mp)
-            </option>
-          </select>
-        </fieldset>
+    <div v-if="isOpen" class="flex flex-col gap-3 px-2.5 py-2.5">
+      <UiField label="Промпт" :hint="modelHint">
+        <UiTextarea
+          v-model="prompt"
+          :rows="3"
+          placeholder="Девушка 25 лет, тёмные волосы, мягкий свет, кадр выше плеч, нейтральный фон"
+        />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Тип</legend>
-          <select v-model="kind" class="select select-sm w-full">
-            <option v-for="k in CHARACTER_REFERENCE_KINDS" :key="k" :value="k">
-              {{ CHARACTER_REFERENCE_KIND_LABELS[k] }}
-            </option>
-          </select>
-        </fieldset>
+      <div class="grid gap-2 sm:grid-cols-3">
+        <UiField label="Модель">
+          <UiSelect
+            v-model="modelId"
+            :options="IMAGE_GENERATION_MODELS.map(m => ({ value: m.id, label: `${m.name} · $${m.pricePerMpUsd.toFixed(3)}/Mp` }))"
+          />
+        </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Соотношение</legend>
-          <select v-model="aspect" class="select select-sm w-full">
-            <option v-for="a in IMAGE_GENERATION_ASPECTS" :key="a.id" :value="a.id">
-              {{ a.label }}
-            </option>
-          </select>
-        </fieldset>
+        <UiField label="Тип фото">
+          <UiSelect
+            v-model="kind"
+            :options="CHARACTER_REFERENCE_KINDS.map(k => ({ value: k, label: CHARACTER_REFERENCE_KIND_LABELS[k] }))"
+          />
+        </UiField>
+
+        <UiField label="Соотношение">
+          <UiSelect
+            v-model="aspect"
+            :options="IMAGE_GENERATION_ASPECTS.map(a => ({ value: a.id, label: a.label }))"
+          />
+        </UiField>
       </div>
 
-      <div class="flex items-center gap-3 flex-wrap text-xs">
-        <span class="text-base-content/60">Примерно <span class="font-semibold text-base-content">${{ estimatedCost }}</span> за генерацию</span>
-        <span class="text-base-content/40">·</span>
-        <span class="text-base-content/60">{{ IMAGE_GENERATION_MODELS.find(m => m.id === modelId)?.hint }}</span>
-      </div>
-
-      <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft text-sm py-2">
-        <Icon name="mingcute:warning-line" />
+      <div
+        v-if="errorMessage"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
         <span>{{ errorMessage }}</span>
       </div>
-      <div v-if="successMessage" role="alert" class="alert alert-success alert-soft text-sm py-2">
-        <Icon name="mingcute:check-circle-line" />
+
+      <div
+        v-if="successMessage"
+        role="status"
+        class="flex items-start gap-2 rounded-md border border-success-border bg-success-bg px-2.5 py-2 text-sm text-success"
+      >
+        <Icon name="mingcute:check-line" class="mt-0.5 shrink-0" />
         <span>{{ successMessage }}</span>
       </div>
 
       <div class="flex justify-end">
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :disabled="!canGenerate"
-          @click="onGenerate"
-        >
-          <span v-if="generating" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:magic-2-line" class="size-4" />
-          {{ generating ? 'Генерируем… ~5s' : 'Сгенерировать' }}
-        </button>
+        <UiButton variant="primary" :disabled="!canGenerate" :loading="generating" @click="onGenerate">
+          <Icon v-if="!generating" name="mingcute:magic-2-line" />
+          {{ generating ? 'Генерируем' : `Сгенерировать · ≈ $${estimatedCost}` }}
+        </UiButton>
       </div>
     </div>
-  </div>
+  </section>
 </template>

@@ -5,18 +5,20 @@ import { CHARACTER_ROLE_LABELS } from '~~/shared/types/character'
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'script-generator' })
 
 const route = useRoute()
-const router = useRouter()
 const id = computed(() => String(route.params.id))
 
 const { data, pending, error, refresh } = useCharacter(id)
-const character = computed<(Character & { referenceImages: CharacterReferenceImage[] }) | null>(() => data.value?.data ?? null)
+const character = computed<(Character & { referenceImages: CharacterReferenceImage[] }) | null>(
+  () => data.value?.data ?? null,
+)
 
-useHead({ title: () => character.value ? `${character.value.name} — Персонаж` : 'Персонаж' })
+const toast = useToast()
+
+useHead({ title: () => character.value ? `${character.value.name} — персонаж` : 'Персонаж' })
 
 const { update, archive } = useCharacterActions()
 
 const saving = ref(false)
-const message = ref('')
 const errorMsg = ref('')
 
 const form = reactive({
@@ -75,10 +77,8 @@ function applyAiSuggestions(fields: Record<string, unknown>) {
 async function onSave() {
   if (!character.value) return
   saving.value = true
-  message.value = ''
   errorMsg.value = ''
   try {
-    const tags = form.tagsInput.split(/[,\n]/).map(t => t.trim()).filter(Boolean)
     await update(character.value.id, {
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -86,37 +86,45 @@ async function onSave() {
       visualPrompt: form.visualPrompt.trim() || null,
       emotionDefault: form.emotionDefault.trim() || null,
       ageRange: form.ageRange.trim() || null,
-      tags,
+      tags: form.tagsInput.split(/[,\n]/).map(t => t.trim()).filter(Boolean),
     })
-    message.value = 'Сохранено'
-    setTimeout(() => { message.value = '' }, 2000)
-    refresh()
-  } catch (e: any) {
-    errorMsg.value = e?.data?.message || e?.message || 'Ошибка сохранения'
-  } finally {
+    toast.success('Персонаж сохранён')
+    await refresh()
+  }
+  catch (e) {
+    errorMsg.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Не удалось сохранить'
+  }
+  finally {
     saving.value = false
   }
 }
 
+const showArchive = ref(false)
+const archiving = ref(false)
+
 async function onArchive() {
   if (!character.value) return
-  if (!confirm('Архивировать персонажа? Можно будет восстановить из списка с фильтром «архив».')) return
-  await archive(character.value.id)
-  router.push('/characters')
-}
-
-function onReferencesUpdated(updated: Character & { referenceImages: CharacterReferenceImage[] }) {
-  if (data.value) {
-    data.value = { data: updated } as any
+  archiving.value = true
+  try {
+    await archive(character.value.id)
+    await navigateTo('/characters')
+  }
+  finally {
+    archiving.value = false
+    showArchive.value = false
   }
 }
 
-// Регенерация существующего AI-сгенерированного референса.
+function onReferencesUpdated(updated: Character & { referenceImages: CharacterReferenceImage[] }) {
+  if (data.value) data.value = { data: updated }
+}
+
+// ─── Повторная генерация референса ───────────────────────────────────────────
 const regenerateModalOpen = ref(false)
 const regenerateLastPrompt = ref('')
-// initialPrompt + key для генератора: при "Новый промт" увеличиваем key, чтобы
-// CharacterReferenceGenerator пересоздался с новым initialPrompt.
-const generatorInitialPrompt = ref<string>('')
+const generatorInitialPrompt = ref('')
 const generatorKey = ref(0)
 
 function onRegenerateClick(refImg: CharacterReferenceImage) {
@@ -133,49 +141,97 @@ async function onRegenerateSame(promptText: string) {
       body: { prompt: promptText },
     })
     await refresh()
-  } catch (e: any) {
-    errorMsg.value = e?.data?.message || e?.message || 'Ошибка перегенерации'
+  }
+  catch (e) {
+    errorMsg.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Не удалось перегенерировать'
   }
 }
 
 function onRegenerateNew(promptText: string) {
   generatorInitialPrompt.value = promptText
   generatorKey.value++
-  // Скроллим к панели генератора, чтобы юзер сразу видел textarea.
   nextTick(() => {
     document.getElementById('character-ref-generator')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 }
 
-function onReferenceGenerated() {
-  // Сразу подтягиваем актуальный character с новым ref'ом.
-  refresh()
+// ─── Навигация по соседям ────────────────────────────────────────────────────
+const filters = useCharacterFiltersStore()
+const { data: listData } = useCharacters(computed(() => filters.query))
+
+// У /api/characters нет постраничной выдачи — список приходит целиком,
+// поэтому позиция считается по нему, а не по мете.
+const siblings = computed(() => listData.value?.data?.map((c: { id: string }) => c.id) ?? [])
+const currentIndex = computed(() => siblings.value.indexOf(id.value))
+const inList = computed(() => currentIndex.value >= 0)
+
+const hasPrev = computed(() => inList.value && currentIndex.value > 0)
+const hasNext = computed(() => inList.value && currentIndex.value < siblings.value.length - 1)
+
+const position = computed(() => {
+  if (!inList.value) return undefined
+  return `${currentIndex.value + 1} из ${siblings.value.length}`
+})
+
+async function goSibling(delta: -1 | 1) {
+  const next = siblings.value[currentIndex.value + delta]
+  if (next != null) await navigateTo(`/characters/${next}`)
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center gap-2">
-      <NuxtLink to="/characters" class="btn btn-ghost btn-sm">
-        <Icon name="mingcute:arrow-left-line" />
-        К списку
-      </NuxtLink>
-      <h1 v-if="character" class="text-2xl font-bold text-base-content">{{ character.name }}</h1>
-    </div>
+  <!--
+    Персонаж грузится только в браузере: `useCharacter` ходит с `server: false`,
+    поэтому на сервере страница всегда в состоянии загрузки, а на клиенте — уже
+    нет. Без ClientOnly Vue ругается на расхождение и бросает поддерево.
+  -->
+  <ClientOnly>
+    <template #fallback>
+      <UiSkeleton variant="details" :count="5" />
+    </template>
 
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
+    <UiSkeleton v-if="pending && !character" variant="details" :count="5" />
 
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка: {{ error.message }}</span>
-    </div>
+    <UiErrorState
+      v-else-if="error"
+      title="Не удалось загрузить персонажа"
+      :message="error.message"
+      @retry="refresh"
+    />
 
-    <div v-else-if="character" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <section class="card bg-base-100 shadow-sm border border-base-300">
-        <div class="card-body space-y-3">
-          <h2 class="card-title text-base">Свойства</h2>
+    <template v-else-if="character">
+      <DetailHeader
+        :title="character.name"
+        :code="`chr_${character.id.slice(0, 8)}`"
+        back-to="/characters"
+        back-label="К персонажам"
+        :position="position"
+        :has-prev="hasPrev"
+        :has-next="hasNext"
+        @prev="goSibling(-1)"
+        @next="goSibling(1)"
+      >
+        <template #badges>
+          <span class="rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted">
+            {{ CHARACTER_ROLE_LABELS[character.role] }}
+          </span>
+        </template>
+
+        <template #actions>
+          <UiButton variant="primary" :loading="saving" @click="onSave">Сохранить</UiButton>
+          <UiActionMenu
+            :items="[{ key: 'archive', label: 'В архив', icon: 'mingcute:archive-line', danger: true }]"
+            @select="showArchive = true"
+          />
+        </template>
+      </DetailHeader>
+
+      <div class="grid items-start gap-3.5 lg:grid-cols-2">
+        <!-- Свойства -->
+        <section class="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3.5">
+          <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Свойства</h2>
 
           <CharacterAiAutofill
             :current-values="aiCurrentValues"
@@ -184,37 +240,25 @@ function onReferenceGenerated() {
             @apply="applyAiSuggestions"
           />
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Имя</legend>
-            <input
-              v-model="form.name"
-              type="text"
-              class="input input-sm w-full"
-              placeholder="Маша, Алекс, Босс…"
-            />
-          </fieldset>
+          <UiField label="Имя">
+            <UiInput v-model="form.name" placeholder="Маша, Алекс, Босс" />
+          </UiField>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">Роль</legend>
-              <select v-model="form.role" class="select select-sm w-full">
-                <option v-for="r in roles" :key="r" :value="r">{{ CHARACTER_ROLE_LABELS[r] }}</option>
-              </select>
-            </fieldset>
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">Возрастной диапазон</legend>
-              <input
-                v-model="form.ageRange"
-                type="text"
-                class="input input-sm w-full"
-                placeholder="25-30"
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UiField label="Роль">
+              <UiSelect
+                v-model="form.role"
+                :options="roles.map(r => ({ value: r, label: CHARACTER_ROLE_LABELS[r] }))"
               />
-            </fieldset>
+            </UiField>
+            <UiField label="Возраст">
+              <UiInput v-model="form.ageRange" placeholder="25–30" />
+            </UiField>
           </div>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend flex items-center justify-between gap-2">
-              <span>Описание</span>
+          <UiField>
+            <div class="mb-[5px] flex items-center justify-between gap-2">
+              <span class="text-[11.5px] text-muted">Описание</span>
               <CharacterBlockRegenerator
                 :character-id="character.id"
                 block-type="description"
@@ -222,18 +266,17 @@ function onReferenceGenerated() {
                 @update:value="(v) => { form.description = v; refresh() }"
                 @error="(m) => errorMsg = m"
               />
-            </legend>
-            <textarea
+            </div>
+            <UiTextarea
               v-model="form.description"
-              class="textarea textarea-sm w-full"
-              rows="3"
+              :rows="3"
               placeholder="Брюнетка с короткой стрижкой, занимается фитнесом, открытая мимика"
             />
-          </fieldset>
+          </UiField>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend flex items-center justify-between gap-2">
-              <span>Visual prompt — 1 строка для генератора (EN preferred)</span>
+          <UiField hint="Одна строка для генератора изображений, лучше на английском">
+            <div class="mb-[5px] flex items-center justify-between gap-2">
+              <span class="text-[11.5px] text-muted">Визуальный промпт</span>
               <CharacterBlockRegenerator
                 :character-id="character.id"
                 block-type="visualPrompt"
@@ -241,91 +284,81 @@ function onReferenceGenerated() {
                 @update:value="(v) => { form.visualPrompt = v; refresh() }"
                 @error="(m) => errorMsg = m"
               />
-            </legend>
-            <input
+            </div>
+            <UiInput
               v-model="form.visualPrompt"
-              type="text"
-              class="input input-sm w-full"
               placeholder="30y woman, short brown hair, blue jacket, friendly smile"
             />
-          </fieldset>
+          </UiField>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">Эмоция по умолчанию</legend>
-              <input
-                v-model="form.emotionDefault"
-                type="text"
-                class="input input-sm w-full"
-                placeholder="curious, calm…"
-              />
-            </fieldset>
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">Теги (через запятую)</legend>
-              <input
-                v-model="form.tagsInput"
-                type="text"
-                class="input input-sm w-full"
-                placeholder="фитнес, друг, рассказчик"
-              />
-            </fieldset>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UiField label="Эмоция по умолчанию">
+              <UiInput v-model="form.emotionDefault" placeholder="curious, calm" />
+            </UiField>
+            <UiField label="Теги" hint="Через запятую">
+              <UiInput v-model="form.tagsInput" placeholder="фитнес, друг, рассказчик" />
+            </UiField>
           </div>
 
-          <div class="flex items-center justify-between pt-2 flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <button class="btn btn-primary btn-sm" :disabled="saving" @click="onSave">
-                <span v-if="saving" class="loading loading-spinner loading-xs" />
-                Сохранить
-              </button>
-              <span v-if="message" class="text-xs text-success">{{ message }}</span>
-              <span v-if="errorMsg" class="text-xs text-error">{{ errorMsg }}</span>
-            </div>
-            <button class="btn btn-ghost btn-sm text-error" @click="onArchive">
-              <Icon name="mingcute:archive-line" />
-              В архив
-            </button>
+          <div
+            v-if="errorMsg"
+            role="alert"
+            class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+          >
+            <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+            <span>{{ errorMsg }}</span>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="card bg-base-100 shadow-sm border border-base-300">
-        <div class="card-body space-y-3">
-          <h2 class="card-title text-base">Референс-фото</h2>
+        <!-- Референс-фото -->
+        <section class="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3.5">
+          <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Референс-фото</h2>
+
           <CharacterReferenceUploader
             :character="character"
             @updated="onReferencesUpdated"
             @regenerate="onRegenerateClick"
           />
+
           <div id="character-ref-generator">
             <CharacterReferenceGenerator
               :key="generatorKey"
               :character-id="character.id"
               :app-id="character.appId"
               :initial-prompt="generatorInitialPrompt"
-              @generated="onReferenceGenerated"
+              @generated="refresh"
             />
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
-        <div class="card-body space-y-3">
+        <!-- Видеоисходники -->
+        <section class="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3.5 lg:col-span-2">
           <div>
-            <h2 class="card-title text-base">Видеоисходники для lip-sync</h2>
-            <p class="text-xs text-base-content/60 mt-1">
-              Реальные фрагменты ведущего 2–10 секунд. Из них Replicate собирает липсинк-сцены.
+            <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Видеоисходники для липсинка</h2>
+            <p class="mt-1 text-sm text-muted">
+              Реальные фрагменты ведущего 2–10 секунд. Из них собираются липсинк-сцены.
             </p>
           </div>
           <CharacterPresenterSourceClips :character-id="character.id" />
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
 
-    <GenerateAgainModal
-      v-model:open="regenerateModalOpen"
-      :last-prompt="regenerateLastPrompt"
-      @same="onRegenerateSame"
-      @new="onRegenerateNew"
-    />
-  </div>
+      <SharedGenerateAgainModal
+        v-model:open="regenerateModalOpen"
+        :last-prompt="regenerateLastPrompt"
+        @same="onRegenerateSame"
+        @new="onRegenerateNew"
+      />
+
+      <UiModal :open="showArchive" title="Убрать персонажа в архив?" size="sm" @close="showArchive = false">
+        <p class="text-sm text-muted">
+          Персонаж пропадёт из списка, но останется доступен по фильтру «архив».
+        </p>
+        <template #footer>
+          <UiButton variant="ghost" @click="showArchive = false">Отмена</UiButton>
+          <UiButton variant="danger" :loading="archiving" @click="onArchive">В архив</UiButton>
+        </template>
+      </UiModal>
+    </template>
+  </ClientOnly>
 </template>
