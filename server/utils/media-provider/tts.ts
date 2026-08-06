@@ -17,6 +17,7 @@ import { createPredictionService, type PredictionSubmission } from "../replicate
 import { requirePaidApisEnabled } from "../paid-guard"
 import { getStorageDriver } from "../storage"
 import { defaultTtsVoice, estimateTtsCost, mapMediaInput, resolveMediaModel } from "./registry"
+import { withReplicateRetries } from "./lip-sync"
 import type { MediaProviderName } from "./types"
 
 export interface ReplicateTtsRequest {
@@ -95,13 +96,18 @@ export async function runReplicateTts(
   const materializeOutput = dependencies.materializeOutput
     ?? ((storageKey, outputPath) => getStorageDriver().downloadToFile(storageKey, outputPath))
 
-  const execution = await executePrediction({
-    videoId: request.videoId ?? null,
-    model,
-    input,
-    webhookUrl: config.webhookUrl,
-    idempotencyKey,
-  })
+  // Лимит запросов Replicate общий для всех моделей, а сцена ставит подряд синтез
+  // речи и lip-sync — 429 здесь ожидаем и переживается ретраем, а не падением.
+  const execution = await withReplicateRetries(
+    () => executePrediction({
+      videoId: request.videoId ?? null,
+      model,
+      input,
+      webhookUrl: config.webhookUrl,
+      idempotencyKey,
+    }),
+    ms => new Promise(resolve => setTimeout(resolve, ms)),
+  )
 
   await materializeOutput(execution.persistedStorageKey, request.outputPath)
 
