@@ -5,105 +5,93 @@ const route = useRoute()
 const uploadId = computed(() => Number(route.params.uploadId))
 
 const { data, pending, error, refresh } = useAnalyticsDetail(uploadId)
-
 const detail = computed(() => data.value?.data ?? null)
 
-useHead({
-  title: computed(() => detail.value?.title ? `${detail.value.title} - Аналитика` : 'Аналитика поста'),
-})
-
-const platformLabels: Record<string, string> = {
-  youtube: 'YouTube',
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
-}
+useHead({ title: computed(() => `${detail.value?.title ?? 'Публикация'} — разбор`) })
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleString('ru-RU')
 }
 
-async function onAnalyzed() {
-  await refresh()
-}
+const metrics = computed(() => detail.value?.latestMetrics ?? null)
+
+const relations = computed(() => {
+  const d = detail.value
+  if (!d) return []
+  return [
+    { label: 'Публикация', title: `pub_${uploadId.value}`, to: `/uploads/${uploadId.value}` },
+    { label: 'Разбор', title: 'аналитика', current: true },
+  ]
+})
 </script>
 
 <template>
-  <div class="space-y-4">
-    <NuxtLink to="/analytics" class="btn btn-ghost btn-sm gap-1">
-      <Icon name="mingcute:arrow-left-line" />
-      Назад к аналитике
-    </NuxtLink>
+  <div>
+    <UiSkeleton v-if="pending && !detail" variant="details" :count="5" />
 
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
+    <UiErrorState
+      v-else-if="error"
+      title="Не удалось загрузить разбор"
+      :message="error.message"
+      @retry="refresh"
+    />
 
     <template v-else-if="detail">
-      <!-- Upload info card -->
-      <div class="card bg-base-100 shadow-sm">
-        <div class="card-body">
-          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div>
-              <h1 class="text-xl font-bold text-base-content">
-                {{ detail.title || 'Без названия' }}
-              </h1>
-              <div class="flex flex-wrap items-center gap-2 mt-2 text-sm text-base-content/60">
-                <span class="badge badge-sm badge-ghost">
-                  {{ platformLabels[detail.socialAccount?.platform ?? ''] ?? '---' }}
-                </span>
-                <span>{{ detail.socialAccount?.displayName }}</span>
-                <span>{{ formatDate(detail.createdAt) }}</span>
-              </div>
-              <a
-                v-if="detail.platformPostUrl"
-                :href="detail.platformPostUrl"
-                target="_blank"
-                class="link link-primary text-sm mt-1 inline-flex items-center gap-1"
-              >
-                <Icon name="mingcute:external-link-line" class="text-xs" />
-                Открыть на платформе
-              </a>
-            </div>
+      <DetailHeader
+        :title="detail.title || 'Без названия'"
+        :code="`pub_${uploadId}`"
+        back-to="/analytics"
+        back-label="К аналитике"
+      >
+        <template #badges>
+          <UiPlatformBadge v-if="detail.socialAccount" :platform="detail.socialAccount.platform" />
+        </template>
 
-            <div v-if="detail.latestMetrics" class="stats stats-vertical sm:stats-horizontal shadow-sm text-sm">
-              <div class="stat py-2 px-3">
-                <div class="stat-title text-xs">Просмотры</div>
-                <div class="stat-value text-base">{{ formatNumber(detail.latestMetrics.views) }}</div>
-              </div>
-              <div class="stat py-2 px-3">
-                <div class="stat-title text-xs">Досмотры</div>
-                <div class="stat-value text-base">{{ detail.latestMetrics.watchThrough }}%</div>
-              </div>
-              <div class="stat py-2 px-3">
-                <div class="stat-title text-xs">CTR</div>
-                <div class="stat-value text-base">{{ detail.latestMetrics.ctr.toFixed(1) }}%</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <template #actions>
+          <a v-if="detail.platformPostUrl" :href="detail.platformPostUrl" target="_blank" rel="noopener">
+            <UiButton>
+              <Icon name="mingcute:external-link-line" />
+              Открыть на платформе
+            </UiButton>
+          </a>
+        </template>
+      </DetailHeader>
+
+      <div class="flex flex-wrap items-center gap-4 px-1 pb-3 text-sm text-muted">
+        <span v-if="detail.socialAccount" class="flex items-center gap-1.5">
+          Аккаунт
+          <span class="text-fg">{{ detail.socialAccount.displayName }}</span>
+        </span>
+        <span class="flex items-center gap-1.5">
+          Опубликована
+          <span class="tnum font-mono">{{ formatDate(detail.createdAt) }}</span>
+        </span>
+        <DetailRelations :chain="relations" class="ml-auto" />
       </div>
 
-      <!-- Reference banner -->
-      <div v-if="detail.reference" role="alert" class="alert alert-success">
-        <Icon name="mingcute:star-fill" class="text-lg" />
-        <div>
-          <h3 class="font-bold text-sm">Этот ролик в базе референсов</h3>
-          <p class="text-xs text-success-content/80">{{ detail.reference.reason }}</p>
+      <div class="flex flex-col gap-3">
+        <section v-if="metrics" class="grid gap-3 rounded-lg border border-border bg-panel p-3.5 sm:grid-cols-3">
+          <UiMetricStat label="Просмотры" :value="formatNumber(metrics.views)" />
+          <UiMetricStat label="Досмотры" :value="`${metrics.watchThrough}%`" />
+          <UiMetricStat label="CTR" :value="`${metrics.ctr.toFixed(1)}%`" />
+        </section>
+
+        <div
+          v-if="detail.reference"
+          role="note"
+          class="flex items-start gap-2 rounded-md border border-success-border bg-success-bg px-2.5 py-2 text-sm"
+        >
+          <Icon name="mingcute:star-fill" class="mt-0.5 shrink-0 text-success" />
+          <span>
+            <span class="font-medium text-success">Ролик в базе референсов.</span>
+            {{ detail.reference.reason }}
+          </span>
         </div>
+
+        <AnalyticsAnalyzeButton :upload-id="uploadId" @analyzed="refresh" />
+
+        <AnalyticsMetricsHistory :metrics="detail.metricsHistory ?? []" />
       </div>
-
-      <!-- AI Analyze -->
-      <AnalyticsAnalyzeButton :upload-id="uploadId" @analyzed="onAnalyzed" />
-
-      <!-- Metrics History -->
-      <AnalyticsMetricsHistory :metrics="detail.metricsHistory ?? []" />
     </template>
   </div>
 </template>

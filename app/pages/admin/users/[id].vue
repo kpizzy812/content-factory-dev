@@ -1,59 +1,63 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: ['admin-access'],
-})
+definePageMeta({ middleware: ['admin-access'] })
 
 const route = useRoute()
 const userId = computed(() => Number(route.params.id))
 
-const { data, pending, error } = useFetch(() => `/api/admin/users/${userId.value}`, {
+const { data, pending, error, refresh } = useFetch(() => `/api/admin/users/${userId.value}`, {
   key: `admin-user-${userId.value}`,
 })
 
 const user = computed(() => data.value?.data ?? null)
 
-useHead({
-  title: computed(() => user.value ? `${user.value.email} - Пользователь` : 'Пользователь'),
-})
+useHead({ title: computed(() => `${user.value?.email ?? 'Пользователь'} — пользователь`) })
 
 function onSaved() {
   refreshNuxtData(`admin-user-${userId.value}`)
   refreshNuxtData('admin-users')
 }
+
+const title = computed(() => {
+  const u = user.value
+  if (!u) return 'Пользователь'
+  return [u.name, u.surname].filter(Boolean).join(' ') || u.email
+})
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="text-sm breadcrumbs">
-      <ul>
-        <li><NuxtLink to="/admin">Админ</NuxtLink></li>
-        <li><NuxtLink to="/admin/users">Пользователи</NuxtLink></li>
-        <li v-if="user">{{ user.email }}</li>
-      </ul>
-    </div>
+  <div>
+    <UiSkeleton v-if="pending && !user" variant="details" :count="4" />
 
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>{{ error.message }}</span>
-    </div>
+    <UiErrorState
+      v-else-if="error"
+      title="Не удалось загрузить пользователя"
+      :message="error.message"
+      @retry="refresh"
+    />
 
     <template v-else-if="user">
-      <div>
-        <h1 class="text-2xl font-bold text-base-content">
-          {{ [user.name, user.surname].filter(Boolean).join(' ') || user.email }}
-        </h1>
-        <p class="text-base-content/60">{{ user.email }}</p>
-      </div>
+      <DetailHeader
+        :title="title"
+        :code="title === user.email ? undefined : user.email"
+        back-to="/admin/users"
+        back-label="К пользователям"
+      >
+        <template #badges>
+          <!-- Подпись доменная: «работает» точнее «готово», тон — из общего словаря. -->
+          <span
+            class="rounded-sm border px-2 py-0.5 text-sm"
+            :class="user.isActive
+              ? 'border-success-border bg-success-bg text-success'
+              : 'border-danger-border bg-danger-bg text-danger'"
+          >
+            {{ user.isActive ? 'Работает' : 'Заблокирован' }}
+          </span>
+        </template>
+      </DetailHeader>
 
-      <div class="card bg-base-100 shadow-sm">
-        <div class="card-body">
-          <AdminUserRoleEditor :user="user" @saved="onSaved" />
-        </div>
-      </div>
+      <section class="rounded-lg border border-border bg-panel p-3.5">
+        <AdminUserRoleEditor :user="user" @saved="onSaved" />
+      </section>
     </template>
   </div>
 </template>

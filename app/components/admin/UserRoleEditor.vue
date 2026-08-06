@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * Права пользователя приходят из MarketingCamp и здесь только показываются.
+ * Менять можно единственное — локальную блокировку, поэтому всё остальное
+ * подано как справка, а не как форма.
+ */
 const props = defineProps<{
   user: {
     id: number
@@ -44,7 +49,7 @@ const permissionEntries = computed(() =>
 )
 
 const moduleEntries = computed(() =>
-  allModules.map((mod) => ({
+  allModules.map(mod => ({
     slug: mod.slug,
     label: mod.label,
     granted: props.user.canAdmin || props.user.moduleAccess.includes(mod.slug),
@@ -62,103 +67,126 @@ async function save() {
       body: { isActive: isActive.value },
     })
     emit('saved')
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка сохранения'
-  } finally {
+  }
+  catch (e) {
+    error.value = (e as Error).message || 'Не удалось сохранить'
+  }
+  finally {
     saving.value = false
   }
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div role="alert" class="alert alert-info alert-soft">
-      <Icon name="mingcute:information-line" />
-      <div class="text-sm">
-        Права, роли, модули и приложения управляются в <strong>MarketingCamp</strong> и
-        синхронизируются при каждом логине пользователя. Здесь только просмотр и
-        локальная блокировка аккаунта в ZavodCamp.
-      </div>
+  <div class="flex flex-col gap-4">
+    <div
+      role="note"
+      class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm"
+    >
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+      <span class="text-muted">
+        Роли, права, модули и приложения ведутся в MarketingCamp и приезжают при каждом входе.
+        Здесь их можно только посмотреть — менять есть что одно, локальную блокировку.
+      </span>
     </div>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Роль (из MarketingCamp)</legend>
+    <section>
+      <h3 class="mb-1.5 text-micro tracking-[.06em] text-subtle uppercase">Роль</h3>
       <div class="flex flex-wrap items-center gap-2">
-        <span class="badge badge-primary badge-lg">{{ user.roleName || presetLabels[user.rolePreset] || user.rolePreset }}</span>
-        <span v-if="user.rolePresetName && user.rolePresetName !== user.roleName" class="badge badge-ghost">{{ user.rolePresetName }}</span>
+        <span class="rounded-sm border border-accent-border bg-accent-bg px-2 py-0.5 text-sm text-accent">
+          {{ user.roleName || presetLabels[user.rolePreset] || user.rolePreset }}
+        </span>
+        <span
+          v-if="user.rolePresetName && user.rolePresetName !== user.roleName"
+          class="rounded-sm border border-divider px-2 py-0.5 text-sm text-muted"
+        >
+          {{ user.rolePresetName }}
+        </span>
       </div>
-    </fieldset>
+    </section>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Права доступа</legend>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div v-for="p in permissionEntries" :key="p.key" class="flex items-center gap-2">
+    <section>
+      <h3 class="mb-1.5 text-micro tracking-[.06em] text-subtle uppercase">Права</h3>
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div v-for="p in permissionEntries" :key="p.key" class="flex items-center gap-1.5 text-sm">
           <Icon
             :name="p.granted ? 'mingcute:check-2-line' : 'mingcute:close-line'"
-            :class="p.granted ? 'text-success' : 'text-base-content/40'"
+            :class="p.granted ? 'text-success' : 'text-subtle'"
           />
-          <span class="text-sm" :class="!p.granted && 'text-base-content/50'">{{ p.label }}</span>
+          <span :class="!p.granted && 'text-subtle'">{{ p.label }}</span>
         </div>
       </div>
-    </fieldset>
+    </section>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Доступ к модулям</legend>
-      <div class="flex flex-wrap gap-3">
+    <section>
+      <h3 class="mb-1.5 text-micro tracking-[.06em] text-subtle uppercase">Модули</h3>
+      <div class="flex flex-wrap gap-1.5">
         <span
           v-for="m in moduleEntries"
           :key="m.slug"
-          class="badge badge-sm"
-          :class="m.granted ? 'badge-secondary' : 'badge-ghost opacity-50'"
+          class="flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-micro"
+          :class="m.granted
+            ? 'border-success-border bg-success-bg text-success'
+            : 'border-divider text-subtle'"
         >
-          <Icon :name="m.granted ? 'mingcute:check-2-line' : 'mingcute:close-line'" class="size-3" />
+          <Icon :name="m.granted ? 'mingcute:check-2-line' : 'mingcute:close-line'" />
           {{ m.label }}
         </span>
       </div>
-      <p v-if="user.canAdmin" class="text-xs text-base-content/60 mt-1">
-        Администратор имеет доступ ко всем модулям через bypass.
+      <p v-if="user.canAdmin" class="mt-1 text-micro text-subtle">
+        У администратора доступ ко всем модулям независимо от списка.
       </p>
-    </fieldset>
+    </section>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Доступ к приложениям</legend>
-      <div v-if="appAssignments.length === 0" class="text-sm text-base-content/60">
-        {{ user.canAdmin ? 'Админ — доступ ко всем приложениям через bypass.' : 'Приложения не назначены в MarketingCamp.' }}
-      </div>
-      <div v-else class="grid gap-2">
+    <section>
+      <h3 class="mb-1.5 text-micro tracking-[.06em] text-subtle uppercase">Приложения</h3>
+      <p v-if="!appAssignments.length" class="text-sm text-muted">
+        {{ user.canAdmin
+          ? 'У администратора доступ ко всем приложениям.'
+          : 'В MarketingCamp приложения не назначены.' }}
+      </p>
+      <div v-else class="flex flex-col gap-1.5">
         <div
           v-for="a in appAssignments"
           :key="a.appId"
-          class="flex flex-wrap items-center gap-2 rounded border border-base-300 px-3 py-2"
+          class="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2"
         >
-          <span class="font-medium text-sm">{{ a.appName }}</span>
-          <span class="badge badge-xs">level: {{ a.accessLevel }}</span>
-          <span class="badge badge-xs badge-ghost">accounts: {{ a.accounts }}</span>
-          <span class="badge badge-xs badge-ghost">geos: {{ a.geos }}</span>
-          <span class="badge badge-xs badge-ghost">perm: {{ a.permissions }}</span>
+          <span class="text-sm font-medium">{{ a.appName }}</span>
+          <span class="rounded-sm border border-divider px-1.5 py-0.5 font-mono text-micro text-muted">
+            уровень {{ a.accessLevel }}
+          </span>
+          <span class="rounded-sm border border-divider px-1.5 py-0.5 font-mono text-micro text-subtle">
+            аккаунты {{ a.accounts }}
+          </span>
+          <span class="rounded-sm border border-divider px-1.5 py-0.5 font-mono text-micro text-subtle">
+            гео {{ a.geos }}
+          </span>
+          <span class="rounded-sm border border-divider px-1.5 py-0.5 font-mono text-micro text-subtle">
+            права {{ a.permissions }}
+          </span>
         </div>
       </div>
-    </fieldset>
+    </section>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Локальный статус в ZavodCamp</legend>
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input v-model="isActive" type="checkbox" class="toggle toggle-sm toggle-success" />
-        <span class="text-sm">{{ isActive ? 'Активен' : 'Заблокирован локально' }}</span>
-      </label>
-      <p class="text-xs text-base-content/60 mt-1">
-        Блокировка работает только в ZavodCamp. В MC аккаунт остаётся.
+    <section>
+      <h3 class="mb-1.5 text-micro tracking-[.06em] text-subtle uppercase">Локальная блокировка</h3>
+      <UiToggle v-model="isActive" :label="isActive ? 'Работает' : 'Заблокирован здесь'" />
+      <p class="mt-1 text-micro text-subtle">
+        Действует только в ContentFactory. В MarketingCamp учётная запись остаётся.
       </p>
-    </fieldset>
+    </section>
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:warning-line" />
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
 
-    <button class="btn btn-primary" :disabled="saving" @click="save">
-      <span v-if="saving" class="loading loading-spinner loading-sm" />
-      Сохранить статус
-    </button>
+    <div>
+      <UiButton variant="primary" :loading="saving" @click="save">Сохранить</UiButton>
+    </div>
   </div>
 </template>
