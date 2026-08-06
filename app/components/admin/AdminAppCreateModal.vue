@@ -1,17 +1,21 @@
 <script setup lang="ts">
+/**
+ * Создание приложения. Форма общая с карточкой приложения — здесь только
+ * оболочка модалки.
+ */
 const emit = defineEmits<{
   created: []
   close: []
 }>()
 
-const dialogRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 
 function open() {
-  dialogRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  dialogRef.value?.close()
+  isOpen.value = false
   emit('close')
 }
 
@@ -24,16 +28,12 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal">
-    <div class="modal-box max-w-lg">
-      <h3 class="font-bold text-lg mb-1">Новое приложение</h3>
-      <p class="text-xs text-base-content/60 mb-4">
-        Базовые параметры приложения. Сотрудников и аккаунты привяжите позже в карточке приложения.
+  <UiModal :open="isOpen" title="Новое приложение" size="lg" @close="close">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        Базовые параметры. Сотрудников и аккаунты привязывают позже, в карточке приложения.
       </p>
       <AdminAppForm @saved="onSaved" @cancel="close" />
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+  </UiModal>
 </template>

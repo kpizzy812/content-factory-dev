@@ -1,9 +1,16 @@
 <script setup lang="ts">
+/**
+ * Подтверждение удаления приложения.
+ *
+ * Слово вручную, а не просто кнопка: удаление необратимо и уносит метаданные,
+ * историю обогащения и настройки. Связанные тренды, аккаунты и циклы удалить
+ * не дадут — это проверяет сервер.
+ */
 const emit = defineEmits<{
   confirmed: []
 }>()
 
-const modalRef = ref<HTMLDialogElement | null>(null)
+const isOpen = ref(false)
 const confirmText = ref('')
 const appName = ref('')
 
@@ -14,11 +21,11 @@ const isConfirmed = computed(() => confirmText.value === CONFIRM_WORD)
 function open(name: string) {
   appName.value = name
   confirmText.value = ''
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
 }
 
 function handleConfirm() {
@@ -31,61 +38,40 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold flex items-center gap-2">
-        <Icon name="mingcute:delete-2-line" class="text-error" />
-        Удаление приложения
-      </h3>
+  <UiModal :open="isOpen" title="Удаление приложения" @close="close">
+    <div class="flex flex-col gap-3">
+      <p
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-warning"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span>
+          <span class="font-medium">Отменить не получится.</span>
+          Приложение, его метаданные, история обогащения и настройки удаляются навсегда.
+          Если есть связанные тренды, аккаунты или циклы — сервер откажет.
+        </span>
+      </p>
 
-      <div class="mt-4 space-y-4">
-        <div role="alert" class="alert alert-warning">
-          <Icon name="mingcute:warning-line" class="text-xl" />
-          <div>
-            <p class="font-semibold">Это действие нельзя отменить</p>
-            <p class="text-sm opacity-80">
-              Приложение, его метаданные, enrichment-история и все настройки будут удалены навсегда.
-              Если у приложения есть связанные тренды, аккаунты или циклы — удаление будет отклонено сервером.
-            </p>
-          </div>
-        </div>
+      <p class="text-sm text-muted">
+        Удаляем приложение <span class="font-medium text-fg">{{ appName }}</span>.
+      </p>
 
-        <p class="text-sm">
-          Вы собираетесь удалить приложение
-          <span class="font-bold">{{ appName }}</span>.
-        </p>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">
-            Введите <kbd class="kbd kbd-sm">{{ CONFIRM_WORD }}</kbd> для подтверждения
-          </legend>
-          <input
-            v-model="confirmText"
-            type="text"
-            class="input input-error w-full"
-            :placeholder="CONFIRM_WORD"
-            autocomplete="off"
-            @keydown.enter.prevent="handleConfirm"
-          />
-        </fieldset>
-      </div>
-
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn">Отмена</button>
-        </form>
-        <button
-          class="btn btn-error"
-          :disabled="!isConfirmed"
-          @click="handleConfirm"
-        >
-          <Icon name="mingcute:delete-2-line" />
-          Удалить навсегда
-        </button>
-      </div>
+      <UiField :label="`Введите ${CONFIRM_WORD}, чтобы подтвердить`">
+        <UiInput
+          v-model="confirmText"
+          :placeholder="CONFIRM_WORD"
+          :invalid="Boolean(confirmText) && !isConfirmed"
+          @keydown.enter.prevent="handleConfirm"
+        />
+      </UiField>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="close">Отмена</UiButton>
+      <UiButton variant="danger" :disabled="!isConfirmed" @click="handleConfirm">
+        <Icon name="mingcute:delete-2-line" />
+        Удалить навсегда
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

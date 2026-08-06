@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Карточка пользователя в списке администратора.
+ * Права приходят из MarketingCamp, здесь только пресет роли и активность.
+ */
 defineProps<{
   user: {
     id: number
@@ -20,32 +24,37 @@ const presetLabels: Record<string, string> = {
 </script>
 
 <template>
-  <NuxtLink :to="`/admin/users/${user.id}`" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
-    <div class="card-body p-4 gap-2">
-      <div class="flex items-center gap-3">
-        <div class="avatar avatar-placeholder">
-          <div class="bg-neutral text-neutral-content w-10 rounded-full">
-            <span class="text-sm">{{ (user.name?.[0] ?? user.email?.[0] ?? '?').toUpperCase() }}</span>
-          </div>
+  <NuxtLink
+    :to="`/admin/users/${user.id}`"
+    class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors duration-(--duration-fast) hover:border-subtle"
+  >
+    <div class="flex items-center gap-2.5">
+      <span
+        class="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-panel text-sm text-muted"
+        aria-hidden="true"
+      >
+        {{ (user.name?.[0] ?? user.email?.[0] ?? '?').toUpperCase() }}
+      </span>
+      <div class="min-w-0 flex-1">
+        <div class="truncate font-medium">
+          {{ [user.name, user.surname].filter(Boolean).join(' ') || user.email }}
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-medium text-base-content truncate">
-            {{ [user.name, user.surname].filter(Boolean).join(' ') || user.email }}
-          </div>
-          <div class="text-sm text-base-content/60 truncate">{{ user.email }}</div>
-        </div>
+        <div class="truncate text-sm text-muted">{{ user.email }}</div>
       </div>
+    </div>
 
-      <div class="flex items-center gap-2 mt-1">
-        <span class="badge badge-sm badge-outline">
-          {{ presetLabels[user.rolePreset] ?? user.rolePreset }}
-        </span>
-        <span
-          :class="['badge badge-sm', user.isActive ? 'badge-success' : 'badge-ghost']"
-        >
-          {{ user.isActive ? 'Активен' : 'Неактивен' }}
-        </span>
-      </div>
+    <div class="flex flex-wrap items-center gap-1.5">
+      <span class="rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted">
+        {{ presetLabels[user.rolePreset] ?? user.rolePreset }}
+      </span>
+      <span
+        class="rounded-sm border px-1.5 py-0.5 text-micro"
+        :class="user.isActive
+          ? 'border-success-border bg-success-bg text-success'
+          : 'border-divider text-subtle'"
+      >
+        {{ user.isActive ? 'Активен' : 'Неактивен' }}
+      </span>
     </div>
   </NuxtLink>
 </template>

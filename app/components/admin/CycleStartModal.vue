@@ -1,9 +1,15 @@
 <script setup lang="ts">
+/**
+ * Запуск производственного цикла.
+ *
+ * Цикл дёргает платные модели на всех шагах, поэтому запуск подписан ценой и
+ * спрашивает приложение явно: перепутать приложение здесь дорого.
+ */
 const emit = defineEmits<{
   started: []
 }>()
 
-const modalRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const selectedApp = ref<number | undefined>(undefined)
 const selectedGroup = ref<number | undefined>(undefined)
 const starting = ref(false)
@@ -22,82 +28,81 @@ function open() {
   selectedApp.value = undefined
   selectedGroup.value = undefined
   error.value = ''
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
+
+function close() {
+  if (!starting.value) isOpen.value = false
+}
+
+defineExpose({ open, close })
 
 async function start() {
   if (!selectedApp.value) {
-    error.value = 'Выберите приложение'
+    error.value = 'Сначала выберите приложение'
     return
   }
 
   starting.value = true
   error.value = ''
-
   try {
     await $fetch('/api/admin/cycles/start', {
       method: 'POST',
-      body: {
-        appId: selectedApp.value,
-        groupId: selectedGroup.value || undefined,
-      },
+      body: { appId: selectedApp.value, groupId: selectedGroup.value || undefined },
     })
-    modalRef.value?.close()
+    isOpen.value = false
     emit('started')
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка запуска'
-  } finally {
+  }
+  catch (e) {
+    error.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Не удалось запустить цикл'
+  }
+  finally {
     starting.value = false
   }
 }
-
-defineExpose({ open })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold mb-4">Запуск цикла</h3>
+  <UiModal :open="isOpen" title="Запустить цикл?" @close="close">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        Цикл пройдёт весь конвейер — от поиска трендов до публикаций — и по дороге дёрнет
+        платные модели.
+      </p>
 
-      <div class="space-y-4">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Приложение</legend>
-          <select v-model="selectedApp" class="select select-sm w-full">
-            <option :value="undefined" disabled>Выберите приложение</option>
-            <option v-for="app in apps" :key="app.id" :value="app.id">
-              {{ app.name }}
-            </option>
-          </select>
-        </fieldset>
+      <UiField label="Приложение">
+        <UiSelect
+          v-model="selectedApp"
+          placeholder="Выберите приложение"
+          :options="apps.map((a: { id: number, name: string }) => ({ value: a.id, label: a.name }))"
+        />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Группа аккаунтов (опционально)</legend>
-          <select v-model="selectedGroup" class="select select-sm w-full">
-            <option :value="undefined">Все аккаунты</option>
-            <option v-for="group in groups" :key="group.id" :value="group.id">
-              {{ group.name }}
-            </option>
-          </select>
-        </fieldset>
+      <UiField label="Группа аккаунтов" hint="Необязательно — по умолчанию все аккаунты приложения">
+        <UiSelect
+          v-model="selectedGroup"
+          placeholder="Все аккаунты"
+          :options="groups.map((g: { id: number, name: string }) => ({ value: g.id, label: g.name }))"
+        />
+      </UiField>
 
-        <div v-if="error" role="alert" class="alert alert-error alert-soft">
-          <Icon name="mingcute:warning-line" />
-          <span>{{ error }}</span>
-        </div>
-      </div>
-
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn btn-ghost btn-sm">Отмена</button>
-        </form>
-        <button class="btn btn-primary btn-sm" :disabled="starting || !selectedApp" @click="start">
-          <span v-if="starting" class="loading loading-spinner loading-sm" />
-          Запустить
-        </button>
-      </div>
+      <p
+        v-if="error"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span>{{ error }}</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="starting" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" :disabled="!selectedApp" :loading="starting" @click="start">
+        Запустить · платно
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

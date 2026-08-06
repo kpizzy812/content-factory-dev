@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * Модалка управления reference-картинками приложения.
- * Открывается по флагу open, внутри AppReferenceImagesManager с enableGlobalPaste.
+ * Референс-изображения приложения в модалке.
+ *
+ * Ctrl+V ловится сразу после открытия — картинки чаще вставляют из буфера,
+ * чем выбирают файлом, и лишний клик по зоне здесь мешает.
  */
 import type { AppReferenceImage } from '~~/shared/types/app'
 
@@ -22,73 +24,41 @@ function close() {
   emit('update:open', false)
 }
 
-// Closed Manager exposes focusPasteCatcher — дёргаем при открытии, чтобы Ctrl+V
-// работал сразу без клика внутри модалки.
 const managerRef = ref<{ focusPasteCatcher: () => void } | null>(null)
 
 watch(() => props.open, (v) => {
-  if (v) {
-    nextTick(() => managerRef.value?.focusPasteCatcher())
-  }
-})
-
-// Закрытие по Escape
-watchEffect((onCleanup) => {
-  if (!props.open || typeof window === 'undefined') return
-  const handler = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') close()
-  }
-  window.addEventListener('keydown', handler)
-  onCleanup(() => window.removeEventListener('keydown', handler))
+  if (v) nextTick(() => managerRef.value?.focusPasteCatcher())
 })
 </script>
 
 <template>
-  <Teleport to="body">
-    <dialog class="modal" :class="{ 'modal-open': open }">
-      <div class="modal-box max-w-3xl">
-        <div class="flex items-start justify-between gap-3 mb-3">
-          <div class="min-w-0">
-            <h3 class="font-bold text-lg flex items-center gap-2">
-              <Icon name="mingcute:attachment-line" class="size-5 text-primary" />
-              Референсы приложения
-            </h3>
-            <p class="text-sm text-base-content/60 truncate">
-              {{ appName }}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="btn btn-sm btn-circle btn-ghost"
-            aria-label="Закрыть"
-            @click="close"
-          >
-            <Icon name="mingcute:close-line" class="size-4" />
-          </button>
-        </div>
+  <UiModal :open="open" size="lg" @close="close">
+    <template #header>
+      <span class="flex min-w-0 items-center gap-2">
+        <Icon name="mingcute:attachment-line" class="shrink-0 text-accent" />
+        <span class="truncate">Референсы · {{ appName }}</span>
+      </span>
+    </template>
 
-        <p class="text-xs text-base-content/60 mb-3">
-          Изображения, которые вы приложите, будут передаваться в контекст генерации сценариев и видео.
-          Вставка работает через Ctrl+V, drag&drop или выбор файлов.
-        </p>
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        Эти изображения уходят в контекст генерации сценариев и роликов. Работают Ctrl+V,
+        перетаскивание и выбор файлов.
+      </p>
 
-        <AdminAppReferenceImagesManager
-          v-if="open"
-          ref="managerRef"
-          :app-id="appId"
-          :initial-urls="initialUrls"
-          :initial-references="initialReferences"
-          :enable-global-paste="true"
-          @updated="(urls: string[], refs: AppReferenceImage[]) => emit('updated', urls, refs)"
-        />
+      <AdminAppReferenceImagesManager
+        v-if="open"
+        ref="managerRef"
+        :app-id="appId"
+        :initial-urls="initialUrls"
+        :initial-references="initialReferences"
+        :enable-global-paste="true"
+        @updated="(urls: string[], refs: AppReferenceImage[]) => emit('updated', urls, refs)"
+      />
+    </div>
 
-        <div class="modal-action">
-          <button type="button" class="btn btn-sm" @click="close">
-            Готово
-          </button>
-        </div>
-      </div>
-      <div class="modal-backdrop" @click="close" />
-    </dialog>
-  </Teleport>
+    <template #footer>
+      <UiButton @click="close">Готово</UiButton>
+    </template>
+  </UiModal>
 </template>

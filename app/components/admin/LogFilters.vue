@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * Фильтры ленты журналов.
+ *
+ * Источники переключаются по одному: чаще всего смотрят один-два, а не «всё
+ * кроме». Кнопки «все» и «очистить» рядом, чтобы вернуться в исходное было
+ * одним кликом.
+ */
 import {
   ADMIN_LOG_SOURCE_ICONS,
   ADMIN_LOG_SOURCE_LABELS,
@@ -9,16 +16,16 @@ import {
 const store = useAdminFiltersStore()
 
 const levelOptions = [
-  { value: '', label: 'Все уровни' },
+  { value: '', label: 'Любой уровень' },
   { value: 'info', label: 'Инфо' },
-  { value: 'warn', label: 'Внимание' },
-  { value: 'error', label: 'Ошибка' },
+  { value: 'warn', label: 'Важно' },
+  { value: 'error', label: 'Ошибки' },
 ]
 
 const resolvedOptions = [
-  { value: '', label: 'Все статусы' },
-  { value: 'true', label: 'Решённые' },
-  { value: 'false', label: 'Нерешённые' },
+  { value: '', label: 'Разобранные и нет' },
+  { value: 'true', label: 'Разобранные' },
+  { value: 'false', label: 'Неразобранные' },
 ]
 
 const sources = ADMIN_LOG_SOURCES_ALL
@@ -29,79 +36,58 @@ const noneSelected = computed(() => store.logSources.length === 0)
 function isActive(s: AdminLogSource): boolean {
   return store.logSources.includes(s)
 }
-
-function onChange() {
-  store.resetPage()
-}
 </script>
 
 <template>
-  <div class="card card-border bg-base-100">
-    <div class="card-body p-4 gap-3">
-      <!-- Источники -->
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-          <span class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
-            Источники
-          </span>
-          <div class="flex gap-1">
-            <button
-              type="button"
-              class="btn btn-ghost btn-xs"
-              :disabled="allSelected"
-              @click="store.selectAllLogSources()"
-            >
-              Выбрать все
-            </button>
-            <button
-              type="button"
-              class="btn btn-ghost btn-xs"
-              :disabled="noneSelected"
-              @click="store.clearLogSources()"
-            >
-              Очистить
-            </button>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="src in sources"
-            :key="src"
-            type="button"
-            class="badge badge-lg gap-1 cursor-pointer hover:badge-primary transition-colors"
-            :class="isActive(src) ? 'badge-primary' : 'badge-soft'"
-            @click="store.toggleLogSource(src)"
-          >
-            <Icon :name="ADMIN_LOG_SOURCE_ICONS[src]" class="text-sm" />
-            {{ ADMIN_LOG_SOURCE_LABELS[src] }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Уровень + статус + поиск -->
-      <div class="flex flex-wrap gap-2 items-center pt-2 border-t border-base-200">
-        <select v-model="store.logLevel" class="select select-sm" @change="onChange">
-          <option v-for="opt in levelOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-
-        <select v-model="store.logResolved" class="select select-sm" @change="onChange">
-          <option v-for="opt in resolvedOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-
-        <label class="input input-sm flex-1 min-w-[180px]">
-          <Icon name="mingcute:search-line" class="text-base-content/50" />
-          <input
-            v-model="store.logQ"
-            type="text"
-            placeholder="Поиск по сообщению…"
-            @input="onChange"
-          >
-        </label>
-      </div>
+  <section class="flex flex-col gap-2.5 rounded-lg border border-border bg-panel p-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Источники</h2>
+      <span class="flex-1" />
+      <UiButton variant="ghost" :disabled="allSelected" @click="store.selectAllLogSources()">
+        Все
+      </UiButton>
+      <UiButton variant="ghost" :disabled="noneSelected" @click="store.clearLogSources()">
+        Очистить
+      </UiButton>
     </div>
-  </div>
+
+    <div class="flex flex-wrap gap-1.5">
+      <button
+        v-for="src in sources"
+        :key="src"
+        type="button"
+        class="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border px-2 py-0.5 text-sm transition-colors duration-(--duration-fast)"
+        :class="isActive(src)
+          ? 'border-accent-border bg-accent-bg text-accent'
+          : 'border-divider text-muted hover:text-fg'"
+        :aria-pressed="isActive(src)"
+        @click="store.toggleLogSource(src)"
+      >
+        <Icon :name="ADMIN_LOG_SOURCE_ICONS[src]" />
+        {{ ADMIN_LOG_SOURCE_LABELS[src] }}
+      </button>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 border-t border-divider pt-2.5">
+      <UiSelect
+        v-model="store.logLevel"
+        class="w-44"
+        :options="levelOptions"
+        @update:model-value="store.resetPage()"
+      />
+      <UiSelect
+        v-model="store.logResolved"
+        class="w-52"
+        :options="resolvedOptions"
+        @update:model-value="store.resetPage()"
+      />
+      <UiInput
+        v-model="store.logQ"
+        class="max-w-72 min-w-44 flex-1"
+        placeholder="Поиск по сообщению"
+        @update:model-value="store.resetPage()"
+      />
+      <UiButton variant="ghost" @click="store.resetLogFilters()">Сбросить</UiButton>
+    </div>
+  </section>
 </template>

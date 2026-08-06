@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { EntityStatus } from '~~/shared/utils/entity-status'
+import { CYCLE_STATUS_LABELS, cycleStatus } from '~/components/admin/CycleStatusMap'
 
 definePageMeta({ middleware: ['admin-access'] })
 
@@ -13,23 +13,6 @@ const { data, pending, error, refresh } = useFetch(`/api/admin/cycles/${cycleId.
 const cycle = computed(() => (data.value as { data?: Record<string, any> } | null)?.data ?? null)
 
 useHead({ title: computed(() => cycle.value ? `Цикл #${cycle.value.id} — цикл` : 'Цикл') })
-
-/** Статусы цикла в общем словаре системы. */
-const CYCLE_STATUS_TO_ENTITY: Record<string, EntityStatus> = {
-  pending: 'queued',
-  running: 'running',
-  completed: 'done',
-  failed: 'failed',
-  stopped: 'cancelled',
-}
-
-const CYCLE_STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидает',
-  running: 'Работает',
-  completed: 'Завершён',
-  failed: 'Упал',
-  stopped: 'Остановлен',
-}
 
 const canStop = computed(() =>
   cycle.value && (cycle.value.status === 'running' || cycle.value.status === 'pending'))
@@ -129,7 +112,7 @@ function logLevel(raw: string): LogLevel {
       >
         <template #badges>
           <UiStatusBadge
-            :status="CYCLE_STATUS_TO_ENTITY[cycle.status] ?? 'draft'"
+            :status="cycleStatus(cycle.status)"
             :title="CYCLE_STATUS_LABELS[cycle.status] ?? cycle.status"
           />
         </template>
