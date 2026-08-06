@@ -1,80 +1,43 @@
 <script setup lang="ts">
-import type { PostingJobStatus } from "~~/shared/types/posting-job"
+import type { PostingJobStatus } from '~~/shared/types/posting-job'
+import { POSTING_STATUS_LABELS, postingStatus } from './PostingStatusMap'
 
-const props = withDefaults(
-  defineProps<{
-    status: PostingJobStatus
-    size?: "xs" | "sm" | "md"
-  }>(),
-  { size: "sm" },
-)
+/**
+ * Статус задачи постинга: тон общий, подпись доменная. «Повтор» и «Упала» —
+ * разные вещи: первое произойдёт само, второе ждёт человека.
+ */
+const props = withDefaults(defineProps<{
+  status: PostingJobStatus
+  size?: 'xs' | 'sm' | 'md'
+}>(), { size: 'sm' })
 
-interface BadgeConfig {
-  label: string
-  badgeClass: string
-  icon: string
-  showLoading?: boolean
-}
+const entity = computed(() => postingStatus(props.status))
+const label = computed(() => POSTING_STATUS_LABELS[props.status] ?? props.status)
 
-const config: Record<PostingJobStatus, BadgeConfig> = {
-  scheduled: {
-    label: "Запланирован",
-    badgeClass: "badge-info",
-    icon: "mingcute:calendar-line",
-  },
-  queued: {
-    label: "В очереди",
-    badgeClass: "badge-neutral",
-    icon: "mingcute:list-check-line",
-  },
-  preparing: {
-    label: "Подготовка",
-    badgeClass: "badge-warning",
-    icon: "mingcute:settings-3-line",
-  },
-  uploading: {
-    label: "Загрузка",
-    badgeClass: "badge-warning",
-    icon: "mingcute:upload-3-line",
-    showLoading: true,
-  },
-  published: {
-    label: "Опубликовано",
-    badgeClass: "badge-success",
-    icon: "mingcute:check-circle-line",
-  },
-  failed: {
-    label: "Ошибка",
-    badgeClass: "badge-error",
-    icon: "mingcute:close-circle-line",
-  },
-  retry_queued: {
-    label: "Retry",
-    badgeClass: "badge-warning",
-    icon: "mingcute:refresh-3-line",
-  },
-  cancelled: {
-    label: "Отменён",
-    badgeClass: "badge-ghost",
-    icon: "mingcute:forbid-circle-line",
-  },
-}
+const tone = computed(() => ({
+  draft: 'border-neutral-border bg-neutral-bg text-neutral',
+  queued: 'border-accent-border bg-accent-bg text-fg',
+  running: 'border-info-border bg-info-bg text-info',
+  review: 'border-warning-border bg-warning-bg text-warning',
+  done: 'border-success-border bg-success-bg text-success',
+  failed: 'border-danger-border bg-danger-bg text-danger',
+  blocked: 'border-dashed border-danger-border bg-surface text-danger',
+  cancelled: 'border-divider bg-transparent text-subtle',
+}[entity.value]))
 
-const current = computed(() => config[props.status])
-const sizeClass = computed(() => {
-  if (props.size === "xs") return "badge-xs"
-  if (props.size === "sm") return "badge-sm"
-  return ""
-})
+const sizing = computed(() => ({
+  xs: 'h-[18px] gap-1 px-1.5 text-micro',
+  sm: 'h-[22px] gap-1.5 px-2 text-sm',
+  md: 'h-[26px] gap-1.5 px-2.5 text-base',
+}[props.size]))
 </script>
 
 <template>
-  <span class="badge gap-1" :class="[current.badgeClass, sizeClass]">
+  <span class="inline-flex w-fit items-center rounded-sm border whitespace-nowrap" :class="[tone, sizing]">
     <span
-      v-if="current.showLoading"
-      class="loading loading-spinner loading-xs"
+      class="size-1.5 shrink-0 rounded-full bg-current"
+      :class="entity === 'running' && 'motion-safe:animate-pulse'"
     />
-    <Icon v-else :name="current.icon" class="text-xs" />
-    {{ current.label }}
+    {{ label }}
   </span>
 </template>

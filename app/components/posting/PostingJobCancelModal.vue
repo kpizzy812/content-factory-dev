@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import type { PostingJobDto } from "~~/shared/types/posting-job"
+import type { PostingJobDto } from '~~/shared/types/posting-job'
 
+/** Снятие публикации из очереди. Причина обязательна — она остаётся в задаче. */
 const emit = defineEmits<{
   cancelled: [job: PostingJobDto]
   close: []
 }>()
 
-const modalRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const currentJob = ref<PostingJobDto | null>(null)
-const reason = ref("")
+const reason = ref('')
 const localError = ref<string | null>(null)
 
 const { cancelJob, isProcessing, error } = usePostingJobActions()
@@ -18,31 +19,32 @@ const isValid = computed(() => reasonTrimmed.value.length > 0)
 
 function open(job: PostingJobDto) {
   currentJob.value = job
-  reason.value = ""
+  reason.value = ''
   localError.value = null
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
   currentJob.value = null
-  reason.value = ""
+  reason.value = ''
   localError.value = null
-  emit("close")
+  emit('close')
 }
 
 async function submit() {
   if (!currentJob.value) return
   if (!isValid.value) {
-    localError.value = "Укажите причину отмены"
+    localError.value = 'Причина обязательна — она остаётся в задаче'
     return
   }
   const updated = await cancelJob(currentJob.value.id, reasonTrimmed.value)
   if (updated) {
-    emit("cancelled", updated)
+    emit('cancelled', updated)
     close()
-  } else {
-    localError.value = error.value ?? "Не удалось отменить job"
+  }
+  else {
+    localError.value = error.value ?? 'Не удалось снять задачу'
   }
 }
 
@@ -50,59 +52,35 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-lg">
-      <h3 class="text-lg font-bold mb-2">Отменить публикацию?</h3>
-      <p v-if="currentJob" class="text-sm text-base-content/70 mb-4">
-        Job <code class="bg-base-200 px-1.5 py-0.5 rounded">
-          {{ currentJob.id.slice(0, 8) }}
-        </code>
+  <UiModal :open="isOpen" title="Снять публикацию из очереди?" size="md" :persistent="isProcessing" @close="close">
+    <div class="flex flex-col gap-3">
+      <p v-if="currentJob" class="text-sm text-muted">
+        Задача <span class="font-mono">{{ currentJob.id.slice(0, 8) }}</span>
         для аккаунта
-        <strong>{{ currentJob.socialAccount?.displayName ?? `#${currentJob.socialAccountId}` }}</strong>
-        ({{ currentJob.platform }}) будет переведён в статус <code>cancelled</code>.
+        <span class="font-mono">{{ currentJob.socialAccount?.displayName ?? `#${currentJob.socialAccountId}` }}</span>
+        больше не будет опубликована.
       </p>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Причина отмены *</legend>
-        <textarea
+      <UiField label="Причина" :hint="`${reasonTrimmed.length} из 500 символов`">
+        <UiTextarea
           v-model="reason"
-          class="textarea w-full"
-          rows="3"
-          maxlength="500"
-          placeholder="Например: дубликат контента, изменили план публикаций"
+          :rows="3"
           :disabled="isProcessing"
+          placeholder="Например: ролик заменили на новый вариант"
         />
-        <p class="label text-xs text-base-content/60">
-          {{ reasonTrimmed.length }}/500
-        </p>
-      </fieldset>
+      </UiField>
 
-      <div
-        v-if="localError"
-        role="alert"
-        class="alert alert-error alert-soft text-sm mt-3"
-      >
-        <Icon name="mingcute:warning-line" />
-        <span>{{ localError }}</span>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-sm" :disabled="isProcessing" @click="close">
-          Назад
-        </button>
-        <button
-          class="btn btn-sm btn-error"
-          :disabled="isProcessing || !isValid"
-          @click="submit"
-        >
-          <span v-if="isProcessing" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:forbid-circle-line" />
-          Отменить job
-        </button>
-      </div>
+      <p v-if="localError" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        {{ localError }}
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isProcessing" @click="close">Назад</UiButton>
+      <UiButton variant="danger" :loading="isProcessing" :disabled="!isValid" @click="submit">
+        Снять из очереди
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

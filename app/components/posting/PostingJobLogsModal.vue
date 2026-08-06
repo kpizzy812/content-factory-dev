@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import type { PostingJobDto, PostingJobLogDto } from "~~/shared/types/posting-job"
+import type { PostingJobDto, PostingJobLogDto } from '~~/shared/types/posting-job'
 
-const emit = defineEmits<{
-  close: []
-}>()
+/**
+ * Журнал одной задачи постинга. Строки — общие `UiLogRow`: время, уровень,
+ * сообщение, разворачивающиеся данные. Своя таблица здесь ничего не добавляла.
+ */
+const emit = defineEmits<{ close: [] }>()
 
-const modalRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const currentJobId = ref<string | null>(null)
-const currentJobLabel = ref<string>("")
+const currentJobLabel = ref('')
 const currentJob = ref<PostingJobDto | null>(null)
 const logs = ref<PostingJobLogDto[]>([])
-const total = ref<number>(0)
+const total = ref(0)
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
 
@@ -24,27 +26,27 @@ async function load() {
   loading.value = true
   errorMessage.value = null
   try {
-    const res = await fetchLogs(currentJobId.value, {
-      limit,
-      offset: offset.value,
-    })
+    const res = await fetchLogs(currentJobId.value, { limit, offset: offset.value })
     if (res) {
       logs.value = res.items
       total.value = res.total
-    } else {
-      errorMessage.value = "Не удалось загрузить логи"
     }
-  } finally {
+    else {
+      errorMessage.value = 'Журнал не загрузился'
+    }
+  }
+  finally {
     loading.value = false
   }
 }
 
 async function open(jobOrId: string | PostingJobDto, label?: string) {
-  if (typeof jobOrId === "string") {
+  if (typeof jobOrId === 'string') {
     currentJobId.value = jobOrId
     currentJob.value = null
     currentJobLabel.value = label ?? jobOrId.slice(0, 8)
-  } else {
+  }
+  else {
     currentJobId.value = jobOrId.id
     currentJob.value = jobOrId
     currentJobLabel.value = label ?? jobOrId.id.slice(0, 8)
@@ -53,19 +55,15 @@ async function open(jobOrId: string | PostingJobDto, label?: string) {
   total.value = 0
   offset.value = 0
   errorMessage.value = null
-  modalRef.value?.showModal()
+  isOpen.value = true
   await load()
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
   logs.value = []
   currentJobId.value = null
-  emit("close")
-}
-
-async function refresh() {
-  await load()
+  emit('close')
 }
 
 async function nextPage() {
@@ -80,33 +78,23 @@ async function prevPage() {
   await load()
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ru-RU', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
 }
 
-const levelBadgeClass: Record<string, string> = {
-  info: "badge-info",
-  warn: "badge-warning",
-  error: "badge-error",
+function normalizeLevel(level: string): 'debug' | 'info' | 'warn' | 'error' {
+  if (level === 'warn' || level === 'error' || level === 'debug') return level
+  return 'info'
 }
 
-function badgeClassFor(level: string): string {
-  return levelBadgeClass[level] ?? "badge-ghost"
-}
-
-function formatData(data: Record<string, unknown> | null): string {
-  if (!data) return ""
+function formatData(data: Record<string, unknown> | null): string | undefined {
+  if (!data) return undefined
   try {
     return JSON.stringify(data, null, 2)
-  } catch {
+  }
+  catch {
     return String(data)
   }
 }
@@ -114,7 +102,7 @@ function formatData(data: Record<string, unknown> | null): string {
 const hasNext = computed(() => offset.value + limit < total.value)
 const hasPrev = computed(() => offset.value > 0)
 const pageInfo = computed(() => {
-  if (total.value === 0) return "0 записей"
+  if (!total.value) return 'записей нет'
   const from = offset.value + 1
   const to = Math.min(offset.value + logs.value.length, total.value)
   return `${from}–${to} из ${total.value}`
@@ -124,125 +112,65 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-5xl">
-      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div>
-          <h3 class="text-lg font-bold">Логи публикации</h3>
-          <p class="text-xs text-base-content/60">
-            Job: <code class="bg-base-200 px-1 rounded">{{ currentJobLabel }}</code>
-            · {{ pageInfo }}
-          </p>
-        </div>
-        <button
-          class="btn btn-xs btn-ghost gap-1"
-          :disabled="loading"
-          @click="refresh"
-        >
-          <span v-if="loading" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:refresh-3-line" />
+  <UiModal :open="isOpen" size="lg" @close="close">
+    <template #header>
+      <span class="flex flex-wrap items-baseline gap-2">
+        Журнал публикации
+        <span class="font-mono text-sm font-normal text-subtle">{{ currentJobLabel }}</span>
+        <span class="tnum font-mono text-sm font-normal text-subtle">{{ pageInfo }}</span>
+      </span>
+    </template>
+
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <UiButton variant="ghost" :loading="loading" @click="load">
+          <Icon v-if="!loading" name="mingcute:refresh-3-line" />
           Обновить
-        </button>
+        </UiButton>
       </div>
 
-      <!-- YouTube phase progress (только для youtube job, отдельная collapsible секция) -->
-      <details
+      <UiDisclosure
         v-if="currentJob && currentJob.platform === 'youtube'"
-        class="collapse collapse-arrow bg-base-200/30 mb-3"
+        title="Шаги публикации на YouTube"
+        icon="mingcute:list-ordered-line"
       >
-        <summary class="collapse-title text-sm font-medium">
-          Фазы постинга YouTube
-        </summary>
-        <div class="collapse-content">
-          <PostingJobPhaseProgress :job="currentJob" />
-        </div>
-      </details>
+        <PostingJobPhaseProgress :job="currentJob" />
+      </UiDisclosure>
 
-      <div v-if="loading && logs.length === 0" class="flex justify-center py-8">
-        <span class="loading loading-spinner loading-lg" />
-      </div>
+      <UiSkeleton v-if="loading && !logs.length" variant="details" :count="6" />
 
-      <div
-        v-else-if="errorMessage"
-        role="alert"
-        class="alert alert-error alert-soft"
-      >
-        <Icon name="mingcute:warning-line" />
-        <span>{{ errorMessage }}</span>
-      </div>
+      <UiErrorState v-else-if="errorMessage" message="Журнал не загрузился." :details="errorMessage" @retry="load" />
 
-      <div
-        v-else-if="logs.length === 0"
-        class="py-8 text-center text-base-content/60"
-      >
-        <Icon name="mingcute:document-line" class="text-4xl mb-2" />
-        <p>Логов пока нет</p>
-      </div>
+      <UiEmptyState
+        v-else-if="!logs.length"
+        variant="first"
+        title="Записей ещё нет"
+        description="Журнал заполняется, когда задача уходит в работу."
+      />
 
-      <div v-else class="overflow-x-auto max-h-[60vh]">
-        <table class="table table-xs table-pin-rows">
-          <thead>
-            <tr>
-              <th class="w-32">Когда</th>
-              <th class="w-20">Уровень</th>
-              <th>Сообщение</th>
-              <th class="w-64">Данные</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="log in logs" :key="log.id">
-              <td class="whitespace-nowrap font-mono text-xs">
-                {{ formatDate(log.createdAt) }}
-              </td>
-              <td>
-                <span
-                  class="badge badge-xs"
-                  :class="badgeClassFor(log.level)"
-                >
-                  {{ log.level }}
-                </span>
-              </td>
-              <td class="text-sm break-words">{{ log.message }}</td>
-              <td>
-                <details v-if="log.data" class="text-xs">
-                  <summary class="cursor-pointer text-base-content/60">
-                    Развернуть
-                  </summary>
-                  <pre
-                    class="bg-base-200 p-2 rounded mt-1 whitespace-pre-wrap break-all max-h-40 overflow-auto"
-                  >{{ formatData(log.data) }}</pre>
-                </details>
-                <span v-else class="text-base-content/40">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-action items-center justify-between flex-wrap gap-2">
-        <div class="join">
-          <button
-            class="btn btn-xs join-item"
-            :disabled="!hasPrev || loading"
-            @click="prevPage"
-          >
-            <Icon name="mingcute:left-line" />
-            Назад
-          </button>
-          <button
-            class="btn btn-xs join-item"
-            :disabled="!hasNext || loading"
-            @click="nextPage"
-          >
-            Вперёд
-            <Icon name="mingcute:right-line" />
-          </button>
-        </div>
-        <button class="btn btn-sm" @click="close">Закрыть</button>
+      <div v-else class="max-h-[55vh] overflow-y-auto rounded-md border border-border bg-panel p-1">
+        <UiLogRow
+          v-for="log in logs"
+          :key="log.id"
+          :time="formatTime(log.createdAt)"
+          :level="normalizeLevel(log.level)"
+          :message="log.message"
+          :details="formatData(log.data)"
+        />
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton :disabled="!hasPrev || loading" @click="prevPage">
+        <Icon name="mingcute:left-line" />
+        Раньше
+      </UiButton>
+      <UiButton :disabled="!hasNext || loading" @click="nextPage">
+        Позже
+        <Icon name="mingcute:right-line" />
+      </UiButton>
+      <span class="flex-1" />
+      <UiButton variant="ghost" @click="close">Закрыть</UiButton>
+    </template>
+  </UiModal>
 </template>

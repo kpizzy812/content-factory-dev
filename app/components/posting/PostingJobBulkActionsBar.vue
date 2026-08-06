@@ -1,216 +1,155 @@
 <script setup lang="ts">
-import type { BulkDeleteResponse } from "~~/shared/types/posting-job"
+import type { BulkDeleteResponse } from '~~/shared/types/posting-job'
 
+/**
+ * Массовые действия над задачами постинга: удалить выбранные и вычистить
+ * завалы из упавших и снятых.
+ *
+ * Отчёт о пропущенных задачах остаётся на экране, пока его не прочитают:
+ * «удалено 12 из 15» без объяснения, что стало с тремя, — бесполезное сообщение.
+ */
 const props = defineProps<{
-  /** Выбранные id карточек. */
   selectedIds: string[]
+  /** Всего задач в текущей выборке — для подписи «выбрано N из M». */
+  total?: number
 }>()
 
 const emit = defineEmits<{
-  /** Очистить выбор. */
-  "clear-selection": []
-  /** Удаление завершилось — родитель перезагружает список. */
+  'clear-selection': []
   done: [result: BulkDeleteResponse]
 }>()
 
 const { can } = usePermissions()
-const canDelete = computed(() => can("canDelete"))
+const canDelete = computed(() => can('canDelete'))
 
 const { bulkDelete, isProcessing, error } = usePostingJobActions()
 
-const confirmModalRef = ref<HTMLDialogElement>()
-// Режим текущего подтверждения: удаление выбранных или очистка завалов.
-const mode = ref<"selected" | "cleanup">("selected")
+const isOpen = ref(false)
+const mode = ref<'selected' | 'cleanup'>('selected')
 const localError = ref<string | null>(null)
 const resultSummary = ref<BulkDeleteResponse | null>(null)
 
 const selectedCount = computed(() => props.selectedIds.length)
 
 const confirmTitle = computed(() =>
-  mode.value === "selected"
-    ? `Удалить выбранные (${selectedCount.value})?`
-    : "Очистить завалы (failed + cancelled)?",
+  mode.value === 'selected'
+    ? `Удалить выбранные задачи · ${selectedCount.value}`
+    : 'Вычистить упавшие и снятые?',
 )
 
 const confirmText = computed(() =>
-  mode.value === "selected"
-    ? `Будет удалено до ${selectedCount.value} задач. Опубликованные и выполняющиеся `
-      + "задачи будут пропущены (их нужно удалять по одной). Действие необратимо."
-    : "Будут удалены ВСЕ задачи в статусах «Ошибка» и «Отменён» (до 500 за раз). "
-      + "Опубликованные не затрагиваются. Действие необратимо.",
+  mode.value === 'selected'
+    ? `Удалим до ${selectedCount.value} задач. Опубликованные и выполняющиеся пропустим — `
+      + 'их удаляют по одной, чтобы не создать дубль на платформе. Вернуть нельзя.'
+    : 'Удалим все задачи в состояниях «Упала» и «Снята», до пятисот за раз. '
+      + 'Опубликованные не трогаем. Вернуть нельзя.',
 )
 
-function askSelected() {
-  if (selectedCount.value === 0) return
-  mode.value = "selected"
+function ask(next: 'selected' | 'cleanup') {
+  if (next === 'selected' && !selectedCount.value) return
+  mode.value = next
   localError.value = null
   resultSummary.value = null
-  confirmModalRef.value?.showModal()
-}
-
-function askCleanup() {
-  mode.value = "cleanup"
-  localError.value = null
-  resultSummary.value = null
-  confirmModalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function closeConfirm() {
-  confirmModalRef.value?.close()
+  isOpen.value = false
 }
 
 async function confirmDelete() {
   localError.value = null
-  let result: BulkDeleteResponse | null
-  if (mode.value === "selected") {
-    result = await bulkDelete({ ids: props.selectedIds })
-  } else {
-    result = await bulkDelete({ filter: { status: ["failed", "cancelled"] } })
+  const result = mode.value === 'selected'
+    ? await bulkDelete({ ids: props.selectedIds })
+    : await bulkDelete({ filter: { status: ['failed', 'cancelled'] } })
+
+  if (!result) {
+    localError.value = error.value ?? 'Массовое удаление не выполнилось'
+    return
   }
 
-  if (result) {
-    resultSummary.value = result
-    if (result.skipped.length === 0) {
-      closeConfirm()
-      emit("clear-selection")
-      emit("done", result)
-    }
-    // Если есть skipped — оставляем модалку открытой с отчётом, родителю всё равно
-    // сообщаем done (часть удалена) после закрытия пользователем.
-  } else {
-    localError.value = error.value ?? "Не удалось выполнить массовое удаление"
+  resultSummary.value = result
+  if (!result.skipped.length) {
+    closeConfirm()
+    emit('clear-selection')
+    emit('done', result)
   }
 }
 
 function acknowledgeAndClose() {
   const r = resultSummary.value
   closeConfirm()
-  emit("clear-selection")
-  if (r) emit("done", r)
+  emit('clear-selection')
+  if (r) emit('done', r)
 }
 </script>
 
 <template>
-  <div
-    v-if="canDelete"
-    class="card bg-base-200 shadow-sm sticky top-2 z-10"
-  >
-    <div class="card-body p-3 flex-row items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-2 text-sm">
-        <Icon name="mingcute:checkbox-line" class="text-base" />
-        <span v-if="selectedCount > 0">
-          Выбрано: <strong>{{ selectedCount }}</strong>
-        </span>
-        <span v-else class="text-base-content/60">
-          Отметьте задачи для массового удаления
-        </span>
-      </div>
-
-      <div class="flex items-center gap-2 flex-wrap">
-        <button
-          v-if="selectedCount > 0"
-          class="btn btn-xs btn-ghost gap-1"
-          @click="emit('clear-selection')"
-        >
-          <Icon name="mingcute:close-line" />
-          Снять выбор
-        </button>
-        <button
-          class="btn btn-xs btn-error gap-1"
-          :disabled="selectedCount === 0 || isProcessing"
-          @click="askSelected"
-        >
-          <Icon name="mingcute:delete-2-line" />
-          Удалить выбранные ({{ selectedCount }})
-        </button>
-        <button
-          class="btn btn-xs btn-warning btn-soft gap-1"
-          :disabled="isProcessing"
-          @click="askCleanup"
-        >
-          <Icon name="mingcute:broom-line" />
-          Очистить завалы
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!--
-    Confirm-модалка вынесена на верхний уровень template (вне .card): DaisyUI modal =
-    position:fixed, но будущий transform/filter на родительской .card создал бы containing
-    block и обрезал бы backdrop. Top-level размещение защищает от этого.
+    Панель и модалка — соседи, а не потомки общей обёртки: `sticky bottom-0`
+    работает только когда у элемента есть куда двигаться внутри своего блока,
+    и лишний div ростом в одну панель эту возможность отбирает.
   -->
-  <dialog v-if="canDelete" ref="confirmModalRef" class="modal">
-      <div class="modal-box max-w-lg">
-        <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
-          <Icon name="mingcute:delete-2-line" class="text-error" />
-          {{ confirmTitle }}
-        </h3>
+  <UiBulkActionBar
+    v-if="canDelete"
+    :selected="selectedCount"
+    :total="total ?? selectedCount"
+    @clear="emit('clear-selection')"
+  >
+    <UiButton variant="danger" :disabled="isProcessing" @click="ask('selected')">
+      <Icon name="mingcute:delete-2-line" />
+      Удалить выбранные
+    </UiButton>
+    <UiButton :disabled="isProcessing" @click="ask('cleanup')">
+      <Icon name="mingcute:broom-line" />
+      Вычистить завалы
+    </UiButton>
+  </UiBulkActionBar>
 
-        <p class="text-sm text-base-content/70 mb-3">{{ confirmText }}</p>
+  <UiModal v-if="canDelete" :open="isOpen" :title="confirmTitle" size="md" :persistent="isProcessing" @close="closeConfirm">
+      <div class="flex flex-col gap-3">
+        <p class="text-sm text-muted">{{ confirmText }}</p>
 
-        <!-- Отчёт об удалённых -->
-        <div
+        <p
           v-if="resultSummary"
-          class="alert alert-info alert-soft text-sm mb-3"
+          class="tnum flex items-center gap-2 rounded-md border border-success-border bg-success-bg p-2.5 text-sm text-success"
         >
-          <Icon name="mingcute:check-circle-line" />
-          <span>Удалено: <strong>{{ resultSummary.deleted }}</strong></span>
-        </div>
+          <Icon name="mingcute:check-circle-line" class="shrink-0" />
+          Удалено {{ resultSummary.deleted }}
+        </p>
 
-        <!-- Пропущенные — отдельный warning-блок (гарантированный контраст во всех темах) -->
         <div
-          v-if="resultSummary && resultSummary.skipped.length > 0"
-          class="alert alert-warning alert-soft text-sm mb-3 flex-col items-start gap-1"
+          v-if="resultSummary && resultSummary.skipped.length"
+          class="flex flex-col gap-1.5 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm"
         >
-          <div class="flex items-center gap-2">
-            <Icon name="mingcute:alert-line" />
-            <span>Пропущено: <strong>{{ resultSummary.skipped.length }}</strong></span>
+          <div class="tnum flex items-center gap-2 font-medium">
+            <Icon name="mingcute:alert-line" class="shrink-0 text-warning" />
+            Пропущено {{ resultSummary.skipped.length }}
           </div>
-          <ul class="mt-1 text-xs space-y-0.5 max-h-32 overflow-y-auto w-full">
-            <li
-              v-for="s in resultSummary.skipped"
-              :key="s.id"
-              class="text-base-content/70"
-            >
-              <code>{{ s.id.slice(0, 8) }}</code> ({{ s.status }}): {{ s.reason }}
+          <ul class="max-h-32 overflow-y-auto">
+            <li v-for="s in resultSummary.skipped" :key="s.id" class="text-micro text-muted">
+              <span class="font-mono">{{ s.id.slice(0, 8) }}</span> — {{ s.reason }}
             </li>
           </ul>
         </div>
 
-        <div
-          v-if="localError"
-          role="alert"
-          class="alert alert-error alert-soft text-sm mb-2"
-        >
-          <Icon name="mingcute:warning-line" />
-          <span>{{ localError }}</span>
-        </div>
-
-        <div class="modal-action">
-          <template v-if="resultSummary && resultSummary.skipped.length > 0">
-            <button class="btn btn-sm btn-primary" @click="acknowledgeAndClose">
-              Понятно
-            </button>
-          </template>
-          <template v-else>
-            <button class="btn btn-sm" :disabled="isProcessing" @click="closeConfirm">
-              Назад
-            </button>
-            <button
-              class="btn btn-sm btn-error"
-              :disabled="isProcessing"
-              @click="confirmDelete"
-            >
-              <span v-if="isProcessing" class="loading loading-spinner loading-xs" />
-              <Icon v-else name="mingcute:delete-2-line" />
-              Удалить
-            </button>
-          </template>
-        </div>
+        <p v-if="localError" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+          <Icon name="mingcute:warning-line" class="shrink-0" />
+          {{ localError }}
+        </p>
       </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="closeConfirm">close</button>
-      </form>
-    </dialog>
+
+      <template #footer>
+        <template v-if="resultSummary && resultSummary.skipped.length">
+          <UiButton variant="primary" @click="acknowledgeAndClose">Понятно</UiButton>
+        </template>
+        <template v-else>
+          <UiButton variant="ghost" :disabled="isProcessing" @click="closeConfirm">Назад</UiButton>
+          <UiButton variant="danger" :loading="isProcessing" @click="confirmDelete">
+            <Icon v-if="!isProcessing" name="mingcute:delete-2-line" />
+            Удалить
+          </UiButton>
+        </template>
+      </template>
+  </UiModal>
 </template>

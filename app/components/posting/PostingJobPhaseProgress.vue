@@ -81,30 +81,26 @@ const stepStates = computed<Record<YoutubePhase, StepState>>(() => {
   return states
 })
 
-const STEP_CLASS: Record<StepState, string> = {
-  done: "step step-success",
-  current: "step step-primary",
-  error: "step step-error",
-  pending: "step",
+const MARK: Record<StepState, { icon: string, tone: string }> = {
+  done: { icon: 'mingcute:check-circle-fill', tone: 'text-success' },
+  current: { icon: 'mingcute:loading-3-line', tone: 'text-info motion-safe:animate-spin' },
+  error: { icon: 'mingcute:close-circle-fill', tone: 'text-danger' },
+  pending: { icon: 'mingcute:radiobox-line', tone: 'text-subtle' },
 }
 </script>
 
 <template>
-  <ul class="steps steps-vertical">
+  <ol class="flex flex-col">
     <li
       v-for="phase in YOUTUBE_PHASES"
       :key="phase"
-      :class="STEP_CLASS[stepStates[phase]]"
+      class="flex items-center gap-2.5 border-b border-divider py-1.5 text-sm last:border-b-0"
     >
-      <span class="text-xs text-left">
+      <Icon :name="MARK[stepStates[phase]].icon" class="shrink-0" :class="MARK[stepStates[phase]].tone" />
+      <span :class="stepStates[phase] === 'pending' ? 'text-subtle' : ''">
         {{ YOUTUBE_PHASE_LABELS[phase] }}
-        <span
-          v-if="stepStates[phase] === 'error'"
-          class="text-error font-medium ml-1"
-        >
-          (ошибка)
-        </span>
       </span>
+      <span v-if="stepStates[phase] === 'error'" class="font-medium text-danger">— здесь упало</span>
     </li>
-  </ul>
+  </ol>
 </template>
