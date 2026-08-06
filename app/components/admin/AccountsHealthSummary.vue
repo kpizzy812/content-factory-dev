@@ -1,79 +1,77 @@
 <script setup lang="ts">
-import type { AccountsHealthSummary } from "~~/shared/types/accounts-health"
+import type { AccountsHealthSummary } from '~~/shared/types/accounts-health'
 
+/**
+ * Сводка здоровья аккаунтов. Источник: `AccountsSummary` из макета 06.
+ *
+ * Плитки идут по убыванию срочности: сколько всего, сколько работает, сколько
+ * не работает и почему именно.
+ */
 const props = defineProps<{ summary: AccountsHealthSummary }>()
 
-interface SummaryCard {
+interface Tile {
   label: string
   value: number
-  icon: string
-  colorClass: string
+  caption?: string
+  tone?: 'warning' | 'danger'
 }
 
-const cards = computed<SummaryCard[]>(() => {
+const tiles = computed<Tile[]>(() => {
   const s = props.summary
-  const problemsCount = Math.max(0, s.total - s.activeCount)
+  const problems = Math.max(0, s.total - s.activeCount)
   return [
+    { label: 'Всего аккаунтов', value: s.total, caption: `активных ${s.activeCount}` },
     {
-      label: "Всего",
-      value: s.total,
-      icon: "mingcute:group-line",
-      colorClass: "text-base-content/70",
+      label: 'Не работают',
+      value: problems,
+      caption: `истёк токен ${s.expiredCount} · отозван ${s.revokedCount}`,
+      tone: problems ? 'danger' : undefined,
     },
     {
-      label: "Активных",
-      value: s.activeCount,
-      icon: "mingcute:check-circle-line",
-      colorClass: s.activeCount > 0 ? "text-success" : "text-base-content/40",
-    },
-    {
-      label: "Проблемных",
-      value: problemsCount,
-      icon: "mingcute:warning-line",
-      colorClass: problemsCount > 0 ? "text-error" : "text-base-content/40",
-    },
-    {
-      label: "Постинг заблокирован",
+      label: 'Постинг заблокирован',
       value: s.withoutProxy,
-      icon: "mingcute:forbid-circle-line",
-      colorClass: s.withoutProxy > 0 ? "text-error" : "text-base-content/40",
+      caption: 'нет прокси',
+      tone: s.withoutProxy ? 'danger' : undefined,
     },
     {
-      label: "Мёртвый прокси",
+      label: 'Прокси не отвечает',
       value: s.withDeadProxy,
-      icon: "mingcute:wifi-off-line",
-      colorClass: s.withDeadProxy > 0 ? "text-error" : "text-base-content/40",
+      caption: `деградирует ${s.withDegradedProxy}`,
+      tone: s.withDeadProxy ? 'danger' : undefined,
     },
     {
-      label: "Без warmup 7д+",
+      label: 'Без прогрева неделю',
       value: s.withoutWarmup7d,
-      icon: "mingcute:fire-line",
-      colorClass: s.withoutWarmup7d > 0 ? "text-warning" : "text-base-content/40",
+      caption: `остывших ${s.coldAccounts}`,
+      tone: s.withoutWarmup7d ? 'warning' : undefined,
     },
     {
-      label: "Без креденшелов",
+      label: 'Без доступов',
       value: s.withoutCredentials,
-      icon: "mingcute:lock-line",
-      colorClass: s.withoutCredentials > 0 ? "text-warning" : "text-base-content/40",
+      caption: `без 2FA ${s.without2FA}`,
+      tone: s.withoutCredentials ? 'warning' : undefined,
     },
   ]
 })
+
+const TONE = {
+  warning: 'text-warning',
+  danger: 'text-danger',
+} as const
 </script>
 
 <template>
-  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+  <div class="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-panel md:grid-cols-3 xl:grid-cols-6">
     <div
-      v-for="card in cards"
-      :key="card.label"
-      class="card bg-base-100 shadow-sm"
+      v-for="tile in tiles"
+      :key="tile.label"
+      class="flex flex-col gap-1 border-t border-r border-divider p-2.5 px-3.5 first:border-t-0 last:border-r-0 md:border-t-0"
     >
-      <div class="card-body p-3 gap-1 flex-row items-center">
-        <Icon :name="card.icon" class="text-2xl shrink-0" :class="card.colorClass" />
-        <div class="flex-1 min-w-0">
-          <div class="text-xs text-base-content/60 truncate">{{ card.label }}</div>
-          <div class="text-2xl font-bold leading-tight">{{ card.value }}</div>
-        </div>
-      </div>
+      <span class="text-micro tracking-[.06em] text-subtle uppercase">{{ tile.label }}</span>
+      <span class="tnum text-2xl font-semibold tracking-[-.02em]" :class="tile.tone ? TONE[tile.tone] : ''">
+        {{ tile.value }}
+      </span>
+      <span v-if="tile.caption" class="tnum text-micro text-subtle">{{ tile.caption }}</span>
     </div>
   </div>
 </template>

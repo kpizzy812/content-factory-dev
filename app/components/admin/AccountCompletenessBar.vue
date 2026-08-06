@@ -1,43 +1,34 @@
 <script setup lang="ts">
-const props = withDefaults(
-  defineProps<{
-    percent: number
-    size?: "sm" | "md"
-  }>(),
-  { size: "md" },
-)
+/** Полнота заполнения аккаунта. Цвет — из общей палитры состояний. */
+const props = withDefaults(defineProps<{
+  percent: number
+  size?: 'sm' | 'md'
+}>(), { size: 'md' })
 
-const progressColorClass = computed(() => {
-  if (props.percent < 50) return "progress-error"
-  if (props.percent < 80) return "progress-warning"
-  return "progress-success"
-})
-
-const textColorClass = computed(() => {
-  if (props.percent < 50) return "text-error"
-  if (props.percent < 80) return "text-warning"
-  return "text-success"
-})
-
-const sizeClass = computed(() => (props.size === "sm" ? "h-1" : "h-2"))
-
-const clampedPercent = computed(() => {
+const clamped = computed(() => {
   const n = Number.isFinite(props.percent) ? props.percent : 0
   return Math.max(0, Math.min(100, Math.round(n)))
+})
+
+const tone = computed(() => {
+  if (clamped.value < 50) return { bar: 'bg-danger', text: 'text-danger' }
+  if (clamped.value < 80) return { bar: 'bg-warning', text: 'text-warning' }
+  return { bar: 'bg-success', text: 'text-success' }
 })
 </script>
 
 <template>
-  <div class="flex items-center gap-2 w-full">
-    <progress
-      class="progress w-full"
-      :class="[progressColorClass, sizeClass]"
-      :value="clampedPercent"
-      max="100"
-      :aria-valuenow="clampedPercent"
-    />
-    <span class="text-xs font-mono shrink-0 w-10 text-right" :class="textColorClass">
-      {{ clampedPercent }}%
+  <div class="flex w-full items-center gap-2">
+    <span
+      class="flex-1 overflow-hidden rounded-full bg-neutral-bg"
+      :class="size === 'sm' ? 'h-1' : 'h-1.5'"
+      role="progressbar"
+      :aria-valuenow="clamped"
+      aria-valuemin="0"
+      aria-valuemax="100"
+    >
+      <span class="block h-full rounded-full" :class="tone.bar" :style="{ width: `${clamped}%` }" />
     </span>
+    <span class="tnum w-9 shrink-0 text-right font-mono text-micro" :class="tone.text">{{ clamped }}%</span>
   </div>
 </template>

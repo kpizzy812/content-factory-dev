@@ -1,75 +1,36 @@
 <script setup lang="ts">
-import type { AccountsHealthByPlatform } from "~~/shared/types/accounts-health"
+import type { AccountsHealthByPlatform } from '~~/shared/types/accounts-health'
+import { platformMeta } from '~/components/ui/platform-meta'
 
+/** Сколько аккаунтов на каждой платформе. Полоса — доля от самой большой. */
 const props = defineProps<{ byPlatform: AccountsHealthByPlatform }>()
 
-interface PlatformRow {
-  platform: "tiktok" | "youtube" | "instagram"
-  label: string
-  icon: string
-  count: number
-  percent: number
-  barClass: string
-}
-
-const rows = computed<PlatformRow[]>(() => {
+const rows = computed(() => {
   const bp = props.byPlatform
   const max = Math.max(bp.tiktok, bp.youtube, bp.instagram, 1)
-  return [
-    {
-      platform: "tiktok",
-      label: "TikTok",
-      icon: "mingcute:tiktok-line",
-      count: bp.tiktok,
-      percent: (bp.tiktok / max) * 100,
-      barClass: "bg-primary",
-    },
-    {
-      platform: "youtube",
-      label: "YouTube",
-      icon: "mingcute:youtube-line",
-      count: bp.youtube,
-      percent: (bp.youtube / max) * 100,
-      barClass: "bg-error",
-    },
-    {
-      platform: "instagram",
-      label: "Instagram",
-      icon: "mingcute:instagram-line",
-      count: bp.instagram,
-      percent: (bp.instagram / max) * 100,
-      barClass: "bg-secondary",
-    },
-  ]
+  return (['tiktok', 'youtube', 'instagram'] as const).map(platform => ({
+    platform,
+    label: platformMeta(platform).label,
+    color: platformMeta(platform).color,
+    count: bp[platform],
+    percent: (bp[platform] / max) * 100,
+  }))
 })
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm h-full">
-    <div class="card-body p-4 gap-3">
-      <h3 class="card-title text-sm">
-        <Icon name="mingcute:chart-bar-line" />
-        По платформам
-      </h3>
-      <div class="space-y-2">
-        <div
-          v-for="row in rows"
-          :key="row.platform"
-          class="flex items-center gap-3"
-        >
-          <div class="flex items-center gap-2 w-28 shrink-0">
-            <Icon :name="row.icon" class="text-lg" />
-            <span class="text-sm">{{ row.label }}</span>
-          </div>
-          <div class="flex-1 h-6 bg-base-200 rounded-box overflow-hidden">
-            <div
-              class="h-full transition-all"
-              :class="row.barClass"
-              :style="{ width: row.percent + '%' }"
-            />
-          </div>
-          <div class="w-12 text-right text-sm font-mono">{{ row.count }}</div>
-        </div>
+  <div class="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3.5">
+    <h3 class="text-micro tracking-[.06em] text-subtle uppercase">По платформам</h3>
+    <div class="grid gap-2 md:grid-cols-3 md:gap-6">
+      <div v-for="row in rows" :key="row.platform" class="flex items-center gap-3">
+        <span class="flex w-24 shrink-0 items-center gap-2 text-sm">
+          <span class="h-3 w-[5px] shrink-0 rounded-[2px]" :style="{ background: row.color }" />
+          {{ row.label }}
+        </span>
+        <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-bg">
+          <span class="block h-full rounded-full" :style="{ width: `${row.percent}%`, background: row.color }" />
+        </span>
+        <span class="tnum w-8 shrink-0 text-right font-mono text-sm">{{ row.count }}</span>
       </div>
     </div>
   </div>

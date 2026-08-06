@@ -2,83 +2,46 @@
 import type {
   AccountHealthRow,
   AccountsHealthPlatform,
-  AccountsHealthAccountStatus,
-  AccountsHealthProxyStatus,
   AccountsHealthWarmupStatus,
-} from "~~/shared/types/accounts-health"
+} from '~~/shared/types/accounts-health'
+import { platformMeta } from '~/components/ui/platform-meta'
 
+/**
+ * Аккаунты по убыванию проблем. Прогрев показан только здесь: в списке
+ * аккаунтов его нет, потому что `/api/accounts` этого поля не отдаёт.
+ */
 defineProps<{ accounts: AccountHealthRow[] }>()
 
 const emit = defineEmits<{
-  edit: [{ id: number; displayName: string; proxyId: string | null; platform: AccountsHealthPlatform }]
+  edit: [{ id: number, displayName: string, proxyId: string | null, platform: AccountsHealthPlatform }]
 }>()
 
-const platformIcons: Record<AccountsHealthPlatform, string> = {
-  tiktok: "mingcute:tiktok-line",
-  instagram: "mingcute:instagram-line",
-  youtube: "mingcute:youtube-line",
+const WARMUP_LABELS: Record<AccountsHealthWarmupStatus, string> = {
+  new: 'не прогревался',
+  warming: 'греется',
+  ready: 'прогрет',
+  cold: 'остыл',
 }
 
-const platformLabels: Record<AccountsHealthPlatform, string> = {
-  tiktok: "TikTok",
-  instagram: "Instagram",
-  youtube: "YouTube",
-}
-
-const statusBadgeClass: Record<AccountsHealthAccountStatus, string> = {
-  active: "badge-success",
-  expired: "badge-warning",
-  revoked: "badge-error",
-}
-
-const statusLabel: Record<AccountsHealthAccountStatus, string> = {
-  active: "активен",
-  expired: "истёк",
-  revoked: "отозван",
-}
-
-const proxyStatusBadgeClass: Record<AccountsHealthProxyStatus, string> = {
-  healthy: "badge-success",
-  degraded: "badge-warning",
-  dead: "badge-error",
-  unverified: "badge-ghost",
-  expired: "badge-warning",
-}
-
-const proxyStatusLabel: Record<AccountsHealthProxyStatus, string> = {
-  healthy: "ок",
-  degraded: "деград.",
-  dead: "мёртв",
-  unverified: "не проверен",
-  expired: "истёк",
-}
-
-const warmupBadgeClass: Record<AccountsHealthWarmupStatus, string> = {
-  new: "badge-ghost",
-  warming: "badge-info",
-  ready: "badge-success",
-  cold: "badge-warning",
-}
-
-const warmupLabel: Record<AccountsHealthWarmupStatus, string> = {
-  new: "новый",
-  warming: "греется",
-  ready: "готов",
-  cold: "остыл",
+const WARMUP_TONE: Record<AccountsHealthWarmupStatus, string> = {
+  new: 'border-divider bg-transparent text-subtle',
+  warming: 'border-info-border bg-info-bg text-info',
+  ready: 'border-success-border bg-success-bg text-success',
+  cold: 'border-warning-border bg-warning-bg text-warning',
 }
 
 function relativeWarmup(iso: string | null): string {
-  if (!iso) return "никогда"
+  if (!iso) return 'ни разу'
   const ts = new Date(iso).getTime()
-  if (!Number.isFinite(ts)) return "никогда"
-  const days = Math.floor((Date.now() - ts) / 86400000)
-  if (days <= 0) return "сегодня"
-  if (days === 1) return "1 д назад"
-  return `${days} д назад`
+  if (!Number.isFinite(ts)) return 'ни разу'
+  const days = Math.floor((Date.now() - ts) / 86_400_000)
+  if (days <= 0) return 'сегодня'
+  if (days === 1) return 'вчера'
+  return `${days} дней назад`
 }
 
 function onRowClick(row: AccountHealthRow) {
-  emit("edit", {
+  emit('edit', {
     id: row.id,
     displayName: row.displayName,
     proxyId: row.proxyId,
@@ -88,111 +51,81 @@ function onRowClick(row: AccountHealthRow) {
 </script>
 
 <template>
-  <div v-if="accounts.length === 0">
-    <SharedEmptyState
-      icon="mingcute:group-line"
-      title="Нет подключённых аккаунтов"
-      description="Подключите аккаунт через раздел «Аккаунты», чтобы увидеть его здесь."
-    />
-  </div>
+  <UiEmptyState
+    v-if="!accounts.length"
+    variant="first"
+    title="Аккаунтов нет"
+    description="Подключите аккаунт в разделе «Аккаунты» — он появится здесь вместе со своим состоянием."
+  />
 
-  <div v-else class="overflow-x-auto">
-    <table class="table table-zebra table-sm">
-      <thead>
-        <tr>
-          <th>Аккаунт</th>
-          <th>Платформа</th>
-          <th>Статус</th>
-          <th>Прокси</th>
-          <th>Креды</th>
-          <th>Прогрев</th>
-          <th class="min-w-32">Полнота</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="row in accounts"
-          :key="row.id"
-          class="hover cursor-pointer"
-          @click="onRowClick(row)"
+  <UiTable
+    v-else
+    columns="minmax(180px,1fr) 120px 132px minmax(150px,180px) 76px 140px 132px"
+    min-width="980px"
+  >
+    <UiTableHead>
+      <span>Аккаунт</span>
+      <span>Платформа</span>
+      <span>Статус</span>
+      <span>Прокси</span>
+      <span>Доступы</span>
+      <span>Прогрев</span>
+      <span>Заполненность</span>
+    </UiTableHead>
+
+    <UiTableRow v-for="row in accounts" :key="row.id" density="media" @click="onRowClick(row)">
+      <span class="min-w-0">
+        <span class="block truncate font-mono text-sm">{{ row.displayName }}</span>
+        <span class="block truncate text-micro text-subtle">{{ row.app?.name ?? '—' }}</span>
+      </span>
+
+      <span class="flex items-center gap-1.5 text-sm text-muted">
+        <span class="h-3 w-[5px] shrink-0 rounded-[2px]" :style="{ background: platformMeta(row.platform).color }" />
+        {{ platformMeta(row.platform).label }}
+      </span>
+
+      <span><AccountStatusBadge :status="row.status" size="xs" /></span>
+
+      <span class="flex min-w-0 items-center gap-1.5">
+        <template v-if="row.hasProxy && row.proxyStatus">
+          <span class="truncate text-sm text-muted">{{ row.proxyLabel ?? '—' }}</span>
+          <ProxyHealthBadge :status="row.proxyStatus" size="xs" />
+        </template>
+        <span
+          v-else
+          class="rounded-sm border border-danger-border bg-danger-bg px-1.5 py-0.5 text-micro text-danger"
+          title="Без прокси публикация и запуск устройства заблокированы"
         >
-          <td>
-            <div class="font-medium text-sm truncate max-w-44">{{ row.displayName }}</div>
-            <div class="text-xs text-base-content/50 truncate max-w-44">
-              {{ row.app?.name ?? "—" }}
-            </div>
-          </td>
-          <td>
-            <span class="badge badge-soft badge-sm gap-1">
-              <Icon :name="platformIcons[row.platform]" class="text-sm" />
-              {{ platformLabels[row.platform] }}
-            </span>
-          </td>
-          <td>
-            <span class="badge badge-soft badge-sm" :class="statusBadgeClass[row.status]">
-              {{ statusLabel[row.status] }}
-            </span>
-          </td>
-          <td>
-            <template v-if="row.hasProxy && row.proxyStatus">
-              <div class="flex items-center gap-1.5">
-                <span class="text-xs truncate max-w-28">{{ row.proxyLabel ?? "—" }}</span>
-                <span
-                  class="badge badge-soft badge-xs"
-                  :class="proxyStatusBadgeClass[row.proxyStatus]"
-                >
-                  {{ proxyStatusLabel[row.proxyStatus] }}
-                </span>
-              </div>
-            </template>
-            <span
-              v-else
-              class="badge badge-error badge-xs gap-1"
-              title="У аккаунта нет прокси — постинг и запуск устройства DuoPlus заблокированы"
-            >
-              <Icon name="mingcute:forbid-circle-line" class="text-xs" />
-              Постинг заблокирован
-            </span>
-          </td>
-          <td>
-            <div class="flex items-center gap-2">
-              <span
-                class="tooltip"
-                :data-tip="row.hasLoginCredentials ? 'Логин и пароль есть' : 'Нет логина или пароля'"
-              >
-                <Icon
-                  name="mingcute:lock-line"
-                  class="text-base"
-                  :class="row.hasLoginCredentials ? 'text-success' : 'text-base-content/30'"
-                />
-              </span>
-              <span
-                class="tooltip"
-                :data-tip="row.has2FA ? '2FA настроен' : 'Нет 2FA'"
-              >
-                <Icon
-                  name="mingcute:shield-line"
-                  class="text-base"
-                  :class="row.has2FA ? 'text-success' : 'text-base-content/30'"
-                />
-              </span>
-            </div>
-          </td>
-          <td>
-            <div class="flex flex-col gap-0.5">
-              <span class="badge badge-soft badge-xs" :class="warmupBadgeClass[row.warmupStatus]">
-                {{ warmupLabel[row.warmupStatus] }}
-              </span>
-              <span class="text-xs text-base-content/50">
-                {{ relativeWarmup(row.lastWarmupAt) }}
-              </span>
-            </div>
-          </td>
-          <td>
-            <AccountCompletenessBar :percent="row.completenessPercent" />
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          нет прокси
+        </span>
+      </span>
+
+      <span class="flex items-center gap-2">
+        <UiTooltip :text="row.hasLoginCredentials ? 'Логин и пароль заданы' : 'Логин или пароль не заданы'">
+          <Icon
+            name="mingcute:lock-line"
+            :class="row.hasLoginCredentials ? 'text-success' : 'text-subtle'"
+          />
+        </UiTooltip>
+        <UiTooltip :text="row.has2FA ? 'Двухфакторная проверка настроена' : 'Двухфакторной проверки нет'">
+          <Icon
+            name="mingcute:shield-line"
+            :class="row.has2FA ? 'text-success' : 'text-subtle'"
+          />
+        </UiTooltip>
+      </span>
+
+      <span class="flex min-w-0 flex-col gap-0.5">
+        <span
+          class="w-fit rounded-sm border px-1.5 text-micro"
+          :class="WARMUP_TONE[row.warmupStatus]"
+        >
+          {{ WARMUP_LABELS[row.warmupStatus] }}
+        </span>
+        <span class="text-micro text-subtle">{{ relativeWarmup(row.lastWarmupAt) }}</span>
+      </span>
+
+      <span><AdminAccountCompletenessBar :percent="row.completenessPercent" size="sm" /></span>
+    </UiTableRow>
+  </UiTable>
 </template>
