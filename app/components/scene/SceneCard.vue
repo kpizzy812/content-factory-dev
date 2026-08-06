@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import type { Scene, SceneStatus } from '~~/shared/types/scene'
-import { SCENE_STATUS_LABELS } from '~~/shared/types/scene'
-import type { EntityStatus } from '~~/shared/utils/entity-status'
+import type { Scene } from '~~/shared/types/scene'
 
 /**
  * Карточка сцены.
@@ -9,18 +7,10 @@ import type { EntityStatus } from '~~/shared/utils/entity-status'
  * Превью собранного промпта важнее описания: именно он уходит в генерацию,
  * и по нему видно, что сцена пустая, ещё до захода внутрь.
  */
-const SCENE_STATUS_TO_ENTITY: Record<string, EntityStatus> = {
-  draft: 'draft',
-  ready: 'queued',
-  generating: 'running',
-  done: 'done',
-}
-
 const props = defineProps<{ scene: Scene }>()
 
 const blocksCount = computed(() => (Array.isArray(props.scene.blocks) ? props.scene.blocks.length : 0))
 const promptPreview = computed(() => (props.scene.promptCompiled ?? '').slice(0, 220))
-const status = computed<EntityStatus>(() => SCENE_STATUS_TO_ENTITY[props.scene.status as SceneStatus] ?? 'draft')
 </script>
 
 <template>
@@ -30,7 +20,7 @@ const status = computed<EntityStatus>(() => SCENE_STATUS_TO_ENTITY[props.scene.s
   >
     <div class="flex items-start gap-2">
       <h3 class="min-w-0 flex-1 truncate text-base font-medium">{{ scene.name }}</h3>
-      <UiStatusBadge :status="status" size="xs" dot />
+      <SceneStatusBadge :status="scene.status" size="xs" />
     </div>
 
     <p v-if="scene.description" class="line-clamp-2 text-sm text-muted">{{ scene.description }}</p>

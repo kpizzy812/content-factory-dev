@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
- * Эталонные кадры сцены. UX зеркалит AppReferenceImagesManager (/admin/apps):
- * drag&drop, paste (Ctrl+V), переключатель kind, AI vision badges с polling'ом,
- * кнопка ручного re-run.
+ * Эталонные кадры сцены: drag&drop, вставка из буфера, разбор кадра моделью
+ * с опросом до готовности. Зеркалит CharacterReferenceUploader.
+ *
+ * Статус разбора виден на каждой карточке: описание кадра уходит в промпт
+ * генерации, и по нему видно, готов ли кадр к отправке в конвейер.
  */
 import type { SceneReferenceImage, SceneReferenceKind } from '~~/shared/types/scene'
 import { SCENE_REFERENCE_KINDS, SCENE_REFERENCE_KIND_LABELS } from '~~/shared/types/scene'
@@ -32,9 +34,9 @@ const {
 } = useSceneReferences({ sceneId: computed(() => props.sceneId) })
 
 onMounted(() => { refresh() })
-watch(references, (v) => emit('updated', v), { deep: true })
+watch(references, v => emit('updated', v), { deep: true })
 
-// Фоновый polling пока есть фото без aiAnalyzedAt и без aiError (vision 10-30c).
+// Разбор кадра занимает десятки секунд — опрашиваем, пока есть неразобранные.
 useImageAnalysisPolling({ items: references, refresh })
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -47,27 +49,39 @@ async function onFileInputChange(e: Event) {
   if (files.length) await upload(files, kind.value)
   if (fileInput.value) fileInput.value.value = ''
 }
-function onDragOver(e: DragEvent) { e.preventDefault(); dragOver.value = true }
-function onDragLeave() { dragOver.value = false }
+
+function onDragOver(e: DragEvent) {
+  e.preventDefault()
+  dragOver.value = true
+}
+
+function onDragLeave() {
+  dragOver.value = false
+}
+
 async function onDrop(e: DragEvent) {
   dragOver.value = false
   const files = Array.from(e.dataTransfer?.files ?? [])
   if (files.length) await upload(files, kind.value)
 }
-async function onPaste(e: ClipboardEvent) { await handlePaste(e, kind.value) }
+
+async function onPaste(e: ClipboardEvent) {
+  await handlePaste(e, kind.value)
+}
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-sm text-base-content/70">Тип следующих загрузок:</span>
-      <div class="join">
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-sm text-muted">Тип следующих загрузок</span>
+      <div class="flex overflow-hidden rounded-md border border-border">
         <button
           v-for="k in SCENE_REFERENCE_KINDS"
           :key="k"
           type="button"
-          class="join-item btn btn-xs"
-          :class="kind === k ? 'btn-primary' : 'btn-ghost'"
+          class="h-7 cursor-pointer px-2.5 text-sm"
+          :class="kind === k ? 'bg-accent text-on-accent' : 'bg-card text-muted hover:text-fg'"
+          :aria-pressed="kind === k"
           @click="kind = k"
         >
           {{ SCENE_REFERENCE_KIND_LABELS[k] }}
@@ -76,8 +90,8 @@ async function onPaste(e: ClipboardEvent) { await handlePaste(e, kind.value) }
     </div>
 
     <div
-      class="border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      :class="dragOver ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/40'"
+      class="cursor-pointer rounded-lg border-2 border-dashed p-4 outline-none transition-colors duration-(--duration-fast)"
+      :class="dragOver ? 'border-accent bg-accent-bg' : 'border-border hover:border-subtle'"
       role="button"
       tabindex="0"
       @click="() => { fileInput?.click(); pasteCatcher?.focus() }"
@@ -93,18 +107,20 @@ async function onPaste(e: ClipboardEvent) { await handlePaste(e, kind.value) }
         multiple
         class="hidden"
         @change="onFileInputChange"
-      />
+      >
       <div class="flex flex-col items-center gap-1 text-center">
         <Icon
           :name="uploading ? 'mingcute:loading-3-line' : 'mingcute:pic-2-line'"
-          class="size-7 text-base-content/50"
-          :class="{ 'animate-spin': uploading }"
+          class="text-2xl text-subtle"
+          :class="uploading && 'animate-spin'"
         />
         <span class="text-sm font-medium">
-          {{ uploading ? 'Загрузка…' : `Перетащите эталонный кадр (${SCENE_REFERENCE_KIND_LABELS[kind].toLowerCase()})` }}
+          {{ uploading
+            ? 'Загружаем'
+            : `Перетащите кадр — ${SCENE_REFERENCE_KIND_LABELS[kind].toLowerCase()}` }}
         </span>
-        <span class="text-xs text-base-content/50">
-          PNG, JPEG, WebP, GIF — до 20 MB. После загрузки AI разберёт mood/lighting/композицию и инжектит в prompt.
+        <span class="text-micro text-subtle">
+          PNG, JPEG, WebP, GIF до 20 МБ. Ctrl+V прямо на зоне тоже работает.
         </span>
       </div>
     </div>
@@ -119,90 +135,102 @@ async function onPaste(e: ClipboardEvent) { await handlePaste(e, kind.value) }
       @input.prevent="(e) => { (e.target as HTMLElement).innerHTML = '' }"
     />
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm py-2">
-      <Icon name="mingcute:warning-line" />
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
 
-    <div v-if="references.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div v-if="references.length" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       <div
-        v-for="ref in references"
-        :key="ref.id"
-        class="rounded-lg border border-base-300 bg-base-100 overflow-hidden flex flex-col"
+        v-for="item in references"
+        :key="item.id"
+        class="flex flex-col overflow-hidden rounded-md border border-border bg-card"
       >
-        <div class="group relative aspect-square bg-base-200">
-          <img :src="ref.fileUrl" :alt="ref.aiCaption ?? ref.kind" class="w-full h-full object-cover" />
-          <span class="absolute top-1 left-1 badge badge-xs badge-neutral">
-            {{ SCENE_REFERENCE_KIND_LABELS[ref.kind as SceneReferenceKind] ?? ref.kind }}
+        <div class="group relative aspect-square bg-surface">
+          <img :src="item.fileUrl" :alt="item.aiCaption ?? item.kind" class="size-full object-cover">
+
+          <span class="absolute top-1 left-1 rounded-sm border border-border bg-panel px-1.5 py-0.5 text-micro text-muted">
+            {{ SCENE_REFERENCE_KIND_LABELS[item.kind as SceneReferenceKind] ?? item.kind }}
           </span>
+
           <span
-            v-if="ref.generationPrompt"
-            class="absolute top-1 right-1 badge badge-xs badge-soft badge-secondary"
-            :title="ref.generationPrompt.length > 200 ? ref.generationPrompt.slice(0, 200) + '…' : ref.generationPrompt"
+            v-if="item.generationPrompt"
+            class="absolute top-1 right-1 flex items-center gap-1 rounded-sm border border-accent-border bg-accent-bg px-1.5 py-0.5 text-micro text-accent"
+            :title="item.generationPrompt.slice(0, 200)"
           >
-            <Icon name="mingcute:magic-2-line" class="size-3" />
+            <Icon name="mingcute:magic-2-line" />
             AI
           </span>
-          <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-            <button
-              v-if="ref.generationPrompt"
-              type="button"
-              class="btn btn-xs btn-ghost text-white hover:bg-white/20"
+
+          <div
+            class="absolute inset-0 flex items-center justify-center gap-1 bg-overlay opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100"
+          >
+            <UiButton
+              v-if="item.generationPrompt"
+              icon-only
+              variant="ghost"
               title="Сгенерировать снова"
-              @click.stop="emit('regenerate', ref)"
+              aria-label="Сгенерировать снова"
+              @click.stop="emit('regenerate', item)"
             >
-              <Icon name="mingcute:refresh-2-line" class="size-3.5" />
-            </button>
-            <button
-              type="button"
-              class="btn btn-xs btn-ghost text-white hover:bg-white/20"
-              :disabled="analyzingId === ref.id"
-              title="Перезапустить AI-анализ"
-              @click.stop="reanalyze(ref.id)"
+              <Icon name="mingcute:refresh-2-line" />
+            </UiButton>
+
+            <UiButton
+              icon-only
+              variant="ghost"
+              :loading="analyzingId === item.id"
+              title="Разобрать кадр заново"
+              aria-label="Разобрать кадр заново"
+              @click.stop="reanalyze(item.id)"
             >
-              <Icon
-                :name="analyzingId === ref.id ? 'mingcute:loading-3-line' : 'mingcute:ai-line'"
-                class="size-3.5"
-                :class="{ 'animate-spin': analyzingId === ref.id }"
-              />
-              <span class="text-xs">AI</span>
-            </button>
-            <button
-              type="button"
-              class="btn btn-xs btn-error"
-              :disabled="deletingId === ref.id"
-              title="Удалить"
-              @click.stop="remove(ref.id)"
+              <Icon v-if="analyzingId !== item.id" name="mingcute:ai-line" />
+            </UiButton>
+
+            <UiButton
+              icon-only
+              variant="danger"
+              :loading="deletingId === item.id"
+              title="Удалить кадр"
+              aria-label="Удалить кадр"
+              @click.stop="remove(item.id)"
             >
-              <Icon
-                :name="deletingId === ref.id ? 'mingcute:loading-3-line' : 'mingcute:delete-2-line'"
-                class="size-3.5"
-                :class="{ 'animate-spin': deletingId === ref.id }"
-              />
-            </button>
+              <Icon v-if="deletingId !== item.id" name="mingcute:delete-2-line" />
+            </UiButton>
           </div>
         </div>
 
-        <div class="p-2 space-y-1 text-xs flex-1 flex flex-col">
-          <div v-if="!ref.aiAnalyzedAt && !ref.aiError" class="flex items-center gap-1.5 text-base-content/60">
-            <Icon name="mingcute:loading-3-line" class="animate-spin size-3.5 text-primary" />
-            <span>AI разбирает кадр…</span>
+        <div class="flex flex-1 flex-col gap-1 p-2 text-micro">
+          <div v-if="!item.aiAnalyzedAt && !item.aiError" class="flex items-center gap-1.5 text-muted">
+            <Icon name="mingcute:loading-3-line" class="animate-spin text-accent" />
+            Разбираем кадр
           </div>
-          <div v-else-if="ref.aiError" class="flex items-start gap-1.5 text-error" :title="ref.aiError">
-            <Icon name="mingcute:warning-line" class="size-3.5 mt-0.5 shrink-0" />
-            <span class="line-clamp-2">{{ ref.aiError }}</span>
+          <div v-else-if="item.aiError" class="flex items-start gap-1.5 text-danger" :title="item.aiError">
+            <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+            <span class="line-clamp-2">{{ item.aiError }}</span>
           </div>
           <template v-else>
-            <p v-if="ref.aiCaption" class="text-base-content/80 line-clamp-2">{{ ref.aiCaption }}</p>
-            <div v-if="ref.aiTags?.length" class="flex flex-wrap gap-1">
-              <span v-for="t in ref.aiTags.slice(0, 5)" :key="t" class="badge badge-xs badge-ghost">{{ t }}</span>
+            <p v-if="item.aiCaption" class="line-clamp-2 text-muted">{{ item.aiCaption }}</p>
+            <div v-if="item.aiTags?.length" class="flex flex-wrap gap-1">
+              <span
+                v-for="t in item.aiTags.slice(0, 5)"
+                :key="t"
+                class="rounded-sm border border-divider px-1.5 py-0.5 text-subtle"
+              >
+                {{ t }}
+              </span>
             </div>
           </template>
         </div>
       </div>
     </div>
-    <p v-else class="text-xs text-base-content/50 text-center py-2">
-      Пока нет эталонных кадров. Эти картинки реально пробрасываются в video-генерацию через image-to-video.
+
+    <p v-else class="py-2 text-center text-sm text-subtle">
+      Кадров пока нет. Разбор с этих кадров уходит в промпт, а сами кадры — в image-to-video.
     </p>
   </div>
 </template>

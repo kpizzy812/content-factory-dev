@@ -1,18 +1,18 @@
 <script setup lang="ts">
 /**
- * Создание сцены. Стиль модалки зеркалит AccountCreateModal.vue (daisyUI v5).
+ * Создание сцены. Блоки собираются уже в композиторе — здесь только то,
+ * без чего сцену не завести.
  */
 const props = defineProps<{
   appId: number
 }>()
 
 const emit = defineEmits<{
-  created: [payload: { id: string; name: string }]
+  created: [payload: { id: string, name: string }]
   close: []
 }>()
 
-const dialogRef = ref<HTMLDialogElement>()
-
+const isOpen = ref(false)
 const isBusy = ref(false)
 const errorMessage = ref('')
 
@@ -32,11 +32,11 @@ function resetForm() {
 
 function open() {
   resetForm()
-  dialogRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  dialogRef.value?.close()
+  isOpen.value = false
   emit('close')
 }
 
@@ -62,106 +62,80 @@ const { create } = useSceneActions()
 
 async function submit() {
   if (!canSubmit.value) {
-    errorMessage.value = "Поле 'Имя' обязательно"
+    errorMessage.value = 'Без имени сцену не завести'
     return
   }
   isBusy.value = true
   errorMessage.value = ''
   try {
-    const tags = form.tagsInput
-      .split(/[,\n]/)
-      .map(t => t.trim())
-      .filter(Boolean)
     const created = await create({
       appId: props.appId,
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      tags,
+      tags: form.tagsInput.split(/[,\n]/).map(t => t.trim()).filter(Boolean),
       blocks: [],
     })
     emit('created', { id: created.id, name: created.name })
     close()
-  } catch (e: any) {
-    errorMessage.value = e?.data?.message || e?.message || 'Не удалось создать сцену'
-  } finally {
+  }
+  catch (e) {
+    errorMessage.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Не удалось создать сцену'
+  }
+  finally {
     isBusy.value = false
   }
 }
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal">
-    <div class="modal-box max-w-xl">
-      <h3 class="font-bold text-lg mb-1">Новая сцена</h3>
-      <p class="text-xs text-base-content/60 mb-4">
-        После создания откроется композитор — добавите блоки (персонаж, стиль, окружение, действие, скрин).
+  <UiModal :open="isOpen" title="Новая сцена" size="lg" @close="close">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        После создания откроется композитор — там добавляются блоки: персонаж, стиль, окружение,
+        действие, скрин.
       </p>
 
-      <div class="space-y-3">
-        <SceneAiAutofill
-          :current-values="aiCurrentValues"
-          :app-id="props.appId"
-          entity-id="new"
-          compact
-          @apply="applyAiSuggestions"
+      <SceneAiAutofill
+        :current-values="aiCurrentValues"
+        :app-id="props.appId"
+        entity-id="new"
+        compact
+        @apply="applyAiSuggestions"
+      />
+
+      <UiField label="Имя">
+        <UiInput v-model="form.name" placeholder="Утренняя пробежка с другом" />
+      </UiField>
+
+      <UiField label="Краткое описание">
+        <UiTextarea
+          v-model="form.description"
+          :rows="2"
+          placeholder="О чём сцена, какой кадр должен получиться"
         />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Имя *</legend>
-          <input
-            v-model="form.name"
-            type="text"
-            class="input input-sm w-full"
-            placeholder="Утренняя пробежка с другом"
-            maxlength="120"
-            autocomplete="off"
-          />
-        </fieldset>
+      <UiField label="Теги" hint="Через запятую">
+        <UiInput v-model="form.tagsInput" placeholder="спорт, утро, друг" />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Краткое описание</legend>
-          <textarea
-            v-model="form.description"
-            class="textarea textarea-sm w-full"
-            rows="2"
-            placeholder="Опционально: о чём сцена, какой кадр получится"
-          />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Теги (через запятую)</legend>
-          <input
-            v-model="form.tagsInput"
-            type="text"
-            class="input input-sm w-full"
-            placeholder="спорт, утро, friend"
-            autocomplete="off"
-          />
-        </fieldset>
-      </div>
-
-      <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft text-sm mt-4">
-        <Icon name="mingcute:warning-line" />
+      <div
+        v-if="errorMessage"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
         <span>{{ errorMessage }}</span>
       </div>
-
-      <div class="modal-action">
-        <button type="button" class="btn btn-sm btn-ghost" :disabled="isBusy" @click="close">
-          Отмена
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-primary"
-          :disabled="isBusy || !canSubmit"
-          @click="submit"
-        >
-          <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-          Создать и открыть
-        </button>
-      </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button type="button" @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isBusy" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" :disabled="!canSubmit" :loading="isBusy" @click="submit">
+        Создать и открыть
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

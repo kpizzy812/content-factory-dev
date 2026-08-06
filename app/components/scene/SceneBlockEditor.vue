@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * Inline-редактор одного блока сцены. Отображает inline-поля в зависимости от kind,
- * выпадает в подходящий picker для character и app_screen (через select из переданного списка).
+ * Один блок сборки: набор полей зависит от типа блока.
+ *
+ * Поля правятся по месту, без отдельного режима редактирования — блок и так
+ * состоит из двух-четырёх строк, а сохранение общее для всей сцены.
  */
 import type { SceneBlock } from '~~/shared/types/scene'
 import { SCENE_BLOCK_LABELS, SCENE_BLOCK_ICONS } from '~~/shared/types/scene'
@@ -21,207 +23,165 @@ const emit = defineEmits<{
   'compiled-prompt': [prompt: string | null]
 }>()
 
-function patch(patch: Partial<SceneBlock>) {
-  emit('update:block', { ...props.block, ...patch } as SceneBlock)
-}
-
-function onAiRegenerated(updated: SceneBlock) {
-  emit('update:block', updated)
-}
-
-function onAiCompiled(prompt: string | null) {
-  emit('compiled-prompt', prompt)
+function patch(fields: Partial<SceneBlock>) {
+  emit('update:block', { ...props.block, ...fields } as SceneBlock)
 }
 
 const canAiRegenerate = computed(() =>
   Boolean(props.sceneId)
-  && (props.block.kind === 'action' || props.block.kind === 'style' || props.block.kind === 'environment'),
-)
+  && (props.block.kind === 'action' || props.block.kind === 'style' || props.block.kind === 'environment'))
+
+const characterOptions = computed(() => props.characters.map(c => ({ value: c.id, label: c.name })))
+const screenOptions = computed(() => props.appScreens.map(s => ({
+  value: s.id,
+  label: s.aiCaption ?? s.sha1.slice(0, 12),
+})))
+const selectedScreen = computed(() =>
+  props.block.kind === 'app_screen'
+    ? props.appScreens.find(s => s.id === props.block.referenceImageId)
+    : undefined)
 </script>
 
 <template>
-  <div class="card bg-base-100 border border-base-300 shadow-sm">
-    <div class="card-body p-3 space-y-2">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2 text-sm font-semibold">
-          <span class="cursor-move text-base-content/40" title="Перетащите для сортировки">
-            <Icon name="mingcute:menu-line" class="size-4" />
-          </span>
-          <Icon :name="SCENE_BLOCK_ICONS[block.kind]" class="size-4 text-primary" />
-          {{ SCENE_BLOCK_LABELS[block.kind] }}
-        </div>
-        <div class="flex items-center gap-1">
-          <SceneBlockAiRegenerate
-            v-if="canAiRegenerate && sceneId"
-            :scene-id="sceneId"
-            :block="block"
-            @update:block="onAiRegenerated"
-            @compiled-prompt="onAiCompiled"
-          />
-          <button
-            type="button"
-            class="btn btn-ghost btn-xs text-error"
-            title="Удалить блок"
-            @click="emit('remove')"
-          >
-            <Icon name="mingcute:close-line" class="size-4" />
-          </button>
-        </div>
-      </div>
+  <div class="flex flex-col gap-2 rounded-md border border-border bg-card p-2.5">
+    <div class="flex items-center gap-2">
+      <span class="cursor-move text-subtle" title="Перетащите, чтобы поменять порядок">
+        <Icon name="mingcute:menu-line" />
+      </span>
+      <Icon :name="SCENE_BLOCK_ICONS[block.kind]" class="text-accent" />
+      <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ SCENE_BLOCK_LABELS[block.kind] }}</span>
 
-      <!-- Character -->
-      <template v-if="block.kind === 'character'">
-        <select
-          :value="block.characterId"
-          class="select select-sm w-full"
-          @change="(e) => patch({ characterId: (e.target as HTMLSelectElement).value })"
-        >
-          <option value="" disabled>Выберите персонажа…</option>
-          <option v-for="c in characters" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-        <NuxtLink
-          v-if="characters.length === 0"
-          to="/characters"
-          class="text-xs text-info link"
-        >
-          У этого приложения нет персонажей — создайте в разделе «Персонажи»
-        </NuxtLink>
-        <div class="grid grid-cols-2 gap-2">
-          <input
-            :value="block.action ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Действие в кадре (опц.)"
-            @input="(e) => patch({ action: (e.target as HTMLInputElement).value })"
-          />
-          <input
-            :value="block.emotion ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Эмоция (опц.)"
-            @input="(e) => patch({ emotion: (e.target as HTMLInputElement).value })"
-          />
-        </div>
-      </template>
-
-      <!-- Style -->
-      <template v-else-if="block.kind === 'style'">
-        <input
-          :value="block.visualStyle"
-          type="text"
-          class="input input-sm"
-          placeholder="cinematic, warm palette, soft grain"
-          @input="(e) => patch({ visualStyle: (e.target as HTMLInputElement).value })"
-        />
-        <div class="grid grid-cols-2 gap-2">
-          <input
-            :value="block.mood ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Настроение (опц.)"
-            @input="(e) => patch({ mood: (e.target as HTMLInputElement).value })"
-          />
-          <input
-            :value="block.camera ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Камера: close-up, dolly… (опц.)"
-            @input="(e) => patch({ camera: (e.target as HTMLInputElement).value })"
-          />
-        </div>
-      </template>
-
-      <!-- Environment -->
-      <template v-else-if="block.kind === 'environment'">
-        <input
-          :value="block.location"
-          type="text"
-          class="input input-sm"
-          placeholder="Место: парк у реки, кофейня…"
-          @input="(e) => patch({ location: (e.target as HTMLInputElement).value })"
-        />
-        <div class="grid grid-cols-3 gap-2">
-          <input
-            :value="block.timeOfDay ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Время суток"
-            @input="(e) => patch({ timeOfDay: (e.target as HTMLInputElement).value })"
-          />
-          <input
-            :value="block.lighting ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Освещение"
-            @input="(e) => patch({ lighting: (e.target as HTMLInputElement).value })"
-          />
-          <input
-            :value="block.weather ?? ''"
-            type="text"
-            class="input input-sm"
-            placeholder="Погода"
-            @input="(e) => patch({ weather: (e.target as HTMLInputElement).value })"
-          />
-        </div>
-      </template>
-
-      <!-- Action -->
-      <template v-else-if="block.kind === 'action'">
-        <textarea
-          :value="block.description"
-          class="textarea textarea-sm"
-          rows="2"
-          placeholder="Что происходит: A общается с B, C трясёт руками…"
-          @input="(e) => patch({ description: (e.target as HTMLTextAreaElement).value })"
-        />
-        <input
-          :value="block.dialog ?? ''"
-          type="text"
-          class="input input-sm"
-          placeholder="Диалог в кадре (опц.)"
-          @input="(e) => patch({ dialog: (e.target as HTMLInputElement).value })"
-        />
-      </template>
-
-      <!-- App context -->
-      <template v-else-if="block.kind === 'app_context'">
-        <textarea
-          :value="block.focus"
-          class="textarea textarea-sm"
-          rows="2"
-          placeholder="Что показать про приложение: фичу, value-prop, transformation"
-          @input="(e) => patch({ focus: (e.target as HTMLTextAreaElement).value })"
-        />
-      </template>
-
-      <!-- App screen -->
-      <template v-else-if="block.kind === 'app_screen'">
-        <select
-          :value="block.referenceImageId"
-          class="select select-sm w-full"
-          @change="(e) => patch({ referenceImageId: (e.target as HTMLSelectElement).value })"
-        >
-          <option value="" disabled>Выберите скриншот приложения…</option>
-          <option v-for="s in appScreens" :key="s.id" :value="s.id">
-            {{ s.aiCaption ?? s.sha1 }}
-          </option>
-        </select>
-        <p v-if="appScreens.length === 0" class="text-xs text-base-content/50">
-          У этого приложения нет загруженных скриншотов — добавьте их через «Админ → Приложения».
-        </p>
-        <input
-          :value="block.intent ?? ''"
-          type="text"
-          class="input input-sm"
-          placeholder="Намерение: reaction_to_interface, use_feature… (опц.)"
-          @input="(e) => patch({ intent: (e.target as HTMLInputElement).value })"
-        />
-        <img
-          v-if="appScreens.find(s => s.id === block.referenceImageId)?.fileUrl"
-          :src="appScreens.find(s => s.id === block.referenceImageId)?.fileUrl"
-          class="rounded mt-1 max-h-32 object-contain"
-        />
-      </template>
+      <SceneBlockAiRegenerate
+        v-if="canAiRegenerate && sceneId"
+        :scene-id="sceneId"
+        :block="block"
+        @update:block="(b) => emit('update:block', b)"
+        @compiled-prompt="(p) => emit('compiled-prompt', p)"
+      />
+      <UiButton icon-only variant="ghost" title="Убрать блок" aria-label="Убрать блок" @click="emit('remove')">
+        <Icon name="mingcute:close-line" />
+      </UiButton>
     </div>
+
+    <!-- Персонаж -->
+    <template v-if="block.kind === 'character'">
+      <UiSelect
+        :model-value="block.characterId"
+        placeholder="Выберите персонажа"
+        :options="characterOptions"
+        @update:model-value="(v) => patch({ characterId: String(v) })"
+      />
+      <NuxtLink v-if="!characters.length" to="/characters" class="text-sm text-accent hover:underline">
+        У приложения нет персонажей — заведите в разделе «Персонажи»
+      </NuxtLink>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <UiInput
+          :model-value="block.action ?? ''"
+          placeholder="Действие в кадре"
+          @update:model-value="(v) => patch({ action: v })"
+        />
+        <UiInput
+          :model-value="block.emotion ?? ''"
+          placeholder="Эмоция"
+          @update:model-value="(v) => patch({ emotion: v })"
+        />
+      </div>
+    </template>
+
+    <!-- Стиль -->
+    <template v-else-if="block.kind === 'style'">
+      <UiInput
+        :model-value="block.visualStyle"
+        placeholder="cinematic, warm palette, soft grain"
+        @update:model-value="(v) => patch({ visualStyle: v })"
+      />
+      <div class="grid gap-2 sm:grid-cols-2">
+        <UiInput
+          :model-value="block.mood ?? ''"
+          placeholder="Настроение"
+          @update:model-value="(v) => patch({ mood: v })"
+        />
+        <UiInput
+          :model-value="block.camera ?? ''"
+          placeholder="Камера: close-up, dolly"
+          @update:model-value="(v) => patch({ camera: v })"
+        />
+      </div>
+    </template>
+
+    <!-- Окружение -->
+    <template v-else-if="block.kind === 'environment'">
+      <UiInput
+        :model-value="block.location"
+        placeholder="Место: парк у реки, кофейня"
+        @update:model-value="(v) => patch({ location: v })"
+      />
+      <div class="grid gap-2 sm:grid-cols-3">
+        <UiInput
+          :model-value="block.timeOfDay ?? ''"
+          placeholder="Время суток"
+          @update:model-value="(v) => patch({ timeOfDay: v })"
+        />
+        <UiInput
+          :model-value="block.lighting ?? ''"
+          placeholder="Освещение"
+          @update:model-value="(v) => patch({ lighting: v })"
+        />
+        <UiInput
+          :model-value="block.weather ?? ''"
+          placeholder="Погода"
+          @update:model-value="(v) => patch({ weather: v })"
+        />
+      </div>
+    </template>
+
+    <!-- Действие -->
+    <template v-else-if="block.kind === 'action'">
+      <UiTextarea
+        :model-value="block.description"
+        :rows="2"
+        placeholder="Что происходит: А зовёт Б, оба смеются, камера едет следом"
+        @update:model-value="(v) => patch({ description: v })"
+      />
+      <UiInput
+        :model-value="block.dialog ?? ''"
+        placeholder="Реплика в кадре"
+        @update:model-value="(v) => patch({ dialog: v })"
+      />
+    </template>
+
+    <!-- Контекст приложения -->
+    <template v-else-if="block.kind === 'app_context'">
+      <UiTextarea
+        :model-value="block.focus"
+        :rows="2"
+        placeholder="Что показать про приложение: фичу, пользу, изменение до/после"
+        @update:model-value="(v) => patch({ focus: v })"
+      />
+    </template>
+
+    <!-- Скрин экрана -->
+    <template v-else-if="block.kind === 'app_screen'">
+      <UiSelect
+        :model-value="block.referenceImageId"
+        placeholder="Выберите скриншот приложения"
+        :options="screenOptions"
+        @update:model-value="(v) => patch({ referenceImageId: String(v) })"
+      />
+      <p v-if="!appScreens.length" class="text-sm text-subtle">
+        У приложения нет загруженных скриншотов — добавьте их в «Админ → Приложения».
+      </p>
+      <UiInput
+        :model-value="block.intent ?? ''"
+        placeholder="Намерение: реакция на интерфейс, использование фичи"
+        @update:model-value="(v) => patch({ intent: v })"
+      />
+      <img
+        v-if="selectedScreen?.fileUrl"
+        :src="selectedScreen.fileUrl"
+        :alt="selectedScreen.aiCaption ?? 'Скриншот приложения'"
+        class="h-32 w-auto self-start rounded-sm border border-divider object-contain"
+      >
+    </template>
   </div>
 </template>
