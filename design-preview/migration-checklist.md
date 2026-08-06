@@ -62,7 +62,7 @@
 
 | | Файл | Макет |
 | --- | --- | --- |
-| `—` | `index.vue` | 01-dashboard |
+| `+` | `index.vue` | 01-dashboard · без расхода, интеграций, воронки и итогов периода — нет данных |
 | `—` | `pipeline/[id]/index.vue` | 04-pipeline-editor |
 | `—` | `pipeline/[id]/runs/index.vue` | 05-run-monitor |
 | `—` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor |
