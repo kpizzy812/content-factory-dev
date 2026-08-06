@@ -3,10 +3,14 @@
  * История запусков конвейера. Макет: design-preview/catalog/05-run-monitor.dc.html
  *
  * Тот же список, что в левой колонке монитора, только во всю ширину: активные
- * закреплены сверху, история сгруппирована по дням. Отдельного экрана «все
- * запуски по всем конвейерам» нет — общего endpoint под него не существует.
+ * закреплены сверху, история сгруппирована по дням. Общий экран по всем
+ * конвейерам живёт отдельно — `/pipeline/runs`.
+ *
+ * Отбор «только упавшие» уходит на сервер: считать его по загруженным
+ * страницам значит показывать неправду при любой пагинации.
  */
-import type { WorkflowRun } from '~~/shared/types/workflow'
+import type { RunStatus } from '~~/shared/types/workflow'
+import type { WorkflowRunRow } from '~/composables/usePipelineRuns'
 
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'pipeline' })
 
@@ -14,9 +18,10 @@ const route = useRoute()
 const pipelineId = computed(() => route.params.id as string)
 
 const page = ref(1)
-const failedOnly = ref(false)
+const statuses = ref<RunStatus[]>([])
+const failedOnly = computed(() => statuses.value.includes('failed'))
 
-const { data, pending, error, refresh } = usePipelineRuns(pipelineId, page)
+const { data, pending, error, refresh } = usePipelineRuns(pipelineId, page, { statuses })
 const { data: pipelineData } = usePipelineDetail(pipelineId)
 const pipelineName = computed(() => (pipelineData.value as any)?.data?.name ?? 'Конвейер')
 
@@ -24,9 +29,9 @@ useHead({ title: computed(() => `Запуски · ${pipelineName.value}`) })
 
 // Страницы накапливаются вычислением, а не watcher'ом: на сервере watch не
 // срабатывает, и список приезжал пустым в SSR, а после гидратации — полным.
-const previousPages = ref<WorkflowRun[]>([])
+const previousPages = ref<WorkflowRunRow[]>([])
 
-const loaded = computed<WorkflowRun[]>(() => {
+const loaded = computed<WorkflowRunRow[]>(() => {
   const current = data.value?.data ?? []
   if (!previousPages.value.length) return current
   const seen = new Set(previousPages.value.map(r => r.id))
@@ -38,21 +43,25 @@ function loadMore() {
   page.value += 1
 }
 
-const visibleRuns = computed(() =>
-  failedOnly.value ? loaded.value.filter(r => r.status === 'failed') : loaded.value,
-)
+/** Смена отбора начинает список заново: накопленные страницы к нему не относятся. */
+function setFailedOnly(value: boolean) {
+  statuses.value = value ? ['failed'] : []
+  previousPages.value = []
+  page.value = 1
+}
 
 const meta = computed(() => data.value?.meta ?? null)
 const hasMore = computed(() => !!meta.value && meta.value.page < meta.value.totalPages)
 
-// Сводка считается по загруженным страницам: `/api/pipelines/:id/runs` отдаёт
-// только общее число, разбивки по статусам в мете нет.
+// Сводка приходит из меты и считается по всей истории, а не по загруженному.
 const stats = computed(() => {
-  const list = loaded.value
+  const counts = meta.value?.statusCounts
+  if (!counts) return null
   return {
-    active: list.filter(r => r.status === 'running' || r.status === 'pending').length,
-    success: list.filter(r => r.status === 'success').length,
-    failed: list.filter(r => r.status === 'failed').length,
+    active: counts.running + counts.pending,
+    success: counts.success,
+    failed: counts.failed,
+    total: meta.value?.statusTotal ?? 0,
   }
 })
 </script>
@@ -69,8 +78,8 @@ const stats = computed(() => {
       </NuxtLink>
       <h1 class="min-w-0 flex-1 truncate text-lg font-semibold">Запуски · {{ pipelineName }}</h1>
 
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-        <span v-if="meta" class="tnum">всего {{ meta.total }}</span>
+      <div v-if="stats" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+        <span class="tnum">всего {{ stats.total }}</span>
         <span v-if="stats.active" class="tnum inline-flex items-center gap-1.5 text-info">
           <span class="size-1.5 rounded-full bg-info motion-safe:animate-pulse" />
           {{ stats.active }} активных
@@ -78,6 +87,8 @@ const stats = computed(() => {
         <span v-if="stats.success" class="tnum text-success">{{ stats.success }} успешных</span>
         <span v-if="stats.failed" class="tnum text-danger">{{ stats.failed }} упало</span>
       </div>
+
+      <NuxtLink to="/pipeline/runs" class="text-sm">Все конвейеры</NuxtLink>
     </header>
 
     <UiErrorState
@@ -89,7 +100,7 @@ const stats = computed(() => {
     />
 
     <UiEmptyState
-      v-else-if="!pending && !loaded.length"
+      v-else-if="!pending && !loaded.length && !failedOnly"
       class="m-4"
       variant="first"
       title="Запусков пока нет"
@@ -101,12 +112,13 @@ const stats = computed(() => {
       class="mx-auto min-h-0 w-full max-w-3xl flex-1 border-x"
       embedded
       :pipeline-id="pipelineId"
-      :runs="visibleRuns"
+      :runs="loaded"
       :total="meta?.total ?? null"
+      :failed-count="stats?.failed ?? null"
       :pending="pending"
       :has-more="hasMore"
       :failed-only="failedOnly"
-      @update:failed-only="(v) => { failedOnly = v }"
+      @update:failed-only="setFailedOnly"
       @more="loadMore"
     />
   </div>

@@ -3,9 +3,10 @@
  * Раскрытый шаг: почему встало, что делать и какие данные прошли.
  * Источник: design-preview/catalog/05-run-monitor.dc.html
  *
- * «Пропустить и продолжить» из макета не рисуется: у шагов конвейера такого
- * endpoint нет — engine умеет только повтор с шага, и он же переисполняет всё
- * ниже по графу. Кнопка, которая ничего не делает, хуже отсутствующей.
+ * «Пропустить и продолжить» отвечает на случай, которого повтор не закрывает:
+ * некритичный блок упал и держит весь запуск, а переисполнять его бессмысленно —
+ * чат удалён, метрик не будет. Повтор бесплатен только у пропуска: он ничего
+ * не переисполняет, поэтому стоит в строке, а не в меню с ценой.
  */
 import type { WorkflowStep } from '~~/shared/types/workflow'
 import { getNodeUnitTarget } from '~~/shared/utils/pipeline-node-routes'
@@ -19,11 +20,13 @@ const props = defineProps<{
   /** Повтор доступен только на упавшем и отменённом запуске. */
   retryable: boolean
   retrying: boolean
+  skipping?: boolean
   nodeLabels: Map<string, string>
 }>()
 
 const emit = defineEmits<{
   'retry': []
+  'skip': []
   'logs': []
   'update:dataMode': [value: 'readable' | 'json']
 }>()
@@ -78,6 +81,10 @@ const edgeSnapshot = computed(() => {
       <UiButton v-if="retryable" variant="primary" :loading="retrying" @click="emit('retry')">
         <Icon v-if="!retrying" name="mingcute:refresh-2-line" />
         Повторить с этого шага
+      </UiButton>
+      <UiButton v-if="retryable" :loading="skipping" @click="emit('skip')">
+        <Icon v-if="!skipping" name="mingcute:skip-forward-line" />
+        Пропустить и продолжить
       </UiButton>
       <UiButton variant="ghost" @click="emit('logs')">
         <Icon name="mingcute:list-check-line" />

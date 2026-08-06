@@ -1,48 +1,42 @@
 <script setup lang="ts">
-import type { PipelineMonitorItem, PipelineMonitorMeta } from '~~/shared/types/workflow'
-
 /**
  * Запуски конвейеров, которые идут прямо сейчас. Источник: `ActiveRunsList`
  * из макета 01.
  *
- * Данные берутся у того же endpoint, что и страница конвейеров, но своим
- * запросом: стор монитора держит фильтры и поиск этой страницы, и делить его
- * с дашбордом значит связать их состояния.
+ * Данные берёт общий список запусков с фильтром по статусу — тот же, что и
+ * экран «Запуски». Раньше здесь стоял каталог конвейеров с вложенными
+ * запусками, и из него не выходило ни прогресса, ни стоимости.
  *
- * Прогресса в процентах в макете здесь нет и у нас: сводка отдаёт текущий шаг
- * и число шагов, а сколько всего шагов у запуска — знает только его конвейер.
+ * Прогресс — блоков пройдено из блоков в снимке графа запуска. Снимок, а не
+ * текущий граф конвейера: его с тех пор могли перерисовать.
  */
-const { data, pending } = useFetch<{ data: PipelineMonitorItem[], meta: PipelineMonitorMeta }>(
-  '/api/pipelines/monitor',
-  { query: { perPage: 20, runsFilter: 'active' }, lazy: true },
+import type { WorkflowRunRow } from '~/composables/usePipelineRuns'
+import { runCostLabel } from '~/components/pipeline/PipelineRunFormat'
+
+const { data, pending } = useFetch<{ data: WorkflowRunRow[] }>('/api/pipelines/runs', {
+  key: 'dashboard-active-runs',
+  query: { status: 'running,pending', perPage: 20 },
+  lazy: true,
+})
+
+const rows = computed(() =>
+  [...(data.value?.data ?? [])].sort(
+    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+  ),
 )
 
-interface Row {
-  runId: number
-  pipelineId: number
-  pipelineName: string
-  startedAt: string
-  stepName: string | null
-  stepsCount: number
+/** Доля пройденных блоков. null — снимка графа нет, считать не из чего. */
+function progress(run: WorkflowRunRow): number | null {
+  const total = run.totalNodes ?? 0
+  if (!total) return null
+  return Math.min(100, Math.round(((run.doneSteps ?? 0) / total) * 100))
 }
 
-const rows = computed<Row[]>(() => {
-  const items = data.value?.data ?? []
-  const out: Row[] = []
-  for (const item of items) {
-    for (const run of item.activeRuns) {
-      out.push({
-        runId: run.id,
-        pipelineId: item.id,
-        pipelineName: item.name,
-        startedAt: run.startedAt,
-        stepName: item.currentStep?.runId === run.id ? item.currentStep.nodeName : null,
-        stepsCount: run.stepsCount,
-      })
-    }
-  }
-  return out.sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
-})
+function stepsLabel(run: WorkflowRunRow): string {
+  const total = run.totalNodes ?? 0
+  const done = run.doneSteps ?? 0
+  return total ? `${done} из ${total}` : `${done}`
+}
 
 function elapsed(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
@@ -59,7 +53,7 @@ function elapsed(iso: string): string {
       <h2 class="text-base font-semibold">Запуски в работе</h2>
       <span class="tnum font-mono text-sm text-subtle">{{ rows.length }}</span>
       <span class="flex-1" />
-      <NuxtLink to="/pipeline" class="text-sm">Все конвейеры</NuxtLink>
+      <NuxtLink to="/pipeline/runs" class="text-sm">Все запуски</NuxtLink>
     </header>
 
     <UiSkeleton v-if="pending && !rows.length" variant="details" :count="3" />
@@ -70,17 +64,26 @@ function elapsed(iso: string): string {
 
     <ClientOnly v-else>
       <div
-        v-for="row in rows"
-        :key="row.runId"
-        class="grid grid-cols-[minmax(0,1fr)_minmax(0,180px)_88px_max-content] items-center gap-3 border-b border-divider px-3.5 py-2.5 last:border-b-0 hover:bg-card"
+        v-for="run in rows"
+        :key="run.id"
+        class="grid grid-cols-[minmax(0,1fr)_minmax(0,180px)_96px_88px_max-content] items-center gap-3 border-b border-divider px-3.5 py-2.5 last:border-b-0 hover:bg-card"
       >
         <span class="min-w-0">
-          <span class="block truncate text-sm">{{ row.pipelineName }}</span>
-          <span class="tnum block font-mono text-micro text-subtle">запуск {{ row.runId }}</span>
+          <span class="block truncate text-sm">{{ run.pipeline?.name ?? 'Конвейер' }}</span>
+          <span class="tnum block font-mono text-micro text-subtle">запуск {{ run.id }}</span>
         </span>
-        <span class="truncate text-sm text-muted">{{ row.stepName ?? 'шаг не начат' }}</span>
-        <span class="tnum font-mono text-sm text-muted">{{ elapsed(row.startedAt) }}</span>
-        <UiButton @click="navigateTo(`/pipeline/${row.pipelineId}/runs/${row.runId}`)">Открыть</UiButton>
+        <span class="truncate text-sm text-muted">{{ run.currentStep?.nodeName ?? 'шаг не начат' }}</span>
+        <span class="min-w-0">
+          <span class="tnum block font-mono text-micro text-subtle">блоков {{ stepsLabel(run) }}</span>
+          <span v-if="progress(run) != null" class="mt-1 block h-1 overflow-hidden rounded-full bg-card">
+            <span class="block h-full bg-info" :style="{ width: `${progress(run)}%` }" />
+          </span>
+        </span>
+        <span class="tnum font-mono text-sm text-muted">
+          {{ elapsed(run.startedAt) }}
+          <span v-if="runCostLabel(run)" class="block text-micro text-subtle">{{ runCostLabel(run) }}</span>
+        </span>
+        <UiButton @click="navigateTo(`/pipeline/${run.pipelineId}/runs/${run.id}`)">Открыть</UiButton>
       </div>
 
       <template #fallback>

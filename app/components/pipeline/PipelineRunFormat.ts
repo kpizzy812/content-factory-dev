@@ -73,6 +73,23 @@ export function runCostLabel(run: { status: string; costActual: number | null })
   return formatMoney(run.costActual)
 }
 
+/**
+ * Кто запустил: «Д. Кузнецов». Фамилия целиком, имя инициалом — в строке
+ * списка на полное имя места нет, а фамилия различает людей лучше.
+ * Без фамилии — имя, без имени — почта до собаки.
+ */
+export function runAuthorLabel(
+  user: { name?: string | null; surname?: string | null; email?: string } | null | undefined,
+): string | null {
+  if (!user) return null
+  const name = user.name?.trim()
+  const surname = user.surname?.trim()
+  if (surname) return name ? `${name[0]!.toUpperCase()}. ${surname}` : surname
+  if (name) return name
+  const email = user.email?.trim()
+  return email ? email.split('@')[0]! : null
+}
+
 /** Ключ группы истории — календарный день в местной зоне. */
 export function dayKey(value: string): string {
   const d = new Date(value)

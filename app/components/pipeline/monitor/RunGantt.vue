@@ -5,8 +5,10 @@
  * Полосы нейтральные: содержание здесь — длина, а не цвет. Цветом отмечены
  * только отклонения — упавший шаг и шаг, который съел больше половины запуска.
  *
- * «Норму» по типу ноды взять неоткуда: истории длительностей по нодам нет ни в
- * одном endpoint, поэтому порог считается от самого запуска.
+ * Норма — медиана длительности успешных шагов этого типа блока за две недели
+ * (`/api/pipelines/step-norms`). Пока нормы для типа нет — по ней не набралось
+ * наблюдений, — работает запасной порог от самого запуска: больше половины его
+ * времени. Он грубее, но лучше, чем ничего.
  */
 import type { WorkflowStep } from '~~/shared/types/workflow'
 import { durationBetween, formatClock, formatDuration } from '../PipelineRunFormat'
@@ -16,6 +18,10 @@ const props = defineProps<{
   runStartedAt: string
   runFinishedAt: string | null
   now: number | null
+  /** Медиана длительности по типу блока, мс. */
+  norms?: Map<string, number> | null
+  /** Во сколько раз дольше нормы — уже отклонение. */
+  slowFactor?: number
 }>()
 
 /** Доля запуска, после которой шаг подсвечивается как затянувшийся. */
@@ -37,7 +43,11 @@ interface Bar {
   width: number
   duration: number | null
   heavy: boolean
+  /** Норма по типу блока, мс. null — наблюдений не набралось. */
+  normMs: number | null
 }
+
+const slowFactor = computed(() => props.slowFactor ?? 3)
 
 const bars = computed<Bar[]>(() =>
   props.steps.map((step, index) => {
@@ -45,6 +55,16 @@ const bars = computed<Bar[]>(() =>
     const from = step.startedAt ? new Date(step.startedAt).getTime() : null
     const left = from == null ? 0 : ((from - startMs.value) / totalMs.value) * 100
     const width = ms == null ? 0 : (ms / totalMs.value) * 100
+    const normMs = props.norms?.get(step.nodeType) ?? null
+
+    // Норма точнее доли запуска: конвейер из двух блоков всегда «съедает
+    // половину», а из двадцати — не съедает никогда.
+    const heavy = ms == null
+      ? false
+      : normMs != null
+        ? ms >= normMs * slowFactor.value
+        : ms / totalMs.value >= HEAVY_SHARE
+
     return {
       id: step.id,
       index,
@@ -53,7 +73,8 @@ const bars = computed<Bar[]>(() =>
       left: Math.min(100, Math.max(0, left)),
       width: Math.min(100, Math.max(ms == null ? 0 : 0.6, width)),
       duration: ms,
-      heavy: ms != null && ms / totalMs.value >= HEAVY_SHARE,
+      heavy,
+      normMs,
     }
   }),
 )
@@ -88,7 +109,8 @@ function barTone(bar: Bar) {
       <span class="flex-1" />
       <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <span class="h-2 w-2.5 rounded-[2px] bg-neutral" />норма
-        <span class="ml-2 h-2 w-2.5 rounded-[2px] bg-warning" />более половины запуска
+        <span class="ml-2 h-2 w-2.5 rounded-[2px] bg-warning" />
+        {{ norms?.size ? `дольше нормы в ${slowFactor}+ раза` : 'более половины запуска' }}
         <span class="ml-2 h-2 w-2.5 rounded-[2px] bg-danger" />упал
       </span>
     </div>
@@ -138,9 +160,14 @@ function barTone(bar: Bar) {
         class="flex items-start gap-2.5 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-fg"
       >
         <Icon name="mingcute:time-line" class="mt-0.5 shrink-0 text-warning" />
-        <span>
+        <span v-if="heaviest.normMs != null">
+          Шаг «{{ heaviest.name }}» шёл {{ formatDuration(heaviest.duration) }} при норме
+          {{ formatDuration(heaviest.normMs) }} для такого блока. Если это повторяется —
+          смотреть в настройки ноды: число вариантов и выбранную модель.
+        </span>
+        <span v-else>
           Шаг «{{ heaviest.name }}» занял {{ Math.round(heaviest.width) }}% времени запуска.
-          Если это повторяется — смотреть в настройки ноды: число вариантов и выбранную модель.
+          Нормы для такого блока пока нет — по нему не набралось наблюдений.
         </span>
       </p>
     </div>

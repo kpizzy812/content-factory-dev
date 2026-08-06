@@ -6,8 +6,10 @@
  * подсветкой пройденного пути. Ниже 1280 боковые колонки уезжают: список — на
  * свою страницу, схема — в выдвижную панель.
  */
-import type { WorkflowRun, WorkflowStep } from '~~/shared/types/workflow'
+import type { RunStatus, WorkflowRun, WorkflowStep } from '~~/shared/types/workflow'
+import type { WorkflowRunRow } from '~/composables/usePipelineRuns'
 import { graphOrderIndex } from '~/components/pipeline/PipelineGraphOrder'
+import { formatMoney } from '~~/shared/utils/money'
 
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'pipeline' })
 
@@ -72,11 +74,14 @@ watch(data, () => { if (import.meta.client) updatedAt.value = Date.now() })
 // Страницы накапливаются вычислением, а не watcher'ом: на сервере watch не
 // срабатывает, и список приезжал пустым в SSR, а после гидратации — полным.
 const listPage = ref(1)
-const failedOnly = ref(false)
-const { data: runsData, pending: runsPending } = usePipelineRuns(pipelineId, listPage)
-const previousPages = ref<WorkflowRun[]>([])
+const listStatuses = ref<RunStatus[]>([])
+const failedOnly = computed(() => listStatuses.value.includes('failed'))
+const { data: runsData, pending: runsPending } = usePipelineRuns(pipelineId, listPage, {
+  statuses: listStatuses,
+})
+const previousPages = ref<WorkflowRunRow[]>([])
 
-const loadedRuns = computed<WorkflowRun[]>(() => {
+const loadedRuns = computed<WorkflowRunRow[]>(() => {
   const current = runsData.value?.data ?? []
   if (!previousPages.value.length) return current
   const seen = new Set(previousPages.value.map(r => r.id))
@@ -88,14 +93,31 @@ function loadMoreRuns() {
   listPage.value += 1
 }
 
-const visibleRuns = computed(() =>
-  failedOnly.value ? loadedRuns.value.filter(r => r.status === 'failed') : loadedRuns.value,
-)
+/** Отбор считает сервер: по загруженным страницам счёт был бы неполным. */
+function setFailedOnly(value: boolean) {
+  listStatuses.value = value ? ['failed'] : []
+  previousPages.value = []
+  listPage.value = 1
+}
+
 const runsMeta = computed(() => runsData.value?.meta ?? null)
 const hasMoreRuns = computed(() => {
   const meta = runsMeta.value
   return !!meta && meta.page < meta.totalPages
 })
+
+// ── Нормы длительности ────────────────────────────────────────────────────
+// Отдельный запрос: запуск опрашивается раз в две секунды, а нормы меняются
+// днями. Медиана по типу блока за две недели — см. /api/pipelines/step-norms.
+const { data: normsData } = useFetch<{
+  data: { slowFactor: number; norms: Array<{ nodeType: string; medianMs: number }> }
+}>('/api/pipelines/step-norms', { key: 'pipeline-step-norms' })
+
+const stepNorms = computed(() => {
+  const list = normsData.value?.data?.norms ?? []
+  return list.length ? new Map(list.map(n => [n.nodeType, n.medianMs])) : null
+})
+const slowFactor = computed(() => normsData.value?.data?.slowFactor ?? 3)
 
 // ── Вкладки ───────────────────────────────────────────────────────────────
 const tab = ref<'steps' | 'gantt' | 'logs'>('steps')
@@ -159,8 +181,27 @@ function isStepRetryable(step: WorkflowStep) {
 const cancelling = ref(false)
 const replaying = ref(false)
 const retryingNodeId = ref<string | null>(null)
+const skippingNodeId = ref<string | null>(null)
 
-const confirm = ref<null | { kind: 'cancel' | 'replay' | 'retry'; step?: WorkflowStep }>(null)
+const confirm = ref<null | { kind: 'cancel' | 'replay' | 'retry' | 'skip'; step?: WorkflowStep }>(null)
+
+/**
+ * Во что обошёлся запуск в прошлый раз — это и есть ожидаемая цена повтора.
+ * Оценка, а не счёт: граф и цены провайдеров могли поменяться.
+ */
+const replayPrice = computed(() => formatMoney(run.value?.costActual))
+
+/** Цена повтора с шага — сумма этого шага и всего, что ниже по графу. */
+const retryPrice = computed(() => {
+  const step = confirm.value?.step
+  if (!step) return null
+  const from = steps.value.findIndex(s => s.id === step.id)
+  if (from < 0) return null
+  const spent = steps.value
+    .slice(from)
+    .reduce<number | null>((sum, s) => (s.costActual == null ? sum : (sum ?? 0) + s.costActual), null)
+  return formatMoney(spent)
+})
 
 async function doCancel() {
   confirm.value = null
@@ -217,6 +258,25 @@ async function doRetryStep(step: WorkflowStep) {
   }
 }
 
+async function doSkipStep(step: WorkflowStep) {
+  confirm.value = null
+  skippingNodeId.value = step.nodeId
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/runs/${runId.value}/skip-step`, {
+      method: 'POST',
+      body: { nodeId: step.nodeId },
+    })
+    await refresh()
+    toast.success(`Шаг «${step.nodeName || step.nodeId}» пропущен, запуск продолжен`)
+  }
+  catch (e: any) {
+    toast.error(e?.data?.message || 'Не удалось пропустить шаг')
+  }
+  finally {
+    skippingNodeId.value = null
+  }
+}
+
 function requestRetryFromFailed() {
   const step = steps.value.find(s => s.status === 'failed')
   if (step) confirm.value = { kind: 'retry', step }
@@ -240,13 +300,14 @@ const schemeOpen = ref(false)
     <PipelineMonitorRunsPanel
       class="hidden w-72 flex-none border-r xl:flex"
       :pipeline-id="pipelineId"
-      :runs="visibleRuns"
+      :runs="loadedRuns"
       :total="runsMeta?.total ?? null"
+      :failed-count="runsMeta?.statusCounts?.failed ?? null"
       :pending="runsPending"
       :current-run-id="run?.id ?? null"
       :has-more="hasMoreRuns"
       :failed-only="failedOnly"
-      @update:failed-only="(v) => { failedOnly = v }"
+      @update:failed-only="setFailedOnly"
       @more="loadMoreRuns"
     />
 
@@ -337,8 +398,10 @@ const schemeOpen = ref(false)
                   :data-mode="monitorStore.dataFormat"
                   :retryable="isStepRetryable(step)"
                   :retrying="retryingNodeId === step.nodeId"
+                  :skipping="skippingNodeId === step.nodeId"
                   :node-labels="nodeLabels"
                   @retry="confirm = { kind: 'retry', step }"
+                  @skip="confirm = { kind: 'skip', step }"
                   @logs="openStepLogs(step)"
                   @update:data-mode="(v) => { monitorStore.dataFormat = v }"
                 />
@@ -356,6 +419,8 @@ const schemeOpen = ref(false)
             :run-started-at="run.startedAt"
             :run-finished-at="run.finishedAt"
             :now="now"
+            :norms="stepNorms"
+            :slow-factor="slowFactor"
           />
 
           <PipelineMonitorRunLogs
@@ -391,7 +456,9 @@ const schemeOpen = ref(false)
       size="sm"
       :title="confirm?.kind === 'cancel'
         ? 'Остановить запуск?'
-        : confirm?.kind === 'replay' ? 'Повторить запуск?' : 'Повторить с этого шага?'"
+        : confirm?.kind === 'replay'
+          ? 'Повторить запуск?'
+          : confirm?.kind === 'skip' ? 'Пропустить шаг?' : 'Повторить с этого шага?'"
       @close="confirm = null"
     >
       <p v-if="confirm?.kind === 'cancel'" class="text-sm text-muted">
@@ -400,12 +467,27 @@ const schemeOpen = ref(false)
       </p>
       <p v-else-if="confirm?.kind === 'replay'" class="text-sm text-muted">
         Конвейер отработает заново с теми же параметрами. Платные шаги будут
-        оплачены повторно — суммы запуска ни один endpoint пока не отдаёт.
+        оплачены повторно:
+        <template v-if="replayPrice">
+          в прошлый раз запуск обошёлся в <span class="tnum font-mono text-fg">{{ replayPrice }}</span>,
+          цены провайдеров с тех пор могли поменяться.
+        </template>
+        <template v-else>сумму прошлого запуска посчитать не удалось.</template>
+      </p>
+      <p v-else-if="confirm?.kind === 'skip'" class="text-sm text-muted">
+        Шаг «{{ confirm?.step?.nodeName || confirm?.step?.nodeId }}» будет отмечен
+        пропущенным, и запуск продолжится со следующего блока. Блоки ниже получат
+        пустой вход от этого шага — как если бы он ничего не вернул. Причина отказа
+        останется в разборе. Пропуск ничего не переисполняет и не стоит денег.
       </p>
       <p v-else class="text-sm text-muted">
         Шаг «{{ confirm?.step?.nodeName || confirm?.step?.nodeId }}» выполнится заново,
         все шаги ниже по графу — тоже. Успешные шаги выше переиспользуются из кэша
         и повторно не оплачиваются.
+        <template v-if="retryPrice">
+          В прошлый раз этот отрезок обошёлся в
+          <span class="tnum font-mono text-fg">{{ retryPrice }}</span>.
+        </template>
       </p>
 
       <template #footer>
@@ -425,6 +507,14 @@ const schemeOpen = ref(false)
           @click="doReplay()"
         >
           Повторить запуск
+        </UiButton>
+        <UiButton
+          v-else-if="confirm?.kind === 'skip'"
+          variant="primary"
+          :loading="!!skippingNodeId"
+          @click="doSkipStep(confirm!.step!)"
+        >
+          Пропустить и продолжить
         </UiButton>
         <UiButton
           v-else

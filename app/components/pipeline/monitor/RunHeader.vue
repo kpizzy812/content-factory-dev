@@ -19,11 +19,13 @@ interface ActionMenuItem {
   disabled?: boolean
   group?: string
 }
-import { formatClock, runCostLabel } from '../PipelineRunFormat'
+import { formatClock, runAuthorLabel, runCostLabel } from '../PipelineRunFormat'
 import { formatMoney } from '~~/shared/utils/money'
 
 const props = defineProps<{
-  run: WorkflowRun
+  run: WorkflowRun & {
+    triggeredByUser?: { name: string | null; surname: string | null; email: string } | null
+  }
   steps: WorkflowStep[]
   pipelineName: string
   pipelineId: string | number
@@ -74,6 +76,9 @@ const failedStep = computed(() => props.steps.find(s => s.status === 'failed') ?
  * итог, поэтому подпись меняется вместе со статусом.
  */
 const runCost = computed(() => runCostLabel(props.run))
+
+/** «Д. Кузнецов, вручную» из макета. Без автора остаётся способ запуска. */
+const author = computed(() => runAuthorLabel(props.run.triggeredByUser))
 const costLabel = computed(() => (props.run.status === 'running' ? 'Потрачено' : 'Стоимость'))
 
 /**
@@ -195,7 +200,7 @@ const TABS = [
         {{ costLabel }}<span class="tnum font-mono text-fg">{{ runCost }}</span>
       </span>
       <span class="inline-flex items-center gap-1.5">
-        Запуск<span class="text-fg">{{ triggerLabel(run.triggerType) }}</span>
+        Запуск<span class="text-fg">{{ author ? `${author}, ${triggerLabel(run.triggerType)}` : triggerLabel(run.triggerType) }}</span>
       </span>
       <NuxtLink
         v-if="run.replayOfRunId"

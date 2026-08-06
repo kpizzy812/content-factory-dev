@@ -6,15 +6,17 @@
  * наращивает верхний блок и не сдвигает место в истории, куда доскроллил
  * оператор. История сгруппирована по дням.
  */
-import type { WorkflowRun } from '~~/shared/types/workflow'
-import { dayKey, formatClock, formatDayLabel, runCostLabel } from '../PipelineRunFormat'
+import type { WorkflowRunRow } from '~/composables/usePipelineRuns'
+import { dayKey, formatClock, formatDayLabel, runAuthorLabel, runCostLabel } from '../PipelineRunFormat'
 import { triggerLabel } from '../PipelineRunStatusMap'
 
 const props = defineProps<{
   pipelineId: string | number
-  runs: WorkflowRun[]
+  runs: WorkflowRunRow[]
   /** Всего запусков у конвейера по мете API. */
   total: number | null
+  /** Упавших по мете — не по загруженным страницам. */
+  failedCount?: number | null
   pending: boolean
   currentRunId?: number | null
   /** Есть ли ещё страницы. */
@@ -22,6 +24,8 @@ const props = defineProps<{
   failedOnly: boolean
   /** На своей странице заголовок уже есть — панель его не повторяет. */
   embedded?: boolean
+  /** На общем экране у строки появляется имя конвейера. */
+  showPipeline?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -34,7 +38,10 @@ const ACTIVE = ['running', 'pending']
 const activeRuns = computed(() => props.runs.filter(r => ACTIVE.includes(r.status)))
 const historyRuns = computed(() => props.runs.filter(r => !ACTIVE.includes(r.status)))
 
-const failedLoaded = computed(() => props.runs.filter(r => r.status === 'failed').length)
+/** Счётчик у кнопки: из меты, если API её посчитал, иначе по загруженному. */
+const failedTotal = computed(() =>
+  props.failedCount ?? props.runs.filter(r => r.status === 'failed').length,
+)
 
 /** Сколько активных показываем без раскрытия — остальные за кнопкой. */
 const ACTIVE_VISIBLE = 3
@@ -46,7 +53,7 @@ const visibleActive = computed(() =>
 interface DayGroup {
   key: string
   date: string
-  runs: WorkflowRun[]
+  runs: WorkflowRunRow[]
   failed: number
 }
 
@@ -74,8 +81,9 @@ function dayTitle(date: string) {
   return now.value ? formatDayLabel(date, now.value) : ''
 }
 
-function runHref(id: number) {
-  return `/pipeline/${props.pipelineId}/runs/${id}`
+/** На общем экране конвейер у каждой строки свой — ссылка идёт от строки. */
+function runHref(run: WorkflowRunRow) {
+  return `/pipeline/${run.pipelineId ?? props.pipelineId}/runs/${run.id}`
 }
 </script>
 
@@ -97,7 +105,7 @@ function runHref(id: number) {
       >
         <Icon name="mingcute:alert-line" class="shrink-0" />
         Только упавшие
-        <span class="tnum ml-auto font-mono text-micro">{{ failedLoaded }}</span>
+        <span class="tnum ml-auto font-mono text-micro">{{ failedTotal }}</span>
       </button>
     </div>
 
@@ -116,7 +124,7 @@ function runHref(id: number) {
         <NuxtLink
           v-for="run in visibleActive"
           :key="run.id"
-          :to="runHref(run.id)"
+          :to="runHref(run)"
           class="block rounded-sm border px-2 py-[7px] no-underline transition-colors duration-(--duration-fast)"
           :class="run.id === currentRunId
             ? 'border-accent-border bg-accent-bg'
@@ -124,6 +132,9 @@ function runHref(id: number) {
         >
           <div class="flex items-center gap-[7px]">
             <span class="font-mono text-sm text-fg">#{{ run.id }}</span>
+            <span v-if="showPipeline && run.pipeline" class="min-w-0 truncate text-sm text-muted">
+              {{ run.pipeline.name }}
+            </span>
             <span class="flex-1" />
             <PipelineRunStatusBadge :status="run.status" size="xs" />
           </div>
@@ -135,7 +146,9 @@ function runHref(id: number) {
             />
             <span>{{ run._count?.steps ?? 0 }} шагов</span>
             <span v-if="runCostLabel(run)">{{ runCostLabel(run) }}</span>
-            <span class="text-subtle">{{ triggerLabel(run.triggerType) }}</span>
+            <span class="text-subtle">
+              {{ runAuthorLabel(run.triggeredByUser) ?? triggerLabel(run.triggerType) }}
+            </span>
           </div>
         </NuxtLink>
         <UiButton
@@ -178,12 +191,15 @@ function runHref(id: number) {
           <NuxtLink
             v-for="run in group.runs"
             :key="run.id"
-            :to="runHref(run.id)"
+            :to="runHref(run)"
             class="block border-b border-divider px-2.5 py-2 no-underline transition-colors duration-(--duration-fast)"
             :class="run.id === currentRunId ? 'bg-accent-bg' : 'hover:bg-card'"
           >
             <div class="flex items-center gap-[7px]">
               <span class="font-mono text-sm text-muted">#{{ run.id }}</span>
+              <span v-if="showPipeline && run.pipeline" class="min-w-0 truncate text-sm text-muted">
+                {{ run.pipeline.name }}
+              </span>
               <span class="flex-1" />
               <PipelineRunStatusBadge :status="run.status" size="xs" />
             </div>
@@ -199,7 +215,7 @@ function runHref(id: number) {
               />
               <span>{{ run._count?.steps ?? 0 }} шагов</span>
               <span v-if="runCostLabel(run)">{{ runCostLabel(run) }}</span>
-              <span>{{ triggerLabel(run.triggerType) }}</span>
+              <span>{{ runAuthorLabel(run.triggeredByUser) ?? triggerLabel(run.triggerType) }}</span>
             </div>
           </NuxtLink>
         </div>

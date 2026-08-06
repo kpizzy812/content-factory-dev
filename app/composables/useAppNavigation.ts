@@ -42,12 +42,15 @@ export function useAppNavigation() {
   /**
    * Подпункты конвейера.
    *
-   * Общего экрана запусков (`/pipeline/runs`) пока нет — история живёт внутри
-   * конкретного конвейера по `/pipeline/[id]/runs`. Пункт появится здесь вместе
-   * с монитором запусков в этапе 6; ссылка на несуществующий маршрут сейчас
-   * попала бы в `pipeline/[id]` с id="runs".
+   * `/pipeline/runs` — общий экран запусков по всем доступным конвейерам.
+   * Статический маршрут перекрывает `pipeline/[id]`, поэтому в редактор с
+   * id="runs" ссылка не уводит.
    */
-  const primaryChildren = computed<NavItem[]>(() => [])
+  const primaryChildren = computed<NavItem[]>(() =>
+    canAccessModule('pipeline')
+      ? [{ to: '/pipeline/runs', label: 'Запуски', icon: 'mingcute:history-line' }]
+      : [],
+  )
 
   const groups = computed<NavGroup[]>(() => {
     const result: NavGroup[] = []
