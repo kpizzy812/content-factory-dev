@@ -1,3 +1,5 @@
+import { snapshotNodeCount } from '~~/server/utils/pipeline-run-list'
+
 export default defineEventHandler(async (event) => {
   const user = await requireScopedAccess(event, {
     permissions: ['canRead'],
@@ -59,5 +61,22 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return { data: run }
+  // Кто запустил: в поле лежит id, и без резолва в шапке вместо имени стоял
+  // только способ запуска. Один запрос, а не join — запуск здесь один.
+  const triggeredByUser = run.triggeredBy != null
+    ? await prisma.zavodUser.findUnique({
+        where: { id: run.triggeredBy },
+        select: { id: true, name: true, surname: true, email: true },
+      })
+    : null
+
+  return {
+    data: {
+      ...run,
+      triggeredByUser,
+      // Снимок графа уже загружен — считаем блоки здесь, чтобы «шагов N из M»
+      // не зависело от того, перерисовали конвейер с тех пор или нет.
+      totalNodes: snapshotNodeCount(run.graphSnapshot),
+    },
+  }
 })

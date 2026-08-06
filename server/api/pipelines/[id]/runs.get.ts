@@ -1,3 +1,13 @@
+/**
+ * GET /api/pipelines/:id/runs — история запусков одного конвейера.
+ *
+ * Отличается от общего `/api/pipelines/runs` только набором конвейеров:
+ * фильтры, сортировка, состав полей и мета общие, см. `pipeline-run-list`.
+ * Разъезжаться им нельзя — это один и тот же список в двух местах интерфейса.
+ */
+
+import { listRuns, parseRunListQuery } from '~~/server/utils/pipeline-run-list'
+
 export default defineEventHandler(async (event) => {
   const user = await requireScopedAccess(event, {
     permissions: ['canRead'],
@@ -35,42 +45,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const query = getQuery(event)
-  const page = Math.max(1, Number(query.page) || 1)
-  const perPage = Math.min(50, Math.max(1, Number(query.perPage) || 20))
-  const skip = (page - 1) * perPage
+  const filters = parseRunListQuery(getQuery(event) as Record<string, unknown>)
 
-  // Фильтр по статусу (опциональный query-параметр)
-  const validStatuses = ['pending', 'running', 'success', 'failed', 'cancelled']
-  const statusFilter = typeof query.status === 'string' && validStatuses.includes(query.status)
-    ? query.status as 'pending' | 'running' | 'success' | 'failed' | 'cancelled'
-    : undefined
-
-  const where = {
-    pipelineId: id,
-    ...(statusFilter ? { status: statusFilter } : {}),
-  }
-
-  const [runs, total] = await Promise.all([
-    prisma.workflowRun.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: perPage,
-      include: {
-        _count: { select: { steps: true } },
-      },
-    }),
-    prisma.workflowRun.count({ where }),
-  ])
-
-  return {
-    data: runs,
-    meta: {
-      total,
-      page,
-      perPage,
-      totalPages: Math.ceil(total / perPage),
-    },
-  }
+  return listRuns({ ...filters, pipelineId: id }, null)
 })
