@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatRate } from '~/components/analytics/AnalyticsFormat'
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'analytics' })
 
 const route = useRoute()
@@ -72,8 +73,8 @@ const relations = computed(() => {
       <div class="flex flex-col gap-3">
         <section v-if="metrics" class="grid gap-3 rounded-lg border border-border bg-panel p-3.5 sm:grid-cols-3">
           <UiMetricStat label="Просмотры" :value="formatNumber(metrics.views)" />
-          <UiMetricStat label="Досмотры" :value="`${metrics.watchThrough}%`" />
-          <UiMetricStat label="CTR" :value="`${metrics.ctr.toFixed(1)}%`" />
+          <UiMetricStat label="Досмотры" :value="formatRate(metrics.watchThrough)" />
+          <UiMetricStat label="CTR" :value="formatRate(metrics.ctr)" />
         </section>
 
         <div

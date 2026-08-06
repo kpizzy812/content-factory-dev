@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatRate } from './AnalyticsFormat'
 import type { UploadWithMetrics, AnalyticsListMeta } from '#shared/types/analytics'
 
 defineProps<{
@@ -98,11 +99,11 @@ function formatDate(dateStr: string) {
           </td>
           <td class="text-sm text-base-content/70">{{ post.socialAccount?.displayName ?? '---' }}</td>
           <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.views) : '---' }}</td>
-          <td>{{ post.latestMetrics ? `${post.latestMetrics.watchThrough}%` : '---' }}</td>
+          <td>{{ post.latestMetrics ? formatRate(post.latestMetrics.watchThrough) : '—' }}</td>
           <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.likes) : '---' }}</td>
           <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.comments) : '---' }}</td>
           <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.shares) : '---' }}</td>
-          <td>{{ post.latestMetrics ? `${post.latestMetrics.ctr.toFixed(1)}%` : '---' }}</td>
+          <td>{{ post.latestMetrics ? formatRate(post.latestMetrics.ctr) : '—' }}</td>
           <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.followerGain) : '---' }}</td>
           <td class="text-sm text-base-content/70">{{ formatDate(post.createdAt) }}</td>
         </tr>

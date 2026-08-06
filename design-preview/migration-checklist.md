@@ -56,7 +56,7 @@
 | `+` | `admin/apps/[id].vue` | форма, референсы и секция аккаунтов с пачками |
 | `+` | `admin/users/[id].vue` | права из MC только на просмотр |
 | `+` | `admin/cycles/[id].vue` | логи на `UiLogRow` |
-| `+` | `analytics/[uploadId].vue` | метрик в базе нет — история проверена только пустым состоянием |
+| `+` | `analytics/[uploadId].vue` | история метрик проверена на живых замерах; доли досмотра и CTR больше не выводятся как «0.7%» |
 
 ## Сложные экраны — этап 6, из своих макетов
 
@@ -119,6 +119,7 @@ bun run scripts/seed-pipeline-runs-demo.ts # конвейер из 9 блоко�
 bun run scripts/seed-cost-ledger-demo.ts # журнал списаний из шагов роликов — расход в админке
 bun run scripts/seed-trend-profiles-demo.ts # профили парсинга и их запуски — вкладки на /trends
 bun run scripts/seed-telegram-demo.ts    # чаты, шаблоны, ключи, доставки и аудит Telegram
+bun run scripts/seed-post-metrics-demo.ts # замеры просмотров и CTR — аналитика (после uploads)
 ```
 
 `seed-dev-user` запускать первым: без пользователя не работает ни вход, ни

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatRate } from './AnalyticsFormat'
 import type { UploadWithMetrics } from '#shared/types/analytics'
 
 defineProps<{
@@ -48,7 +49,7 @@ const platformColors: Record<string, string> = {
             {{ platformLabels[post.socialAccount?.platform ?? ''] ?? post.socialAccount?.platform }}
           </span>
           <span class="font-semibold text-sm text-primary whitespace-nowrap">
-            {{ post.latestMetrics?.ctr?.toFixed(1) }}%
+            {{ formatRate(post.latestMetrics?.ctr) }}
           </span>
         </NuxtLink>
       </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatRate } from './AnalyticsFormat'
 import type { PostMetrics } from '#shared/types/analytics'
 
 defineProps<{
@@ -42,11 +43,11 @@ function formatDate(dateStr: string) {
       <UiTableRow v-for="m in metrics" :key="m.id">
         <span class="tnum font-mono text-sm text-muted">{{ formatDate(m.collectedAt) }}</span>
         <span class="tnum text-right font-mono text-sm">{{ formatNumber(m.views) }}</span>
-        <span class="tnum text-right font-mono text-sm">{{ m.watchThrough }}%</span>
+        <span class="tnum text-right font-mono text-sm">{{ formatRate(m.watchThrough) }}</span>
         <span class="tnum text-right font-mono text-sm">{{ formatNumber(m.likes) }}</span>
         <span class="tnum text-right font-mono text-sm">{{ formatNumber(m.comments) }}</span>
         <span class="tnum text-right font-mono text-sm">{{ formatNumber(m.shares) }}</span>
-        <span class="tnum text-right font-mono text-sm">{{ m.ctr.toFixed(1) }}%</span>
+        <span class="tnum text-right font-mono text-sm">{{ formatRate(m.ctr) }}</span>
         <span class="tnum text-right font-mono text-sm">{{ formatNumber(m.followerGain) }}</span>
       </UiTableRow>
     </UiTable>

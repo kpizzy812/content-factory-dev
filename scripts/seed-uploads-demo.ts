@@ -150,18 +150,33 @@ async function main() {
   }
 
   // 5. Фон для пагинации и навигации по соседям.
+  //
+  // Каждая третья — опубликованная и вышедшая несколько дней назад: аналитике
+  // нужна не одна публикация, а десяток с разными датами, иначе сравнивать
+  // площадки и считать динамику не на чем.
   for (let i = 1; i <= 10; i++) {
     const { video, account } = pick()
+    const published = i % 3 === 0
+    const publishedAt = new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000)
     await prisma.upload.create({
       data: {
         videoId: video.id,
         socialAccountId: account.id,
         applicationId: account.appId,
-        status: i % 4 === 0 ? 'uploading' : 'pending',
+        status: published ? 'published' : i % 4 === 0 ? 'uploading' : 'pending',
         title: `Публикация для проверки вёрстки ${i}`,
         description: 'Текст публикации для строки списка.',
         hashtags: i % 2 === 0 ? ['мебель'] : [],
         idempotencyKey: `demo-bg-${stamp}-${i}`,
+        ...(published
+          ? {
+              platformPostId: `p_74130${i}0`,
+              platformPostUrl: `https://www.tiktok.com/@zavod.mebel.ru/video/74130${i}0`,
+              attemptCount: 1,
+              lastAttemptAt: publishedAt,
+              createdAt: publishedAt,
+            }
+          : {}),
       },
     })
   }

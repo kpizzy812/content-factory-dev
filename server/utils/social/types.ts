@@ -49,13 +49,19 @@ export interface DecryptedAccount {
 
 /**
  * Результат сбора метрик поста с платформы.
+ *
+ * `watchThrough` и `ctr` — доли в диапазоне 0…1, а не проценты: так их отдают
+ * платформы и так они называются (доля досмотра, click-through *rate*).
+ * Интерфейс умножает на сто сам — см. `app/components/analytics/AnalyticsFormat.ts`.
  */
 export interface MetricsResult {
   views: number
   likes: number
   comments: number
   shares: number
+  /** Доля досмотра, 0…1. */
   watchThrough: number
+  /** Доля переходов, 0…1. */
   ctr: number
   followerGain: number
 }
