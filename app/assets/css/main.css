@@ -70,6 +70,16 @@
   --color-warning: #e3a944; --color-warning-bg: #241c0d; --color-warning-border: #453419;
   --color-danger:  #ec7d70; --color-danger-bg:  #26130f; --color-danger-border:  #4a231d;
 
+  /* ── Категорийный тон нод конвейера ──────────────────────────
+     Объявлен в макетах 04 и 05, а не в _system/tokens.css: цвет
+     категории — язык одного канваса, а не всей системы. Статус в
+     мониторе им не красится, только полоска принадлежности. */
+  --color-cat-src:  #4a6072;   /* источники        */
+  --color-cat-prod: #5d4c62;   /* производство     */
+  --color-cat-ctrl: #5e563e;   /* логика и условия */
+  --color-cat-out:  #3f5a4d;   /* выход наружу     */
+  --color-cat-util: #4a5057;   /* служебные        */
+
   --shadow-sm: 0 1px 2px rgba(0,0,0,.5);
   --shadow-md: 0 6px 16px rgba(0,0,0,.5);
   --shadow-lg: 0 18px 44px rgba(0,0,0,.55);
@@ -116,6 +126,12 @@
   --color-success: #1b7549; --color-success-bg: #e7f4ec; --color-success-border: #c0e1cf;
   --color-warning: #8a5a08; --color-warning-bg: #fbf1dc; --color-warning-border: #eedab0;
   --color-danger:  #b03a2b; --color-danger-bg:  #fbeae7; --color-danger-border:  #f0ccc6;
+
+  --color-cat-src:  #8fa6b6;
+  --color-cat-prod: #a794ad;
+  --color-cat-ctrl: #a99b74;
+  --color-cat-out:  #89ab9c;
+  --color-cat-util: #9aa2ab;
 
   --shadow-sm: 0 1px 2px rgba(16,22,28,.08);
   --shadow-md: 0 6px 16px rgba(16,22,28,.10);

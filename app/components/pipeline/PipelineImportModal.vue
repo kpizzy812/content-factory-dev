@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { PipelineExport } from '~~/shared/types/pipeline'
-import { getPipelineColorClasses } from '~~/shared/utils/pipeline-meta'
 // Единственный источник правды по типам блоков — реестр, а не локальная копия списка.
 import { isKnownNodeType } from '~~/shared/utils/pipeline-node-registry'
+import { pipelineColor } from './PipelineColorMap'
+import { pipelineNodeMeta } from './PipelineNodeMeta'
 
 const emit = defineEmits<{
   imported: [id: number]
 }>()
 
-const modalRef = ref<HTMLDialogElement | null>(null)
+const isOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const importData = ref<PipelineExport | null>(null)
 const validationError = ref<string | null>(null)
@@ -21,7 +22,7 @@ function open() {
   validationError.value = null
   importError.value = null
   importWarnings.value = []
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function handleFileSelect(event: Event) {
@@ -130,8 +131,8 @@ async function handleImport() {
     if (res.warnings?.length) {
       importWarnings.value = [...importWarnings.value, ...res.warnings]
     }
+    isOpen.value = false
     emit('imported', res.data.id)
-    modalRef.value?.close()
   }
   catch (e: any) {
     importError.value = e?.data?.message || 'Ошибка импорта'
@@ -153,129 +154,122 @@ defineExpose({ open })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-lg">
-      <h3 class="text-lg font-bold flex items-center gap-2">
-        <Icon name="mingcute:upload-3-line" class="text-primary" />
-        Импорт конвейера
-      </h3>
-
-      <p class="text-sm text-base-content/60 mt-1">
-        Загрузите JSON-файл экспортированного конвейера. Формат: version 1.
+  <UiModal :open="isOpen" title="Импорт конвейера" @close="isOpen = false">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        JSON-файл экспортированного конвейера, формат версии 1. Ссылки на учётные
+        данные при импорте очищаются — их придётся привязать заново.
       </p>
 
-      <!-- File input -->
-      <div class="mt-4">
-        <input
-          ref="fileInput"
-          type="file"
-          accept=".json"
-          class="file-input w-full"
-          @change="handleFileSelect"
-        />
-      </div>
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".json"
+        class="w-full cursor-pointer rounded-md border border-border bg-card px-2.5 py-2 text-base text-muted file:mr-3 file:cursor-pointer file:rounded-sm file:border-0 file:bg-raised file:px-2.5 file:py-1 file:text-base file:text-fg"
+        @change="handleFileSelect"
+      >
 
-      <!-- Validation error -->
-      <div v-if="validationError" role="alert" class="alert alert-error mt-3">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ validationError }}</span>
-      </div>
+      <p
+        v-if="validationError"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span class="min-w-0 flex-1">{{ validationError }}</span>
+      </p>
 
-      <!-- Preview -->
-      <div v-if="importData" class="mt-4 space-y-3">
-        <div class="bg-base-200/50 rounded-box p-4 space-y-2">
+      <template v-if="importData">
+        <div class="flex flex-col gap-2 rounded-md border border-border bg-card p-3">
           <div class="flex items-center gap-2">
-            <div
-              class="w-8 h-8 rounded-lg flex items-center justify-center"
-              :class="getPipelineColorClasses(importData.pipeline.color).bg20"
+            <span
+              class="flex size-8 shrink-0 items-center justify-center rounded-md"
+              :class="pipelineColor(importData.pipeline.color).bg"
             >
               <Icon
                 :name="importData.pipeline.icon || 'mingcute:git-merge-line'"
                 class="text-lg"
-                :class="getPipelineColorClasses(importData.pipeline.color).text"
+                :class="pipelineColor(importData.pipeline.color).text"
               />
-            </div>
-            <div>
-              <h4 class="font-semibold text-sm">{{ importData.pipeline.name }}</h4>
-              <p v-if="importData.pipeline.description" class="text-xs text-base-content/60">
+            </span>
+            <span class="min-w-0">
+              <span class="block truncate font-medium">{{ importData.pipeline.name }}</span>
+              <span v-if="importData.pipeline.description" class="block truncate text-sm text-muted">
                 {{ importData.pipeline.description }}
-              </p>
-            </div>
+              </span>
+            </span>
           </div>
 
-          <!-- Tags and counts -->
-          <div class="flex flex-wrap gap-2 text-xs">
-            <span v-for="tag in (importData.pipeline.tags ?? [])" :key="tag" class="badge badge-outline badge-xs">
-              {{ tag }}
-            </span>
-            <span class="badge badge-ghost badge-xs">
-              {{ importData.pipeline.graphData.nodes.length }} блоков
-            </span>
-            <span class="badge badge-ghost badge-xs">
+          <div class="flex flex-wrap items-center gap-1.5 text-micro">
+            <span
+              v-for="tag in (importData.pipeline.tags ?? [])"
+              :key="tag"
+              class="inline-flex h-[18px] items-center rounded-sm border border-border bg-panel px-1.5 text-muted"
+            >{{ tag }}</span>
+            <span class="tnum font-mono text-subtle">
+              {{ importData.pipeline.graphData.nodes.length }} блоков ·
               {{ importData.pipeline.graphData.edges.length }} связей
             </span>
           </div>
 
-          <!-- Node type summary -->
-          <div v-if="nodeTypeSummary.length > 0" class="flex flex-wrap gap-1 pt-1 border-t border-base-300">
+          <div v-if="nodeTypeSummary.length" class="flex flex-wrap gap-1 border-t border-divider pt-2">
             <span
               v-for="[type, count] in nodeTypeSummary"
               :key="type"
-              class="badge badge-xs"
-              :class="isKnownNodeType(String(type)) ? 'badge-ghost' : 'badge-warning'"
-            >
-              {{ type }} &times;{{ count }}
-            </span>
+              class="inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro"
+              :class="isKnownNodeType(String(type))
+                ? 'border-border bg-panel text-muted'
+                : 'border-warning-border bg-warning-bg text-warning'"
+              :title="isKnownNodeType(String(type)) ? undefined : 'Такого типа блока в системе нет'"
+            >{{ pipelineNodeMeta(String(type)).label }} ×{{ count }}</span>
           </div>
 
-          <p v-if="importData.exportedAt" class="text-[10px] text-base-content/40">
-            Экспортировано: {{ new Date(importData.exportedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) }}
-          </p>
+          <ClientOnly>
+            <p v-if="importData.exportedAt" class="text-micro text-subtle">
+              Экспортировано {{ new Date(importData.exportedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+            </p>
+          </ClientOnly>
         </div>
 
-        <!-- Warnings -->
-        <div v-if="importWarnings.length > 0" role="alert" class="alert alert-warning">
-          <Icon name="mingcute:alert-line" />
-          <div class="text-xs space-y-0.5">
-            <p v-for="(w, i) in importWarnings" :key="i">{{ w }}</p>
-          </div>
-        </div>
+        <p
+          v-if="importWarnings.length"
+          role="alert"
+          class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-fg"
+        >
+          <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+          <span class="min-w-0 flex-1">
+            <span v-for="(w, i) in importWarnings" :key="i" class="block">{{ w }}</span>
+          </span>
+        </p>
 
-        <!-- Credential warning detail -->
-        <div v-if="hasCredentialWarning" class="rounded-box bg-info/10 border border-info/20 p-2 text-xs text-base-content/60">
-          <Icon name="mingcute:key-2-line" class="inline mr-1 text-info" />
-          Ссылки на учётные данные будут очищены при импорте. Перенастройте их в редакторе после импорта.
-        </div>
+        <p
+          v-if="hasCredentialWarning"
+          class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-fg"
+        >
+          <Icon name="mingcute:key-2-line" class="mt-0.5 shrink-0 text-info" />
+          <span>Привязки к учётным данным будут очищены — задайте их в редакторе после импорта.</span>
+        </p>
 
-        <button class="btn btn-ghost btn-xs" @click="resetFile">
+        <UiButton variant="ghost" class="self-start" @click="resetFile">
           <Icon name="mingcute:close-line" />
           Выбрать другой файл
-        </button>
-      </div>
+        </UiButton>
+      </template>
 
-      <!-- Import error -->
-      <div v-if="importError" role="alert" class="alert alert-error mt-3">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ importError }}</span>
-      </div>
-
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn">Отмена</button>
-        </form>
-        <button
-          class="btn btn-primary"
-          :disabled="!importData || isImporting"
-          @click="handleImport"
-        >
-          <span v-if="isImporting" class="loading loading-spinner loading-sm" />
-          <Icon v-else name="mingcute:upload-3-line" />
-          Импортировать
-        </button>
-      </div>
+      <p
+        v-if="importError"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span class="min-w-0 flex-1">{{ importError }}</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isImporting" @click="isOpen = false">Отмена</UiButton>
+      <UiButton variant="primary" :disabled="!importData" :loading="isImporting" @click="handleImport">
+        Импортировать
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

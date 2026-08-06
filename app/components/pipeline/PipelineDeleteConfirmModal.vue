@@ -1,24 +1,28 @@
 <script setup lang="ts">
-const emit = defineEmits<{
-  confirmed: []
-}>()
-
-const modalRef = ref<HTMLDialogElement | null>(null)
-const confirmText = ref('')
-const pipelineName = ref('')
+/**
+ * Удаление конвейера со словом-подтверждением.
+ *
+ * Операция необратима и уносит версии и историю запусков, поэтому недостаточно
+ * кнопки: имя удаляемого написано прямо, а слово вводится руками.
+ */
+const emit = defineEmits<{ confirmed: [] }>()
 
 const CONFIRM_WORD = 'УДАЛИТЬ'
 
-const isConfirmed = computed(() => confirmText.value === CONFIRM_WORD)
+const isOpen = ref(false)
+const confirmText = ref('')
+const pipelineName = ref('')
+
+const isConfirmed = computed(() => confirmText.value.trim() === CONFIRM_WORD)
 
 function open(name: string) {
   pipelineName.value = name
   confirmText.value = ''
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
 }
 
 function handleConfirm() {
@@ -31,60 +35,31 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold flex items-center gap-2">
-        <Icon name="mingcute:delete-2-line" class="text-error" />
-        Удаление конвейера
-      </h3>
+  <UiModal :open="isOpen" size="sm" title="Удалить конвейер?" @close="close">
+    <div class="flex flex-col gap-3">
+      <p class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-fg">
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-danger" />
+        <span>
+          Конвейер «{{ pipelineName }}», его версии, расписание и вся история
+          запусков удаляются навсегда. Отменить нельзя.
+        </span>
+      </p>
 
-      <div class="mt-4 space-y-4">
-        <div role="alert" class="alert alert-warning">
-          <Icon name="mingcute:warning-line" class="text-xl" />
-          <div>
-            <p class="font-semibold">Это действие нельзя отменить</p>
-            <p class="text-sm opacity-80">
-              Конвейер, все его версии, настройки и история запусков будут удалены навсегда.
-            </p>
-          </div>
-        </div>
-
-        <p class="text-sm">
-          Вы собираетесь удалить конвейер
-          <span class="font-bold">{{ pipelineName }}</span>.
-        </p>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">
-            Введите <kbd class="kbd kbd-sm">{{ CONFIRM_WORD }}</kbd> для подтверждения
-          </legend>
-          <input
-            v-model="confirmText"
-            type="text"
-            class="input input-error w-full"
-            :placeholder="CONFIRM_WORD"
-            autocomplete="off"
-            @keydown.enter.prevent="handleConfirm"
-          />
-        </fieldset>
-      </div>
-
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn">Отмена</button>
-        </form>
-        <button
-          class="btn btn-error"
-          :disabled="!isConfirmed"
-          @click="handleConfirm"
-        >
-          <Icon name="mingcute:delete-2-line" />
-          Удалить навсегда
-        </button>
-      </div>
+      <UiField :label="`Введите ${CONFIRM_WORD}, чтобы подтвердить`">
+        <UiInput
+          v-model="confirmText"
+          :placeholder="CONFIRM_WORD"
+          :invalid="!!confirmText && !isConfirmed"
+          @keydown.enter.prevent="handleConfirm"
+        />
+      </UiField>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="close">Отмена</UiButton>
+      <UiButton variant="danger" :disabled="!isConfirmed" @click="handleConfirm">
+        Удалить навсегда
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

@@ -1,36 +1,25 @@
 <script setup lang="ts">
 import type { WorkflowRunSummary, WorkflowStepSummary } from '~~/shared/types/workflow'
-import { getRunStatus, getTrigger } from '~~/shared/utils/pipeline-status'
-import { formatDurationRange, formatRelativeTime } from '~~/shared/utils/pipeline-format'
 import { getNodeUnitTarget } from '~~/shared/utils/pipeline-node-routes'
+import { triggerLabel } from '../PipelineRunStatusMap'
+import { formatClock } from '../PipelineRunFormat'
 
 const props = defineProps<{
   run: WorkflowRunSummary
   pipelineId: number
   canCancel: boolean
-  /** Для активного рана — текущий шаг (прогресс). */
+  /** Для активного запуска — шаг, который идёт прямо сейчас. */
   activeCurrentStep?: WorkflowStepSummary | null
-  /** Всего нод для прогресса "шаг X из Y". */
-  totalNodes?: number
 }>()
 
-const emit = defineEmits<{
-  cancelled: []
-  started: []
-}>()
+const emit = defineEmits<{ cancelled: [] }>()
 
-const status = computed(() => getRunStatus(props.run.status))
-const trigger = computed(() => getTrigger(props.run.triggerType))
+const toast = useToast()
 
-const isActive = computed(
-  () => props.run.status === 'running' || props.run.status === 'pending',
-)
-
-const cancelling = computed(() => !!props.run.cancelRequestedAt)
-
-const showCancel = computed(
-  () => props.canCancel && isActive.value && !cancelling.value,
-)
+const isActive = computed(() => props.run.status === 'running' || props.run.status === 'pending')
+/** «Останавливается» — только пока запуск ещё идёт: на завершённом отменять нечего. */
+const cancelling = computed(() => !!props.run.cancelRequestedAt && isActive.value)
+const showCancel = computed(() => props.canCancel && isActive.value && !cancelling.value)
 
 const unitTarget = computed(() =>
   getNodeUnitTarget(props.activeCurrentStep?.nodeType, {
@@ -39,139 +28,99 @@ const unitTarget = computed(() =>
   }),
 )
 
-const progressText = computed(() => {
-  if (!props.activeCurrentStep) return null
-  const name = props.activeCurrentStep.nodeName
-  return name ? `Узел: ${name}` : null
-})
+// Длительность идущего запуска считается от «сейчас», а оно берётся после
+// монтирования: Date.now() в разметке расходится при гидратации.
+const now = ref<number | null>(null)
+onMounted(() => { now.value = Date.now() })
 
 const isCancelling = ref(false)
-const expanded = ref(false)
-const hasLoadedSteps = ref(false)
+const confirmCancel = ref(false)
 
-async function handleCancel(ev: Event) {
-  ev.stopPropagation()
+async function handleCancel() {
+  confirmCancel.value = false
   if (isCancelling.value) return
   isCancelling.value = true
   try {
-    await $fetch(
-      `/api/pipelines/${props.pipelineId}/runs/${props.run.id}/cancel`,
-      { method: 'POST' },
-    )
+    await $fetch(`/api/pipelines/${props.pipelineId}/runs/${props.run.id}/cancel`, { method: 'POST' })
     emit('cancelled')
   }
-  catch {
-    // silent — refresh подхватит состояние
+  catch (e: any) {
+    toast.error(e?.data?.message || 'Не удалось остановить запуск')
   }
   finally {
     isCancelling.value = false
   }
 }
-
-function openRun(ev: Event) {
-  ev.stopPropagation()
-  navigateTo(`/pipeline/${props.pipelineId}/runs/${props.run.id}`)
-}
-
-function openUnit(ev: Event) {
-  ev.stopPropagation()
-  if (unitTarget.value) navigateTo(unitTarget.value.href)
-}
-
-function toggleExpanded() {
-  expanded.value = !expanded.value
-  if (expanded.value) hasLoadedSteps.value = true
-}
 </script>
 
 <template>
-  <div
-    class="rounded-box border border-base-300 bg-base-100 transition-colors hover:bg-base-200"
-  >
-    <div
-      class="flex items-center gap-2.5 px-3 py-2 cursor-pointer"
-      :title="expanded ? 'Свернуть шаги' : 'Развернуть шаги'"
-      @click="toggleExpanded"
+  <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-md border border-border bg-card px-3 py-2">
+    <NuxtLink
+      :to="`/pipeline/${pipelineId}/runs/${run.id}`"
+      class="min-w-0 flex-1 no-underline"
     >
-      <div
-        class="rounded-full w-7 h-7 flex items-center justify-center shrink-0"
-        :class="status.indicator"
-      >
-        <Icon :name="status.icon" class="text-sm" />
-      </div>
-
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="font-mono text-xs font-semibold">#{{ run.id }}</span>
-          <span class="badge badge-xs" :class="status.class">
-            {{ status.label }}
-          </span>
-          <span v-if="cancelling" class="badge badge-xs badge-warning badge-outline gap-1">
-            <span class="loading loading-spinner loading-xs" />
-            Отменяется...
-          </span>
-        </div>
-        <div class="flex items-center gap-2 mt-0.5 text-[10px] text-base-content/50 flex-wrap">
-          <span class="flex items-center gap-0.5">
-            <Icon :name="trigger.icon" class="text-[10px]" />
-            {{ trigger.label }}
-          </span>
-          <span>{{ run.stepsCount }} шагов</span>
-          <span class="font-mono">{{ formatDurationRange(run.startedAt, run.finishedAt) }}</span>
-          <span>{{ formatRelativeTime(run.createdAt) }}</span>
-        </div>
-        <div v-if="isActive && progressText" class="text-[11px] mt-1 text-info flex items-center gap-1 truncate">
-          <Icon name="mingcute:loading-3-line" class="text-[11px] animate-spin" />
-          <span class="truncate">{{ progressText }}</span>
-        </div>
-        <div v-else-if="run.errorMessage" class="text-[11px] mt-1 text-error/80 truncate">
-          {{ run.errorMessage }}
-        </div>
-      </div>
-
-      <div class="flex items-center gap-1 shrink-0">
-        <button
-          v-if="unitTarget"
-          class="btn btn-ghost btn-xs"
-          :title="`К юниту: ${unitTarget.label}`"
-          @click="openUnit"
+      <span class="flex flex-wrap items-center gap-2">
+        <span class="font-mono text-sm text-fg">#{{ run.id }}</span>
+        <PipelineRunStatusBadge :status="run.status" size="xs" />
+        <span
+          v-if="cancelling"
+          class="inline-flex h-[18px] items-center gap-1 rounded-sm border border-warning-border bg-warning-bg px-1.5 text-micro text-warning"
         >
+          <Icon name="mingcute:loading-line" class="animate-spin" />
+          останавливается
+        </span>
+      </span>
+      <span class="tnum mt-0.5 flex flex-wrap gap-x-2.5 gap-y-1 font-mono text-micro text-subtle">
+        <span>{{ triggerLabel(run.triggerType) }}</span>
+        <span>{{ run.stepsCount }} шагов</span>
+        <PipelineMonitorLiveDuration
+          :started-at="run.startedAt"
+          :finished-at="run.finishedAt"
+          :now="now"
+        />
+        <span>{{ formatClock(run.createdAt, false) }}</span>
+      </span>
+      <span
+        v-if="isActive && activeCurrentStep?.nodeName"
+        class="mt-1 flex items-center gap-1 truncate text-sm text-info"
+      >
+        <Icon name="mingcute:loading-line" class="shrink-0 animate-spin" />
+        {{ activeCurrentStep.nodeName }}
+      </span>
+      <span v-else-if="run.errorMessage" class="mt-1 block truncate text-sm text-danger">
+        {{ run.errorMessage }}
+      </span>
+    </NuxtLink>
+
+    <div class="flex shrink-0 items-center gap-1">
+      <NuxtLink v-if="unitTarget" :to="unitTarget.href">
+        <UiButton variant="ghost" :title="`К юниту: ${unitTarget.label}`">
           <Icon :name="unitTarget.icon" />
           <span class="hidden sm:inline">{{ unitTarget.label }}</span>
-        </button>
-        <button
-          v-if="showCancel"
-          class="btn btn-ghost btn-xs text-error"
-          :disabled="isCancelling"
-          title="Отменить запуск"
-          @click="handleCancel"
-        >
-          <span v-if="isCancelling" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:stop-circle-line" />
-          <span class="hidden sm:inline">Отменить</span>
-        </button>
-        <button
-          class="btn btn-ghost btn-xs"
-          title="Открыть страницу запуска"
-          @click="openRun"
-        >
-          <Icon name="mingcute:external-link-line" />
-          <span class="hidden sm:inline">Открыть</span>
-        </button>
-        <Icon
-          :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'"
-          class="text-base-content/40 text-sm ml-0.5"
-        />
-      </div>
+        </UiButton>
+      </NuxtLink>
+      <UiButton
+        v-if="showCancel"
+        variant="ghost"
+        :loading="isCancelling"
+        title="Остановить запуск"
+        @click="confirmCancel = true"
+      >
+        <Icon v-if="!isCancelling" name="mingcute:forbid-circle-line" class="text-danger" />
+        <span class="hidden text-danger sm:inline">Остановить</span>
+      </UiButton>
     </div>
 
-    <div v-if="expanded" class="border-t border-base-300 px-3 pb-3">
-      <PipelineMonitorRunSteps
-        v-if="hasLoadedSteps"
-        :pipeline-id="pipelineId"
-        :run-id="run.id"
-        :autoload="true"
-      />
-    </div>
+    <UiModal :open="confirmCancel" size="sm" title="Остановить запуск?" @close="confirmCancel = false">
+      <p class="text-sm text-muted">
+        Запуск #{{ run.id }} прервётся: активные процессы остановятся, внешние
+        операции отменятся где это возможно. Уже сгенерированные материалы
+        сохранятся.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="confirmCancel = false">Отмена</UiButton>
+        <UiButton variant="danger" :loading="isCancelling" @click="handleCancel">Остановить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

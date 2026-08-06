@@ -1,34 +1,38 @@
 <script setup lang="ts">
+/**
+ * Запуски одного конвейера внутри блока «Исполнения».
+ *
+ * «Запустить» осталось видимой кнопкой, хотя операция платная: это главное
+ * действие раздела, и прятать его в меню глубже, чем деактивацию, вредно. Тот
+ * же компромисс, что у включения устройства: цена объясняется в подтверждении.
+ */
 import type { PipelineMonitorItem } from '~~/shared/types/workflow'
 
-const props = defineProps<{
-  item: PipelineMonitorItem
-}>()
+const props = defineProps<{ item: PipelineMonitorItem }>()
 
-const emit = defineEmits<{
-  refresh: []
-}>()
+const emit = defineEmits<{ refresh: [] }>()
+
+const toast = useToast()
 
 const isStarting = ref(false)
-const startError = ref<string | null>(null)
-
 const isTogglingStatus = ref(false)
-const statusError = ref<string | null>(null)
+const confirmStart = ref(false)
 
 const canRun = computed(() => props.item.permissions.canRun)
 const canWrite = computed(() => props.item.permissions.canWrite)
 const isActive = computed(() => props.item.status === 'active')
 
 async function handleStart() {
+  confirmStart.value = false
   if (!canRun.value || isStarting.value) return
   isStarting.value = true
-  startError.value = null
   try {
     await $fetch(`/api/pipelines/${props.item.id}/run`, { method: 'POST' })
+    toast.success('Запуск поставлен в очередь')
     emit('refresh')
   }
   catch (e: any) {
-    startError.value = e?.data?.message || 'Не удалось запустить'
+    toast.error(e?.data?.message || 'Не удалось запустить конвейер')
   }
   finally {
     isStarting.value = false
@@ -38,160 +42,129 @@ async function handleStart() {
 async function handleToggleStatus() {
   if (!canWrite.value || isTogglingStatus.value) return
   isTogglingStatus.value = true
-  statusError.value = null
-  const next = isActive.value ? 'inactive' : 'active'
   try {
     await $fetch(`/api/pipelines/${props.item.id}`, {
       method: 'PUT',
-      body: { status: next },
+      body: { status: isActive.value ? 'inactive' : 'active' },
     })
     emit('refresh')
   }
   catch (e: any) {
-    statusError.value = e?.data?.message || 'Не удалось изменить статус'
+    toast.error(e?.data?.message || 'Не удалось изменить статус')
   }
   finally {
     isTogglingStatus.value = false
   }
 }
 
-function openEditor() {
-  navigateTo(`/pipeline/${props.item.id}`)
-}
-
-function openAllRuns() {
-  navigateTo(`/pipeline/${props.item.id}/runs`)
-}
-
 const hasAny = computed(
   () => props.item.activeRuns.length > 0 || props.item.recentRuns.length > 0,
 )
+
+const runTitle = computed(() => {
+  if (canRun.value) return 'Запустить конвейер'
+  return isActive.value ? 'Нет прав на запуск' : 'Конвейер выключен — сначала включите его'
+})
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- Run stats -->
-    <div class="flex items-center gap-3 text-xs text-base-content/60 flex-wrap">
+  <div class="flex flex-col gap-3">
+    <div class="tnum flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-sm text-muted">
       <span class="flex items-center gap-1">
-        <Icon name="mingcute:history-line" class="text-sm" />
-        Всего: <span class="font-mono font-semibold text-base-content">{{ item.runStats.total }}</span>
+        <Icon name="mingcute:history-line" />всего {{ item.runStats.total }}
       </span>
-      <span v-if="item.runStats.running > 0" class="flex items-center gap-1 text-info">
-        <Icon name="mingcute:loading-3-line" class="animate-spin" />
-        Активных: <span class="font-mono font-semibold">{{ item.runStats.running }}</span>
+      <span v-if="item.runStats.running" class="flex items-center gap-1 text-info">
+        <span class="size-1.5 rounded-full bg-current motion-safe:animate-pulse" />
+        идёт {{ item.runStats.running }}
       </span>
-      <span v-if="item.runStats.success > 0" class="flex items-center gap-1 text-success">
-        <Icon name="mingcute:check-circle-line" />
-        {{ item.runStats.success }}
-      </span>
-      <span v-if="item.runStats.failed > 0" class="flex items-center gap-1 text-error">
-        <Icon name="mingcute:close-circle-line" />
-        {{ item.runStats.failed }}
-      </span>
+      <span v-if="item.runStats.success" class="text-success">успешных {{ item.runStats.success }}</span>
+      <span v-if="item.runStats.failed" class="text-danger">упало {{ item.runStats.failed }}</span>
     </div>
 
-    <!-- Active -->
-    <div v-if="item.activeRuns.length > 0" class="space-y-2">
-      <h4 class="text-xs font-semibold text-base-content/70 uppercase tracking-wide flex items-center gap-1.5">
-        <span class="status status-info status-sm animate-pulse" />
-        Активные запуски
+    <div v-if="item.activeRuns.length" class="flex flex-col gap-1.5">
+      <h4 class="flex items-center gap-1.5 text-micro tracking-[.06em] text-subtle uppercase">
+        <span class="size-1.5 rounded-full bg-info motion-safe:animate-pulse" />
+        Активные
       </h4>
-      <div class="space-y-1.5">
-        <PipelineMonitorRun
-          v-for="(run, idx) in item.activeRuns"
-          :key="run.id"
-          :run="run"
-          :pipeline-id="item.id"
-          :can-cancel="item.permissions.canCancel"
-          :active-current-step="idx === 0 ? item.currentStep : null"
-          :total-nodes="item.totalNodes"
-          @cancelled="emit('refresh')"
-        />
-      </div>
+      <PipelineMonitorRun
+        v-for="(run, idx) in item.activeRuns"
+        :key="run.id"
+        :run="run"
+        :pipeline-id="item.id"
+        :can-cancel="item.permissions.canCancel"
+        :active-current-step="idx === 0 ? item.currentStep : null"
+        @cancelled="emit('refresh')"
+      />
     </div>
 
-    <!-- Recent -->
-    <div v-if="item.recentRuns.length > 0" class="space-y-2">
-      <h4 class="text-xs font-semibold text-base-content/70 uppercase tracking-wide">
-        Последние
-      </h4>
-      <div class="space-y-1.5">
-        <PipelineMonitorRun
-          v-for="run in item.recentRuns"
-          :key="run.id"
-          :run="run"
-          :pipeline-id="item.id"
-          :can-cancel="item.permissions.canCancel"
-        />
-      </div>
+    <div v-if="item.recentRuns.length" class="flex flex-col gap-1.5">
+      <h4 class="text-micro tracking-[.06em] text-subtle uppercase">Последние</h4>
+      <PipelineMonitorRun
+        v-for="run in item.recentRuns"
+        :key="run.id"
+        :run="run"
+        :pipeline-id="item.id"
+        :can-cancel="item.permissions.canCancel"
+      />
     </div>
 
-    <!-- Empty -->
-    <div
+    <p
       v-if="!hasAny"
-      class="text-center py-4 text-sm text-base-content/60 border border-dashed border-base-300 rounded-box"
+      class="rounded-md border border-dashed border-border px-3 py-3 text-center text-sm text-muted"
     >
-      Ранов пока нет
-    </div>
+      Запусков пока нет.
+    </p>
 
-    <div v-if="startError" role="alert" class="alert alert-error alert-soft py-2">
-      <Icon name="mingcute:warning-line" />
-      <span class="text-xs">{{ startError }}</span>
-    </div>
-    <div v-if="statusError" role="alert" class="alert alert-error alert-soft py-2">
-      <Icon name="mingcute:warning-line" />
-      <span class="text-xs">{{ statusError }}</span>
-    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <UiButton
+        variant="primary"
+        :disabled="!canRun"
+        :loading="isStarting"
+        :title="runTitle"
+        @click="confirmStart = true"
+      >
+        <Icon v-if="!isStarting" name="mingcute:play-circle-line" />
+        Запустить
+      </UiButton>
+      <UiButton
+        v-if="canWrite"
+        :loading="isTogglingStatus"
+        :title="isActive ? 'Выключить конвейер' : 'Включить конвейер — разблокирует запуск'"
+        @click="handleToggleStatus"
+      >
+        <Icon v-if="!isTogglingStatus" :name="isActive ? 'mingcute:pause-circle-line' : 'mingcute:power-line'" />
+        {{ isActive ? 'Выключить' : 'Включить' }}
+      </UiButton>
 
-    <!-- Actions -->
-    <div class="flex items-center justify-between gap-2 flex-wrap pt-1">
-      <div class="flex items-center gap-2 flex-wrap">
-        <div
-          class="tooltip tooltip-top"
-          :data-tip="canRun ? 'Запустить конвейер' : (isActive ? 'Нет прав на запуск' : 'Конвейер неактивен — активируйте его')"
-        >
-          <button
-            class="btn btn-primary btn-sm"
-            :disabled="!canRun || isStarting"
-            @click="handleStart"
-          >
-            <span v-if="isStarting" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:play-circle-line" />
-            Запустить
-          </button>
-        </div>
-        <div
-          v-if="canWrite"
-          class="tooltip tooltip-top"
-          :data-tip="isActive ? 'Перевести конвейер в неактивный статус' : 'Активировать конвейер — разблокирует запуск'"
-        >
-          <button
-            class="btn btn-sm"
-            :class="isActive ? 'btn-ghost' : 'btn-success btn-outline'"
-            :disabled="isTogglingStatus"
-            @click="handleToggleStatus"
-          >
-            <span v-if="isTogglingStatus" class="loading loading-spinner loading-xs" />
-            <Icon v-else :name="isActive ? 'mingcute:pause-circle-line' : 'mingcute:power-line'" />
-            {{ isActive ? 'Деактивировать' : 'Активировать' }}
-          </button>
-        </div>
-      </div>
-      <div class="flex items-center gap-1">
-        <button
-          class="btn btn-ghost btn-sm"
-          :disabled="item.runStats.total === 0"
-          @click="openAllRuns"
-        >
+      <span class="flex-1" />
+
+      <NuxtLink :to="`/pipeline/${item.id}/runs`">
+        <UiButton variant="ghost" :disabled="item.runStats.total === 0">
           <Icon name="mingcute:list-check-line" />
           Все запуски
-          <span v-if="item.runStats.total > 0" class="badge badge-xs badge-ghost">{{ item.runStats.total }}</span>
-        </button>
-        <button class="btn btn-ghost btn-sm" @click="openEditor">
+          <span v-if="item.runStats.total" class="tnum font-mono text-micro text-subtle">
+            {{ item.runStats.total }}
+          </span>
+        </UiButton>
+      </NuxtLink>
+      <NuxtLink :to="`/pipeline/${item.id}`">
+        <UiButton variant="ghost">
           <Icon name="mingcute:edit-2-line" />
           Редактор
-        </button>
-      </div>
+        </UiButton>
+      </NuxtLink>
     </div>
+
+    <UiModal :open="confirmStart" size="sm" title="Запустить конвейер?" @close="confirmStart = false">
+      <p class="text-sm text-muted">
+        «{{ item.name }}» отработает целиком. Платные шаги — генерация сценариев,
+        роликов и публикация — будут оплачены; сумму запуска ни один endpoint пока
+        не отдаёт, поэтому она появится только по факту в балансах.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="confirmStart = false">Отмена</UiButton>
+        <UiButton variant="primary" :loading="isStarting" @click="handleStart">Запустить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

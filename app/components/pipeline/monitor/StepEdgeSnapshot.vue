@@ -95,75 +95,61 @@ const hasGlobalMismatch = computed(() => overallMissing.value.length > 0)
 </script>
 
 <template>
-  <div v-if="snapshot && rows.length > 0" class="space-y-1.5">
-    <div class="font-semibold text-base-content/70">
-      Передача от upstream-нод:
-    </div>
+  <UiDisclosure
+    v-if="snapshot && rows.length > 0"
+    title="Что передали ноды выше"
+    :icon="hasGlobalMismatch ? 'mingcute:alert-line' : undefined"
+    :icon-tone="hasGlobalMismatch ? 'text-warning' : 'text-muted'"
+    :count="rows.length"
+    :default-open="hasGlobalMismatch"
+  >
+    <div class="flex flex-col gap-1.5">
+      <!-- Ключ не пришёл ни от одного источника — это настоящая проблема -->
+      <p
+        v-if="hasGlobalMismatch"
+        class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+        <span class="min-w-0 flex-1">
+          Ожидаемые ключи не пришли ни от одной ноды выше:
+          <span class="font-mono">{{ overallMissing.join(', ') }}</span>
+        </span>
+      </p>
 
-    <!-- Глобальное предупреждение: required-ключ не пришёл ни от одного источника -->
-    <div
-      v-if="hasGlobalMismatch"
-      role="alert"
-      class="alert alert-warning alert-soft py-1.5 text-[10px]"
-    >
-      <Icon name="mingcute:alert-line" class="text-xs" />
-      <span>
-        Ожидаемые ключи не пришли ни от одной upstream-ноды:
-        <span
-          v-for="k in overallMissing"
-          :key="k"
-          class="badge badge-xs badge-warning ml-0.5 font-mono"
-        >{{ k }}</span>
-      </span>
-    </div>
-
-    <div
-      v-for="row in rows"
-      :key="row.sourceId"
-      class="flex items-start gap-2 bg-base-300 rounded-box p-1.5 text-[10px]"
-    >
-      <Icon
-        :name="row.mismatch ? 'mingcute:alert-line' : 'mingcute:arrow-right-line'"
-        class="text-xs mt-0.5 shrink-0"
-        :class="row.mismatch ? 'text-warning' : 'text-base-content/40'"
-      />
-      <div class="flex-1 min-w-0">
-        <div class="font-semibold text-base-content/80">
-          Нода «{{ row.sourceLabel }}» передала:
-          <span v-if="row.providedKeys.length === 0" class="text-base-content/40 font-normal">
-            (нет ключей)
-          </span>
-        </div>
-        <div v-if="row.providedKeys.length > 0" class="flex gap-1 flex-wrap mt-0.5">
-          <span
-            v-for="k in row.providedKeys"
-            :key="k"
-            class="badge badge-xs font-mono"
-            :class="expectedKeys.includes(k) ? 'badge-success' : 'badge-ghost'"
-          >{{ k }}</span>
-        </div>
-        <div
-          v-if="row.mismatch"
-          class="text-warning mt-0.5"
-          :title="`Эта нода ожидала ключи: ${expectedKeys.join(', ')}; от этого источника пришли: ${row.providedKeys.join(', ') || '∅'}`"
-        >
-          Отсутствуют ожидаемые ключи:
-          <span
-            v-for="k in row.missingKeys"
-            :key="k"
-            class="badge badge-xs badge-warning badge-outline ml-0.5 font-mono"
-          >{{ k }}</span>
+      <div
+        v-for="row in rows"
+        :key="row.sourceId"
+        class="flex items-start gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm"
+      >
+        <Icon
+          :name="row.mismatch ? 'mingcute:alert-line' : 'mingcute:arrow-right-line'"
+          class="mt-0.5 shrink-0"
+          :class="row.mismatch ? 'text-warning' : 'text-subtle'"
+        />
+        <div class="min-w-0 flex-1">
+          <div class="text-fg">
+            «{{ row.sourceLabel }}» передала
+            <span v-if="row.providedKeys.length === 0" class="text-subtle">— ничего</span>
+          </div>
+          <div v-if="row.providedKeys.length > 0" class="mt-1 flex flex-wrap gap-1">
+            <span
+              v-for="k in row.providedKeys"
+              :key="k"
+              class="inline-flex h-[18px] items-center rounded-sm border px-1.5 font-mono text-micro"
+              :class="expectedKeys.includes(k)
+                ? 'border-success-border bg-success-bg text-success'
+                : 'border-border bg-panel text-muted'"
+            >{{ k }}</span>
+          </div>
+          <div v-if="row.mismatch" class="mt-1 text-warning">
+            не хватает: <span class="font-mono">{{ row.missingKeys.join(', ') }}</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div v-if="expectedKeys.length > 0" class="text-base-content/50 pl-1 text-[10px]">
-      Эта нода ждала:
-      <span
-        v-for="k in expectedKeys"
-        :key="k"
-        class="badge badge-xs badge-info badge-outline ml-0.5 font-mono"
-      >{{ k }}</span>
+      <p v-if="expectedKeys.length > 0" class="text-micro text-subtle">
+        Эта нода ждала: <span class="font-mono">{{ expectedKeys.join(', ') }}</span>
+      </p>
     </div>
-  </div>
+  </UiDisclosure>
 </template>

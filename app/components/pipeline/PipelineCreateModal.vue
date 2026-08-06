@@ -1,61 +1,63 @@
 <script setup lang="ts">
-import { pipelineColors as availableColors, pipelineIcons as availableIcons, getPipelineColorClasses } from '~~/shared/utils/pipeline-meta'
+/**
+ * Создание конвейера.
+ *
+ * Иконка, цвет и теги спрятаны в «Дополнительно»: конвейер заводят ради графа,
+ * а оформление правят потом в редакторе.
+ */
+import { pipelineIcons } from '~~/shared/utils/pipeline-meta'
+import { PIPELINE_COLOR_OPTIONS, pipelineColor } from './PipelineColorMap'
 
-const emit = defineEmits<{
-  created: []
-}>()
+const emit = defineEmits<{ created: [] }>()
 
-const { createPipeline, error } = usePipelineActions()
-
-const modalRef = ref<HTMLDialogElement | null>(null)
-const pipelineName = ref('')
-const pipelineDescription = ref('')
-const pipelineIcon = ref('')
-const pipelineColor = ref('')
-const pipelineTags = ref<string[]>([])
+const isOpen = ref(false)
+const name = ref('')
+const description = ref('')
+const icon = ref('')
+const color = ref('')
+const tags = ref<string[]>([])
 const isCreating = ref(false)
 const showAdvanced = ref(false)
+const error = ref<string | null>(null)
 
-const selectedColorObj = computed(() => getPipelineColorClasses(pipelineColor.value))
-
-const selectedIconObj = computed(() =>
-  availableIcons.find(i => i.value === pipelineIcon.value) ?? availableIcons[0],
-)
-
-const previewColorClasses = computed(() => getPipelineColorClasses(pipelineColor.value))
+const preview = computed(() => pipelineColor(color.value))
 
 function open() {
-  pipelineName.value = ''
-  pipelineDescription.value = ''
-  pipelineIcon.value = ''
-  pipelineColor.value = ''
-  pipelineTags.value = []
+  name.value = ''
+  description.value = ''
+  icon.value = ''
+  color.value = ''
+  tags.value = []
   showAdvanced.value = false
   error.value = null
-  modalRef.value?.showModal()
+  isOpen.value = true
+}
+
+function close() {
+  if (!isCreating.value) isOpen.value = false
 }
 
 async function handleCreate() {
-  if (!pipelineName.value.trim()) return
+  if (!name.value.trim() || isCreating.value) return
   isCreating.value = true
-
+  error.value = null
   try {
     const result = await $fetch<{ data: { id: number } }>('/api/pipelines', {
       method: 'POST',
       body: {
-        name: pipelineName.value.trim(),
-        description: pipelineDescription.value.trim() || undefined,
-        icon: pipelineIcon.value || undefined,
-        color: pipelineColor.value || undefined,
-        tags: pipelineTags.value.length > 0 ? pipelineTags.value : undefined,
+        name: name.value.trim(),
+        description: description.value.trim() || undefined,
+        icon: icon.value || undefined,
+        color: color.value || undefined,
+        tags: tags.value.length ? tags.value : undefined,
       },
     })
-    modalRef.value?.close()
+    isOpen.value = false
     emit('created')
     await navigateTo(`/pipeline/${result.data.id}`)
   }
   catch (e: any) {
-    error.value = e?.data?.message || 'Ошибка создания конвейера'
+    error.value = e?.data?.message || 'Не удалось создать конвейер'
   }
   finally {
     isCreating.value = false
@@ -66,155 +68,95 @@ defineExpose({ open })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-lg">
-      <h3 class="font-bold text-lg mb-1">Создать конвейер</h3>
-      <p class="text-xs text-base-content/60 mb-4">
-        Базовое имя и описание. Иконку, цвет и теги можно настроить в «Дополнительно».
+  <UiModal :open="isOpen" title="Создать конвейер" @close="close">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        Имя и описание достаточно, чтобы начать. Оформление и теги правятся здесь
+        же в «Дополнительно» или потом в редакторе.
       </p>
 
-      <div class="space-y-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Название</legend>
-          <input
-            v-model="pipelineName"
-            type="text"
-            class="input input-sm w-full"
-            placeholder="Мой конвейер"
-            maxlength="255"
-            @keydown.enter.prevent="handleCreate"
-          />
-        </fieldset>
+      <UiField label="Название">
+        <UiInput v-model="name" placeholder="Мой конвейер" @keydown.enter.prevent="handleCreate" />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Описание</legend>
-          <textarea
-            v-model="pipelineDescription"
-            class="textarea textarea-sm w-full"
-            placeholder="Описание конвейера (необязательно)"
-            rows="3"
-          />
-        </fieldset>
+      <UiField label="Описание">
+        <UiTextarea v-model="description" :rows="3" placeholder="Что делает этот конвейер" />
+      </UiField>
 
-        <!-- Advanced toggle -->
-        <button
-          class="btn btn-ghost btn-xs gap-1"
-          @click="showAdvanced = !showAdvanced"
-        >
-          <Icon :name="showAdvanced ? 'mingcute:up-line' : 'mingcute:down-line'" class="text-xs" />
-          {{ showAdvanced ? 'Скрыть' : 'Дополнительно' }}
-        </button>
+      <UiButton variant="ghost" class="self-start" @click="showAdvanced = !showAdvanced">
+        <Icon
+          name="mingcute:right-line"
+          class="transition-transform duration-(--duration-fast)"
+          :class="showAdvanced && 'rotate-90'"
+        />
+        Дополнительно
+      </UiButton>
 
-        <template v-if="showAdvanced">
-          <!-- Icon picker with visual preview -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Иконка</legend>
-            <div class="flex flex-wrap gap-1.5">
-              <div
-                v-for="icon in availableIcons"
-                :key="icon.value"
-                class="tooltip tooltip-top"
-                :data-tip="icon.label"
-              >
-                <button
-                  type="button"
-                  class="btn btn-sm btn-square transition-all"
-                  :class="pipelineIcon === icon.value ? 'btn-primary' : 'btn-ghost'"
-                  @click="pipelineIcon = icon.value"
-                >
-                  <Icon :name="icon.icon" class="text-lg" />
-                </button>
-              </div>
-            </div>
-            <p v-if="selectedIconObj" class="label text-xs">
-              {{ selectedIconObj.label }}
-            </p>
-          </fieldset>
-
-          <!-- Color picker with visual preview -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Цвет</legend>
-            <div class="flex flex-wrap gap-1.5">
-              <div
-                v-for="color in availableColors"
-                :key="color.value"
-                class="tooltip tooltip-top"
-                :data-tip="color.label"
-              >
-                <button
-                  type="button"
-                  class="w-8 h-8 rounded-lg border-2 transition-all flex items-center justify-center"
-                  :class="[
-                    color.css,
-                    pipelineColor === color.value
-                      ? 'border-base-content scale-110 ring-2 ring-base-content/20'
-                      : 'border-base-300 hover:border-base-content/30',
-                  ]"
-                  @click="pipelineColor = color.value"
-                >
-                  <Icon
-                    v-if="pipelineColor === color.value"
-                    name="mingcute:check-line"
-                    class="text-sm"
-                    :class="color.textContent"
-                  />
-                </button>
-              </div>
-            </div>
-            <p class="label text-xs">
-              {{ selectedColorObj?.label }}
-            </p>
-          </fieldset>
-
-          <!-- Tags -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Теги</legend>
-            <PipelineTagPicker v-model="pipelineTags" />
-          </fieldset>
-
-          <!-- Live preview -->
-          <div v-if="pipelineName.trim()" class="flex items-center gap-3 p-3 bg-base-200/50 rounded-box">
-            <div
-              class="w-10 h-10 rounded-xl flex items-center justify-center"
-              :class="previewColorClasses.bg20"
+      <template v-if="showAdvanced">
+        <UiField label="Иконка">
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="item in pipelineIcons"
+              :key="item.value"
+              type="button"
+              class="flex size-8 cursor-pointer items-center justify-center rounded-md border"
+              :class="icon === item.value
+                ? 'border-accent-border bg-accent-bg text-accent'
+                : 'border-border bg-card text-muted hover:text-fg'"
+              :title="item.label"
+              @click="icon = item.value"
             >
-              <Icon
-                :name="pipelineIcon || 'mingcute:git-merge-line'"
-                class="text-xl"
-                :class="previewColorClasses.text"
-              />
-            </div>
-            <div>
-              <div class="font-semibold text-sm">{{ pipelineName }}</div>
-              <div v-if="pipelineTags.length > 0" class="flex flex-wrap gap-1 mt-0.5">
-                <span v-for="tag in pipelineTags" :key="tag" class="text-xs text-base-content/50">{{ tag }}</span>
-              </div>
-            </div>
+              <Icon :name="item.icon" class="text-lg" />
+            </button>
           </div>
-        </template>
+        </UiField>
 
-        <div v-if="error" role="alert" class="alert alert-error text-sm py-2">
-          <Icon name="mingcute:warning-line" />
-          <span>{{ error }}</span>
+        <UiField label="Цвет">
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="item in PIPELINE_COLOR_OPTIONS"
+              :key="item.value"
+              type="button"
+              class="flex size-8 cursor-pointer items-center justify-center rounded-md border"
+              :class="[item.swatch, color === item.value ? 'border-fg' : 'border-border']"
+              :title="item.label"
+              @click="color = item.value"
+            >
+              <Icon v-if="color === item.value" name="mingcute:check-line" class="text-inverse" />
+            </button>
+          </div>
+        </UiField>
+
+        <UiField label="Теги">
+          <PipelineTagPicker v-model="tags" />
+        </UiField>
+
+        <div v-if="name.trim()" class="flex items-center gap-3 rounded-md border border-border bg-card p-3">
+          <span class="flex size-10 items-center justify-center rounded-md" :class="preview.bg">
+            <Icon :name="icon || 'mingcute:git-merge-line'" class="text-xl" :class="preview.text" />
+          </span>
+          <span class="min-w-0">
+            <span class="block truncate font-medium">{{ name }}</span>
+            <span v-if="tags.length" class="block truncate text-sm text-subtle">{{ tags.join(' · ') }}</span>
+          </span>
         </div>
-      </div>
+      </template>
 
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn btn-sm btn-ghost">Отмена</button>
-        </form>
-        <button
-          class="btn btn-sm btn-primary"
-          :disabled="!pipelineName.trim() || isCreating"
-          @click="handleCreate"
-        >
-          <span v-if="isCreating" class="loading loading-spinner loading-xs" />
-          Создать
-        </button>
-      </div>
+      <p
+        v-if="error"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span class="min-w-0 flex-1">{{ error }}</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isCreating" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" :disabled="!name.trim()" :loading="isCreating" @click="handleCreate">
+        Создать
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

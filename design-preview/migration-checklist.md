@@ -35,7 +35,7 @@
 | `+` | `devices/index.vue` | карточки профилей проверены с включённым флагом зоны |
 | `+` | `references/index.vue` | карточки |
 | `+` | `google-drive/index.vue` | зона выключена; свои тосты заменены общими |
-| `~` | `pipeline/index.vue` | каталог и карточка перенесены и проверены; монитор запусков и четыре модалки (создание, шаблоны, импорт, превью) — этап 6 вместе с макетом 05 |
+| `+` | `pipeline/index.vue` | каталог, монитор исполнений и четыре модалки (создание, шаблоны, импорт, превью с правкой и удалением) |
 | `+` | `admin/apps/index.vue` | карточки, создание и удаление со словом-подтверждением |
 | `+` | `admin/users/index.vue` | только просмотр, права приходят из MC |
 | `+` | `admin/cycles/index.vue` | фильтры, пагинация, запуск цикла подписан ценой |
@@ -64,8 +64,8 @@
 | --- | --- | --- |
 | `+` | `index.vue` | 01-dashboard · без расхода, интеграций, воронки и итогов периода — нет данных |
 | `—` | `pipeline/[id]/index.vue` | 04-pipeline-editor |
-| `—` | `pipeline/[id]/runs/index.vue` | 05-run-monitor |
-| `—` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor |
+| `+` | `pipeline/[id]/runs/index.vue` | 05-run-monitor · история по дням, активные закреплены |
+| `+` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor · шаги, длительности, логи, схема; стоимости нет — её не отдаёт API |
 | `—` | `analytics/index.vue` | 07-analytics |
 | `—` | `settings.vue` | 08-settings-admin |
 | `—` | `admin/index.vue` | 08-settings-admin |
@@ -113,6 +113,7 @@ bun run scripts/seed-cycles-demo.ts      # циклы: завершённый с
 bun run scripts/seed-scenes-demo.ts      # сцены: собранная со всеми блоками, пустая, в генерации, архивная
 bun run scripts/seed-devices-demo.ts     # устройства: синхронизирован, запущен, локальный, конфликт, без прокси
 bun run scripts/seed-posting-jobs-demo.ts # очередь публикаций во всех состояниях, часть — на ближайшие сутки
+bun run scripts/seed-pipeline-runs-demo.ts # конвейер из 9 блоков и 8 запусков во всех состояниях
 ```
 
 `seed-scenes-demo` требует персонажей (`seed-characters-demo`) — блок «Персонаж»

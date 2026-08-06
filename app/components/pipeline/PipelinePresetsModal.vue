@@ -1,167 +1,146 @@
 <script setup lang="ts">
+/**
+ * Готовые шаблоны конвейеров.
+ *
+ * Шаблон не запускает ничего платного — он создаёт конвейер с уже собранным
+ * графом, поэтому выбор идёт по клику без подтверждения.
+ */
 import type { PipelinePreset } from '~~/shared/types/pipeline'
-import { getPipelineColorClasses } from '~~/shared/utils/pipeline-meta'
+import { pipelineColor } from './PipelineColorMap'
 
-const emit = defineEmits<{
-  select: [preset: PipelinePreset]
-}>()
+const emit = defineEmits<{ select: [preset: PipelinePreset] }>()
 
-const modalRef = ref<HTMLDialogElement | null>(null)
+const isOpen = ref(false)
 const presets = ref<PipelinePreset[]>([])
 const isLoading = ref(false)
 const selectedCategory = ref<string | null>(null)
-const searchQuery = ref('')
+const search = ref('')
 
-const difficultyLabels: Record<string, { label: string; class: string }> = {
-  beginner: { label: 'Начальный', class: 'badge-success' },
-  intermediate: { label: 'Средний', class: 'badge-warning' },
-  advanced: { label: 'Продвинутый', class: 'badge-error' },
+const DIFFICULTY: Record<string, { label: string; tone: string }> = {
+  beginner: { label: 'Начальный', tone: 'border-success-border bg-success-bg text-success' },
+  intermediate: { label: 'Средний', tone: 'border-warning-border bg-warning-bg text-warning' },
+  advanced: { label: 'Продвинутый', tone: 'border-danger-border bg-danger-bg text-danger' },
 }
 
-const categories = computed<string[]>(() => {
-  const cats = new Set(presets.value.map((p: PipelinePreset) => p.category))
-  return [...cats]
-})
+const categories = computed(() => [...new Set(presets.value.map(p => p.category))])
 
-const filteredPresets = computed<PipelinePreset[]>(() => {
+const filtered = computed(() => {
   let result = presets.value
-  if (selectedCategory.value) {
-    result = result.filter((p: PipelinePreset) => p.category === selectedCategory.value)
-  }
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.trim().toLowerCase()
-    result = result.filter((p: PipelinePreset) =>
+  if (selectedCategory.value) result = result.filter(p => p.category === selectedCategory.value)
+  const q = search.value.trim().toLowerCase()
+  if (q) {
+    result = result.filter(p =>
       p.name.toLowerCase().includes(q)
       || p.description.toLowerCase().includes(q)
-      || p.useCase.toLowerCase().includes(q),
-    )
+      || p.useCase.toLowerCase().includes(q))
   }
   return result
 })
 
 async function open() {
-  modalRef.value?.showModal()
+  isOpen.value = true
   selectedCategory.value = null
-  searchQuery.value = ''
+  search.value = ''
+  if (presets.value.length) return
 
-  if (presets.value.length === 0) {
-    isLoading.value = true
-    try {
-      const res = await $fetch<{ data: PipelinePreset[] }>('/api/pipelines/presets')
-      presets.value = res.data
-    }
-    catch {
-      // silent
-    }
-    finally {
-      isLoading.value = false
-    }
+  isLoading.value = true
+  try {
+    const res = await $fetch<{ data: PipelinePreset[] }>('/api/pipelines/presets')
+    presets.value = res.data
+  }
+  catch {
+    // Пустой список объясняет себя сам — отдельная ошибка тут ничего не добавит.
+  }
+  finally {
+    isLoading.value = false
   }
 }
 
 function selectPreset(preset: PipelinePreset) {
+  isOpen.value = false
   emit('select', preset)
-  modalRef.value?.close()
 }
 
 defineExpose({ open })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-4xl max-h-[85vh]">
-      <h3 class="text-lg font-bold flex items-center gap-2">
-        <Icon name="mingcute:layout-11-line" class="text-primary" />
-        Пресеты конвейеров
-      </h3>
-
-      <p class="text-sm text-base-content/60 mt-1">
-        Готовые шаблоны для быстрого старта. Выберите пресет и он будет создан как новый конвейер.
+  <UiModal :open="isOpen" size="lg" title="Шаблоны конвейеров" @close="isOpen = false">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
+        Собранный граф, который можно править дальше в редакторе. Ничего не
+        запускается — создаётся новый конвейер.
       </p>
 
-      <!-- Search & Filters -->
-      <div class="flex flex-wrap gap-2 mt-4">
-        <input
-          v-model="searchQuery"
-          type="text"
-          class="input input-sm flex-1 min-w-[200px]"
-          placeholder="Поиск пресетов..."
-        />
-        <button
-          class="btn btn-sm"
-          :class="selectedCategory === null ? 'btn-primary' : 'btn-ghost'"
+      <UiInput v-model="search" placeholder="Поиск по названию и задаче" />
+
+      <div class="flex flex-wrap items-center gap-1.5">
+        <UiButton
+          :variant="selectedCategory === null ? 'primary' : 'ghost'"
           @click="selectedCategory = null"
         >
           Все
-        </button>
-        <button
-          v-for="(cat, catIdx) in categories"
-          :key="catIdx"
-          class="btn btn-sm"
-          :class="selectedCategory === cat ? 'btn-primary' : 'btn-ghost'"
+        </UiButton>
+        <UiButton
+          v-for="cat in categories"
+          :key="cat"
+          :variant="selectedCategory === cat ? 'primary' : 'ghost'"
           @click="selectedCategory = cat"
         >
           {{ cat }}
-        </button>
+        </UiButton>
       </div>
 
-      <!-- Loading -->
-      <div v-if="isLoading" class="flex justify-center py-12">
-        <span class="loading loading-spinner loading-lg" />
-      </div>
+      <UiSkeleton v-if="isLoading" variant="details" :count="4" />
 
-      <!-- Presets grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 max-h-[55vh] overflow-y-auto pr-1">
-        <div
-          v-for="preset in filteredPresets"
+      <UiEmptyState
+        v-else-if="!filtered.length"
+        :variant="presets.length ? 'search' : 'first'"
+        :title="presets.length ? 'Шаблонов по фильтру нет' : 'Шаблонов нет'"
+        :description="presets.length
+          ? 'Сбросьте поиск или выберите другую категорию.'
+          : 'Список шаблонов пуст — соберите конвейер с нуля.'"
+      />
+
+      <div v-else class="grid gap-3 md:grid-cols-2">
+        <button
+          v-for="preset in filtered"
           :key="preset.id"
-          class="card bg-base-200/50 hover:bg-base-200 transition-colors cursor-pointer border border-base-300 hover:border-primary/30"
+          type="button"
+          class="flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-card p-3 text-left hover:border-accent-border"
           @click="selectPreset(preset)"
         >
-          <div class="card-body p-4 gap-2">
-            <div class="flex items-center gap-2">
-              <div
-                class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                :class="getPipelineColorClasses(preset.color).bg20"
-              >
-                <Icon :name="preset.icon" class="text-lg" :class="getPipelineColorClasses(preset.color).text" />
-              </div>
-              <h4 class="font-semibold text-sm flex-1">{{ preset.name }}</h4>
-              <span class="badge badge-xs" :class="difficultyLabels[preset.difficulty]?.class">
-                {{ difficultyLabels[preset.difficulty]?.label }}
-              </span>
-            </div>
+          <span class="flex items-center gap-2">
+            <span
+              class="flex size-8 shrink-0 items-center justify-center rounded-md"
+              :class="pipelineColor(preset.color).bg"
+            >
+              <Icon :name="preset.icon" class="text-lg" :class="pipelineColor(preset.color).text" />
+            </span>
+            <span class="min-w-0 flex-1 truncate font-medium">{{ preset.name }}</span>
+            <span
+              v-if="DIFFICULTY[preset.difficulty]"
+              class="inline-flex h-[18px] shrink-0 items-center rounded-sm border px-1.5 text-micro"
+              :class="DIFFICULTY[preset.difficulty]!.tone"
+            >{{ DIFFICULTY[preset.difficulty]!.label }}</span>
+          </span>
 
-            <p class="text-xs text-base-content/60">{{ preset.description }}</p>
+          <span class="text-sm text-muted">{{ preset.description }}</span>
 
-            <div class="flex items-center gap-2 mt-1">
-              <span class="badge badge-ghost badge-xs">{{ preset.category }}</span>
-              <span class="text-[10px] text-base-content/40">
-                {{ preset.graphData.nodes.length }} блоков
-              </span>
-            </div>
+          <span class="flex flex-wrap items-center gap-2 text-micro text-subtle">
+            <span class="inline-flex h-[18px] items-center rounded-sm border border-border bg-panel px-1.5">
+              {{ preset.category }}
+            </span>
+            <span class="tnum font-mono">{{ preset.graphData.nodes.length }} блоков</span>
+          </span>
 
-            <p class="text-[11px] text-base-content/50 italic mt-0.5">
-              {{ preset.useCase }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty -->
-      <div v-if="!isLoading && filteredPresets.length === 0" class="text-center py-8 text-base-content/40">
-        <Icon name="mingcute:search-line" class="text-3xl" />
-        <p class="text-sm mt-2">Пресеты не найдены</p>
-      </div>
-
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn">Закрыть</button>
-        </form>
+          <span class="text-micro text-subtle">{{ preset.useCase }}</span>
+        </button>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="isOpen = false">Закрыть</UiButton>
+    </template>
+  </UiModal>
 </template>

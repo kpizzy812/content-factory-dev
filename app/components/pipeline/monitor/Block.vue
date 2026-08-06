@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Блок «Исполнения» на странице конвейеров.
+ *
+ * Иконка загрузки рантайма была `mingcute:cpu-line` — такой в наборе нет, и она
+ * молча не рисовалась. Заменена на существующую.
+ */
 import type { PipelineMonitorItem, PipelineMonitorMeta } from '~~/shared/types/workflow'
 
 const props = defineProps<{
@@ -7,91 +13,81 @@ const props = defineProps<{
   pending: boolean
 }>()
 
-const emit = defineEmits<{
-  refresh: []
-}>()
+const emit = defineEmits<{ refresh: [] }>()
 
 const store = usePipelineMonitorStore()
 
 const runtime = computed(() => props.meta?.runtime ?? null)
-
-function onToolbarClick(ev: Event) {
-  // Защищаемся от всплытия в collapse-title — иначе клик по тулбару внутри
-  // заголовка блока триггерит свой же toggle.
-  ev.stopPropagation()
-}
 </script>
 
 <template>
-  <section
-    class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-box"
-    :class="store.monitorBlockExpanded ? 'collapse-open' : 'collapse-close'"
-  >
-    <div
-      class="collapse-title cursor-pointer flex items-center justify-between flex-wrap gap-2 py-3"
-      @click="store.toggleMonitorBlock()"
-    >
-      <div class="flex items-center gap-2">
-        <h2 class="text-lg font-bold text-base-content">
-          Исполнения
-        </h2>
-        <span v-if="runtime" class="badge badge-sm badge-ghost font-mono" title="Загрузка рантайма">
-          <Icon name="mingcute:cpu-line" class="mr-1" />
+  <section class="overflow-hidden rounded-lg border border-border bg-panel">
+    <div class="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+      <button
+        type="button"
+        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+        :aria-expanded="store.monitorBlockExpanded"
+        @click="store.toggleMonitorBlock()"
+      >
+        <Icon
+          name="mingcute:right-line"
+          class="shrink-0 text-subtle transition-transform duration-(--duration-fast)"
+          :class="store.monitorBlockExpanded && 'rotate-90'"
+        />
+        <h2 class="text-base font-medium">Исполнения</h2>
+        <span
+          v-if="runtime"
+          class="tnum inline-flex h-[18px] items-center gap-1 rounded-sm border border-border bg-card px-1.5 font-mono text-micro text-muted"
+          title="Загрузка рантайма: активных из максимума"
+        >
+          <Icon name="mingcute:server-line" />
           {{ runtime.capacityUsed }}
         </span>
-        <span v-if="runtime && runtime.queuedRuns > 0" class="badge badge-sm badge-warning">
-          В очереди: {{ runtime.queuedRuns }}
-        </span>
-      </div>
-      <div class="flex items-center gap-1 mr-8" @click="onToolbarClick">
-        <button
-          class="btn btn-ghost btn-sm"
-          title="Развернуть все коллапсеры в блоке Исполнения"
-          @click.stop="store.expandAll()"
+        <span
+          v-if="runtime && runtime.queuedRuns > 0"
+          class="tnum inline-flex h-[18px] items-center rounded-sm border border-warning-border bg-warning-bg px-1.5 font-mono text-micro text-warning"
         >
+          в очереди {{ runtime.queuedRuns }}
+        </span>
+      </button>
+
+      <div class="flex shrink-0 items-center gap-1">
+        <UiButton variant="ghost" title="Развернуть все конвейеры" @click="store.expandAll()">
           <Icon name="mingcute:unfold-vertical-line" />
           <span class="hidden sm:inline">Показать все</span>
-        </button>
-        <button
-          class="btn btn-ghost btn-sm"
-          title="Свернуть все коллапсеры"
-          @click.stop="store.collapseAll()"
-        >
+        </UiButton>
+        <UiButton variant="ghost" title="Свернуть все конвейеры" @click="store.collapseAll()">
           <Icon name="mingcute:fold-vertical-line" />
           <span class="hidden sm:inline">Закрыть все</span>
-        </button>
+        </UiButton>
       </div>
     </div>
 
-    <div class="collapse-content">
-      <div class="space-y-3">
-        <PipelineMonitorToolbar />
+    <div v-if="store.monitorBlockExpanded" class="flex flex-col gap-3 px-3.5 pb-3.5">
+      <PipelineMonitorToolbar />
 
-        <div v-if="pending && items.length === 0" class="flex justify-center py-10">
-          <span class="loading loading-spinner loading-lg" />
+      <UiSkeleton v-if="pending && !items.length" variant="details" :count="5" />
+
+      <PipelineMonitorEmpty v-else-if="!items.length" />
+
+      <template v-else>
+        <div v-if="store.viewMode === 'list'" class="flex flex-col gap-2">
+          <PipelineMonitorRow
+            v-for="item in items"
+            :key="item.id"
+            :item="item"
+            @refresh="emit('refresh')"
+          />
         </div>
-
-        <PipelineMonitorEmpty v-else-if="items.length === 0" />
-
-        <template v-else>
-          <div v-if="store.viewMode === 'list'" class="space-y-2">
-            <PipelineMonitorRow
-              v-for="item in items"
-              :key="item.id"
-              :item="item"
-              @refresh="emit('refresh')"
-            />
-          </div>
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            <PipelineMonitorCard
-              v-for="item in items"
-              :key="item.id"
-              :item="item"
-              @refresh="emit('refresh')"
-            />
-          </div>
-        </template>
-      </div>
+        <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <PipelineMonitorCard
+            v-for="item in items"
+            :key="item.id"
+            :item="item"
+            @refresh="emit('refresh')"
+          />
+        </div>
+      </template>
     </div>
   </section>
 </template>
