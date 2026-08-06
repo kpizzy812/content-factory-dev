@@ -36,10 +36,10 @@
 | `+` | `references/index.vue` | карточки |
 | `+` | `google-drive/index.vue` | зона выключена; свои тосты заменены общими |
 | `—` | `pipeline/index.vue` | |
-| `—` | `admin/apps/index.vue` | |
-| `—` | `admin/users/index.vue` | |
-| `—` | `admin/cycles/index.vue` | |
-| `—` | `admin/logs/index.vue` | виртуализация, `UiLogRow` |
+| `+` | `admin/apps/index.vue` | карточки, создание и удаление со словом-подтверждением |
+| `+` | `admin/users/index.vue` | только просмотр, права приходят из MC |
+| `+` | `admin/cycles/index.vue` | фильтры, пагинация, запуск цикла подписан ценой |
+| `+` | `admin/logs/index.vue` | плотные строки в подаче `UiLogRow`; виртуализация не нужна — страницы по 30 |
 
 ## Детальные — по эталону `detail/`
 
