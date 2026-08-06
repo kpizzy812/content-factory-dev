@@ -11,7 +11,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const dialogRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const currentRow = ref<AdminServiceBalanceRow | null>(null)
 
 const editAmount = ref("")
@@ -28,11 +28,12 @@ function open(row: AdminServiceBalanceRow) {
   editNotes.value = row.balance?.notes ?? ""
   error.value = null
   saving.value = false
-  dialogRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  dialogRef.value?.close()
+  if (saving.value) return
+  isOpen.value = false
   currentRow.value = null
   emit("close")
 }
@@ -94,129 +95,88 @@ async function save() {
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal" @close="emit('close')">
-    <div class="modal-box max-w-lg">
-      <h3 class="font-bold text-lg mb-1">
-        Обновить баланс: {{ currentRow?.label }}
-      </h3>
-
-      <p v-if="currentRow?.dashboardHint" class="text-xs text-base-content/60 mb-3">
+  <UiModal :open="isOpen" :title="`Баланс: ${currentRow?.label ?? ''}`" @close="close">
+    <div class="flex flex-col gap-3">
+      <p v-if="currentRow?.dashboardHint" class="text-sm text-muted">
         Где взять:
         <a
           v-if="isHttpsHint"
           :href="currentRow.dashboardHint"
           target="_blank"
           rel="noopener noreferrer"
-          class="link link-primary"
-        >
-          {{ currentRow.dashboardHint }}
-          <Icon name="mingcute:external-link-line" class="inline align-text-bottom" />
-        </a>
+        >{{ currentRow.dashboardHint }}</a>
         <span v-else>{{ currentRow.dashboardHint }}</span>
       </p>
 
-      <!-- Source alerts -->
-      <div v-if="src === 'api'" role="alert" class="alert alert-info alert-soft text-xs mb-3">
-        <Icon name="mingcute:information-line" />
-        <span>
-          Автоматически фетчится из API. Manual значение используется как резерв
-          (fallback при недоступности API).
+      <p
+        v-if="src === 'api'"
+        class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+        <span>Значение приходит из API сервиса. Введённое руками остаётся резервом на случай, когда API недоступен.</span>
+      </p>
+      <p
+        v-else-if="src === 'estimate'"
+        class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+        <span>Это отправная точка для расчёта расхода: введите остаток после пополнения, дальше система списывает с него каждый платный вызов.</span>
+      </p>
+      <p
+        v-else-if="src === 'fallback'"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-danger" />
+        <span class="min-w-0 flex-1">
+          API сервиса сейчас недоступен — показано последнее введённое значение.
+          <span v-if="fallbackReason" class="block text-micro text-subtle">Причина: {{ fallbackReason }}</span>
         </span>
-      </div>
-      <div v-else-if="src === 'estimate'" role="alert" class="alert alert-warning alert-soft text-xs mb-3">
-        <Icon name="mingcute:warning-line" />
-        <span>
-          Baseline для расчёта расхода. Введите остаток после top-up — система будет
-          списывать с него каждый AI-вызов.
-        </span>
-      </div>
-      <div v-else-if="src === 'fallback'" role="alert" class="alert alert-error alert-soft text-xs mb-3">
-        <Icon name="mingcute:warning-line" />
-        <div>
-          <div>API сейчас недоступен — показано последнее manual значение. Проверьте API-ключ в <code>.env</code>.</div>
-          <div v-if="fallbackReason" class="mt-1 opacity-80">
-            Причина: {{ fallbackReason }}
-          </div>
-        </div>
-      </div>
-      <div v-else role="alert" class="alert alert-soft text-xs mb-3">
-        <Icon name="mingcute:edit-line" />
-        <span>
-          Введено вручную: автосбор для этого сервиса недоступен (нет публичного
-          billing API). Обновляйте после каждого пополнения. Пороги low/critical
-          настроены в <code>server/utils/balance/config.ts</code>.
-        </span>
-      </div>
+      </p>
+      <p
+        v-else
+        class="flex items-start gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-sm text-muted"
+      >
+        <Icon name="mingcute:edit-line" class="mt-0.5 shrink-0" />
+        <span>У сервиса нет публичного billing API — остаток вводится руками после каждого пополнения.</span>
+      </p>
 
-      <!-- F-2: подсказка для quota-сервисов (NodeMaven) -->
-      <div v-if="isQuotaService" role="alert" class="alert alert-info alert-soft text-xs mb-3">
-        <Icon name="mingcute:information-line" />
-        <span>
-          NodeMaven — quota-сервис (трафик в GB). Введите <b>стоимость подписки в USD</b>
-          для контроля общих расходов. Объём трафика обновляется автоматически из API и
-          отображается в колонке «Текущий баланс».
-        </span>
-      </div>
+      <p
+        v-if="isQuotaService"
+        class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+        <span>Здесь считается трафик, а не деньги. Введите стоимость подписки в долларах — объём приходит из API сам.</span>
+      </p>
 
-      <fieldset class="fieldset mb-3">
-        <legend class="fieldset-legend">Сумма</legend>
-        <input
-          v-model="editAmount"
-          type="text"
-          inputmode="decimal"
-          class="input input-sm w-full"
-          placeholder="Например, 12.50"
-        >
-        <p v-if="src === 'api'" class="text-xs text-base-content/60 mt-1">
-          Подтянуто из API, проверьте перед сохранением.
-        </p>
-      </fieldset>
+      <UiField label="Сумма" :hint="src === 'api' ? 'Подтянуто из API — проверьте перед сохранением' : undefined">
+        <UiInput v-model="editAmount" mono inputmode="decimal" placeholder="12.50" />
+      </UiField>
 
-      <fieldset class="fieldset mb-3">
-        <legend class="fieldset-legend">Валюта</legend>
-        <select v-model="editCurrency" class="select select-sm w-full">
-          <option v-for="c in currencyOptions" :key="c" :value="c">{{ c }}</option>
-        </select>
-      </fieldset>
-
-      <fieldset class="fieldset mb-3">
-        <legend class="fieldset-legend">Заметки (необязательно)</legend>
-        <textarea
-          v-model="editNotes"
-          class="textarea textarea-sm w-full"
-          rows="2"
-          maxlength="500"
-          placeholder="Например, дата пополнения / прогноз когда кончится"
+      <UiField label="Валюта">
+        <UiSelect
+          v-model="editCurrency"
+          :options="currencyOptions.map(c => ({ value: c, label: c }))"
+          class="w-40"
         />
-      </fieldset>
+      </UiField>
 
-      <div v-if="error" role="alert" class="alert alert-error mb-3">
-        <Icon name="mingcute:warning-line" />
-        <span class="text-sm">{{ error }}</span>
-      </div>
+      <UiField label="Заметки" hint="Например, когда пополняли и на сколько хватило">
+        <UiTextarea v-model="editNotes" :rows="2" placeholder="Необязательно" />
+      </UiField>
 
-      <div class="modal-action">
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost"
-          :disabled="saving"
-          @click="close"
-        >
-          Отмена
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-primary"
-          :disabled="saving"
-          @click="save"
-        >
-          <span v-if="saving" class="loading loading-spinner loading-xs" />
-          Сохранить
-        </button>
-      </div>
+      <p
+        v-if="error"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span class="min-w-0 flex-1">{{ error }}</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="saving" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" :loading="saving" @click="save">Сохранить</UiButton>
+    </template>
+  </UiModal>
 </template>

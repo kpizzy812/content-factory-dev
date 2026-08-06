@@ -1,14 +1,22 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ["admin-access"] })
-useHead({ title: "Здоровье storage" })
+/**
+ * Здоровье хранилища. Макет: design-preview/catalog/08-settings-admin.dc.html
+ *
+ * В макете это полоски заполненности с порогами 80 и 90 процентов. Endpoint
+ * отдаёт другое: сколько роликов проверено и у скольких пропали файлы. Полоски
+ * рисуются по этим числам — доля найденного, — а не по свободному месту:
+ * `freeSpaceGB` приходит без общего объёма, и процент из него не получится.
+ *
+ * Ответ приходит только на клиенте (`server: false`), поэтому содержимое
+ * обёрнуто в ClientOnly: иначе на сервере страница вечно в загрузке.
+ */
+definePageMeta({ middleware: ['admin-access'] })
+useHead({ title: 'Здоровье хранилища' })
 
 interface MissingEntry {
   id: number
-  scenarioId: number | null
   title: string | null
   status: string
-  fileUrl: string | null
-  completedAt: string | null
   missingVideoFile: boolean
   missingImageAssets: number
   totalImageAssets: number
@@ -22,12 +30,7 @@ interface StorageHealthResponse {
     storageBase: string
     baseExists: boolean
     freeSpaceGB: number | null
-    driver: {
-      provider: string
-      bucketName?: string
-      localRoot?: string
-      credentialsSource?: string
-    }
+    driver: { provider: string; bucketName?: string; localRoot?: string; credentialsSource?: string }
     checkedVideos: number
     videoFilesOnDisk: number
     videoFilesMissing: number
@@ -40,152 +43,168 @@ interface StorageHealthResponse {
 }
 
 const { data, refresh, pending, error } = await useFetch<StorageHealthResponse>(
-  "/api/admin/storage-health",
+  '/api/admin/storage-health',
   { server: false, default: () => null },
 )
+
 const stats = computed(() => data.value?.data ?? null)
+
+// `pending` на сервере false, а в браузере сразу true — привязка к кнопке
+// ломала гидратацию. Кнопка знает только про свой собственный повтор.
+const refreshing = ref(false)
+
+async function recheck() {
+  refreshing.value = true
+  try {
+    await refresh()
+  }
+  finally {
+    refreshing.value = false
+  }
+}
+
+interface Bar {
+  label: string
+  found: number
+  expected: number
+  hint: string
+}
+
+const bars = computed<Bar[]>(() => {
+  const s = stats.value
+  if (!s) return []
+  return [
+    { label: 'Готовые ролики', found: s.videoFilesOnDisk, expected: s.checkedVideos, hint: 'финальные mp4' },
+    { label: 'Кадры сцен', found: s.imageAssetsOnDisk, expected: s.imageAssetsExpected, hint: 'картинки под клипы' },
+    { label: 'Клипы сцен', found: s.clipAssetsOnDisk, expected: s.clipAssetsExpected, hint: 'сгенерированные куски' },
+  ]
+})
+
+function share(bar: Bar): number {
+  if (!bar.expected) return 100
+  return Math.round((bar.found / bar.expected) * 100)
+}
+
+function barTone(bar: Bar): string {
+  const value = share(bar)
+  if (value >= 100) return 'bg-success'
+  if (value >= 90) return 'bg-warning'
+  return 'bg-danger'
+}
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <h1 class="text-2xl font-bold text-base-content">Здоровье storage</h1>
-      <button
-        class="btn btn-sm btn-soft"
-        :disabled="pending"
-        @click="refresh()"
-      >
-        <Icon name="mingcute:refresh-2-line" :class="{ 'animate-spin': pending }" />
-        Обновить
-      </button>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Здоровье хранилища</h1>
+      <span class="flex-1" />
+      <UiButton :loading="refreshing" @click="recheck">
+        <Icon v-if="!refreshing" name="mingcute:refresh-2-line" />
+        Проверить заново
+      </UiButton>
     </div>
 
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
+    <ClientOnly>
+      <UiSkeleton v-if="pending && !stats" variant="details" :count="6" />
 
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Не удалось загрузить данные: {{ error.message }}</span>
-    </div>
+      <UiErrorState
+        v-else-if="error"
+        message="Не удалось проверить хранилище."
+        :details="error.message"
+        @retry="recheck"
+      />
 
-    <template v-else-if="stats">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card card-border bg-base-100">
-          <div class="card-body p-4">
-            <div class="text-xs opacity-60">Storage Driver</div>
-            <div class="text-2xl font-bold uppercase">{{ stats.driver.provider }}</div>
-            <div class="text-xs opacity-60 truncate">
-              {{ stats.driver.bucketName ?? stats.driver.localRoot ?? "—" }}
+      <template v-else-if="stats">
+        <section class="overflow-hidden rounded-lg border border-border bg-panel">
+          <div class="flex flex-wrap items-center gap-2 border-b border-divider bg-card px-3.5 py-2.5">
+            <h2 class="text-base font-medium">Файлы на месте</h2>
+            <span class="tnum font-mono text-sm text-subtle">
+              проверено {{ stats.checkedVideos }} роликов
+            </span>
+          </div>
+
+          <div class="flex flex-col gap-2 px-3.5 py-3">
+            <div
+              v-for="bar in bars"
+              :key="bar.label"
+              class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1fr)_130px_120px]"
+            >
+              <span class="min-w-0">
+                <span class="block truncate text-sm">{{ bar.label }}</span>
+                <span class="block truncate text-micro text-subtle">{{ bar.hint }}</span>
+              </span>
+              <span class="col-span-2 h-1.5 overflow-hidden rounded-[2px] bg-card sm:col-span-1">
+                <span class="block h-full" :class="barTone(bar)" :style="{ width: `${share(bar)}%` }" />
+              </span>
+              <span class="tnum font-mono text-sm sm:text-right" :class="share(bar) >= 100 ? 'text-muted' : 'text-warning'">
+                {{ bar.found }} из {{ bar.expected }}
+              </span>
             </div>
           </div>
-        </div>
-        <div class="card card-border bg-base-100">
-          <div class="card-body p-4">
-            <div class="text-xs opacity-60">Проверено видео</div>
-            <div class="text-2xl font-bold">{{ stats.checkedVideos }}</div>
-            <div class="text-xs">
-              На диске: {{ stats.videoFilesOnDisk }} / отсутствует: {{ stats.videoFilesMissing }}
-            </div>
-          </div>
-        </div>
-        <div class="card card-border bg-base-100">
-          <div class="card-body p-4">
-            <div class="text-xs opacity-60">Картинки сцен</div>
-            <div class="text-2xl font-bold">
-              {{ stats.imageAssetsOnDisk }} / {{ stats.imageAssetsExpected }}
-            </div>
-            <div class="text-xs opacity-60">на диске / ожидается</div>
-          </div>
-        </div>
-        <div class="card card-border bg-base-100">
-          <div class="card-body p-4">
-            <div class="text-xs opacity-60">Клипы сцен</div>
-            <div class="text-2xl font-bold">
-              {{ stats.clipAssetsOnDisk }} / {{ stats.clipAssetsExpected }}
-            </div>
-            <div class="text-xs opacity-60">на диске / ожидается</div>
-          </div>
-        </div>
-      </div>
 
-      <div
-        v-if="stats.videoFilesMissing > 0"
-        role="alert"
-        class="alert alert-warning"
-      >
-        <Icon name="mingcute:warning-line" />
-        <div>
-          <div class="font-semibold">{{ stats.videoFilesMissing }} видео без файла</div>
-          <div class="text-xs">
-            Storage driver не нашёл финальные mp4 — пересоберите ассембли (бесплатно) или
-            перегенерируйте полностью (платно).
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-divider bg-card px-3.5 py-2 text-micro text-subtle">
+            <span class="font-mono">{{ stats.driver.provider }}</span>
+            <span class="truncate font-mono">
+              {{ stats.driver.bucketName ?? stats.driver.localRoot ?? stats.storageBase }}
+            </span>
+            <span v-if="stats.freeSpaceGB !== null" class="tnum font-mono">
+              свободно {{ stats.freeSpaceGB }} ГБ
+            </span>
+            <span v-if="!stats.baseExists" class="text-danger">каталог хранилища не найден</span>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div v-if="stats.missing.length" class="card card-border bg-base-100">
-        <div class="card-body p-0">
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Название</th>
-                  <th>Статус</th>
-                  <th>Файл</th>
-                  <th>Картинки</th>
-                  <th>Клипы</th>
-                  <th class="text-right">Действие</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="v in stats.missing" :key="v.id">
-                  <td class="font-mono text-xs">#{{ v.id }}</td>
-                  <td class="truncate max-w-[24ch]">{{ v.title ?? "—" }}</td>
-                  <td>
-                    <span class="badge badge-sm badge-soft">{{ v.status }}</span>
-                  </td>
-                  <td>
-                    <span
-                      class="badge badge-sm"
-                      :class="v.missingVideoFile ? 'badge-error' : 'badge-success'"
-                    >
-                      {{ v.missingVideoFile ? "нет" : "OK" }}
-                    </span>
-                  </td>
-                  <td>
-                    {{ v.totalImageAssets - v.missingImageAssets }}/{{ v.totalImageAssets }}
-                  </td>
-                  <td>
-                    {{ v.totalClipAssets - v.missingClipAssets }}/{{ v.totalClipAssets }}
-                  </td>
-                  <td class="text-right">
-                    <NuxtLink
-                      :to="`/videos/${v.id}`"
-                      class="btn btn-xs btn-soft"
-                    >
-                      Открыть
-                    </NuxtLink>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <p
+          v-if="stats.videoFilesMissing > 0"
+          class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-fg"
+        >
+          <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+          <span>
+            У {{ stats.videoFilesMissing }} роликов нет финального файла. Пересборка
+            бесплатна и делается на странице ролика; полная перегенерация — платная.
+          </span>
+        </p>
+
+        <UiEmptyState
+          v-if="!stats.missing.length"
+          icon="mingcute:check-circle-line"
+          title="Всё на месте"
+          description="У проверенных роликов файлы и ассеты найдены в хранилище."
+        />
+
+        <section v-else class="overflow-hidden rounded-lg border border-border bg-panel">
+          <div class="flex items-center gap-2 border-b border-divider bg-card px-3.5 py-2.5">
+            <h2 class="text-base font-medium">Ролики с пропажами</h2>
+            <span class="tnum font-mono text-sm text-subtle">{{ stats.missing.length }}</span>
           </div>
-        </div>
-      </div>
 
-      <div v-else role="alert" class="alert alert-success">
-        <Icon name="mingcute:check-circle-line" />
-        <span>Все проверенные видео в порядке — файлы и ассеты на месте.</span>
-      </div>
+          <NuxtLink
+            v-for="row in stats.missing"
+            :key="row.id"
+            :to="`/videos/${row.id}`"
+            class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-b border-divider px-3.5 py-2 no-underline last:border-b-0 hover:bg-card sm:grid-cols-[64px_minmax(0,1fr)_100px_96px_96px]"
+          >
+            <span class="font-mono text-sm text-subtle">#{{ row.id }}</span>
+            <span class="truncate text-sm">{{ row.title ?? 'Без названия' }}</span>
+            <span
+              class="inline-flex h-[18px] w-fit items-center rounded-sm border px-1.5 text-micro"
+              :class="row.missingVideoFile
+                ? 'border-danger-border bg-danger-bg text-danger'
+                : 'border-success-border bg-success-bg text-success'"
+            >{{ row.missingVideoFile ? 'нет файла' : 'файл на месте' }}</span>
+            <span class="tnum font-mono text-micro text-subtle sm:text-right">
+              кадры {{ row.totalImageAssets - row.missingImageAssets }}/{{ row.totalImageAssets }}
+            </span>
+            <span class="tnum font-mono text-micro text-subtle sm:text-right">
+              клипы {{ row.totalClipAssets - row.missingClipAssets }}/{{ row.totalClipAssets }}
+            </span>
+          </NuxtLink>
+        </section>
+      </template>
 
-      <div class="text-xs opacity-60">
-        Storage base: <code>{{ stats.storageBase }}</code>
-        <template v-if="stats.freeSpaceGB !== null">
-          · свободно {{ stats.freeSpaceGB }} GB
-        </template>
-      </div>
-    </template>
+      <template #fallback>
+        <UiSkeleton variant="details" :count="6" />
+      </template>
+    </ClientOnly>
   </div>
 </template>

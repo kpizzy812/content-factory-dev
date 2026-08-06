@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Карточка интеграции. Источник: design-preview/catalog/08-settings-admin.dc.html
+ *
+ * Секретов карточка не показывает и не правит: ключ MarketingCamp живёт в
+ * окружении, а не в базе. Здесь только состояние связи и её проверка.
+ */
 const { data, pending, refresh } = useIntegrationStatus()
 
 const isRefreshing = ref(false)
@@ -7,10 +13,13 @@ async function checkConnection() {
   isRefreshing.value = true
   try {
     await refresh()
-  } finally {
+  }
+  finally {
     isRefreshing.value = false
   }
 }
+
+const status = computed(() => data.value?.data ?? null)
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('ru-RU', {
@@ -23,55 +32,55 @@ function formatTime(dateStr: string): string {
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <div class="flex items-center justify-between">
-        <h4 class="card-title text-sm">
-          <Icon name="mingcute:link-line" />
-          MarketingCamp
-        </h4>
-        <span
-          v-if="!pending && data?.data"
-          class="status"
-          :class="data.data.connected ? 'status-success' : 'status-error'"
-        />
-      </div>
+  <section class="overflow-hidden rounded-lg border border-border bg-panel">
+    <div class="flex flex-wrap items-center gap-2.5 border-b border-divider px-3.5 py-2.5">
+      <span class="flex size-[30px] shrink-0 items-center justify-center rounded-md border border-border bg-card">
+        <Icon name="mingcute:link-line" class="text-muted" />
+      </span>
+      <span class="min-w-0">
+        <span class="block font-medium">MarketingCamp</span>
+        <span class="block text-micro text-subtle">учётные записи и права</span>
+      </span>
 
-      <div v-if="pending" class="flex items-center gap-2">
-        <span class="loading loading-spinner loading-sm" />
-        <span class="text-sm text-base-content/60">Проверка...</span>
-      </div>
+      <span
+        v-if="status"
+        class="inline-flex h-5 items-center gap-1.5 rounded-sm border px-[7px] text-sm"
+        :class="status.connected
+          ? 'border-success-border bg-success-bg text-success'
+          : 'border-danger-border bg-danger-bg text-danger'"
+      >
+        <span class="size-1.5 rounded-full bg-current" />
+        {{ status.connected ? 'подключено' : 'нет связи' }}
+      </span>
 
-      <template v-else-if="data?.data">
-        <div class="flex items-center gap-2">
-          <span
-            class="badge badge-sm"
-            :class="data.data.connected ? 'badge-success' : 'badge-error'"
-          >
-            {{ data.data.connected ? 'Подключено' : 'Нет связи' }}
-          </span>
-        </div>
+      <span class="flex-1" />
 
-        <p v-if="data.data.error" class="text-xs text-error">
-          {{ data.data.error }}
-        </p>
+      <ClientOnly>
+        <span v-if="status" class="tnum font-mono text-micro text-subtle">
+          проверено {{ formatTime(status.lastChecked) }}
+        </span>
+      </ClientOnly>
 
-        <p class="text-xs text-base-content/50">
-          Последняя проверка: {{ formatTime(data.data.lastChecked) }}
-        </p>
-      </template>
-
-      <div class="card-actions">
-        <button
-          class="btn btn-sm btn-outline"
-          :disabled="isRefreshing"
-          @click="checkConnection"
-        >
-          <span v-if="isRefreshing" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:refresh-2-line" />
-          Проверить связь
-        </button>
-      </div>
+      <UiButton :loading="isRefreshing || pending" @click="checkConnection">
+        Проверить
+      </UiButton>
     </div>
-  </div>
+
+    <div class="px-3.5 py-3">
+      <UiSkeleton v-if="pending && !status" variant="details" :count="2" />
+
+      <p
+        v-else-if="status?.error"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-fg"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-danger" />
+        <span class="min-w-0 flex-1">{{ status.error }}</span>
+      </p>
+
+      <p v-else class="text-sm text-muted">
+        Логин и права приходят из MarketingCamp при входе. Отдельного ключа
+        здесь нет — он задаётся в окружении приложения.
+      </p>
+    </div>
+  </section>
 </template>

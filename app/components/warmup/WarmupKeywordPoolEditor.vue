@@ -7,7 +7,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const dialogRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const editingId = ref<string | null>(null)
 const isProcessingLocal = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -24,6 +24,21 @@ const form = reactive({
 })
 
 const CATEGORIES = ["general", "tech", "lifestyle", "fitness", "education", "music", "comments"]
+
+const CATEGORY_OPTIONS = CATEGORIES.map(c => ({ value: c, label: c }))
+
+const LANGUAGE_OPTIONS = [
+  { value: "", label: "Любой язык" },
+  { value: "en", label: "English" },
+  { value: "ru", label: "Русский" },
+]
+
+const PLATFORM_OPTIONS = [
+  { value: "", label: "Все платформы" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "instagram", label: "Instagram" },
+  { value: "youtube", label: "YouTube" },
+]
 
 const { createPool, updatePool } = useWarmupKeywords()
 
@@ -53,11 +68,12 @@ function open(pool?: WarmupKeywordPoolDto) {
     form.hashtags = [...pool.hashtags]
     form.isActive = pool.isActive
   }
-  dialogRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  dialogRef.value?.close()
+  if (isProcessingLocal.value) return
+  isOpen.value = false
   reset()
   emit("close")
 }
@@ -107,105 +123,56 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal">
-    <div class="modal-box max-w-2xl">
-      <h3 class="font-bold text-lg">
-        {{ editingId ? "Редактирование пула" : "Новый пул ключевых слов" }}
-      </h3>
+  <UiModal
+    :open="isOpen"
+    size="lg"
+    :title="editingId ? 'Пул ключевых слов' : 'Новый пул ключевых слов'"
+    @close="close"
+  >
+    <div class="flex flex-col gap-3">
+      <UiField label="Название">
+        <UiInput v-model="form.name" placeholder="Например, general_en" />
+      </UiField>
 
-      <div class="space-y-3 mt-4">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Название</legend>
-          <input
-            v-model="form.name"
-            type="text"
-            class="input w-full"
-            placeholder="Например, general_en"
-          />
-        </fieldset>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Категория</legend>
-            <select v-model="form.category" class="select w-full">
-              <option v-for="c in CATEGORIES" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Язык</legend>
-            <select v-model="form.language" class="select w-full">
-              <option value="">Универсальный</option>
-              <option value="en">English</option>
-              <option value="ru">Русский</option>
-            </select>
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Платформа</legend>
-            <select v-model="form.platform" class="select w-full">
-              <option value="">Все</option>
-              <option value="tiktok">TikTok</option>
-              <option value="instagram">Instagram</option>
-              <option value="youtube">YouTube</option>
-            </select>
-          </fieldset>
-        </div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">App ID (опционально)</legend>
-          <input
-            v-model="form.appId"
-            type="number"
-            class="input w-full"
-            placeholder="Оставьте пустым для глобального пула"
-          />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Ключевые слова</legend>
-          <SharedTagInput
-            v-model="form.keywords"
-            placeholder="Введите слово и Enter / запятая"
-          />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Хэштеги (опционально)</legend>
-          <SharedTagInput
-            v-model="form.hashtags"
-            placeholder="#fyp, #viral"
-          />
-        </fieldset>
-
-        <label class="label cursor-pointer justify-start gap-2">
-          <input v-model="form.isActive" type="checkbox" class="toggle toggle-primary" />
-          <span class="label-text">Активен (используется в planner)</span>
-        </label>
-
-        <div v-if="errorMessage" class="alert alert-error text-sm">
-          <Icon name="mingcute:alert-line" />
-          {{ errorMessage }}
-        </div>
+      <div class="grid gap-3 md:grid-cols-3">
+        <UiField label="Категория">
+          <UiSelect v-model="form.category" :options="CATEGORY_OPTIONS" />
+        </UiField>
+        <UiField label="Язык">
+          <UiSelect v-model="form.language" :options="LANGUAGE_OPTIONS" />
+        </UiField>
+        <UiField label="Платформа">
+          <UiSelect v-model="form.platform" :options="PLATFORM_OPTIONS" />
+        </UiField>
       </div>
 
-      <div class="modal-action">
-        <button class="btn btn-sm" :disabled="isProcessingLocal" @click="close">
-          Отмена
-        </button>
-        <button
-          class="btn btn-sm btn-primary"
-          :disabled="isProcessingLocal"
-          @click="save"
-        >
-          <span v-if="isProcessingLocal" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:save-line" />
-          Сохранить
-        </button>
-      </div>
+      <UiField label="Приложение" hint="Пусто — пул общий для всех приложений">
+        <UiInput v-model="form.appId" type="number" mono placeholder="номер приложения" class="max-w-44" />
+      </UiField>
+
+      <UiField label="Ключевые слова" hint="Enter или запятая добавляют слово">
+        <SharedTagInput v-model="form.keywords" placeholder="кухня на заказ" />
+      </UiField>
+
+      <UiField label="Хэштеги">
+        <SharedTagInput v-model="form.hashtags" placeholder="#fyp" />
+      </UiField>
+
+      <UiCheckbox v-model="form.isActive" label="Планировщик берёт слова из этого пула" />
+
+      <p
+        v-if="errorMessage"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span class="min-w-0 flex-1">{{ errorMessage }}</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isProcessingLocal" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" :loading="isProcessingLocal" @click="save">Сохранить</UiButton>
+    </template>
+  </UiModal>
 </template>

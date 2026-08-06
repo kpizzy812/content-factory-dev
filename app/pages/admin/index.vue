@@ -1,26 +1,31 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: ['admin-access'],
-})
-
+/**
+ * Админка. Макет: design-preview/catalog/08-settings-admin.dc.html
+ *
+ * Второй уровень навигации из макета живёт списком разделов наверху страницы:
+ * отдельной колонки под него нет, потому что оболочка уже даёт группу «Админ»
+ * в сайдбаре, и второй вертикальный список рядом с первым читается хуже.
+ */
+definePageMeta({ middleware: ['admin-access'] })
 useHead({ title: 'Администрирование' })
 
 const { data, pending } = useAdminDashboard()
 const dashboard = computed(() => data.value?.data ?? null)
 
-const adminSections = [
-  { to: '/admin/apps', label: 'Приложения', icon: 'mingcute:box-line', description: 'Создание и настройка приложений' },
-  { to: '/admin/users', label: 'Пользователи', icon: 'mingcute:group-line', description: 'Роли, права и доступ' },
-  { to: '/admin/cycles', label: 'Циклы', icon: 'mingcute:refresh-2-line', description: 'Запуск и история циклов' },
-  { to: '/admin/logs', label: 'Логи', icon: 'mingcute:file-line', description: 'Журнал и ошибки' },
-  { to: '/admin/telegram', label: 'Telegram', icon: 'mingcute:send-plane-line', description: 'Бот, алерты и шаблоны' },
-  { to: '/admin/integrations', label: 'Интеграции', icon: 'mingcute:link-line', description: 'Облачные устройства DuoPlus и внешние сервисы' },
-  { to: '/admin/warmup-keywords', label: 'Пулы прогрева', icon: 'mingcute:fire-line', description: 'Ключевые слова для warmup planner' },
-  { to: '/admin/accounts-health', label: 'Здоровье аккаунтов', icon: 'mingcute:heart-line', description: 'Полнота и риски социальных аккаунтов' },
-  { to: '/admin/balances', label: 'Балансы', icon: 'mingcute:wallet-line', description: 'Остатки по AI/прокси/музыке' },
+const SECTIONS = [
+  { to: '/admin/apps', label: 'Приложения', icon: 'mingcute:box-line', hint: 'Контейнеры производства и их референсы' },
+  { to: '/admin/users', label: 'Пользователи', icon: 'mingcute:group-line', hint: 'Роли и права, только просмотр' },
+  { to: '/admin/cycles', label: 'Циклы', icon: 'mingcute:refresh-2-line', hint: 'Запуск и история циклов' },
+  { to: '/admin/logs', label: 'Логи', icon: 'mingcute:file-line', hint: 'Журнал системы и ошибки' },
+  { to: '/admin/telegram', label: 'Telegram', icon: 'mingcute:send-plane-line', hint: 'Чаты, алерты и шаблоны' },
+  { to: '/admin/integrations', label: 'Интеграции', icon: 'mingcute:link-line', hint: 'Где что настраивается' },
+  { to: '/admin/warmup-keywords', label: 'Пулы прогрева', icon: 'mingcute:fire-line', hint: 'Ключевые слова для планировщика' },
+  { to: '/admin/accounts-health', label: 'Здоровье аккаунтов', icon: 'mingcute:heart-line', hint: 'Полнота и риски аккаунтов' },
+  { to: '/admin/balances', label: 'Балансы', icon: 'mingcute:wallet-line', hint: 'Остатки на платных сервисах' },
+  { to: '/admin/storage-health', label: 'Хранилище', icon: 'mingcute:folder-line', hint: 'Целостность файлов роликов' },
 ]
 
-const moduleLabels: Record<string, string> = {
+const MODULE_LABELS: Record<string, string> = {
   trendwatcher: 'Трендвотчер',
   'script-generator': 'Сценарии',
   'video-generator': 'Видео',
@@ -29,151 +34,113 @@ const moduleLabels: Record<string, string> = {
   orchestrator: 'Оркестратор',
 }
 
+const PIPELINE_TILES = [
+  { key: 'trendsNew', label: 'Новых трендов', to: '/trends?status=new', tone: '' },
+  { key: 'ideasReady', label: 'Идей готово', to: '/ideas?status=ready', tone: '' },
+  { key: 'scenariosAwaitingReview', label: 'На ревью', to: '/scenarios?status=generated', tone: 'text-warning' },
+  { key: 'videosGenerating', label: 'Генерация', to: '/videos', tone: 'text-info' },
+  { key: 'pendingUploads', label: 'К публикации', to: '/uploads?status=pending', tone: '' },
+  { key: 'trendsTotal', label: 'Всего трендов', to: '/trends', tone: 'text-subtle' },
+] as const
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   })
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <h1 class="text-2xl font-bold text-base-content">Администрирование</h1>
+  <div class="flex flex-col gap-3">
+    <h1 class="text-xl font-semibold">Администрирование</h1>
 
-    <!-- Навигация по разделам -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       <NuxtLink
-        v-for="section in adminSections"
+        v-for="section in SECTIONS"
         :key="section.to"
         :to="section.to"
-        class="card card-border bg-base-100 shadow-sm hover:shadow-md transition-shadow hover:border-primary/30"
+        class="flex flex-col gap-1 rounded-md border border-border bg-panel p-2.5 no-underline hover:border-subtle hover:bg-card"
       >
-        <div class="card-body p-3 gap-1">
-          <div class="flex items-center gap-2">
-            <Icon :name="section.icon" class="text-primary text-lg" />
-            <h3 class="font-bold text-sm">{{ section.label }}</h3>
-          </div>
-          <p class="text-xs text-base-content/60">{{ section.description }}</p>
-        </div>
+        <span class="flex items-center gap-2">
+          <Icon :name="section.icon" class="shrink-0 text-accent" />
+          <span class="truncate font-medium text-fg">{{ section.label }}</span>
+        </span>
+        <span class="text-sm text-subtle">{{ section.hint }}</span>
       </NuxtLink>
     </div>
 
-    <!-- Дашборд -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
+    <UiSkeleton v-if="pending && !dashboard" variant="details" :count="6" />
 
     <template v-else-if="dashboard">
-      <!-- Статус и видео -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AdminDashboardStatusCard :status="dashboard.status" />
-        <AdminDashboardVideoStats
-          :videos-today="dashboard.videosToday"
-          :videos-week="dashboard.videosWeek"
-        />
-      </div>
+      <AdminDashboardSummary
+        :status="dashboard.status"
+        :videos-today="dashboard.videosToday"
+        :videos-week="dashboard.videosWeek"
+        :unresolved-errors="dashboard.unresolvedErrors"
+      />
 
-      <!-- Контент-пайплайн -->
-      <div v-if="dashboard.contentPipeline" class="card bg-base-100 shadow-sm">
-        <div class="card-body p-4 gap-3">
-          <h3 class="card-title text-sm">
-            <Icon name="mingcute:git-merge-line" />
-            Контент-пайплайн
-          </h3>
-          <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            <NuxtLink to="/trends?status=new" class="text-center p-2 rounded-box bg-base-200/50 hover:bg-base-200 transition-colors">
-              <div class="text-xl font-bold text-base-content">{{ dashboard.contentPipeline.trendsNew }}</div>
-              <div class="text-xs text-base-content/60">Новых трендов</div>
-            </NuxtLink>
-            <NuxtLink to="/ideas?status=ready" class="text-center p-2 rounded-box bg-base-200/50 hover:bg-base-200 transition-colors">
-              <div class="text-xl font-bold text-base-content">{{ dashboard.contentPipeline.ideasReady }}</div>
-              <div class="text-xs text-base-content/60">Идей готово</div>
-            </NuxtLink>
-            <NuxtLink to="/scenarios?status=generated" class="text-center p-2 rounded-box bg-base-200/50 hover:bg-base-200 transition-colors">
-              <div class="text-xl font-bold text-warning">{{ dashboard.contentPipeline.scenariosAwaitingReview }}</div>
-              <div class="text-xs text-base-content/60">На ревью</div>
-            </NuxtLink>
-            <NuxtLink to="/videos" class="text-center p-2 rounded-box bg-base-200/50 hover:bg-base-200 transition-colors">
-              <div class="text-xl font-bold text-info">{{ dashboard.contentPipeline.videosGenerating }}</div>
-              <div class="text-xs text-base-content/60">Генерация</div>
-            </NuxtLink>
-            <NuxtLink to="/uploads?status=pending" class="text-center p-2 rounded-box bg-base-200/50 hover:bg-base-200 transition-colors">
-              <div class="text-xl font-bold text-base-content">{{ dashboard.contentPipeline.pendingUploads }}</div>
-              <div class="text-xs text-base-content/60">К загрузке</div>
-            </NuxtLink>
-            <NuxtLink to="/trends" class="text-center p-2 rounded-box bg-base-200/50 hover:bg-base-200 transition-colors">
-              <div class="text-xl font-bold text-base-content/60">{{ dashboard.contentPipeline.trendsTotal }}</div>
-              <div class="text-xs text-base-content/60">Всего трендов</div>
-            </NuxtLink>
-          </div>
+      <section v-if="dashboard.contentPipeline" class="overflow-hidden rounded-lg border border-border bg-panel">
+        <h2 class="border-b border-divider bg-card px-3.5 py-2.5 text-base font-medium">Что сейчас в работе</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <NuxtLink
+            v-for="tile in PIPELINE_TILES"
+            :key="tile.key"
+            :to="tile.to"
+            class="border-r border-b border-divider px-3 py-2.5 no-underline last:border-r-0 hover:bg-card"
+          >
+            <span class="tnum block font-mono text-2xl font-semibold" :class="tile.tone || 'text-fg'">
+              {{ dashboard.contentPipeline[tile.key] }}
+            </span>
+            <span class="block text-sm text-muted">{{ tile.label }}</span>
+          </NuxtLink>
         </div>
-      </div>
+      </section>
 
-      <!-- Ошибки и Telegram -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AdminDashboardAlerts :unresolved-errors="dashboard.unresolvedErrors" />
-
-        <!-- Telegram -->
-        <NuxtLink to="/admin/telegram" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow">
-          <div class="card-body p-4 gap-2">
-            <div class="flex items-center gap-2">
-              <Icon name="mingcute:send-plane-line" class="text-info text-lg" />
-              <span class="text-sm font-medium">Telegram-интеграция</span>
-              <Icon name="mingcute:arrow-right-line" class="text-xs text-base-content/40 ml-auto" />
-            </div>
-            <p class="text-sm text-base-content/60">
-              <template v-if="dashboard.telegramAlertChats > 0">
-                {{ dashboard.telegramAlertChats }} чат{{ dashboard.telegramAlertChats === 1 ? '' : dashboard.telegramAlertChats < 5 ? 'а' : 'ов' }} с алертами
-              </template>
-              <template v-else>
-                Нет подключённых чатов
-              </template>
-            </p>
-          </div>
-        </NuxtLink>
-      </div>
-
-      <!-- Последние ошибки (быстрый доступ) -->
-      <div v-if="dashboard.recentErrors?.length" class="card bg-base-100 shadow-sm">
-        <div class="card-body p-4 gap-3">
-          <div class="flex items-center justify-between">
-            <h3 class="card-title text-sm">
-              <Icon name="mingcute:warning-line" class="text-error" />
-              Последние ошибки
-            </h3>
-            <NuxtLink to="/admin/logs?level=error&resolved=false" class="btn btn-ghost btn-xs">
-              Все ошибки
-              <Icon name="mingcute:arrow-right-line" />
-            </NuxtLink>
-          </div>
-          <div class="space-y-1">
-            <div
-              v-for="err in dashboard.recentErrors"
-              :key="err.id"
-              class="flex items-start gap-2 p-2 rounded text-sm hover:bg-base-200/50"
-            >
-              <span class="badge badge-soft badge-error badge-xs shrink-0 mt-1">!</span>
-              <span class="text-xs text-base-content/50 shrink-0 w-20">
-                {{ moduleLabels[err.module] ?? err.module }}
-              </span>
-              <span class="flex-1 text-base-content break-words line-clamp-1">{{ err.message }}</span>
-              <NuxtLink
-                v-if="err.cycleId"
-                :to="`/admin/cycles/${err.cycleId}`"
-                class="link link-primary text-xs shrink-0"
-              >
-                Цикл #{{ err.cycleId }}
-              </NuxtLink>
-              <span class="text-xs text-base-content/40 shrink-0">{{ formatDate(err.createdAt) }}</span>
-            </div>
-          </div>
+      <section
+        v-if="dashboard.recentErrors?.length"
+        class="overflow-hidden rounded-lg border border-border bg-panel"
+      >
+        <div class="flex items-center gap-2 border-b border-divider bg-card px-3.5 py-2.5">
+          <Icon name="mingcute:alert-line" class="text-danger" />
+          <h2 class="text-base font-medium">Последние ошибки</h2>
+          <span class="flex-1" />
+          <NuxtLink to="/admin/logs?level=error&resolved=false" class="text-sm">Все ошибки</NuxtLink>
         </div>
-      </div>
+        <div
+          v-for="err in dashboard.recentErrors"
+          :key="err.id"
+          class="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2.5 gap-y-1 border-b border-divider px-3.5 py-2 text-sm last:border-b-0 sm:grid-cols-[96px_minmax(0,1fr)_auto_96px]"
+        >
+          <span class="truncate text-subtle">{{ MODULE_LABELS[err.module] ?? err.module }}</span>
+          <span class="min-w-0 break-words">{{ err.message }}</span>
+          <NuxtLink v-if="err.cycleId" :to="`/admin/cycles/${err.cycleId}`" class="text-sm whitespace-nowrap">
+            цикл #{{ err.cycleId }}
+          </NuxtLink>
+          <span v-else class="hidden sm:block" />
+          <ClientOnly>
+            <span class="tnum col-span-2 font-mono text-micro text-subtle sm:col-span-1 sm:text-right">
+              {{ formatDate(err.createdAt) }}
+            </span>
+          </ClientOnly>
+        </div>
+      </section>
 
-      <!-- Последние циклы -->
+      <NuxtLink
+        to="/admin/telegram"
+        class="flex items-center gap-2.5 rounded-lg border border-border bg-panel px-3.5 py-2.5 no-underline hover:bg-card"
+      >
+        <Icon name="mingcute:send-plane-line" class="text-info" />
+        <span class="text-fg">Telegram</span>
+        <span class="text-sm text-muted">
+          <template v-if="dashboard.telegramAlertChats > 0">
+            {{ dashboard.telegramAlertChats }} чатов получают алерты
+          </template>
+          <template v-else>чаты не подключены — алерты никуда не уходят</template>
+        </span>
+        <span class="flex-1" />
+        <Icon name="mingcute:right-line" class="text-subtle" />
+      </NuxtLink>
+
       <AdminDashboardRecentCycles :cycles="dashboard.recentCycles" />
     </template>
   </div>

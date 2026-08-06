@@ -1,104 +1,89 @@
 <script setup lang="ts">
-import type { WarmupKeywordPoolDto } from "~~/shared/types/warmup"
+/**
+ * Пулы ключевых слов прогрева. Макет: design-preview/catalog/08-settings-admin.dc.html
+ *
+ * Подсказка страницы переехала в кнопку «?» топбара вместе с остальными —
+ * `SharedPageGuide` здесь больше не зовётся.
+ */
+import type { WarmupKeywordPoolDto } from '~~/shared/types/warmup'
 
-definePageMeta({
-  middleware: ["admin-access"],
-})
-useHead({ title: "Пулы ключевых слов прогрева" })
+definePageMeta({ middleware: ['admin-access'] })
+useHead({ title: 'Пулы прогрева' })
 
 const { pools, total, pending, refresh, deletePool, isProcessing, error } = useWarmupKeywords()
 
-const editorRef = ref<{
-  open: (pool?: WarmupKeywordPoolDto) => void
-  close: () => void
-}>()
+const editorRef = ref<{ open: (pool?: WarmupKeywordPoolDto) => void } | null>(null)
+const toDelete = ref<WarmupKeywordPoolDto | null>(null)
 
-function openCreate() {
-  editorRef.value?.open()
+async function confirmDelete() {
+  const pool = toDelete.value
+  toDelete.value = null
+  if (pool) await deletePool(pool.id)
 }
-
-function openEdit(pool: WarmupKeywordPoolDto) {
-  editorRef.value?.open(pool)
-}
-
-async function onDelete(pool: WarmupKeywordPoolDto) {
-  if (!confirm(`Удалить пул «${pool.name}»? Это действие нельзя отменить.`)) return
-  await deletePool(pool.id)
-}
-
-const guide = pageGuides["warmup-keywords"]
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-start justify-between gap-2 flex-wrap">
-      <div>
-        <h1 class="text-2xl font-bold text-base-content">Пулы ключевых слов прогрева</h1>
-        <p class="text-sm text-base-content/60 mt-1">
-          Источник keyword для warmup planner — действий просмотра, поиска и подписок.
-        </p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          class="btn btn-sm btn-ghost"
-          :disabled="pending"
-          @click="refresh()"
-        >
-          <Icon name="mingcute:refresh-3-line" :class="{ 'animate-spin': pending }" />
-          Обновить
-        </button>
-        <button class="btn btn-sm btn-primary" @click="openCreate">
-          <Icon name="mingcute:add-line" />
-          Создать пул
-        </button>
-      </div>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Пулы прогрева</h1>
+      <span v-if="total" class="tnum font-mono text-sm text-subtle">{{ total }}</span>
+      <span class="flex-1" />
+      <UiButton :loading="pending" @click="refresh()">
+        <Icon v-if="!pending" name="mingcute:refresh-2-line" />
+        Обновить
+      </UiButton>
+      <UiButton variant="primary" @click="editorRef?.open()">
+        <Icon name="mingcute:add-line" />
+        Создать пул
+      </UiButton>
     </div>
 
-    <SharedPageGuide
-      v-if="guide"
-      guide-key="warmup-keywords"
-      :title="guide.title"
-      :steps="guide.steps"
-      :tips="guide.tips"
-    />
+    <p class="max-w-3xl text-sm text-muted">
+      Отсюда планировщик прогрева берёт, что искать и на кого подписываться.
+      Выключенный пул остаётся в списке, но в план не попадает.
+    </p>
 
-    <div v-if="error" class="alert alert-error text-sm">
-      <Icon name="mingcute:alert-line" />
-      {{ error }}
-    </div>
-
-    <div v-if="pending && pools.length === 0" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <div
-      v-else-if="pools.length === 0"
-      class="text-center text-base-content/50 py-12"
+    <p
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
     >
-      <Icon name="mingcute:inbox-line" class="text-5xl text-base-content/30" />
-      <p class="mt-2 text-sm">Нет пулов. Создайте первый кнопкой «Создать пул».</p>
-    </div>
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+      <span class="min-w-0 flex-1">{{ error }}</span>
+    </p>
 
-    <div v-else>
-      <p class="text-xs text-base-content/50 mb-2">Всего: {{ total }}</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        <WarmupKeywordPoolCard
-          v-for="pool in pools"
-          :key="pool.id"
-          :pool="pool"
-          @edit="openEdit"
-          @delete="onDelete"
-        />
-      </div>
+    <UiSkeleton v-if="pending && !pools.length" variant="details" :count="4" />
+
+    <UiEmptyState
+      v-else-if="!pools.length"
+      variant="first"
+      title="Пулов нет"
+      description="Заведите первый — без него планировщик прогрева не найдёт, что искать."
+    >
+      <UiButton variant="primary" @click="editorRef?.open()">Создать пул</UiButton>
+    </UiEmptyState>
+
+    <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <WarmupKeywordPoolCard
+        v-for="pool in pools"
+        :key="pool.id"
+        :pool="pool"
+        @edit="editorRef?.open($event)"
+        @delete="toDelete = $event"
+      />
     </div>
 
     <WarmupKeywordPoolEditor ref="editorRef" @saved="refresh()" />
 
-    <div v-if="isProcessing" class="toast toast-end">
-      <div class="alert alert-info">
-        <span class="loading loading-spinner loading-sm" />
-        <span>Сохранение...</span>
-      </div>
-    </div>
+    <UiModal :open="!!toDelete" size="sm" title="Удалить пул?" @close="toDelete = null">
+      <p class="text-sm text-muted">
+        Пул «{{ toDelete?.name }}» и все его слова удалятся навсегда. Планировщик
+        перестанет их использовать сразу; уже запланированные действия останутся.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="toDelete = null">Отмена</UiButton>
+        <UiButton variant="danger" :loading="isProcessing" @click="confirmDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>
