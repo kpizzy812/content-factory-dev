@@ -25,6 +25,7 @@ import {
 import { getAccountStyleContext, formatAccountStyleForPrompt } from "./account-style-context"
 import { getAppScenarioContext, formatAppContextForPrompt } from "./app-context"
 import { synthesizeSpeech, buildVoiceoverTrack } from "./tts"
+import { generateClipOnReplicate, generateImageOnReplicate } from "./media-provider/generation"
 import { adjustAudioTempo, trimAudio, probeClipDurations } from "./render"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import { runSubtitleKeywordAgent } from "./agents/subtitle-keyword-agent"
@@ -368,6 +369,32 @@ export async function runImageGeneration(
         }
       }
 
+      const imagePathForScene = join(assetsDir, `${scene.key}_image.png`)
+
+      // Replicate — основной провайдер. Размер кадра задаётся пропорцией, а не
+      // парой width/height: у модели закрытый список.
+      if (isReplicateModelId(imageModelId)) {
+        await appendStepLog(step.id, `Модель: ${imageModelId} (Replicate)`)
+        const generated = await generateImageOnReplicate({
+          videoId,
+          sceneIndex: scene.order,
+          prompt: scene.prompt,
+          format: format === "portrait" ? "portrait" : "landscape",
+          outputPath: imagePathForScene,
+          modelId: imageModelId,
+        })
+        imagePaths.push(imagePathForScene)
+        await persistSceneImage({
+          videoId,
+          existingAsset,
+          imagePath: imagePathForScene,
+          order: scene.order,
+          prompt: scene.prompt,
+        })
+        await appendStepLog(step.id, `Изображение для ${scene.key} готово ($${generated.costUsd.toFixed(3)})`)
+        continue
+      }
+
       const isLowQuality = renderQuality === "low"
       const imageSize = format === "portrait"
         ? { width: isLowQuality ? 720 : 1080, height: isLowQuality ? 1280 : 1920 }
@@ -386,40 +413,17 @@ export async function runImageGeneration(
       const imageUrl = result.images?.[0]?.url
       if (!imageUrl) throw new Error(`Не получено изображение для сцены ${scene.key}`)
 
-      const imagePath = join(assetsDir, `${scene.key}_image.png`)
-      await downloadFile(imageUrl, imagePath)
-      imagePaths.push(imagePath)
+      await downloadFile(imageUrl, imagePathForScene)
+      imagePaths.push(imagePathForScene)
       imageRemoteUrls.push(imageUrl)
 
-      const imageStorage = await uploadLocalAsset(
-        imagePath,
-        StorageKeys.videoSceneImage(videoId, scene.order),
-        "image/png",
-      )
-
-      if (existingAsset) {
-        await prisma.videoAsset.update({
-          where: { id: existingAsset.id },
-          data: {
-            filePath: imagePath,
-            fileUrl: storageKeyToLegacyUrl(imageStorage.storageKey),
-            prompt: scene.prompt,
-            ...imageStorage,
-          },
-        })
-      } else {
-        await prisma.videoAsset.create({
-          data: {
-            videoId,
-            type: "image" as never,
-            prompt: scene.prompt,
-            filePath: imagePath,
-            fileUrl: storageKeyToLegacyUrl(imageStorage.storageKey),
-            order: scene.order,
-            ...imageStorage,
-          },
-        })
-      }
+      await persistSceneImage({
+        videoId,
+        existingAsset,
+        imagePath: imagePathForScene,
+        order: scene.order,
+        prompt: scene.prompt,
+      })
 
       await appendStepLog(step.id, `Изображение для ${scene.key} сгенерировано`)
     }
@@ -448,6 +452,96 @@ export async function runImageGeneration(
 }
 
 // ─── Шаг 3: Генерация видеоклипов ──────────────────────────────
+
+/** Модель Replicate узнаётся по владельцу в идентификаторе, а не по префиксу fal. */
+function isReplicateModelId(modelId: string): boolean {
+  return !modelId.startsWith("fal-ai/")
+}
+
+/** Сохраняет кадр сцены в хранилище и в VideoAsset — одинаково для обоих провайдеров. */
+async function persistSceneImage(opts: {
+  videoId: number
+  existingAsset: { id: number } | null
+  imagePath: string
+  order: number
+  prompt: string
+}): Promise<void> {
+  const imageStorage = await uploadLocalAsset(
+    opts.imagePath,
+    StorageKeys.videoSceneImage(opts.videoId, opts.order),
+    "image/png",
+  )
+
+  if (opts.existingAsset) {
+    await prisma.videoAsset.update({
+      where: { id: opts.existingAsset.id },
+      data: {
+        filePath: opts.imagePath,
+        fileUrl: storageKeyToLegacyUrl(imageStorage.storageKey),
+        prompt: opts.prompt,
+        ...imageStorage,
+      },
+    })
+    return
+  }
+
+  await prisma.videoAsset.create({
+    data: {
+      videoId: opts.videoId,
+      type: "image" as never,
+      prompt: opts.prompt,
+      filePath: opts.imagePath,
+      fileUrl: storageKeyToLegacyUrl(imageStorage.storageKey),
+      order: opts.order,
+      ...imageStorage,
+    },
+  })
+}
+
+/**
+ * Сохраняет клип сцены в хранилище и в VideoAsset. Путь один и тот же для
+ * обоих провайдеров — различается только то, кто снял клип.
+ */
+async function persistSceneClip(opts: {
+  videoId: number
+  existingClip: { id: number } | null
+  clipPath: string
+  order: number
+  prompt: string
+  durationSec: number
+}): Promise<void> {
+  const clipStorage = await uploadLocalAsset(
+    opts.clipPath,
+    StorageKeys.videoSceneClip(opts.videoId, opts.order),
+    "video/mp4",
+  )
+
+  if (opts.existingClip) {
+    await prisma.videoAsset.update({
+      where: { id: opts.existingClip.id },
+      data: {
+        filePath: opts.clipPath,
+        fileUrl: storageKeyToLegacyUrl(clipStorage.storageKey),
+        duration: opts.durationSec,
+        ...clipStorage,
+      },
+    })
+    return
+  }
+
+  await prisma.videoAsset.create({
+    data: {
+      videoId: opts.videoId,
+      type: "clip" as never,
+      prompt: opts.prompt,
+      filePath: opts.clipPath,
+      fileUrl: storageKeyToLegacyUrl(clipStorage.storageKey),
+      order: opts.order,
+      duration: opts.durationSec,
+      ...clipStorage,
+    },
+  })
+}
 
 export async function runClipGeneration(
   videoId: number,
@@ -622,6 +716,41 @@ export async function runClipGeneration(
         }
       }
 
+      const clipPath = join(assetsDir, `${scene.key}_clip.mp4`)
+
+      // Replicate — основной провайдер: свой контур predictions, идемпотентность
+      // и перенос результата в хранилище. Ветка fal ниже остаётся запасной.
+      if (isReplicateModelId(videoModelId)) {
+        await appendStepLog(step.id, `Генерирую клип: ${scene.key} (${scene.durationSec}s, ${videoModelId})`)
+        const generated = await generateClipOnReplicate({
+          videoId,
+          sceneIndex: scene.order,
+          prompt: scene.prompt,
+          format: format === "portrait" ? "portrait" : "landscape",
+          durationSec: scene.durationSec,
+          negativePrompt: buildNegativePromptForScene({
+            devices: scene.devicesInScene,
+            hasAppScreenRef: false,
+          }),
+          outputPath: clipPath,
+          modelId: videoModelId,
+        })
+        if (generated.requestedDurationSec > scene.durationSec) {
+          await appendStepLog(step.id, `Сцена ${scene.key}: модель снимает ${generated.requestedDurationSec}s вместо ${scene.durationSec}s — лишнее подрежет монтаж`)
+        }
+        clipPaths.push(clipPath)
+        await persistSceneClip({
+          videoId,
+          existingClip,
+          clipPath,
+          order: scene.order,
+          prompt: scene.prompt,
+          durationSec: scene.durationSec,
+        })
+        await appendStepLog(step.id, `Клип для ${scene.key} готов ($${generated.costUsd.toFixed(3)})`)
+        continue
+      }
+
       const aspectRatio = format === "portrait" ? "9:16" : "16:9"
 
       // Image-to-video routing: если сцена привязана к существующему AppReferenceImage,
@@ -683,40 +812,17 @@ export async function runClipGeneration(
       const videoUrl = result.video?.url
       if (!videoUrl) throw new Error(`Не получен клип для сцены ${scene.key}`)
 
-      const clipPath = join(assetsDir, `${scene.key}_clip.mp4`)
       await downloadFile(videoUrl, clipPath)
       clipPaths.push(clipPath)
 
-      const clipStorage = await uploadLocalAsset(
+      await persistSceneClip({
+        videoId,
+        existingClip,
         clipPath,
-        StorageKeys.videoSceneClip(videoId, scene.order),
-        "video/mp4",
-      )
-
-      if (existingClip) {
-        await prisma.videoAsset.update({
-          where: { id: existingClip.id },
-          data: {
-            filePath: clipPath,
-            fileUrl: storageKeyToLegacyUrl(clipStorage.storageKey),
-            duration: scene.durationSec,
-            ...clipStorage,
-          },
-        })
-      } else {
-        await prisma.videoAsset.create({
-          data: {
-            videoId,
-            type: "clip" as never,
-            prompt: scene.prompt,
-            filePath: clipPath,
-            fileUrl: storageKeyToLegacyUrl(clipStorage.storageKey),
-            order: scene.order,
-            duration: scene.durationSec,
-            ...clipStorage,
-          },
-        })
-      }
+        order: scene.order,
+        prompt: scene.prompt,
+        durationSec: scene.durationSec,
+      })
 
       await appendStepLog(step.id, `Клип для ${scene.key} сгенерирован (${scene.durationSec}s)`)
     }

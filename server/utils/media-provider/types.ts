@@ -1,4 +1,4 @@
-export type MediaCapability = "lip_sync" | "tts"
+export type MediaCapability = "lip_sync" | "tts" | "image" | "video"
 export type MediaProviderName = "replicate" | "fal"
 
 export type MediaPredictionStatus =
@@ -25,6 +25,34 @@ export interface TtsInput {
   language: string
   /** Emotional hint; ignored by providers without expressivity control. */
   emotion?: string | null
+}
+
+export interface ImageInput {
+  prompt: string
+  format: "portrait" | "landscape"
+}
+
+export interface VideoInput {
+  prompt: string
+  format: "portrait" | "landscape"
+  /** Желаемая длительность сцены; модель уложит её в свою сетку. */
+  durationSec: number
+  negativePrompt?: string | null
+  /** Стартовый кадр — превращает запрос в image-to-video. */
+  startImageUrl?: string | null
+}
+
+export interface ImageConstraints {
+  /** Пропорции, которые модель принимает, в её собственной нотации. */
+  aspectRatios: readonly string[]
+  outputFormat: "webp" | "jpg" | "png"
+}
+
+export interface VideoConstraints {
+  aspectRatios: readonly string[]
+  /** Модель принимает не любую длительность, а фиксированный набор. */
+  durationsSec: readonly number[]
+  supportsStartImage: boolean
 }
 
 export interface TtsConstraints {
@@ -71,12 +99,26 @@ export interface TtsModelSpec extends MediaModelBase {
   constraints: TtsConstraints
 }
 
-export type MediaModelSpec = LipSyncModelSpec | TtsModelSpec
+export interface ImageModelSpec extends MediaModelBase {
+  capability: "image"
+  priceUsdPerImage: number
+  constraints: ImageConstraints
+}
+
+export interface VideoModelSpec extends MediaModelBase {
+  capability: "video"
+  priceUsdPerOutputSecond: number
+  constraints: VideoConstraints
+}
+
+export type MediaModelSpec = LipSyncModelSpec | TtsModelSpec | ImageModelSpec | VideoModelSpec
 
 /** Narrows a capability literal to the model spec it resolves to. */
 export interface MediaModelSpecByCapability {
   lip_sync: LipSyncModelSpec
   tts: TtsModelSpec
+  image: ImageModelSpec
+  video: VideoModelSpec
 }
 
 export interface NormalizedMediaPrediction {

@@ -9,7 +9,7 @@
 // ─── Типы ──────────────────────────────────────────
 
 export type ModelTask = "image" | "video" | "music" | "tts" | "lip_sync"
-export type BillingUnit = "megapixel" | "second" | "video" | "track" | "character" | "audio_second"
+export type BillingUnit = "megapixel" | "second" | "video" | "track" | "character" | "audio_second" | "call"
 
 export interface ModelPricing {
   unit: BillingUnit
@@ -52,7 +52,32 @@ export interface ModelMeta {
 
 // ─── Реестр моделей ────────────────────────────────
 
+/**
+ * Модели по умолчанию. Replicate — основной провайдер медиа по
+ * `docs/PROJECT_CONTEXT.md` §5; fal.ai остаётся явным запасным выбором.
+ */
+export const DEFAULT_IMAGE_MODEL = "black-forest-labs/flux-dev"
+export const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v1.6-standard"
+
 export const IMAGE_MODELS: ModelMeta[] = [
+  {
+    id: "black-forest-labs/flux-dev",
+    name: "FLUX.1 Dev (Replicate)",
+    task: "image",
+    provider: "Replicate / Black Forest Labs",
+    pricing: { unit: "call", base: 0.025 },
+    resolutions: ["1024x1024", "832x1248", "1248x832"],
+    strengths: [
+      "Основной провайдер: тот же контур predictions, что у lip-sync",
+      "Идемпотентность по промпту сцены",
+    ],
+    tradeoffs: [
+      "Нет пропорции 9:16 — самая близкая вертикаль 2:3",
+    ],
+    avgGenerationTime: "~10 сек",
+    integrated: true,
+    tier: "standard",
+  },
   {
     id: "fal-ai/flux/schnell",
     name: "FLUX.1 Schnell",
@@ -96,6 +121,32 @@ export const IMAGE_MODELS: ModelMeta[] = [
 ]
 
 export const VIDEO_MODELS: ModelMeta[] = [
+  {
+    id: "kwaivgi/kling-v1.6-standard",
+    name: "Kling 1.6 Standard (Replicate)",
+    task: "video",
+    provider: "Replicate / Kuaishou",
+    pricing: {
+      unit: "second",
+      // Переопределяется REPLICATE_VIDEO_PRICE_USD_PER_SEC.
+      base: 0.045,
+    },
+    resolutions: ["1080x1920", "1920x1080", "1080x1080"],
+    // Модель принимает только 5 или 10 секунд; лишнее подрезает монтаж.
+    durationRange: [5, 10],
+    strengths: [
+      "Основной провайдер: тот же контур predictions, что у lip-sync",
+      "Умеет и text-to-video, и image-to-video",
+      "Идемпотентность: повторный запуск не оплачивает сцену второй раз",
+    ],
+    tradeoffs: [
+      "Длительность только 5 или 10 секунд",
+      "Без встроенной генерации звука",
+    ],
+    avgGenerationTime: "3-8 мин",
+    integrated: true,
+    tier: "standard",
+  },
   {
     id: "fal-ai/kling-video/v3/standard/text-to-video",
     name: "Kling 3.0 Standard",

@@ -1,5 +1,7 @@
 import { DEFAULT_REPLICATE_LIPSYNC_MODEL, DEFAULT_REPLICATE_TTS_MODEL } from "../replicate/config"
 import type {
+  ImageInput,
+  ImageModelSpec,
   LipSyncInput,
   LipSyncModelSpec,
   MediaCapability,
@@ -7,6 +9,8 @@ import type {
   MediaModelSpecByCapability,
   TtsInput,
   TtsModelSpec,
+  VideoInput,
+  VideoModelSpec,
 } from "./types"
 
 const KLING_LIP_SYNC: LipSyncModelSpec = Object.freeze({
@@ -99,14 +103,60 @@ function normalizeEmotion(raw: string | null | undefined): string | null {
   return EMOTION_HINTS.find(hint => hint.match.test(value))?.emotion ?? null
 }
 
+/**
+ * FLUX.1 [dev] — генерация кадров. Списка 9:16 у модели нет: самая близкая
+ * вертикаль — 2:3. Для превью этого достаточно, а сцены всё равно снимает
+ * text-to-video напрямую, без промежуточной картинки.
+ */
+const FLUX_DEV: ImageModelSpec = Object.freeze({
+  id: "black-forest-labs/flux-dev",
+  provider: "replicate",
+  capability: "image",
+  priceUsdPerImage: readPrice("REPLICATE_IMAGE_PRICE_USD", 0.025),
+  constraints: Object.freeze({
+    aspectRatios: Object.freeze(["1:1", "16:9", "21:9", "3:2", "2:3", "4:5", "5:4", "3:4"]),
+    outputFormat: "jpg",
+  }),
+  dataProcessor: Object.freeze({
+    name: "Black Forest Labs",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+})
+
+/**
+ * Kling 1.6 Standard — единственная из проверенных моделей Kuaishou на
+ * Replicate, которая умеет и text-to-video, и image-to-video. Длительность
+ * принимает только 5 или 10 секунд, поэтому сцену на 9 секунд она снимет
+ * десятисекундной, а лишнее подрежет монтаж.
+ */
+const KLING_VIDEO_16_STANDARD: VideoModelSpec = Object.freeze({
+  id: "kwaivgi/kling-v1.6-standard",
+  provider: "replicate",
+  capability: "video",
+  priceUsdPerOutputSecond: readPrice("REPLICATE_VIDEO_PRICE_USD_PER_SEC", 0.045),
+  constraints: Object.freeze({
+    aspectRatios: Object.freeze(["16:9", "9:16", "1:1"]),
+    durationsSec: Object.freeze([5, 10]),
+    supportsStartImage: true,
+  }),
+  dataProcessor: Object.freeze({
+    name: "Kuaishou",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+})
+
 const MODELS = new Map<string, MediaModelSpec>([
   [KLING_LIP_SYNC.id, KLING_LIP_SYNC],
   [MINIMAX_SPEECH_02_TURBO.id, MINIMAX_SPEECH_02_TURBO],
+  [FLUX_DEV.id, FLUX_DEV],
+  [KLING_VIDEO_16_STANDARD.id, KLING_VIDEO_16_STANDARD],
 ])
 
 const DEFAULT_MODELS: Record<MediaCapability, string> = {
   lip_sync: KLING_LIP_SYNC.id,
   tts: MINIMAX_SPEECH_02_TURBO.id,
+  image: FLUX_DEV.id,
+  video: KLING_VIDEO_16_STANDARD.id,
 }
 
 export function resolveMediaModel<C extends MediaCapability>(
@@ -127,9 +177,11 @@ export function resolveMediaModel<C extends MediaCapability>(
 
 export function mapMediaInput(model: LipSyncModelSpec, input: LipSyncInput): Record<string, unknown>
 export function mapMediaInput(model: TtsModelSpec, input: TtsInput): Record<string, unknown>
+export function mapMediaInput(model: ImageModelSpec, input: ImageInput): Record<string, unknown>
+export function mapMediaInput(model: VideoModelSpec, input: VideoInput): Record<string, unknown>
 export function mapMediaInput(
   model: MediaModelSpec,
-  input: LipSyncInput | TtsInput,
+  input: LipSyncInput | TtsInput | ImageInput | VideoInput,
 ): Record<string, unknown> {
   if (model.capability === "lip_sync") {
     const lipSync = input as LipSyncInput
@@ -168,7 +220,56 @@ export function mapMediaInput(
     }
   }
 
+  if (model.capability === "image") {
+    const image = input as ImageInput
+    const prompt = image.prompt?.trim()
+    if (!prompt) throw new Error("Image input requires a non-empty prompt")
+    return {
+      prompt,
+      aspect_ratio: pickAspectRatio(model.constraints.aspectRatios, image.format),
+      output_format: model.constraints.outputFormat,
+      num_outputs: 1,
+    }
+  }
+
+  if (model.capability === "video") {
+    const video = input as VideoInput
+    const prompt = video.prompt?.trim()
+    if (!prompt) throw new Error("Video input requires a non-empty prompt")
+    if (video.startImageUrl && !model.constraints.supportsStartImage) {
+      throw new Error(`Model ${model.id} does not accept a start image`)
+    }
+    return {
+      prompt,
+      duration: pickDuration(model.constraints.durationsSec, video.durationSec),
+      aspect_ratio: pickAspectRatio(model.constraints.aspectRatios, video.format),
+      ...(video.negativePrompt ? { negative_prompt: video.negativePrompt } : {}),
+      ...(video.startImageUrl ? { start_image: video.startImageUrl } : {}),
+    }
+  }
+
   throw new Error(`Cannot map input for unsupported capability: ${(model as MediaModelSpec).capability}`)
+}
+
+/**
+ * Вертикаль просим настоящую, если модель её знает. Если нет — берём самую
+ * узкую из доступных: обрезать лишнее по краям дешевле, чем дорисовывать.
+ */
+function pickAspectRatio(supported: readonly string[], format: "portrait" | "landscape"): string {
+  if (format === "landscape") {
+    return supported.includes("16:9") ? "16:9" : supported[0]!
+  }
+  const portraitPreference = ["9:16", "2:3", "3:4", "4:5", "1:1"]
+  return portraitPreference.find(ratio => supported.includes(ratio)) ?? supported[0]!
+}
+
+/**
+ * Модель снимает не любую длительность, а из своего набора. Берём ближайшую
+ * не меньше запрошенной — лишнее подрежет монтаж, а вот недостачу не восполнить.
+ */
+export function pickDuration(supported: readonly number[], requestedSec: number): number {
+  const sorted = [...supported].sort((a, b) => a - b)
+  return sorted.find(value => value >= requestedSec) ?? sorted[sorted.length - 1]!
 }
 
 export function estimateMediaCost(model: LipSyncModelSpec, outputDurationSec: number): number {
@@ -189,12 +290,34 @@ export function defaultTtsVoice(): string {
   return configuredTtsVoice()
 }
 
+export function estimateImageCost(model: ImageModelSpec, imageCount: number): number {
+  if (!Number.isFinite(imageCount) || imageCount < 0) {
+    throw new Error("Image count must be a non-negative finite number")
+  }
+  return model.priceUsdPerImage * imageCount
+}
+
+export function estimateVideoCost(model: VideoModelSpec, outputDurationSec: number): number {
+  if (!Number.isFinite(outputDurationSec) || outputDurationSec < 0) {
+    throw new Error("Output duration must be a non-negative finite number")
+  }
+  return model.priceUsdPerOutputSecond * outputDurationSec
+}
+
 function readTtsPrice(): number {
-  const raw = process.env.REPLICATE_TTS_PRICE_USD_PER_1K_CHARS?.trim()
-  if (!raw) return 0.06
+  return readPrice("REPLICATE_TTS_PRICE_USD_PER_1K_CHARS", 0.06)
+}
+
+/**
+ * Replicate не отдаёт цены через публичный API, поэтому дефолт можно
+ * переопределить переменной окружения, не трогая код.
+ */
+function readPrice(envKey: string, fallback: number): number {
+  const raw = process.env[envKey]?.trim()
+  if (!raw) return fallback
   const parsed = Number(raw)
   if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error("REPLICATE_TTS_PRICE_USD_PER_1K_CHARS must be a non-negative number")
+    throw new Error(`${envKey} must be a non-negative number`)
   }
   return parsed
 }

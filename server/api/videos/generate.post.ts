@@ -1,3 +1,5 @@
+import { DEFAULT_IMAGE_MODEL, DEFAULT_VIDEO_MODEL } from '~~/server/utils/video-models'
+
 const VALID_FORMATS = ["portrait", "landscape"] as const
 const VALID_QUALITIES = ["low", "medium", "high"] as const
 
@@ -238,8 +240,8 @@ export default defineEventHandler(async (event) => {
   if (!presenterOnly) {
     const { falProbeAccessBatch } = await import('~~/server/utils/fal')
     const modelsToCheck = [
-      body.imageModelId || 'fal-ai/flux/dev',
-      body.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
+      body.imageModelId || DEFAULT_IMAGE_MODEL,
+      body.videoModelId || DEFAULT_VIDEO_MODEL,
     ]
     const accessResults = await falProbeAccessBatch(modelsToCheck)
     for (const [endpoint, result] of accessResults) {
@@ -296,8 +298,8 @@ export default defineEventHandler(async (event) => {
       imageCount: effectiveImageCount,
       renderQuality,
       targetPlatform: body.targetPlatform || null,
-      imageModelId: body.imageModelId || "fal-ai/flux/dev",
-      videoModelId: body.videoModelId || "fal-ai/kling-video/v3/standard/text-to-video",
+      imageModelId: body.imageModelId || DEFAULT_IMAGE_MODEL,
+      videoModelId: body.videoModelId || DEFAULT_VIDEO_MODEL,
       modelStrategy: body.modelStrategy || 'auto',
       generateAudio: body.generateAudio ?? true,
       // Voiceover

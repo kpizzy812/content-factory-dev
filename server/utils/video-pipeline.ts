@@ -14,7 +14,7 @@
 
 import { falProbeAccessBatch } from "./fal"
 import { estimateVideoCost } from "./video-cost"
-import { getModel } from "./video-models"
+import { getModel, DEFAULT_IMAGE_MODEL, DEFAULT_VIDEO_MODEL } from "./video-models"
 import type { StoryPlan } from "~~/shared/types/story"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildStoryVideoPlan } from "./story-video-planner"
@@ -120,8 +120,8 @@ export async function runVideoPipeline(
 
     // Model strategy — применяется ДО валидации, может переопределить дефолтные ID.
     // Если user выбрал strategy ≠ 'auto' и оставил DB-дефолты — подставляем recommendModels().
-    const DEFAULT_IMG = 'fal-ai/flux/dev'
-    const DEFAULT_VID = 'fal-ai/kling-video/v3/standard/text-to-video'
+    const DEFAULT_IMG = DEFAULT_IMAGE_MODEL
+    const DEFAULT_VID = DEFAULT_VIDEO_MODEL
     const storyPlanForStrategy = variant.storyPlan as { scenes?: unknown[] } | null
     const storySceneCount = storyPlanForStrategy?.scenes?.length ?? 0
     const strategyFromDb = (video.modelStrategy as ModelStrategy | undefined) ?? 'auto'
@@ -189,8 +189,14 @@ export async function runVideoPipeline(
       && storyScenes.length > 0
       && presenterSceneCount === storyScenes.length
 
-    const needImageProbe = !doneStepKeys.has("image_generation") && !presenterOnly
-    const needVideoProbe = !doneStepKeys.has("clip_generation") && !presenterOnly
+    // Пробить через fal можно только fal-модель: доступность Replicate проверяет
+    // сам prediction-service при первом вызове.
+    const needImageProbe = !doneStepKeys.has("image_generation")
+      && !presenterOnly
+      && effectiveImageModelId.startsWith("fal-ai/")
+    const needVideoProbe = !doneStepKeys.has("clip_generation")
+      && !presenterOnly
+      && effectiveVideoModelId.startsWith("fal-ai/")
     // Пробить через fal можно только fal-модель. Replicate-озвучка сюда не идёт:
     // её доступность проверяет сам prediction-service при первом вызове.
     const needTtsProbe = video.voiceoverEnabled

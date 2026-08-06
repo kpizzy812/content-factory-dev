@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
+  estimateImageCost,
   estimateMediaCost,
   estimateTtsCost,
+  estimateVideoCost,
   mapMediaInput,
+  pickDuration,
   resolveMediaModel,
 } from "../../../server/utils/media-provider/registry"
 
@@ -110,6 +113,56 @@ describe("media model registry", () => {
 
     expect(estimateTtsCost(model, 500)).toBeCloseTo(model.priceUsdPer1kCharacters / 2, 8)
     expect(estimateTtsCost(model, 0)).toBe(0)
+  })
+
+  it("uses Replicate Kling as the default video model", () => {
+    const model = resolveMediaModel("video")
+
+    expect(model.id).toBe("kwaivgi/kling-v1.6-standard")
+    expect(model.provider).toBe("replicate")
+    expect(model.constraints.durationsSec).toEqual([5, 10])
+  })
+
+  it("asks the video model for a real vertical frame", () => {
+    const model = resolveMediaModel("video")
+
+    expect(mapMediaInput(model, {
+      prompt: "nutritionist at a desk",
+      format: "portrait",
+      durationSec: 9,
+    })).toMatchObject({ aspect_ratio: "9:16", duration: 10 })
+  })
+
+  it("rounds scene duration up to the grid the model accepts", () => {
+    // Недостачу не восполнить, а лишнее подрежет монтаж.
+    expect(pickDuration([5, 10], 4)).toBe(5)
+    expect(pickDuration([5, 10], 5)).toBe(5)
+    expect(pickDuration([5, 10], 6)).toBe(10)
+    expect(pickDuration([5, 10], 99)).toBe(10)
+  })
+
+  it("passes a start image only when the model supports it", () => {
+    const model = resolveMediaModel("video")
+
+    expect(mapMediaInput(model, {
+      prompt: "app screen", format: "portrait", durationSec: 5,
+      startImageUrl: "https://cdn.example.com/screen.png",
+    })).toMatchObject({ start_image: "https://cdn.example.com/screen.png" })
+  })
+
+  it("falls back to the narrowest vertical the image model knows", () => {
+    const model = resolveMediaModel("image")
+
+    // У flux-dev нет 9:16 — берём 2:3, обрезать дешевле, чем дорисовывать.
+    expect(mapMediaInput(model, { prompt: "granola on a desk", format: "portrait" }))
+      .toMatchObject({ aspect_ratio: "2:3", num_outputs: 1 })
+  })
+
+  it("estimates media cost per unit the provider bills", () => {
+    expect(estimateImageCost(resolveMediaModel("image"), 3))
+      .toBeCloseTo(resolveMediaModel("image").priceUsdPerImage * 3, 8)
+    expect(estimateVideoCost(resolveMediaModel("video"), 10))
+      .toBeCloseTo(resolveMediaModel("video").priceUsdPerOutputSecond * 10, 8)
   })
 
   it("rejects unsupported capabilities and model ids", () => {
