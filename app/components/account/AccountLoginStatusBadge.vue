@@ -1,13 +1,7 @@
 <script setup lang="ts">
 /**
- * Badge статуса проверки логина для browser_automation аккаунта.
- *
- *   loginCheckedStatus === true  → 🟢 Залогинен
- *   loginCheckedStatus === false → 🔴 Не залогинен
- *   loginCheckedStatus === null
- *     ИЛИ loginCheckedAt отсутствует → ❓ Не проверялся
- *
- * Tooltip показывает loginCheckedAt + username (если есть).
+ * Результат последней проверки входа. Тон — из общего словаря, подпись доменная:
+ * «Не залогинен» точнее «Ошибки», а «Не проверялся» — не то же самое, что провал.
  */
 const props = defineProps<{
   loginCheckedAt?: string | Date | null
@@ -17,65 +11,57 @@ const props = defineProps<{
 
 const formattedAt = computed(() => {
   if (!props.loginCheckedAt) return null
-  const d = props.loginCheckedAt instanceof Date
-    ? props.loginCheckedAt
-    : new Date(props.loginCheckedAt)
+  const d = props.loginCheckedAt instanceof Date ? props.loginCheckedAt : new Date(props.loginCheckedAt)
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 })
 
 const config = computed(() => {
   if (!props.loginCheckedAt) {
     return {
-      label: 'Не проверялся',
-      badgeClass: 'badge-ghost',
+      label: 'Вход не проверялся',
+      tone: 'border-divider bg-transparent text-subtle',
       icon: 'mingcute:question-line',
-      tooltip: 'Login-check ни разу не запускался',
+      tooltip: 'Проверка входа ни разу не запускалась',
     }
   }
   if (props.loginCheckedStatus === true) {
-    const userPart = props.loginCheckedUsername
-      ? ` (@${props.loginCheckedUsername})`
-      : ''
+    const user = props.loginCheckedUsername ? ` · @${props.loginCheckedUsername}` : ''
     return {
-      label: `Залогинен${userPart}`,
-      badgeClass: 'badge-success',
+      label: `Залогинен${user}`,
+      tone: 'border-success-border bg-success-bg text-success',
       icon: 'mingcute:check-circle-line',
-      tooltip: `Login OK${userPart}. Проверено: ${formattedAt.value}`,
+      tooltip: `Вход подтверждён${user}. Проверено ${formattedAt.value}`,
     }
   }
   if (props.loginCheckedStatus === false) {
     return {
       label: 'Не залогинен',
-      badgeClass: 'badge-error',
+      tone: 'border-danger-border bg-danger-bg text-danger',
       icon: 'mingcute:close-circle-line',
-      tooltip: `Login не обнаружен. Проверено: ${formattedAt.value}. Залогиньтесь через устройство DuoPlus.`,
+      tooltip: `Вход не найден. Проверено ${formattedAt.value}. Войдите через устройство.`,
     }
   }
   return {
-    label: 'Ошибка',
-    badgeClass: 'badge-warning',
+    label: 'Проверка упала',
+    tone: 'border-warning-border bg-warning-bg text-warning',
     icon: 'mingcute:warning-line',
-    tooltip: `Login-check упал с ошибкой. Проверено: ${formattedAt.value}`,
+    tooltip: `Проверка входа завершилась ошибкой. Проверено ${formattedAt.value}`,
   }
 })
 </script>
 
 <template>
-  <span class="tooltip tooltip-bottom" :data-tip="config.tooltip">
+  <UiTooltip :text="config.tooltip" placement="bottom">
     <span
-      class="badge badge-sm gap-1"
-      :class="config.badgeClass"
+      class="inline-flex h-[22px] w-fit items-center gap-1.5 rounded-sm border px-2 text-sm whitespace-nowrap"
+      :class="config.tone"
       :aria-label="config.tooltip"
     >
-      <Icon :name="config.icon" class="text-xs" />
+      <Icon :name="config.icon" class="shrink-0" />
       {{ config.label }}
     </span>
-  </span>
+  </UiTooltip>
 </template>

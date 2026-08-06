@@ -1,39 +1,59 @@
 <script setup lang="ts">
-const emit = defineEmits<{
-  saved: []
-  cancel: []
-}>()
+import type { AccountRow } from './account-row'
 
-const modalRef = ref<HTMLDialogElement>()
+/**
+ * Пачка аккаунтов: создание и правка.
+ *
+ * Раньше модалка умела только править существующую (`PUT`), а кнопки создания
+ * на странице не было вовсе, хотя `POST /api/account-groups` есть. Теперь оба
+ * пути в одном окне — разница только в наличии `id`.
+ */
+const props = defineProps<{ appId: number }>()
+
+const emit = defineEmits<{ saved: [] }>()
+
+const DISPATCH_MODES = [
+  { value: 'round_robin', label: 'По кругу — следующий аккаунт на каждый ролик' },
+  { value: 'all', label: 'Во все сразу — один ролик уходит в каждый аккаунт' },
+  { value: 'first_active', label: 'В первый активный' },
+]
+
+interface GroupPayload {
+  id: number
+  name: string
+  dispatchMode?: string
+  members: { socialAccount: { id: number } }[]
+}
+
+const isOpen = ref(false)
 const saving = ref(false)
 const error = ref('')
 
 const groupId = ref<number | null>(null)
 const groupName = ref('')
+const dispatchMode = ref('round_robin')
 const selectedAccountIds = ref<number[]>([])
 
 const { data: accountsData } = useFetch('/api/accounts')
-const allAccounts = computed(() => accountsData.value?.data ?? [])
+const allAccounts = computed<AccountRow[]>(() => (accountsData.value?.data ?? []) as AccountRow[])
 
-function open(group: {
-  id: number
-  name: string
-  members: { socialAccount: { id: number } }[]
-}) {
-  groupId.value = group.id
-  groupName.value = group.name
-  selectedAccountIds.value = group.members.map(m => m.socialAccount.id)
+function open(group?: GroupPayload) {
+  groupId.value = group?.id ?? null
+  groupName.value = group?.name ?? ''
+  dispatchMode.value = group?.dispatchMode ?? 'round_robin'
+  selectedAccountIds.value = group?.members.map(m => m.socialAccount.id) ?? []
   error.value = ''
-  modalRef.value?.showModal()
+  isOpen.value = true
+}
+
+function close() {
+  isOpen.value = false
 }
 
 function toggleAccount(id: number) {
-  const idx = selectedAccountIds.value.indexOf(id)
-  if (idx >= 0) {
-    selectedAccountIds.value.splice(idx, 1)
-  } else {
-    selectedAccountIds.value.push(id)
-  }
+  selectedAccountIds.value = selectedAccountIds.value.includes(id)
+    ? selectedAccountIds.value.filter(x => x !== id)
+    : [...selectedAccountIds.value, id]
 }
 
 async function save() {
@@ -46,87 +66,91 @@ async function save() {
   error.value = ''
 
   try {
-    await $fetch(`/api/account-groups/${groupId.value}`, {
-      method: 'PUT',
-      body: {
-        name: groupName.value.trim(),
-        accountIds: selectedAccountIds.value,
-      },
-    })
-    modalRef.value?.close()
+    if (groupId.value) {
+      await $fetch(`/api/account-groups/${groupId.value}`, {
+        method: 'PUT',
+        body: {
+          name: groupName.value.trim(),
+          accountIds: selectedAccountIds.value,
+          dispatchMode: dispatchMode.value,
+        },
+      })
+    }
+    else {
+      await $fetch('/api/account-groups', {
+        method: 'POST',
+        body: {
+          appId: props.appId,
+          name: groupName.value.trim(),
+          accountIds: selectedAccountIds.value,
+          dispatchMode: dispatchMode.value,
+        },
+      })
+    }
+    isOpen.value = false
     emit('saved')
-  } catch (e: unknown) {
-    error.value = (e as Error).message || 'Ошибка сохранения'
-  } finally {
+  }
+  catch (e: unknown) {
+    error.value = (e as { data?: { message?: string } })?.data?.message
+      ?? (e as Error).message
+      ?? 'Не удалось сохранить пачку'
+  }
+  finally {
     saving.value = false
   }
 }
 
-defineExpose({ open })
+defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-lg max-h-[90vh] overflow-y-auto">
-      <h3 class="font-bold text-lg mb-1">Редактирование группы</h3>
-      <p class="text-xs text-base-content/60 mb-4">
-        Имя и состав аккаунтов в группе. Удаление группы не удаляет сами аккаунты.
-      </p>
+  <UiModal
+    :open="isOpen"
+    :title="groupId ? 'Правка пачки' : 'Новая пачка аккаунтов'"
+    size="md"
+    @close="close"
+  >
+    <div class="flex flex-col gap-4">
+      <UiField label="Название">
+        <UiInput v-model="groupName" placeholder="Например, «Мебель RU»" />
+      </UiField>
 
-      <div class="space-y-4">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Название группы</legend>
-          <input
-            v-model="groupName"
-            type="text"
-            class="input input-sm w-full"
-            placeholder="Название"
-          />
-        </fieldset>
+      <UiField
+        label="Раздача роликов"
+        hint="Определяет, как пачка распределяет ролики между своими аккаунтами."
+      >
+        <UiSelect v-model="dispatchMode" :options="DISPATCH_MODES" />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Аккаунты</legend>
-          <div v-if="allAccounts.length" class="max-h-48 overflow-y-auto space-y-1">
-            <label
-              v-for="account in allAccounts"
-              :key="account.id"
-              class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-200 cursor-pointer"
+      <UiField :label="`Аккаунты · выбрано ${selectedAccountIds.length}`">
+        <div v-if="allAccounts.length" class="max-h-56 overflow-y-auto rounded-md border border-border">
+          <label
+            v-for="account in allAccounts"
+            :key="account.id"
+            class="flex cursor-pointer items-center gap-2.5 border-b border-divider px-2.5 py-2 last:border-b-0 hover:bg-card"
+          >
+            <input
+              type="checkbox"
+              class="size-3.5 cursor-pointer accent-(--color-accent)"
+              :checked="selectedAccountIds.includes(account.id)"
+              @change="toggleAccount(account.id)"
             >
-              <input
-                type="checkbox"
-                class="checkbox checkbox-sm checkbox-primary"
-                :checked="selectedAccountIds.includes(account.id)"
-                @change="toggleAccount(account.id)"
-              />
-              <span class="text-sm">{{ account.displayName }}</span>
-              <span class="badge badge-xs badge-ghost">{{ account.platform }}</span>
-            </label>
-          </div>
-          <p v-else class="text-sm text-base-content/50">Нет доступных аккаунтов</p>
-        </fieldset>
-
-        <div v-if="error" role="alert" class="alert alert-error alert-soft">
-          <Icon name="mingcute:warning-line" />
-          <span>{{ error }}</span>
+            <span class="min-w-0 flex-1 truncate font-mono text-sm">{{ account.displayName }}</span>
+            <UiPlatformBadge :platform="account.platform" />
+          </label>
         </div>
-      </div>
+        <p v-else class="text-sm text-subtle">Аккаунтов пока нет — пачку будет некем наполнить.</p>
+      </UiField>
 
-      <div class="modal-action">
-        <form method="dialog">
-          <button class="btn btn-ghost btn-sm">Отмена</button>
-        </form>
-        <button
-          class="btn btn-primary btn-sm"
-          :disabled="saving"
-          @click="save"
-        >
-          <span v-if="saving" class="loading loading-spinner loading-sm" />
-          Сохранить
-        </button>
-      </div>
+      <p v-if="error" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        {{ error }}
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="saving" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" :loading="saving" @click="save">Сохранить</UiButton>
+    </template>
+  </UiModal>
 </template>

@@ -1,22 +1,18 @@
 <script setup lang="ts">
+import { platformMeta } from './platform-meta'
+
 /**
  * Бейдж платформы. Источник: design-preview/_system/blocks/PlatformBadge.html
  *
  * Платформа — не статус. Цвет вынесен в узкую метку слева и намеренно не
  * заливает бейдж целиком, чтобы не спорить со статусным бейджем в той же строке.
- * Это единственное место в системе, где допустимы небрендовые фирменные цвета.
+ * Это единственное место в системе, где допустимы небрендовые фирменные цвета;
+ * сами значения лежат в `platform-meta.ts`, чтобы строки списков не заводили
+ * вторую копию.
  */
 const props = defineProps<{ platform: string }>()
 
-const PLATFORMS: Record<string, { label: string, color: string }> = {
-  instagram: { label: 'Instagram', color: '#d6337f' },
-  tiktok: { label: 'TikTok', color: '#25d8d0' },
-  youtube: { label: 'YouTube', color: '#e34b4b' },
-}
-
-const meta = computed(() =>
-  PLATFORMS[props.platform.toLowerCase()] ?? { label: props.platform, color: 'var(--color-text-subtle)' },
-)
+const meta = computed(() => platformMeta(props.platform))
 </script>
 
 <template>

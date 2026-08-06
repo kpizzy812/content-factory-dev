@@ -1,176 +1,129 @@
 <script setup lang="ts">
+/**
+ * Настройка аккаунта: доступы, прокси, устройство, прогрев, статистика, готовность.
+ *
+ * Вкладка устройства звалась `AccountIndigoTab`, а файл называется
+ * `AccountDeviceTab.vue` — компонент молча не резолвился, и вкладка была пустой.
+ * Вкладки унаследованного контура по-прежнему показываются только при
+ * включённой зоне: без неё их API отдают 404.
+ */
 const emit = defineEmits<{
   updated: []
   close: []
-  /** Сигнал родительской странице открыть PostingJobCreateModal с pre-filled accountId. */
-  "open-create-posting-job": [accountId: number]
+  /** Сигнал странице открыть создание задачи постинга с уже выбранным аккаунтом. */
+  'open-create-posting-job': [accountId: number]
 }>()
 
-function onOpenIndigo() {
-  window.open("/devices", "_blank")
-}
-
-const modalRef = ref<HTMLDialogElement>()
+const isOpen = ref(false)
 const accountId = ref<number | null>(null)
-const accountName = ref("")
+const accountName = ref('')
 const currentProxyId = ref<string | null>(null)
-const accountPlatform = ref<"tiktok" | "youtube" | "instagram" | null>(null)
+const accountPlatform = ref<'tiktok' | 'youtube' | 'instagram' | null>(null)
 
-const activeTab = ref<
-  "credentials" | "proxy" | "indigo" | "warmup" | "metrics" | "readiness"
->("credentials")
+type TabKey = 'credentials' | 'proxy' | 'device' | 'warmup' | 'metrics' | 'readiness'
+const activeTab = ref<TabKey>('credentials')
 
-// Вкладки прокси, устройства, прогрева и готовности принадлежат унаследованному
-// контуру. Он выключен по умолчанию, а его API отдают 404 — показывать вкладки нельзя.
 const { legacyModules, loadLegacyModules } = useLegacyModules()
 loadLegacyModules()
+
+const tabs = computed(() => [
+  { key: 'credentials' as const, label: 'Доступы', icon: 'mingcute:lock-line', on: true },
+  { key: 'proxy' as const, label: 'Прокси', icon: 'mingcute:wifi-line', on: legacyModules.value.proxyPool },
+  { key: 'device' as const, label: 'Устройство', icon: 'mingcute:fingerprint-line', on: legacyModules.value.deviceAutomation },
+  { key: 'warmup' as const, label: 'Прогрев', icon: 'mingcute:fire-line', on: legacyModules.value.deviceAutomation },
+  { key: 'metrics' as const, label: 'Статистика', icon: 'mingcute:chart-line-line', on: true },
+  { key: 'readiness' as const, label: 'Готовность', icon: 'mingcute:check-circle-line', on: legacyModules.value.deviceAutomation },
+].filter(t => t.on))
 
 function open(payload: {
   id: number
   displayName: string
   proxyId: string | null
-  /** Платформа аккаунта - нужна для guard в AccountIndigoTab (YouTube требует desktop). */
-  platform?: "tiktok" | "youtube" | "instagram"
+  platform?: 'tiktok' | 'youtube' | 'instagram'
 }) {
   accountId.value = payload.id
   accountName.value = payload.displayName
   currentProxyId.value = payload.proxyId
   accountPlatform.value = payload.platform ?? null
-  activeTab.value = "credentials"
-  modalRef.value?.showModal()
+  activeTab.value = 'credentials'
+  isOpen.value = true
 }
 
 function close() {
-  modalRef.value?.close()
-  emit("close")
-}
-
-function onSaved() {
-  emit("updated")
+  isOpen.value = false
+  emit('close')
 }
 
 function onProxySaved(newId: string | null) {
   currentProxyId.value = newId
-  emit("updated")
+  emit('updated')
 }
 
 defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-2xl max-h-[90vh] flex flex-col">
-      <h3 class="font-bold text-lg mb-1">Редактирование аккаунта</h3>
-      <p class="text-xs text-base-content/60 mb-4">{{ accountName }}</p>
+  <UiModal :open="isOpen" size="lg" @close="close">
+    <template #header>
+      <span class="flex items-baseline gap-2">
+        Настройка аккаунта
+        <span class="truncate font-mono text-sm font-normal text-subtle">{{ accountName }}</span>
+      </span>
+    </template>
 
-      <div role="tablist" class="tabs tabs-box mb-4 shrink-0 flex-wrap">
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-wrap gap-1 rounded-md border border-border bg-card p-1">
         <button
-          role="tab"
-          class="tab"
-          :class="{ 'tab-active': activeTab === 'credentials' }"
-          @click="activeTab = 'credentials'"
+          v-for="tab in tabs"
+          :key="tab.key"
+          type="button"
+          class="flex h-7 cursor-pointer items-center gap-1.5 rounded-sm px-2.5 text-sm"
+          :class="activeTab === tab.key ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
+          @click="activeTab = tab.key"
         >
-          <Icon name="mingcute:lock-line" class="text-sm" />
-          Доступы
-        </button>
-        <button
-          v-if="legacyModules.proxyPool"
-          role="tab"
-          class="tab"
-          :class="{ 'tab-active': activeTab === 'proxy' }"
-          @click="activeTab = 'proxy'"
-        >
-          <Icon name="mingcute:wifi-line" class="text-sm" />
-          Прокси
-        </button>
-        <button
-          v-if="legacyModules.deviceAutomation"
-          role="tab"
-          class="tab"
-          :class="{ 'tab-active': activeTab === 'indigo' }"
-          @click="activeTab = 'indigo'"
-        >
-          <Icon name="mingcute:fingerprint-line" class="text-sm" />
-          Устройство
-        </button>
-        <button
-          v-if="legacyModules.deviceAutomation"
-          role="tab"
-          class="tab"
-          :class="{ 'tab-active': activeTab === 'warmup' }"
-          @click="activeTab = 'warmup'"
-        >
-          <Icon name="mingcute:fire-line" class="text-sm" />
-          Прогрев
-        </button>
-        <button
-          role="tab"
-          class="tab"
-          :class="{ 'tab-active': activeTab === 'metrics' }"
-          @click="activeTab = 'metrics'"
-        >
-          <Icon name="mingcute:chart-line-line" class="text-sm" />
-          Статистика
-        </button>
-        <button
-          v-if="legacyModules.deviceAutomation"
-          role="tab"
-          class="tab"
-          :class="{ 'tab-active': activeTab === 'readiness' }"
-          @click="activeTab = 'readiness'"
-        >
-          <Icon name="mingcute:check-circle-line" class="text-sm" />
-          Готовность
+          <Icon :name="tab.icon" />
+          {{ tab.label }}
         </button>
       </div>
 
-      <div class="flex-1 overflow-y-auto pr-1">
-        <div v-if="activeTab === 'credentials' && accountId">
-          <AccountCredentialsForm
-            :account-id="accountId"
-            @saved="onSaved"
-          />
-        </div>
+      <AccountCredentialsForm
+        v-if="activeTab === 'credentials' && accountId"
+        :account-id="accountId"
+        @saved="emit('updated')"
+      />
 
-        <div v-else-if="activeTab === 'proxy' && accountId && legacyModules.proxyPool">
-          <AccountProxyPicker
-            :account-id="accountId"
-            :current-proxy-id="currentProxyId"
-            @saved="onProxySaved"
-          />
-        </div>
+      <AccountProxyPicker
+        v-else-if="activeTab === 'proxy' && accountId"
+        :account-id="accountId"
+        :current-proxy-id="currentProxyId"
+        @saved="onProxySaved"
+      />
 
-        <div v-else-if="activeTab === 'indigo' && accountId && legacyModules.deviceAutomation">
-          <AccountIndigoTab
-            :account-id="accountId"
-            :account-platform="accountPlatform ?? undefined"
-            @updated="onSaved"
-          />
-        </div>
+      <AccountDeviceTab
+        v-else-if="activeTab === 'device' && accountId"
+        :account-id="accountId"
+        :account-platform="accountPlatform ?? undefined"
+        @updated="emit('updated')"
+      />
 
-        <div v-else-if="activeTab === 'warmup' && accountId && legacyModules.deviceAutomation">
-          <AccountWarmupTab :account-id="accountId" @updated="onSaved" />
-        </div>
+      <AccountWarmupTab
+        v-else-if="activeTab === 'warmup' && accountId"
+        :account-id="accountId"
+        @updated="emit('updated')"
+      />
 
-        <div v-else-if="activeTab === 'metrics' && accountId">
-          <AccountMetricsTab :account-id="accountId" />
-        </div>
+      <AccountMetricsTab v-else-if="activeTab === 'metrics' && accountId" :account-id="accountId" />
 
-        <div v-else-if="activeTab === 'readiness' && accountId && legacyModules.deviceAutomation">
-          <AccountReadinessTab
-            :account-id="accountId"
-            @open-create-modal="emit('open-create-posting-job', accountId)"
-            @open-indigo="onOpenIndigo"
-          />
-        </div>
-      </div>
-
-      <div class="modal-action mt-4 pt-3 border-t border-base-300 sticky bottom-0 bg-base-100">
-        <button class="btn btn-sm btn-ghost" @click="close">Закрыть</button>
-      </div>
+      <AccountReadinessTab
+        v-else-if="activeTab === 'readiness' && accountId"
+        :account-id="accountId"
+        @open-create-modal="emit('open-create-posting-job', accountId!)"
+        @open-indigo="navigateTo('/devices')"
+      />
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="close">Закрыть</UiButton>
+    </template>
+  </UiModal>
 </template>

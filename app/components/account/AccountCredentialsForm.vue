@@ -1,50 +1,47 @@
 <script setup lang="ts">
-import type { CredentialField } from "~~/app/composables/useAccountCredentials"
+import type { CredentialField } from '~~/app/composables/useAccountCredentials'
 
-const props = defineProps<{
-  accountId: number
-}>()
+/**
+ * Доступы аккаунта. Секреты шифруются на сервере, наружу приходят только флаги
+ * «значение задано» — поэтому поля показывают звёздочки, а не содержимое.
+ */
+const props = defineProps<{ accountId: number }>()
 
-const emit = defineEmits<{
-  saved: []
-}>()
+const emit = defineEmits<{ saved: [] }>()
 
+const toast = useToast()
 const { saveCredentials, loadMeta, isBusy, error } = useAccountCredentials()
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+loadLegacyModules()
 
-// Поля формы
-const loginEmail = ref<string>("")
-const loginPassword = ref<string>("")
-const recoveryEmail = ref<string>("")
-const recoveryPhone = ref<string>("")
-const twoFASecret = ref<string>("")
-const notes = ref<string>("")
-const birthDate = ref<string>("")
-const registrationSource = ref<string>("")
-const warmupStatus = ref<string>("new")
-const postingMethod = ref<string>("api")
+const loginEmail = ref('')
+const loginPassword = ref('')
+const recoveryEmail = ref('')
+const recoveryPhone = ref('')
+const twoFASecret = ref('')
+const notes = ref('')
+const birthDate = ref('')
+const registrationSource = ref('')
+const warmupStatus = ref('new')
+const postingMethod = ref('api')
 
-const success = ref(false)
 const validationError = ref<string | null>(null)
 const isLoadingMeta = ref(false)
 
-// Флаги наличия зашифрованных значений (из meta endpoint, никогда не plaintext)
-const hasLoginEmail = ref(false)
-const hasLoginPassword = ref(false)
-const hasRecoveryEmail = ref(false)
-const hasRecoveryPhone = ref(false)
-const hasTwoFASecret = ref(false)
+const has = reactive({
+  loginEmail: false,
+  loginPassword: false,
+  recoveryEmail: false,
+  recoveryPhone: false,
+  twoFASecret: false,
+})
 
-// Какие поля изменены пользователем — только их отправляем
+/** Отправляем только изменённые поля: пустое поле секрета не должно его стирать. */
 const dirty = ref<Record<string, boolean>>({})
 
 function markDirty(field: string) {
   dirty.value[field] = true
-  success.value = false
   validationError.value = null
-}
-
-function placeholderFor(hasValue: boolean): string {
-  return hasValue ? "•••••••• (не изменено)" : "(не задано)"
 }
 
 onMounted(async () => {
@@ -52,70 +49,81 @@ onMounted(async () => {
   try {
     const meta = await loadMeta(props.accountId)
     if (!meta) return
-    notes.value = meta.notes ?? ""
-    birthDate.value = meta.birthDate ? meta.birthDate.slice(0, 10) : ""
-    registrationSource.value = meta.registrationSource ?? ""
+    notes.value = meta.notes ?? ''
+    birthDate.value = meta.birthDate ? meta.birthDate.slice(0, 10) : ''
+    registrationSource.value = meta.registrationSource ?? ''
     warmupStatus.value = meta.warmupStatus
-    postingMethod.value = meta.postingMethod ?? "api"
-    hasLoginEmail.value = meta.hasLoginEmail
-    hasLoginPassword.value = meta.hasLoginPassword
-    hasRecoveryEmail.value = meta.hasRecoveryEmail
-    hasRecoveryPhone.value = meta.hasRecoveryPhone
-    hasTwoFASecret.value = meta.hasTwoFASecret
+    postingMethod.value = meta.postingMethod ?? 'api'
+    has.loginEmail = meta.hasLoginEmail
+    has.loginPassword = meta.hasLoginPassword
+    has.recoveryEmail = meta.hasRecoveryEmail
+    has.recoveryPhone = meta.hasRecoveryPhone
+    has.twoFASecret = meta.hasTwoFASecret
     dirty.value = {}
-  } finally {
+  }
+  finally {
     isLoadingMeta.value = false
   }
 })
 
-const revealModalRef = ref<{
-  open: (id: number, field: CredentialField, label: string) => void
-}>()
+const revealModalRef = ref<{ open: (id: number, field: CredentialField, label: string) => void }>()
 
-const fieldLabels: Record<CredentialField, string> = {
-  loginEmail: "Email для входа",
-  loginPassword: "Пароль",
-  recoveryEmail: "Email восстановления",
-  recoveryPhone: "Телефон восстановления",
-  twoFASecret: "2FA секрет",
+const FIELD_LABELS: Record<CredentialField, string> = {
+  loginEmail: 'Email для входа',
+  loginPassword: 'Пароль',
+  recoveryEmail: 'Email восстановления',
+  recoveryPhone: 'Телефон восстановления',
+  twoFASecret: 'Секрет 2FA',
 }
 
-function showField(field: CredentialField) {
-  revealModalRef.value?.open(props.accountId, field, fieldLabels[field])
-}
-
-const registrationSources = [
-  { value: "", label: "Не указан" },
-  { value: "self", label: "Самостоятельная регистрация" },
-  { value: "purchased", label: "Куплен" },
-  { value: "transferred", label: "Передан" },
+const SECRET_FIELDS: Array<{ key: CredentialField, model: Ref<string>, type?: string }> = [
+  { key: 'loginEmail', model: loginEmail },
+  { key: 'loginPassword', model: loginPassword, type: 'password' },
+  { key: 'recoveryEmail', model: recoveryEmail },
+  { key: 'recoveryPhone', model: recoveryPhone },
+  { key: 'twoFASecret', model: twoFASecret, type: 'password' },
 ]
 
-const warmupStatuses = [
-  { value: "new", label: "Новый" },
-  { value: "warming", label: "Прогревается" },
-  { value: "ready", label: "Готов" },
-  { value: "cold", label: "Холодный" },
+function showField(field: CredentialField) {
+  revealModalRef.value?.open(props.accountId, field, FIELD_LABELS[field])
+}
+
+function clearField(field: CredentialField) {
+  const entry = SECRET_FIELDS.find(f => f.key === field)
+  if (entry) entry.model.value = ''
+  markDirty(field)
+}
+
+const REGISTRATION_SOURCES = [
+  { value: '', label: 'Не указан' },
+  { value: 'self', label: 'Самостоятельная регистрация' },
+  { value: 'purchased', label: 'Куплен' },
+  { value: 'transferred', label: 'Передан' },
+]
+
+const WARMUP_STATUSES = [
+  { value: 'new', label: 'Новый' },
+  { value: 'warming', label: 'Прогревается' },
+  { value: 'ready', label: 'Готов' },
+  { value: 'cold', label: 'Холодный' },
 ]
 
 async function save() {
-  success.value = false
   validationError.value = null
 
   if (dirty.value.birthDate && birthDate.value) {
     const d = new Date(birthDate.value)
     if (Number.isNaN(d.getTime())) {
-      validationError.value = "Поле 'Дата рождения' имеет неверный формат"
+      validationError.value = 'Дата рождения в неверном формате'
       return
     }
     if (d.getTime() > Date.now()) {
-      validationError.value = "Поле 'Дата рождения' не может быть в будущем"
+      validationError.value = 'Дата рождения не может быть в будущем'
       return
     }
   }
 
   const body: Record<string, string | null> = {}
-
   if (dirty.value.loginEmail) body.loginEmail = loginEmail.value || null
   if (dirty.value.loginPassword) body.loginPassword = loginPassword.value || null
   if (dirty.value.recoveryEmail) body.recoveryEmail = recoveryEmail.value || null
@@ -123,346 +131,144 @@ async function save() {
   if (dirty.value.twoFASecret) body.twoFASecret = twoFASecret.value || null
   if (dirty.value.notes) body.notes = notes.value || null
   if (dirty.value.birthDate) body.birthDate = birthDate.value || null
-  if (dirty.value.registrationSource)
-    body.registrationSource = registrationSource.value || null
+  if (dirty.value.registrationSource) body.registrationSource = registrationSource.value || null
   if (dirty.value.warmupStatus) body.warmupStatus = warmupStatus.value
   if (dirty.value.postingMethod) body.postingMethod = postingMethod.value
 
   if (Object.keys(body).length === 0) {
-    success.value = true
+    toast.info('Менять нечего — ни одно поле не тронуто')
     return
   }
 
   const ok = await saveCredentials(props.accountId, body)
-  if (ok) {
-    success.value = true
-    dirty.value = {}
-    // Очищаем поля паролей после сохранения, чтобы не оставлять plaintext
-    if ("loginPassword" in body) {
-      loginPassword.value = ""
-      hasLoginPassword.value = body.loginPassword !== null
-    }
-    if ("twoFASecret" in body) {
-      twoFASecret.value = ""
-      hasTwoFASecret.value = body.twoFASecret !== null
-    }
-    if ("loginEmail" in body) hasLoginEmail.value = body.loginEmail !== null
-    if ("recoveryEmail" in body)
-      hasRecoveryEmail.value = body.recoveryEmail !== null
-    if ("recoveryPhone" in body)
-      hasRecoveryPhone.value = body.recoveryPhone !== null
-    emit("saved")
-  }
-}
+  if (!ok) return
 
-function clearLoginEmail() { loginEmail.value = ""; markDirty("loginEmail") }
-function clearLoginPassword() { loginPassword.value = ""; markDirty("loginPassword") }
-function clearRecoveryEmail() { recoveryEmail.value = ""; markDirty("recoveryEmail") }
-function clearRecoveryPhone() { recoveryPhone.value = ""; markDirty("recoveryPhone") }
-function clearTwoFASecret() { twoFASecret.value = ""; markDirty("twoFASecret") }
+  dirty.value = {}
+  // Пароли не оставляем в форме открытым текстом после сохранения.
+  if ('loginPassword' in body) {
+    loginPassword.value = ''
+    has.loginPassword = body.loginPassword !== null
+  }
+  if ('twoFASecret' in body) {
+    twoFASecret.value = ''
+    has.twoFASecret = body.twoFASecret !== null
+  }
+  if ('loginEmail' in body) has.loginEmail = body.loginEmail !== null
+  if ('recoveryEmail' in body) has.recoveryEmail = body.recoveryEmail !== null
+  if ('recoveryPhone' in body) has.recoveryPhone = body.recoveryPhone !== null
+
+  toast.success('Доступы сохранены')
+  emit('saved')
+}
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div role="alert" class="alert alert-info alert-soft text-sm">
-      <Icon name="mingcute:information-line" />
+  <div class="flex flex-col gap-4">
+    <p class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm">
+      <Icon name="mingcute:lock-line" class="mt-0.5 shrink-0 text-info" />
       <span>
-        Введённые секреты будут зашифрованы. Чтобы увидеть текущее значение, нажмите
-        иконку глаза. Чтобы стереть значение — нажмите крестик.
+        Секреты шифруются AES-256-GCM. Чтобы увидеть сохранённое значение — глаз,
+        чтобы стереть — крестик и «Сохранить».
       </span>
-    </div>
+    </p>
 
-    <div v-if="isLoadingMeta" class="flex items-center gap-2 text-sm text-base-content/60">
-      <span class="loading loading-spinner loading-xs" />
-      Загрузка данных аккаунта...
-    </div>
+    <UiSkeleton v-if="isLoadingMeta" variant="details" :count="4" />
 
-    <!-- Метод постинга - переключатель API vs Browser Automation.
-         API (default) - через OAuth токены платформ. browser_automation -
-         через устройство DuoPlus (для private TikTok / personal
-         Instagram где API недоступен). -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Метод постинга</legend>
-      <div class="flex flex-col gap-2">
-        <label class="label cursor-pointer justify-start gap-3 p-0">
-          <input
-            v-model="postingMethod"
-            type="radio"
-            class="radio radio-sm"
-            value="api"
-            @change="markDirty('postingMethod')"
-          />
-          <div class="flex-1">
-            <div class="label-text font-medium">Через API платформы</div>
-            <div class="text-xs text-base-content/60">
-              OAuth токены (TikTok Business, YouTube Data, Instagram Graph).
-              Требует верификации аккаунта на платформе.
-            </div>
-          </div>
-        </label>
-        <label class="label cursor-pointer justify-start gap-3 p-0">
-          <input
-            v-model="postingMethod"
-            type="radio"
-            class="radio radio-sm"
-            value="browser_automation"
-            @change="markDirty('postingMethod')"
-          />
-          <div class="flex-1">
-            <div class="label-text font-medium">
-              Через устройство DuoPlus (Automation)
-              <span class="badge badge-warning badge-soft badge-xs gap-1 ml-1">
-                <Icon name="mingcute:warning-line" class="text-[10px]" />
-                beta
+    <template v-else>
+      <UiField v-if="legacyModules.deviceAutomation" label="Метод постинга">
+        <div class="flex flex-col gap-2">
+          <label class="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-card p-2.5">
+            <input
+              v-model="postingMethod"
+              type="radio"
+              value="api"
+              class="mt-0.5 size-3.5 cursor-pointer accent-(--color-accent)"
+              @change="markDirty('postingMethod')"
+            >
+            <span class="min-w-0">
+              <span class="block text-sm font-medium">Официальный API платформы</span>
+              <span class="block text-sm text-muted">
+                OAuth-токены TikTok Business, YouTube Data и Instagram Graph. Требует
+                верификации аккаунта на платформе.
               </span>
-            </div>
-            <div class="text-xs text-base-content/60">
-              Облачное устройство DuoPlus с уникальным fingerprint. Работает с
-              любым типом аккаунта (private TikTok / personal Instagram).
-              Требует привязанный профиль устройства с US-прокси и сохранённые cookies.
-            </div>
-          </div>
-        </label>
-      </div>
-    </fieldset>
+            </span>
+          </label>
+          <label class="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-card p-2.5">
+            <input
+              v-model="postingMethod"
+              type="radio"
+              value="browser_automation"
+              class="mt-0.5 size-3.5 cursor-pointer accent-(--color-accent)"
+              @change="markDirty('postingMethod')"
+            >
+            <span class="min-w-0">
+              <span class="block text-sm font-medium">Через устройство · унаследованный контур</span>
+              <span class="block text-sm text-muted">
+                Публикация с облачного устройства. Нужны прокси, профиль устройства и
+                сохранённая сессия. Зона живёт под флагом и по умолчанию выключена.
+              </span>
+            </span>
+          </label>
+        </div>
+      </UiField>
 
-    <!-- Hybrid Browser Automation: инструкция логина + TOTP виджет.
-         Показывается только когда postingMethod=browser_automation. -->
-    <AccountLoginInstructionsBlock
-      v-if="postingMethod === 'browser_automation'"
-      :account-id="accountId"
-      :has-login-email="hasLoginEmail"
-      :has-login-password="hasLoginPassword"
-      :has-two-f-a-secret="hasTwoFASecret"
-    />
-
-    <div class="divider my-2" />
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Email для входа</legend>
-      <div class="flex gap-1 items-center">
-        <input
-          v-model="loginEmail"
-          type="text"
-          class="input input-sm flex-1"
-          :placeholder="placeholderFor(hasLoginEmail)"
-          autocomplete="off"
-          @input="markDirty('loginEmail')"
-        />
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost"
-          aria-label="Показать email для входа"
-          title="Показать сохранённое значение"
-          @click="showField('loginEmail')"
-        >
-          <Icon name="mingcute:eye-line" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost text-error"
-          aria-label="Очистить email для входа"
-          title="Очистить значение"
-          @click="clearLoginEmail"
-        >
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Пароль</legend>
-      <div class="flex gap-1 items-center">
-        <input
-          v-model="loginPassword"
-          type="password"
-          class="input input-sm flex-1"
-          :placeholder="placeholderFor(hasLoginPassword)"
-          autocomplete="new-password"
-          @input="markDirty('loginPassword')"
-        />
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost"
-          aria-label="Показать пароль"
-          title="Показать сохранённое значение"
-          @click="showField('loginPassword')"
-        >
-          <Icon name="mingcute:eye-line" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost text-error"
-          aria-label="Очистить пароль"
-          title="Очистить значение"
-          @click="clearLoginPassword"
-        >
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Email восстановления</legend>
-      <div class="flex gap-1 items-center">
-        <input
-          v-model="recoveryEmail"
-          type="text"
-          class="input input-sm flex-1"
-          :placeholder="placeholderFor(hasRecoveryEmail)"
-          autocomplete="off"
-          @input="markDirty('recoveryEmail')"
-        />
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost"
-          aria-label="Показать email восстановления"
-          @click="showField('recoveryEmail')"
-        >
-          <Icon name="mingcute:eye-line" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost text-error"
-          aria-label="Очистить email восстановления"
-          @click="clearRecoveryEmail"
-        >
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Телефон восстановления</legend>
-      <div class="flex gap-1 items-center">
-        <input
-          v-model="recoveryPhone"
-          type="text"
-          class="input input-sm flex-1"
-          :placeholder="placeholderFor(hasRecoveryPhone)"
-          autocomplete="off"
-          @input="markDirty('recoveryPhone')"
-        />
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost"
-          aria-label="Показать телефон восстановления"
-          @click="showField('recoveryPhone')"
-        >
-          <Icon name="mingcute:eye-line" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost text-error"
-          aria-label="Очистить телефон восстановления"
-          @click="clearRecoveryPhone"
-        >
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">2FA секрет</legend>
-      <div class="flex gap-1 items-center">
-        <input
-          v-model="twoFASecret"
-          type="password"
-          class="input input-sm flex-1"
-          :placeholder="placeholderFor(hasTwoFASecret)"
-          autocomplete="new-password"
-          @input="markDirty('twoFASecret')"
-        />
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost"
-          aria-label="Показать 2FA секрет"
-          @click="showField('twoFASecret')"
-        >
-          <Icon name="mingcute:eye-line" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost text-error"
-          aria-label="Очистить 2FA секрет"
-          @click="clearTwoFASecret"
-        >
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
-    </fieldset>
-
-    <div class="divider text-xs my-1">Метаданные</div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Дата рождения</legend>
-        <input
-          v-model="birthDate"
-          type="date"
-          class="input input-sm w-full"
-          @input="markDirty('birthDate')"
-        />
-      </fieldset>
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Источник</legend>
-        <select
-          v-model="registrationSource"
-          class="select select-sm w-full"
-          @change="markDirty('registrationSource')"
-        >
-          <option v-for="opt in registrationSources" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </fieldset>
-    </div>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Статус прогрева</legend>
-      <select
-        v-model="warmupStatus"
-        class="select select-sm w-full"
-        @change="markDirty('warmupStatus')"
-      >
-        <option v-for="opt in warmupStatuses" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Заметки</legend>
-      <textarea
-        v-model="notes"
-        class="textarea textarea-sm w-full"
-        rows="3"
-        placeholder="Любые операторские заметки (не шифруется)"
-        @input="markDirty('notes')"
+      <AccountLoginInstructionsBlock
+        v-if="postingMethod === 'browser_automation' && legacyModules.deviceAutomation"
+        :account-id="accountId"
+        :has-login-email="has.loginEmail"
+        :has-login-password="has.loginPassword"
+        :has-two-f-a-secret="has.twoFASecret"
       />
-    </fieldset>
 
-    <div v-if="validationError" role="alert" class="alert alert-warning alert-soft">
-      <Icon name="mingcute:warning-line" />
-      <span>{{ validationError }}</span>
-    </div>
+      <div class="flex flex-col gap-3">
+        <AccountSecretField
+          v-for="field in SECRET_FIELDS"
+          :key="field.key"
+          v-model="field.model.value"
+          :label="FIELD_LABELS[field.key]"
+          :type="field.type"
+          :has-value="has[field.key]"
+          @update:model-value="markDirty(field.key)"
+          @reveal="showField(field.key)"
+          @clear="clearField(field.key)"
+        />
+      </div>
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:warning-line" />
-      <span>{{ error }}</span>
-    </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <UiField label="Дата рождения">
+          <UiInput v-model="birthDate" type="date" @update:model-value="markDirty('birthDate')" />
+        </UiField>
+        <UiField label="Источник аккаунта">
+          <UiSelect
+            v-model="registrationSource"
+            :options="REGISTRATION_SOURCES"
+            @update:model-value="markDirty('registrationSource')"
+          />
+        </UiField>
+      </div>
 
-    <div v-if="success" role="alert" class="alert alert-success alert-soft">
-      <Icon name="mingcute:check-circle-line" />
-      <span>Сохранено</span>
-    </div>
+      <UiField v-if="legacyModules.deviceAutomation" label="Статус прогрева">
+        <UiSelect v-model="warmupStatus" :options="WARMUP_STATUSES" @update:model-value="markDirty('warmupStatus')" />
+      </UiField>
 
-    <div class="flex justify-end">
-      <button class="btn btn-primary btn-sm" :disabled="isBusy" @click="save">
-        <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-        Сохранить
-      </button>
-    </div>
+      <UiField label="Заметки" hint="Операторский текст, не шифруется.">
+        <UiTextarea v-model="notes" :rows="3" placeholder="Что важно помнить об этом аккаунте" @update:model-value="markDirty('notes')" />
+      </UiField>
+
+      <p v-if="validationError" class="flex items-center gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm text-warning">
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        {{ validationError }}
+      </p>
+
+      <p v-if="error" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        {{ error }}
+      </p>
+
+      <div class="flex justify-end">
+        <UiButton variant="primary" :loading="isBusy" @click="save">Сохранить</UiButton>
+      </div>
+    </template>
 
     <AccountCredentialRevealModal ref="revealModalRef" />
   </div>

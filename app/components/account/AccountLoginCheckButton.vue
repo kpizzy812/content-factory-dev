@@ -1,14 +1,9 @@
 <script setup lang="ts">
 /**
- * Кнопка "Проверить логин" для browser_automation аккаунта.
- *
- * Запускает POST /api/accounts/:id/check-login, показывает spinner на время
- * проверки (30-60 сек), отображает inline-result. Emit 'checked' после success.
+ * Проверка входа для аккаунта, публикующего через устройство.
+ * Запускает `POST /api/accounts/:id/check-login` — проверка идёт до минуты.
  */
-const props = defineProps<{
-  accountId: number
-  size?: 'xs' | 'sm' | 'md'
-}>()
+const props = defineProps<{ accountId: number }>()
 
 const emit = defineEmits<{
   checked: [result: import('~~/shared/types/login-check').LoginCheckResult]
@@ -18,60 +13,37 @@ const { runCheck, isBusy, error, status } = useLoginCheck()
 
 async function handleClick() {
   const result = await runCheck(props.accountId)
-  if (result) {
-    emit('checked', result)
-  }
+  if (result) emit('checked', result)
 }
-
-const sizeClass = computed(() => {
-  switch (props.size ?? 'sm') {
-    case 'xs': return 'btn-xs'
-    case 'md': return 'btn-md'
-    default: return 'btn-sm'
-  }
-})
 </script>
 
 <template>
-  <div class="flex flex-col gap-1">
-    <button
-      type="button"
-      class="btn btn-ghost gap-1"
-      :class="sizeClass"
-      :disabled="isBusy"
+  <div class="flex flex-col gap-1.5">
+    <UiButton
+      class="w-fit"
+      :loading="isBusy"
       :aria-busy="isBusy"
-      title="Запустить устройство DuoPlus и проверить, залогинен ли profile в платформе"
+      title="Запустить устройство и проверить, залогинен ли профиль в платформе"
       @click="handleClick"
     >
-      <span v-if="isBusy" class="loading loading-spinner loading-sm" />
-      <Icon v-else name="mingcute:refresh-line" class="text-sm" />
-      {{ isBusy ? 'Проверяю...' : 'Проверить логин' }}
-    </button>
+      <Icon v-if="!isBusy" name="mingcute:refresh-3-line" />
+      {{ isBusy ? 'Проверяю…' : 'Проверить вход' }}
+    </UiButton>
 
-    <div aria-live="polite">
-      <div v-if="error" class="alert alert-error alert-soft text-xs gap-1 py-1 px-2">
-        <Icon name="mingcute:warning-line" class="text-sm" />
-        <span>{{ error }}</span>
-      </div>
-
-      <div
-        v-else-if="status && status.loggedIn === true"
-        class="text-xs text-success"
-      >
-        ✓ Login OK{{ status.username ? ` (@${status.username})` : '' }}
-      </div>
-      <div
-        v-else-if="status && status.loggedIn === false"
-        class="text-xs text-error"
-      >
-        ✗ Не залогинен — откройте устройство DuoPlus и залогиньтесь вручную
-      </div>
-      <div
-        v-else-if="status && status.error"
-        class="text-xs text-warning"
-      >
-        Ошибка: {{ status.error }}
-      </div>
+    <div aria-live="polite" class="text-sm">
+      <p v-if="error" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2 text-danger">
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        {{ error }}
+      </p>
+      <p v-else-if="status && status.loggedIn === true" class="text-success">
+        Вход подтверждён{{ status.username ? ` · @${status.username}` : '' }}
+      </p>
+      <p v-else-if="status && status.loggedIn === false" class="text-danger">
+        Не залогинен — откройте устройство и войдите вручную
+      </p>
+      <p v-else-if="status && status.error" class="text-warning">
+        Проверка упала: {{ status.error }}
+      </p>
     </div>
   </div>
 </template>

@@ -1,55 +1,55 @@
 <script setup lang="ts">
-import type { CredentialField } from "~~/app/composables/useAccountCredentials"
+import type { CredentialField } from '~~/app/composables/useAccountCredentials'
 
-const emit = defineEmits<{
-  close: []
-}>()
+/**
+ * Показ расшифрованного секрета. Причина обязательна: запрос пишется в
+ * журнал доступа, и без неё запись бесполезна.
+ */
+const emit = defineEmits<{ close: [] }>()
 
-const modalRef = ref<HTMLDialogElement>()
-
-const accountId = ref<number | null>(null)
-const field = ref<CredentialField | null>(null)
-const fieldLabel = ref("")
-const reason = ref("")
-const value = ref<string | null>(null)
-const error = ref("")
-const copied = ref(false)
-
+const toast = useToast()
 const { revealField, isBusy } = useAccountCredentials()
 
+const isOpen = ref(false)
+const accountId = ref<number | null>(null)
+const field = ref<CredentialField | null>(null)
+const fieldLabel = ref('')
+const reason = ref('')
+const value = ref<string | null>(null)
+const error = ref('')
+
 const reasonValid = computed(() => reason.value.trim().length >= 10)
-const isStep2 = computed(() => value.value !== null)
+const revealed = computed(() => value.value !== null)
+
+function reset() {
+  accountId.value = null
+  field.value = null
+  fieldLabel.value = ''
+  reason.value = ''
+  value.value = null
+  error.value = ''
+}
 
 function open(id: number, f: CredentialField, label: string) {
   reset()
   accountId.value = id
   field.value = f
   fieldLabel.value = label
-  modalRef.value?.showModal()
-}
-
-function reset() {
-  accountId.value = null
-  field.value = null
-  fieldLabel.value = ""
-  reason.value = ""
-  value.value = null
-  error.value = ""
-  copied.value = false
+  isOpen.value = true
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
   reset()
-  emit("close")
+  emit('close')
 }
 
 async function submit() {
   if (!accountId.value || !field.value || !reasonValid.value) return
-  error.value = ""
+  error.value = ''
   const v = await revealField(accountId.value, field.value, reason.value.trim())
   if (v === null) {
-    error.value = "Не удалось получить значение"
+    error.value = 'Не удалось получить значение'
     return
   }
   value.value = v
@@ -59,12 +59,10 @@ async function copyValue() {
   if (!value.value) return
   try {
     await navigator.clipboard.writeText(value.value)
-    copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 1500)
-  } catch {
-    error.value = "Не удалось скопировать"
+    toast.success('Значение скопировано')
+  }
+  catch {
+    error.value = 'Браузер не дал доступ к буферу обмена'
   }
 }
 
@@ -72,71 +70,45 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-h-[90vh] overflow-y-auto">
-      <h3 class="text-lg font-bold">Расшифровка: {{ fieldLabel }}</h3>
+  <UiModal :open="isOpen" :title="`Показать: ${fieldLabel}`" size="md" @close="close">
+    <div v-if="!revealed" class="flex flex-col gap-3">
+      <p class="flex gap-2 rounded-md border border-warning-border bg-warning-bg p-2.5 text-sm">
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+        <span>Запрос попадёт в журнал доступа вместе с причиной и вашим именем.</span>
+      </p>
 
-      <div v-if="!isStep2" class="space-y-3 mt-4">
-        <div role="alert" class="alert alert-warning alert-soft">
-          <Icon name="mingcute:alert-line" />
-          <span class="text-sm">
-            Действие будет записано в audit-лог. Укажите причину доступа.
-          </span>
-        </div>
+      <UiField label="Причина" hint="Не короче десяти символов.">
+        <UiTextarea v-model="reason" :rows="3" placeholder="Например: ручной вход в аккаунт после смены пароля" />
+      </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Причина (минимум 10 символов)</legend>
-          <textarea
-            v-model="reason"
-            class="textarea textarea-sm w-full"
-            rows="3"
-            placeholder="Например: ручная авторизация через устройство DuoPlus"
-          />
-        </fieldset>
+      <p v-if="error" class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg p-2.5 text-sm text-danger">
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        {{ error }}
+      </p>
+    </div>
 
-        <div v-if="error" role="alert" class="alert alert-error alert-soft">
-          <Icon name="mingcute:warning-line" />
-          <span>{{ error }}</span>
-        </div>
-      </div>
+    <div v-else class="flex flex-col gap-3">
+      <p class="flex gap-2 rounded-md border border-info-border bg-info-bg p-2.5 text-sm">
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+        <span>Значение показано на время окна и нигде не сохраняется.</span>
+      </p>
 
-      <div v-else class="space-y-3 mt-4">
-        <div role="alert" class="alert alert-info alert-soft">
-          <Icon name="mingcute:information-line" />
-          <span class="text-sm">
-            Значение показано временно. После закрытия исчезнет из памяти.
-          </span>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <code class="bg-base-200 px-2 py-1 rounded text-sm flex-1 break-all">
-            {{ value }}
-          </code>
-          <button class="btn btn-sm btn-primary" @click="copyValue">
-            <Icon
-              :name="copied ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-              class="text-sm"
-            />
-            {{ copied ? "Скопировано" : "Копировать" }}
-          </button>
-        </div>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-ghost btn-sm" @click="close">Закрыть</button>
-        <button
-          v-if="!isStep2"
-          class="btn btn-primary btn-sm"
-          :disabled="!reasonValid || isBusy"
-          @click="submit"
-        >
-          <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-          Показать
-        </button>
+      <div class="flex items-center gap-2">
+        <code class="min-w-0 flex-1 rounded-md border border-border bg-surface px-2.5 py-2 font-mono text-sm break-all">
+          {{ value }}
+        </code>
+        <UiButton variant="primary" @click="copyValue">
+          <Icon name="mingcute:copy-2-line" />
+          Копировать
+        </UiButton>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" @click="close">Закрыть</UiButton>
+      <UiButton v-if="!revealed" variant="primary" :disabled="!reasonValid" :loading="isBusy" @click="submit">
+        Показать
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

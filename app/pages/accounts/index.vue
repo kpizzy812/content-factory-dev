@@ -1,199 +1,187 @@
 <script setup lang="ts">
+import type { AccountRow } from '~/components/account/account-row'
+
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'social-upload' })
 useHead({ title: 'Аккаунты' })
+
+const toast = useToast()
 
 const selectedAppId = ref<number | undefined>(undefined)
 
 const { data: appsData } = useFetch('/api/apps')
 const apps = computed(() => appsData.value?.data ?? [])
 
-const accountFilters = computed(() => ({
-  ...(selectedAppId.value ? { appId: selectedAppId.value } : {}),
-}))
-const groupFilters = computed(() => ({
+const listFilters = computed(() => ({
   ...(selectedAppId.value ? { appId: selectedAppId.value } : {}),
 }))
 
-const { data: accountsData, pending: accountsPending, error: accountsError, refresh: refreshAccounts } = useAccounts(accountFilters)
-const { data: groupsData, pending: groupsPending, error: groupsError, refresh: refreshGroups } = useAccountGroups(groupFilters)
+const { data: accountsData, pending: accountsPending, error: accountsError, refresh: refreshAccounts } = useAccounts(listFilters)
+const { data: groupsData, pending: groupsPending, refresh: refreshGroups } = useAccountGroups(listFilters)
 
-const accounts = computed(() => accountsData.value?.data ?? [])
+const accounts = computed<AccountRow[]>(() => (accountsData.value?.data ?? []) as AccountRow[])
 const groups = computed(() => groupsData.value?.data ?? [])
-
-const pending = computed(() => accountsPending.value || groupsPending.value)
-const error = computed(() => accountsError.value || groupsError.value)
 
 const currentAppId = computed(() => selectedAppId.value ?? (apps.value.length ? apps.value[0].id : 1))
 
-const editModalRef = ref<{ open: (group: unknown) => void }>()
-const accountEditModalRef = ref<{
-  open: (payload: {
-    id: number
-    displayName: string
-    proxyId: string | null
-    platform?: "tiktok" | "youtube" | "instagram"
-  }) => void
+const connectModalRef = ref<{ open: () => void }>()
+const createModalRef = ref<{ open: () => void, close: () => void }>()
+const editModalRef = ref<{
+  open: (payload: { id: number, displayName: string, proxyId: string | null, platform?: 'tiktok' | 'youtube' | 'instagram' }) => void
 }>()
-const accountCreateModalRef = ref<{ open: () => void; close: () => void }>()
+const styleModalRef = ref<{ open: (p: { accountId: number, accountName: string }) => void }>()
+const groupModalRef = ref<{ open: (group?: unknown) => void }>()
+const disconnectRef = ref<{ open: () => void, close: () => void, setBusy: (v: boolean) => void }>()
+const groupDeleteRef = ref<{ open: () => void, close: () => void, setBusy: (v: boolean) => void }>()
 
-function onAccountCreated(payload: {
-  id: number
-  displayName: string
-  platform: "tiktok" | "youtube" | "instagram"
-}) {
-  refreshAccounts()
-  accountEditModalRef.value?.open({
+const { disconnectAccount } = useAccountActions()
+
+function onEdit(account: AccountRow) {
+  editModalRef.value?.open({
+    id: account.id,
+    displayName: account.displayName,
+    proxyId: account.proxyId ?? null,
+    platform: account.platform as 'tiktok' | 'youtube' | 'instagram',
+  })
+}
+
+function onStyle(account: AccountRow) {
+  styleModalRef.value?.open({ accountId: account.id, accountName: account.displayName })
+}
+
+// ── Отключение аккаунта ────────────────────────────────────────────────
+const pendingDisconnect = ref<AccountRow | null>(null)
+
+function onDisconnect(account: AccountRow) {
+  pendingDisconnect.value = account
+  disconnectRef.value?.open()
+}
+
+async function confirmDisconnect() {
+  const account = pendingDisconnect.value
+  if (!account) return
+  disconnectRef.value?.setBusy(true)
+  const result = await disconnectAccount(account.id)
+  disconnectRef.value?.setBusy(false)
+  disconnectRef.value?.close()
+  pendingDisconnect.value = null
+  if (result) {
+    toast.success(`Аккаунт ${account.displayName} отключён`)
+    await refreshAccounts()
+  }
+  else {
+    toast.error('Не удалось отключить аккаунт')
+  }
+}
+
+// ── Пачки аккаунтов ────────────────────────────────────────────────────
+const pendingGroupDelete = ref<{ id: number, name: string } | null>(null)
+
+function onGroupDelete(group: { id: number, name: string }) {
+  pendingGroupDelete.value = group
+  groupDeleteRef.value?.open()
+}
+
+async function confirmGroupDelete() {
+  const group = pendingGroupDelete.value
+  if (!group) return
+  groupDeleteRef.value?.setBusy(true)
+  try {
+    await $fetch(`/api/account-groups/${group.id}`, { method: 'DELETE' })
+    toast.success(`Пачка «${group.name}» удалена`)
+    await refreshGroups()
+  }
+  catch {
+    toast.error('Не удалось удалить пачку')
+  }
+  finally {
+    groupDeleteRef.value?.setBusy(false)
+    groupDeleteRef.value?.close()
+    pendingGroupDelete.value = null
+  }
+}
+
+async function onAccountCreated(payload: { id: number, displayName: string, platform: 'tiktok' | 'youtube' | 'instagram' }) {
+  await refreshAccounts()
+  editModalRef.value?.open({
     id: payload.id,
     displayName: payload.displayName,
     proxyId: null,
     platform: payload.platform,
   })
 }
-
-// Style profile modal — обёртка над AccountStyleProfileEditor
-const styleModalRef = ref<{ open: (p: { accountId: number; accountName: string }) => void }>()
-
-function onOpenStyle(accountId: number) {
-  const account = accounts.value.find(a => a.id === accountId)
-  styleModalRef.value?.open({
-    accountId,
-    accountName: account?.displayName ?? `Аккаунт #${accountId}`,
-  })
-}
-
-function onStyleSaved() {
-  refreshAccounts()
-}
-
-async function onDisconnected() {
-  await refreshAccounts()
-}
-
-function onGroupEdit(group: unknown) {
-  editModalRef.value?.open(group)
-}
-
-async function onGroupDelete(group: { id: number; name: string }) {
-  if (!confirm(`Удалить группу "${group.name}"? Аккаунты не будут удалены.`)) return
-
-  try {
-    await $fetch(`/api/account-groups/${group.id}`, { method: 'DELETE' })
-    await refreshGroups()
-  } catch {
-    // Ошибка будет видна при обновлении
-  }
-}
-
-function onGroupSaved() {
-  refreshGroups()
-}
-
-function onAccountEdit(payload: {
-  id: number
-  displayName: string
-  proxyId: string | null
-  platform: string
-}) {
-  accountEditModalRef.value?.open({
-    ...payload,
-    platform: payload.platform as "tiktok" | "youtube" | "instagram",
-  })
-}
-
-async function onAccountUpdated() {
-  await refreshAccounts()
-}
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Заголовок -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <h1 class="text-2xl font-bold text-base-content">
-        Аккаунты соцсетей
-      </h1>
-      <div class="flex items-center gap-2">
-        <select
-          v-if="apps.length > 1"
-          v-model="selectedAppId"
-          class="select select-sm"
-        >
-          <option :value="undefined">Все приложения</option>
-          <option v-for="app in apps" :key="app.id" :value="app.id">
-            {{ app.name }}
-          </option>
-        </select>
-        <AccountConnectButton :app-id="currentAppId" />
-        <button
-          class="btn btn-ghost btn-sm gap-1"
-          @click="accountCreateModalRef?.open()"
-        >
-          <Icon name="mingcute:add-line" />
-          Добавить вручную
-        </button>
-      </div>
-    </div>
-
-    <SharedPageGuide
-      guide-key="accounts"
-      :title="pageGuides.accounts.title"
-      :steps="pageGuides.accounts.steps"
-      :tips="pageGuides.accounts.tips"
+  <div class="flex flex-col gap-6">
+    <AccountListView
+      :accounts="accounts"
+      :apps="apps"
+      :pending="accountsPending"
+      :error="accountsError"
+      @refresh="refreshAccounts()"
+      @connect="connectModalRef?.open()"
+      @create="createModalRef?.open()"
+      @edit="onEdit"
+      @style="onStyle"
+      @disconnect="onDisconnect"
+      @update:app-id="selectedAppId = $event"
     />
 
-    <!-- Loading -->
-    <SharedListSkeleton v-if="pending" :count="6" variant="card" :cols="3" />
+    <section class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-lg font-medium">Пачки аккаунтов</h2>
+        <span class="tnum text-sm text-subtle">{{ groups.length }}</span>
+        <span class="flex-1" />
+        <UiButton @click="groupModalRef?.open()">
+          <Icon name="mingcute:add-line" />
+          Новая пачка
+        </UiButton>
+      </div>
 
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
+      <UiSkeleton v-if="groupsPending && !groups.length" variant="cards" :count="3" />
 
-    <template v-else>
-      <!-- Аккаунты -->
-      <SharedEmptyState
-        v-if="accounts.length === 0"
-        icon="mingcute:group-line"
-        title="Нет подключённых аккаунтов"
-        description="Подключите аккаунт, чтобы начать публикацию видео в соцсети."
+      <UiEmptyState
+        v-else-if="!groups.length"
+        variant="first"
+        title="Пачек пока нет"
+        description="Пачка раздаёт ролики по кругу между своими аккаунтами — так один ролик не уходит дважды в один профиль."
       />
 
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <AccountCard
-          v-for="account in accounts"
-          :key="account.id"
-          :account="account"
-          @disconnected="onDisconnected"
-          @open-style="onOpenStyle"
-          @edit="onAccountEdit"
+      <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <AccountGroupCard
+          v-for="group in groups"
+          :key="group.id"
+          :group="group"
+          @edit="groupModalRef?.open(group)"
+          @delete="onGroupDelete(group)"
         />
       </div>
+    </section>
 
-      <!-- Пачки аккаунтов -->
-      <template v-if="groups.length > 0">
-        <div class="divider">Пачки аккаунтов</div>
+    <AccountConnectModal ref="connectModalRef" :app-id="currentAppId" />
+    <AccountCreateModal ref="createModalRef" :app-id="currentAppId" @created="onAccountCreated" />
+    <AccountEditModal ref="editModalRef" @updated="refreshAccounts()" />
+    <AccountStyleProfileModal ref="styleModalRef" @saved="refreshAccounts()" />
+    <AccountGroupEditModal ref="groupModalRef" :app-id="currentAppId" @saved="refreshGroups()" />
 
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <AccountGroupCard
-            v-for="group in groups"
-            :key="group.id"
-            :group="group"
-            @edit="onGroupEdit(group)"
-            @delete="onGroupDelete(group)"
-          />
-        </div>
-      </template>
-    </template>
-
-    <AccountGroupEditModal ref="editModalRef" @saved="onGroupSaved" />
-    <AccountEditModal ref="accountEditModalRef" @updated="onAccountUpdated" />
-    <AccountCreateModal
-      ref="accountCreateModalRef"
-      :app-id="currentAppId"
-      @created="onAccountCreated"
+    <SharedConfirmModal
+      ref="disconnectRef"
+      title="Отключить аккаунт?"
+      :message="pendingDisconnect
+        ? `Аккаунт ${pendingDisconnect.displayName} будет отвязан, активные загрузки отменены. Токен придётся выдавать заново.`
+        : ''"
+      confirm-label="Отключить"
+      @confirm="confirmDisconnect"
     />
 
-    <AccountStyleProfileModal ref="styleModalRef" @saved="onStyleSaved" />
+    <SharedConfirmModal
+      ref="groupDeleteRef"
+      title="Удалить пачку?"
+      :message="pendingGroupDelete
+        ? `Пачка «${pendingGroupDelete.name}» будет удалена. Сами аккаунты останутся на месте.`
+        : ''"
+      confirm-label="Удалить"
+      @confirm="confirmGroupDelete"
+    />
   </div>
 </template>
