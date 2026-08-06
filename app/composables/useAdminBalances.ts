@@ -64,6 +64,33 @@ export function useAdminBalances() {
   })
 }
 
+/** Строка разбивки расхода: группа операций и сумма за окно. */
+export interface AdminSpendGroup {
+  key: string
+  label: string
+  amountUsd: number
+}
+
+export interface AdminSpendBreakdown {
+  since: string
+  windowHours: number
+  groups: AdminSpendGroup[]
+  totalUsd: number
+  videoCount: number
+  perVideoUsd: number | null
+}
+
+/**
+ * Расход за окно по типам операций. Отдельный запрос, а не поле балансов:
+ * остаток вводят руками, а расход считается по журналу списаний, и обновляются
+ * они в разное время.
+ */
+export function useAdminSpend() {
+  return useFetch<{ data: AdminSpendBreakdown }>("/api/admin/spend", {
+    key: "admin-spend",
+  })
+}
+
 export async function updateServiceBalance(
   service: string,
   payload: { amount: number; currency?: string; notes?: string | null },

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { DashboardCounters } from '~~/shared/types/dashboard-summary'
+import type { DashboardCounters, DashboardSpend } from '~~/shared/types/dashboard-summary'
+import { formatMoney } from '~~/shared/utils/money'
 
 /**
  * Строка состояния системы. Источник: `SystemStatusStrip` из макета 01.
@@ -7,28 +8,35 @@ import type { DashboardCounters } from '~~/shared/types/dashboard-summary'
  * Каждая плитка ведёт в раздел с уже применённым фильтром — иначе цифра
  * заставляет искать те же объекты руками.
  *
- * В макете есть ещё расход за сутки и состояние интеграций. Их здесь нет:
- * `/api/dashboard/summary` таких величин не считает, а расход по дням живёт
- * в админском разделе балансов и виден не всем.
+ * Плитка расхода приходит только тем, у кого есть право на суммы: сводка
+ * отдаёт `spend: null` остальным, и плитка не рисуется вовсе. Состояние
+ * интеграций из макета по-прежнему нет — endpoint'а, который их проверяет,
+ * не существует.
  */
 const props = defineProps<{
   counters: Partial<DashboardCounters>
+  spend?: DashboardSpend | null
   pending?: boolean
 }>()
 
 const { canAccessModule } = usePermissions()
 
 interface Tile {
-  key: keyof DashboardCounters
+  key: string
   label: string
   caption: string
   to: string
-  module?: string
+  value: number | string | null | undefined
   tone?: 'warning' | 'danger'
   live?: boolean
 }
 
-const ALL: Tile[] = [
+interface CounterTile extends Omit<Tile, 'value'> {
+  key: keyof DashboardCounters
+  module?: string
+}
+
+const ALL: CounterTile[] = [
   { key: 'activeRuns', label: 'Запуски сейчас', caption: 'идут прямо сейчас', to: '/pipeline', module: 'pipeline', live: true },
   { key: 'trends', label: 'Тренды', caption: 'всего в базе', to: '/trends', module: 'trendwatcher' },
   { key: 'scenariosOnReview', label: 'Сценарии ждут решения', caption: 'вариант не выбран', to: '/scenarios', module: 'script-generator', tone: 'warning' },
@@ -37,17 +45,41 @@ const ALL: Tile[] = [
   { key: 'accountsAttention', label: 'Аккаунты с проблемой', caption: 'токен истёк или на исходе', to: '/accounts', module: 'social-upload', tone: 'warning' },
 ]
 
-const tiles = computed(() =>
-  ALL
+/** «290 ₽ за ролик» из макета: делить не на что, пока за сутки ни один не сдан. */
+const spendCaption = computed(() => {
+  if (!props.spend) return ''
+  const perVideo = formatMoney(props.spend.perVideoUsd)
+  return perVideo ? `${perVideo} за ролик` : 'за сутки роликов нет'
+})
+
+const tiles = computed<Tile[]>(() => {
+  const list: Tile[] = ALL
     .filter(t => !t.module || canAccessModule(t.module))
-    .map(t => ({ ...t, value: props.counters[t.key] })),
-)
+    .map(t => ({ ...t, value: props.counters[t.key] }))
+
+  if (props.spend) {
+    list.push({
+      key: 'spend',
+      label: 'Расход за сутки',
+      caption: spendCaption.value,
+      to: '/admin/balances',
+      value: formatMoney(props.spend.totalUsd),
+    })
+  }
+
+  return list
+})
 
 const TONE = { warning: 'text-warning', danger: 'text-danger' } as const
 </script>
 
 <template>
-  <div class="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-panel md:grid-cols-3 xl:grid-cols-6">
+  <!-- Колонок ровно столько, сколько плиток: их число зависит от прав, и
+       фиксированная сетка оставляла бы дыру или переносила последнюю вниз. -->
+  <div
+    class="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-panel md:grid-cols-3 xl:grid-cols-[repeat(var(--tiles),minmax(0,1fr))]"
+    :style="{ '--tiles': tiles.length }"
+  >
     <NuxtLink
       v-for="tile in tiles"
       :key="tile.key"

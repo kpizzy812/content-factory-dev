@@ -25,6 +25,9 @@ export function useNavCounters() {
   const counters = computed<Partial<DashboardCounters>>(() => data.value?.data.counters ?? {})
   const attention = computed(() => data.value?.data.attention ?? [])
   const computedAt = computed(() => data.value?.data.computedAt ?? null)
+  // Расход приходит только тем, у кого есть право на суммы; остальным null,
+  // и плитка не рисуется вовсе.
+  const spend = computed(() => data.value?.data.spend ?? null)
 
   // Один таймер на приложение: composable вызывается из сайдбара, топбара и
   // дашборда одновременно, и каждый заводил бы свой.
@@ -38,5 +41,5 @@ export function useNavCounters() {
     })
   }
 
-  return { counters, attention, computedAt, pending, refresh }
+  return { counters, attention, computedAt, spend, pending, refresh }
 }

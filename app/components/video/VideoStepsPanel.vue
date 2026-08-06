@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney } from '~~/shared/utils/money'
 import type { VideoGenerationStep, VideoStepKey } from '~~/shared/types/video'
 import { STEP_ORDER } from '~~/shared/types/video'
 import { VIDEO_STEP_LABELS, VIDEO_STEP_IS_CHEAP, videoStepStatus } from './VideoStatusMap'
@@ -95,7 +96,8 @@ async function onSkip(key: VideoStepKey) {
 }
 
 function costHint(estimated: number | null | undefined) {
-  return estimated != null ? `~${estimated.toFixed(0)} ₽` : undefined
+  const money = formatMoney(estimated)
+  return money ? `~${money}` : undefined
 }
 </script>
 
@@ -155,7 +157,7 @@ function costHint(estimated: number | null | undefined) {
         и все следующие шаги.
       </p>
       <p v-if="confirmRow?.backend?.estimatedCost != null" class="tnum mt-2 font-mono text-base">
-        оценка ~{{ confirmRow.backend.estimatedCost.toFixed(2) }} ₽
+        оценка ~{{ formatMoney(confirmRow.backend.estimatedCost) }}
       </p>
       <template #footer>
         <UiButton variant="ghost" @click="confirmKey = null">Отмена</UiButton>

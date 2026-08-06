@@ -6,6 +6,8 @@
  * средняя по разделу показывает, дорогой ли объект, а «потрачено на неудачные
  * попытки» объясняет расхождение сметы с фактом и нигде больше не видно.
  */
+import { formatMoney } from '~~/shared/utils/money'
+
 export interface CostItem {
   label: string
   amount: number
@@ -23,8 +25,13 @@ const total = computed(() => props.items.reduce((s, i) => s + i.amount, 0))
 const wasted = computed(() => props.items.filter(i => i.wasted).reduce((s, i) => s + i.amount, 0))
 const max = computed(() => Math.max(...props.items.map(i => i.amount), 0.01))
 
-function rub(n: number) {
-  return `${n.toFixed(2)} ₽`
+/**
+ * Знак валюты общий на всё приложение: суммы приходят из счетов провайдеров и
+ * хранятся в долларах. До этого разные экраны рисовали одно и то же число то
+ * с рублём, то с долларом.
+ */
+function money(n: number) {
+  return formatMoney(n) ?? '—'
 }
 </script>
 
@@ -32,7 +39,7 @@ function rub(n: number) {
   <div class="flex flex-col gap-2.5">
     <div class="flex items-baseline justify-between">
       <span class="text-sm text-muted">Стоимость</span>
-      <span class="tnum font-mono text-xl font-semibold">{{ rub(total) }}</span>
+      <span class="tnum font-mono text-xl font-semibold">{{ money(total) }}</span>
     </div>
 
     <div class="flex flex-col gap-1.5">
@@ -47,18 +54,18 @@ function rub(n: number) {
             :style="{ width: `${(item.amount / max) * 100}%` }"
           />
         </span>
-        <span class="tnum w-16 shrink-0 text-right font-mono text-sm">{{ rub(item.amount) }}</span>
+        <span class="tnum w-16 shrink-0 text-right font-mono text-sm">{{ money(item.amount) }}</span>
       </div>
     </div>
 
     <div class="flex flex-col gap-1 border-t border-divider pt-2 text-sm text-subtle">
       <div v-if="average != null" class="flex justify-between">
         <span>Средняя по разделу за сутки</span>
-        <span class="tnum font-mono">{{ rub(average) }}</span>
+        <span class="tnum font-mono">{{ money(average) }}</span>
       </div>
       <div v-if="wasted > 0" class="flex justify-between text-danger">
         <span>Потрачено на неудачные попытки</span>
-        <span class="tnum font-mono">{{ rub(wasted) }}</span>
+        <span class="tnum font-mono">{{ money(wasted) }}</span>
       </div>
     </div>
   </div>

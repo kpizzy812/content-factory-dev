@@ -19,7 +19,8 @@ interface ActionMenuItem {
   disabled?: boolean
   group?: string
 }
-import { formatClock } from '../PipelineRunFormat'
+import { formatClock, runCostLabel } from '../PipelineRunFormat'
+import { formatMoney } from '~~/shared/utils/money'
 
 const props = defineProps<{
   run: WorkflowRun
@@ -68,6 +69,30 @@ const segments = computed(() =>
 
 const failedStep = computed(() => props.steps.find(s => s.status === 'failed') ?? null)
 
+/**
+ * Стоимость запуска: агрегат по шагам. У идущего запуска это «накоплено», а не
+ * итог, поэтому подпись меняется вместе со статусом.
+ */
+const runCost = computed(() => runCostLabel(props.run))
+const costLabel = computed(() => (props.run.status === 'running' ? 'Потрачено' : 'Стоимость'))
+
+/**
+ * Цена повтора — то, во что запуск обошёлся в прошлый раз. Это оценка, а не
+ * счёт: граф и провайдеры могли поменяться, поэтому «около».
+ */
+const replayPrice = computed(() => (runCost.value ? `около ${runCost.value}` : 'платно'))
+
+/** Повтор с упавшего шага пересчитывает только то, что ниже по графу. */
+const retryPrice = computed(() => {
+  if (!failedStep.value) return 'платно'
+  const from = props.steps.findIndex(s => s.id === failedStep.value!.id)
+  const spentBelow = props.steps
+    .slice(from)
+    .reduce<number | null>((sum, step) => (step.costActual == null ? sum : (sum ?? 0) + step.costActual), null)
+  const price = formatMoney(spentBelow)
+  return price ? `около ${price}` : 'платно'
+})
+
 const menuItems = computed<ActionMenuItem[]>(() => {
   const items: ActionMenuItem[] = []
   if (props.canReplay) {
@@ -77,7 +102,7 @@ const menuItems = computed<ActionMenuItem[]>(() => {
       icon: 'mingcute:refresh-2-line',
       group: 'Перезапуск',
       disabled: props.replaying,
-      cost: 'платно',
+      cost: replayPrice.value,
     })
   }
   if (failedStep.value && ['failed', 'cancelled'].includes(props.run.status)) {
@@ -86,7 +111,7 @@ const menuItems = computed<ActionMenuItem[]>(() => {
       label: 'Повторить с упавшего шага',
       icon: 'mingcute:skip-forward-line',
       group: 'Перезапуск',
-      cost: 'платно',
+      cost: retryPrice.value,
     })
   }
   items.push({ key: 'editor', label: 'Открыть в редакторе', icon: 'mingcute:edit-2-line' })
@@ -165,6 +190,9 @@ const TABS = [
       </span>
       <span class="inline-flex items-center gap-1.5">
         Шагов<span class="tnum font-mono text-fg">{{ stepsLabel }}</span>
+      </span>
+      <span v-if="runCost" class="inline-flex items-center gap-1.5">
+        {{ costLabel }}<span class="tnum font-mono text-fg">{{ runCost }}</span>
       </span>
       <span class="inline-flex items-center gap-1.5">
         Запуск<span class="text-fg">{{ triggerLabel(run.triggerType) }}</span>

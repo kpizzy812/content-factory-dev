@@ -8,13 +8,14 @@ useHead({ title: 'Сейчас' })
  * Первым блоком идёт не сводка объёмов, а очередь решений: цифры сверху
  * отвечают «что происходит», очередь — «что делать».
  *
- * Из макета не перенесены расход за сутки, состояние интеграций, воронка со
- * средним временем шага и результаты за период: этих величин не считает ни
- * `/api/dashboard/summary`, ни какой-либо другой endpoint.
+ * Расход за сутки вернулся вместе с полями стоимости на запуске и журналом
+ * списаний — плитку видит тот, у кого есть право на суммы. Состояние
+ * интеграций, воронка со средним временем шага и результаты за период
+ * по-прежнему не перенесены: этих величин не считает ни один endpoint.
  */
 const { user } = useUserSession()
 const { canAccessModule } = usePermissions()
-const { counters, attention, computedAt, pending, refresh } = useNavCounters()
+const { counters, attention, computedAt, spend, pending, refresh } = useNavCounters()
 
 const displayName = computed(() => {
   if (!user.value) return ''
@@ -46,7 +47,7 @@ const computedAtLabel = computed(() => {
       </UiButton>
     </div>
 
-    <DashboardStatusStrip :counters="counters" :pending="pending" />
+    <DashboardStatusStrip :counters="counters" :spend="spend" :pending="pending" />
 
     <DashboardAttentionQueue :rows="attention" :pending="pending" />
 

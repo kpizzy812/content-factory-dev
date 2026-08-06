@@ -104,6 +104,7 @@ curl -s -b cookies.txt http://127.0.0.1:3214/trends
 Демо-данные для проверки глазами (только тестовая БД):
 
 ```
+bun run scripts/seed-dev-user.ts         # учётка стенда и приложение — ПЕРВЫМ
 bun run scripts/seed-videos-demo.ts      # тренды → сценарии → ролики в трёх состояниях
 bun run scripts/seed-accounts-demo.ts    # шесть аккаунтов: истекающий токен, истёкший, отозванный, пачка
 bun run scripts/seed-ideas-demo.ts       # идеи: разобранная, разбирающаяся, упавшая, с конфликтом синхронизации
@@ -114,7 +115,13 @@ bun run scripts/seed-scenes-demo.ts      # сцены: собранная со �
 bun run scripts/seed-devices-demo.ts     # устройства: синхронизирован, запущен, локальный, конфликт, без прокси
 bun run scripts/seed-posting-jobs-demo.ts # очередь публикаций во всех состояниях, часть — на ближайшие сутки
 bun run scripts/seed-pipeline-runs-demo.ts # конвейер из 9 блоков и 8 запусков во всех состояниях
+bun run scripts/seed-cost-ledger-demo.ts # журнал списаний из шагов роликов — расход в админке
 ```
+
+`seed-dev-user` запускать первым: без пользователя не работает ни вход, ни
+`/api/dev/set-session`, а половина остальных сидов ищет в базе приложение.
+Прогон DB-тестов делает `TRUNCATE` всей схемы и стирает стенд целиком —
+после тестов сиды нужно прогнать заново.
 
 `seed-scenes-demo` требует персонажей (`seed-characters-demo`) — блок «Персонаж»
 ссылается на реального. Устройства видны только при

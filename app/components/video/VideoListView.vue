@@ -3,6 +3,7 @@ import type { ColumnDef } from '~/components/list/ListColumnsMenu.vue'
 import type { FilterChip } from '~/components/list/ListFilterChips.vue'
 import type { SystemView } from '~/composables/useSavedViews'
 import { videoStatus } from './VideoStatusMap'
+import { formatMoney } from '~~/shared/utils/money'
 
 /**
  * Список роликов по эталону `TrendListView`.
@@ -144,10 +145,10 @@ function titleOf(row: { scenario?: { variants?: Array<{ title: string }> } | nul
 }
 
 function costOf(row: { totalCostActual?: number | null, totalCostEstimate?: number | null }) {
-  const actual = row.totalCostActual
-  if (actual != null) return { value: `${actual.toFixed(2)} ₽`, estimated: false }
-  const est = row.totalCostEstimate
-  if (est != null) return { value: `~${est.toFixed(2)} ₽`, estimated: true }
+  const actual = formatMoney(row.totalCostActual)
+  if (actual) return { value: actual, estimated: false }
+  const est = formatMoney(row.totalCostEstimate)
+  if (est) return { value: `~${est}`, estimated: true }
   return null
 }
 

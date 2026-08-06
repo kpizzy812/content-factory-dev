@@ -9,6 +9,8 @@
  * Повтор предлагается с правильного шага, а не с текущего: если речь короче
  * видеодорожки, перезапуск lip-sync упадёт снова.
  */
+import { formatMoney } from '~~/shared/utils/money'
+
 defineProps<{
   stepLabel: string
   message: string
@@ -51,13 +53,13 @@ const showDetails = ref(false)
         <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
           <UiButton v-if="retryFromLabel" variant="primary" :loading="retrying" @click="emit('retryFrom')">
             Повторить с «{{ retryFromLabel }}»
-            <span v-if="retryCost != null" class="font-mono text-micro">· ~{{ retryCost.toFixed(0) }} ₽</span>
+            <span v-if="retryCost != null" class="font-mono text-micro">· ~{{ formatMoney(retryCost) }}</span>
           </UiButton>
           <UiButton :loading="retrying" @click="emit('retryAll')">Повторить всё</UiButton>
           <UiButton v-if="cancellable" variant="ghost" @click="emit('cancel')">Отменить</UiButton>
 
           <span class="tnum ml-auto font-mono text-sm text-subtle">
-            уже потрачено {{ spent.toFixed(2) }} ₽
+            уже потрачено {{ formatMoney(spent) }}
           </span>
         </div>
       </div>

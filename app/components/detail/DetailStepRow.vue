@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EntityStatus } from '~~/shared/utils/entity-status'
+import { formatMoney } from '~~/shared/utils/money'
 
 /**
  * Шаг генерации. Источник: design-preview/catalog/03-detail-video.dc.html
@@ -96,7 +97,7 @@ const menuItems = computed(() => {
       </span>
 
       <span v-if="actualCost != null" class="tnum shrink-0 text-right font-mono text-sm">
-        {{ actualCost.toFixed(2) }} ₽
+        {{ formatMoney(actualCost) }}
         <span v-if="costDrift" class="block text-warning">{{ costDrift > 0 ? '+' : '' }}{{ costDrift }}%</span>
       </span>
       <span v-else />

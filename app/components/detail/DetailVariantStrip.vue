@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney } from '~~/shared/utils/money'
 import type { EntityStatus } from '~~/shared/utils/entity-status'
 
 /**
@@ -41,7 +42,7 @@ defineEmits<{ select: [id: number] }>()
       </span>
       <span class="flex items-baseline justify-between gap-1 px-1 py-0.5">
         <span class="truncate font-mono text-[10px] text-muted">{{ v.label }}</span>
-        <span v-if="v.cost != null" class="tnum shrink-0 font-mono text-[10px] text-subtle">{{ v.cost.toFixed(0) }}₽</span>
+        <span v-if="v.cost != null" class="tnum shrink-0 font-mono text-[10px] text-subtle">{{ formatMoney(v.cost) }}</span>
       </span>
     </button>
   </div>

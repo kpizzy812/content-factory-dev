@@ -5,6 +5,7 @@
  * оператор сравнивает шаги между собой и ему нужны минуты с секундами. Файл
  * вне границ переноса, поэтому свой формат живёт рядом с компонентами.
  */
+import { formatMoney } from '~~/shared/utils/money'
 
 /** «12 с», «4 м 26 с», «1 ч 48 м». Ниже секунды — десятые доли. */
 export function formatDuration(ms: number | null | undefined): string {
@@ -53,6 +54,23 @@ export function formatDayLabel(value: string, now: Date): string {
   if (diffDays === 0) return 'Сегодня'
   if (diffDays === 1) return 'Вчера'
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+}
+
+const TERMINAL_RUN_STATUSES = new Set(['success', 'failed', 'cancelled', 'no_data'])
+
+/**
+ * Стоимость запуска для строки списка и шапки.
+ *
+ * Агрегат — сумма шагов, у которых сумма известна: у логических блоков это
+ * честный ноль, у платных она появляется в момент завершения шага. Пока запуск
+ * идёт, ноль означает «платные шаги ещё не отчитались», а не «бесплатно», и
+ * показывать его нельзя — цифру примут за итог. На завершённом запуске ноль
+ * уже сообщение: денег не потрачено.
+ */
+export function runCostLabel(run: { status: string; costActual: number | null }): string | null {
+  if (run.costActual == null) return null
+  if (run.costActual === 0 && !TERMINAL_RUN_STATUSES.has(run.status)) return null
+  return formatMoney(run.costActual)
 }
 
 /** Ключ группы истории — календарный день в местной зоне. */

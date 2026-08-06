@@ -2,7 +2,7 @@
 import type { WorkflowRunSummary, WorkflowStepSummary } from '~~/shared/types/workflow'
 import { getNodeUnitTarget } from '~~/shared/utils/pipeline-node-routes'
 import { triggerLabel } from '../PipelineRunStatusMap'
-import { formatClock } from '../PipelineRunFormat'
+import { formatClock, runCostLabel } from '../PipelineRunFormat'
 
 const props = defineProps<{
   run: WorkflowRunSummary
@@ -73,6 +73,7 @@ async function handleCancel() {
       <span class="tnum mt-0.5 flex flex-wrap gap-x-2.5 gap-y-1 font-mono text-micro text-subtle">
         <span>{{ triggerLabel(run.triggerType) }}</span>
         <span>{{ run.stepsCount }} шагов</span>
+        <span v-if="runCostLabel(run)">{{ runCostLabel(run) }}</span>
         <PipelineMonitorLiveDuration
           :started-at="run.startedAt"
           :finished-at="run.finishedAt"

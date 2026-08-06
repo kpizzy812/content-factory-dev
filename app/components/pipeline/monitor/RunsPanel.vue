@@ -7,7 +7,7 @@
  * оператор. История сгруппирована по дням.
  */
 import type { WorkflowRun } from '~~/shared/types/workflow'
-import { dayKey, formatClock, formatDayLabel } from '../PipelineRunFormat'
+import { dayKey, formatClock, formatDayLabel, runCostLabel } from '../PipelineRunFormat'
 import { triggerLabel } from '../PipelineRunStatusMap'
 
 const props = defineProps<{
@@ -134,6 +134,7 @@ function runHref(id: number) {
               :now="now?.getTime() ?? null"
             />
             <span>{{ run._count?.steps ?? 0 }} шагов</span>
+            <span v-if="runCostLabel(run)">{{ runCostLabel(run) }}</span>
             <span class="text-subtle">{{ triggerLabel(run.triggerType) }}</span>
           </div>
         </NuxtLink>
@@ -197,6 +198,7 @@ function runHref(id: number) {
                 :now="now?.getTime() ?? null"
               />
               <span>{{ run._count?.steps ?? 0 }} шагов</span>
+              <span v-if="runCostLabel(run)">{{ runCostLabel(run) }}</span>
               <span>{{ triggerLabel(run.triggerType) }}</span>
             </div>
           </NuxtLink>

@@ -6,11 +6,11 @@
  * порог алерта. Прогноз считает сервер (`balance.metadata.burnRate`), мы его
  * только показываем — свой расчёт по чужим числам был бы выдумкой.
  *
- * Разбивки расхода по типам операций из макета нет: `/api/admin/balances`
- * отдаёт остатки по сервисам, а не траты по операциям.
+ * Разбивка расхода по типам операций — отдельный запрос к `/api/admin/spend`:
+ * балансы отвечают «сколько осталось», расход — «куда ушло».
  */
 import type { AdminServiceBalanceRow } from '~/composables/useAdminBalances'
-import { isAutoUnavailable } from '~/composables/useAdminBalances'
+import { isAutoUnavailable, useAdminSpend } from '~/composables/useAdminBalances'
 import { balanceStatus, BALANCE_SOURCE_LABELS } from '~/components/admin/BalanceStatusMap'
 
 definePageMeta({ middleware: ['admin-access'] })
@@ -18,6 +18,13 @@ useHead({ title: 'Балансы сервисов' })
 
 const { data, pending, refresh } = useAdminBalances()
 const services = computed<AdminServiceBalanceRow[]>(() => data.value?.data?.services ?? [])
+
+const { data: spendData, pending: spendPending, refresh: refreshSpend } = useAdminSpend()
+const spend = computed(() => spendData.value?.data ?? null)
+
+async function refreshAll() {
+  await Promise.all([refresh(), refreshSpend()])
+}
 
 const modalRef = ref<{ open: (row: AdminServiceBalanceRow) => void } | null>(null)
 
@@ -77,7 +84,7 @@ function enteredAt(row: AdminServiceBalanceRow): string | null {
       <span class="tnum font-mono text-sm text-subtle">{{ services.length }}</span>
       <span v-if="lowCount" class="tnum font-mono text-sm text-warning">{{ lowCount }} на исходе</span>
       <span class="flex-1" />
-      <UiButton :loading="pending" @click="refresh()">
+      <UiButton :loading="pending" @click="refreshAll()">
         <Icon v-if="!pending" name="mingcute:refresh-2-line" />
         Обновить
       </UiButton>
@@ -153,6 +160,8 @@ function enteredAt(row: AdminServiceBalanceRow): string | null {
         </div>
       </section>
     </div>
+
+    <AdminSpendByOperation class="max-w-3xl" :spend="spend" :pending="spendPending" />
 
     <p class="max-w-3xl text-micro text-subtle">
       Пороги алерта задаются в конфигурации сервера, а не здесь: они одинаковы для

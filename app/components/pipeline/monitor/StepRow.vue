@@ -8,6 +8,7 @@
  * две секунды вёрстка не дёргается, когда шаг меняет состояние.
  */
 import type { WorkflowStep } from '~~/shared/types/workflow'
+import { formatMoney } from '~~/shared/utils/money'
 import { pipelineNodeMeta } from '../PipelineNodeMeta'
 import { stepStatusMeta } from '../PipelineRunStatusMap'
 
@@ -34,6 +35,19 @@ const attempts = computed(() => {
   const done = props.step.attemptCount || 0
   if (done < 2) return null
   return max != null ? `${done}/${max + 1}` : String(done)
+})
+
+/**
+ * Стоимость шага. Факт главнее оценки; оценка помечена «~», чтобы её не
+ * приняли за списание. Прочерк значит «сумму никто не посчитал» — у блоков,
+ * которые ничего не тратят, стоит честный ноль.
+ */
+const cost = computed(() => {
+  const actual = formatMoney(props.step.costActual)
+  if (actual) return { text: actual, estimated: false }
+  const estimate = formatMoney(props.step.costEstimate)
+  if (estimate) return { text: `~${estimate}`, estimated: true }
+  return null
 })
 
 /** Подпись типа не дублирует имя блока, если оно совпадает. */
@@ -66,7 +80,7 @@ const numberTone = computed(() => {
   <div class="overflow-hidden rounded-md bg-panel" :class="frame">
     <button
       type="button"
-      class="grid w-full cursor-pointer grid-cols-[24px_26px_minmax(0,1fr)_26px] items-center gap-x-2.5 gap-y-1 px-2.5 py-[7px] text-left lg:grid-cols-[24px_26px_minmax(0,1fr)_104px_84px_56px_26px]"
+      class="grid w-full cursor-pointer grid-cols-[24px_26px_minmax(0,1fr)_26px] items-center gap-x-2.5 gap-y-1 px-2.5 py-[7px] text-left lg:grid-cols-[24px_26px_minmax(0,1fr)_96px_84px_84px_56px_26px]"
       :class="headTone"
       :aria-expanded="expanded"
       @click="emit('toggle')"
@@ -102,6 +116,11 @@ const numberTone = computed(() => {
           empty=""
         />
         <span v-else />
+        <span
+          class="tnum font-mono text-sm lg:text-right"
+          :class="cost?.estimated ? 'text-subtle' : 'text-muted'"
+          :title="cost?.estimated ? 'Оценка до запуска' : 'Списано'"
+        >{{ cost?.text ?? '' }}</span>
         <span class="tnum font-mono text-micro text-warning lg:text-right" title="Попыток">
           <template v-if="attempts">×{{ attempts }}</template>
         </span>
@@ -109,7 +128,7 @@ const numberTone = computed(() => {
 
       <Icon
         name="mingcute:up-line"
-        class="col-start-4 row-start-1 justify-self-end text-subtle transition-transform duration-(--duration-fast) lg:col-start-7 lg:row-start-auto"
+        class="col-start-4 row-start-1 justify-self-end text-subtle transition-transform duration-(--duration-fast) lg:col-start-8 lg:row-start-auto"
         :class="!expanded && 'rotate-180'"
       />
     </button>

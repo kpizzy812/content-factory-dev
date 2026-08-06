@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney } from '~~/shared/utils/money'
 import type { VideoGenerationStep } from '~~/shared/types/video'
 import { videoStatus, VIDEO_STEP_LABELS } from '~/components/video/VideoStatusMap'
 
@@ -343,7 +344,7 @@ function copyId() {
       <div class="flex flex-wrap items-center gap-4 px-1 pb-3 text-sm text-muted">
         <span class="flex items-center gap-1.5">
           Стоимость
-          <span class="tnum font-mono text-fg">{{ spent.toFixed(2) }} ₽</span>
+          <span class="tnum font-mono text-fg">{{ formatMoney(spent) }}</span>
         </span>
         <span class="flex items-center gap-1.5">
           Создано
