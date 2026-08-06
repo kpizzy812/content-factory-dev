@@ -1,78 +1,25 @@
 <script setup lang="ts">
-import type { DeviceSyncStatus } from "~~/shared/types/device-profile"
-
 /**
- * Badge статуса синхронизации профиля.
+ * Состояние синхронизации профиля с облаком.
  *
- * Override через indigoId prop: если indigoId === null, badge форсится на
- * 'local_only' независимо от syncStatus в БД. Это truth-first - бывали случаи
- * рассинхрона (БД syncStatus='synced' но indigoId is null после failed push),
- * UI должен показывать реальность.
+ * `indigoId === null` перекрывает статус из базы на «Не в облаке»: бывало, что
+ * в базе стояло `synced`, а профиль после неудачного пуша так и не появился в
+ * облаке. Показываем то, что есть на самом деле.
  */
-const props = withDefaults(
-  defineProps<{
-    status: DeviceSyncStatus
-    // null → override badge на "Не в Indigo" (профиль реально не запушен).
-    // undefined (prop не передан) → используем status как есть (backwards compat).
-    indigoId?: string | null
-    size?: "sm" | "md"
-  }>(),
-  { indigoId: undefined, size: "md" },
-)
+import type { DeviceSyncStatus } from '~~/shared/types/device-profile'
+import { DEVICE_SYNC_META } from './DeviceStatusMap'
 
-const config: Record<
-  DeviceSyncStatus,
-  { label: string; badgeClass: string; icon: string }
-> = {
-  synced: {
-    label: "Синхронизирован",
-    badgeClass: "badge-success",
-    icon: "mingcute:check-circle-line",
-  },
-  local_only: {
-    label: "Не в облаке",
-    badgeClass: "badge-warning",
-    icon: "mingcute:save-line",
-  },
-  remote_only: {
-    label: "Только в облаке",
-    badgeClass: "badge-info",
-    icon: "mingcute:cloud-line",
-  },
-  conflict: {
-    label: "Конфликт",
-    badgeClass: "badge-warning",
-    icon: "mingcute:warning-line",
-  },
-  deleted_remote: {
-    label: "Удалён в облаке",
-    badgeClass: "badge-error",
-    icon: "mingcute:delete-2-line",
-  },
-  error: {
-    label: "Ошибка",
-    badgeClass: "badge-error",
-    icon: "mingcute:close-circle-line",
-  },
-  archived: {
-    label: "Архивирован",
-    badgeClass: "badge-ghost",
-    icon: "mingcute:archive-line",
-  },
-}
+const props = withDefaults(defineProps<{
+  status: DeviceSyncStatus
+  /** `null` — профиль не запушен; `undefined` — проверку не делаем. */
+  indigoId?: string | null
+  size?: 'xs' | 'sm' | 'md'
+}>(), { indigoId: undefined, size: 'sm' })
 
-const effectiveStatus = computed<DeviceSyncStatus>(() => {
-  if (props.indigoId === null) return "local_only"
-  return props.status
-})
-
-const current = computed(() => config[effectiveStatus.value])
-const sizeClass = computed(() => (props.size === "sm" ? "badge-sm" : ""))
+const meta = computed(() =>
+  DEVICE_SYNC_META[props.indigoId === null ? 'local_only' : props.status] ?? DEVICE_SYNC_META.error)
 </script>
 
 <template>
-  <span class="badge gap-1" :class="[current.badgeClass, sizeClass]">
-    <Icon :name="current.icon" class="text-xs" />
-    {{ current.label }}
-  </span>
+  <DeviceBadge :meta="meta" :size="size" />
 </template>

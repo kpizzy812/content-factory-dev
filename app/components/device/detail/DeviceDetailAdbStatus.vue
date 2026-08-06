@@ -1,88 +1,56 @@
 <script setup lang="ts">
-import type { DeviceProfileDto } from "~~/shared/types/device-profile"
-import { deviceStatusMeta } from "~~/shared/types/device-profile"
+/**
+ * Состояние устройства и адрес ADB из последней синхронизации.
+ *
+ * Подписано как «последнее известное»: это снимок, а не онлайн-запрос, и
+ * оператор не должен принимать его за живую проверку.
+ */
+import type { DeviceProfileDto } from '~~/shared/types/device-profile'
+import { deviceCloudStatus } from '../DeviceStatusMap'
 
 const props = defineProps<{
   profile: DeviceProfileDto
 }>()
 
 const status = computed(() => props.profile.duoplus?.deviceStatus ?? null)
-const meta = computed(() => deviceStatusMeta(status.value))
-
-const badgeClass = computed(() => {
-  switch (meta.value.tone) {
-    case "success":
-      return "badge-success"
-    case "error":
-      return "badge-error"
-    case "warning":
-      return "badge-warning"
-    case "info":
-      return "badge-info"
-    default:
-      return "badge-ghost"
-  }
-})
-
-// adb-адрес присутствует только когда устройство включено (status=1).
+const meta = computed(() => deviceCloudStatus(status.value))
 const adbAddress = computed(() => props.profile.duoplus?.adbAddress ?? null)
 const isOn = computed(() => status.value === 1)
 const hasSnapshot = computed(() => props.profile.duoplus != null)
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <h3 class="font-semibold flex items-center gap-2">
-        <Icon name="mingcute:plugin-2-line" />
-        ADB-статус устройства
-      </h3>
+  <section class="flex flex-col gap-2.5 rounded-lg border border-border bg-panel p-3.5">
+    <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Состояние и ADB</h2>
 
-      <div
-        v-if="!hasSnapshot"
-        role="alert"
-        class="alert alert-info alert-soft text-sm"
-      >
-        <Icon name="mingcute:information-line" />
-        <span>
-          Статус появится после синхронизации с DuoPlus.
+    <p
+      v-if="!hasSnapshot"
+      role="note"
+      class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-info"
+    >
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0" />
+      <span>Состояние появится после синхронизации с облаком.</span>
+    </p>
+
+    <template v-else>
+      <div class="flex items-center gap-3 border-b border-divider py-1.5">
+        <span class="w-32 shrink-0 text-sm text-muted">Состояние</span>
+        <DeviceBadge :meta="meta" size="xs" />
+      </div>
+      <div class="flex items-center gap-3 py-1.5">
+        <span class="w-32 shrink-0 text-sm text-muted">Адрес ADB</span>
+        <span
+          class="min-w-0 flex-1 truncate font-mono text-sm"
+          :class="adbAddress ? 'text-fg' : 'text-subtle'"
+          :title="adbAddress ?? undefined"
+        >
+          {{ adbAddress || (isOn ? '—' : 'появится при включении') }}
         </span>
       </div>
 
-      <template v-else>
-        <div class="flex items-center justify-between gap-3 py-1">
-          <span class="flex items-center gap-2 text-base-content/60 text-sm">
-            <Icon name="mingcute:power-line" class="text-base" />
-            Состояние
-          </span>
-          <span class="badge gap-1.5" :class="badgeClass">
-            <span
-              v-if="status === 1 || status === 10 || status === 11"
-              class="status status-sm"
-              :class="status === 1 ? 'status-success' : 'status-info animate-pulse'"
-            />
-            {{ meta.label }}
-          </span>
-        </div>
-
-        <div class="flex items-center justify-between gap-3 py-1 border-t border-base-200 pt-2">
-          <span class="flex items-center gap-2 text-base-content/60 text-sm">
-            <Icon name="mingcute:terminal-line" class="text-base" />
-            ADB-адрес
-          </span>
-          <span
-            class="font-mono text-sm truncate"
-            :class="adbAddress ? 'text-base-content' : 'text-base-content/40'"
-            :title="adbAddress ?? undefined"
-          >
-            {{ adbAddress || (isOn ? "—" : "доступен при включении") }}
-          </span>
-        </div>
-
-        <p class="text-xs text-base-content/50">
-          Статус — последнее известное состояние из синхронизации, не онлайн-запрос.
-        </p>
-      </template>
-    </div>
-  </div>
+      <p class="text-micro text-subtle">
+        Последнее известное состояние из синхронизации, а не онлайн-запрос.
+      </p>
+    </template>
+  </section>
 </template>

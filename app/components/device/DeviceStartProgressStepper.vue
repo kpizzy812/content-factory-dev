@@ -1,252 +1,169 @@
 <script setup lang="ts">
-import type { StartFlowState } from "~/composables/useDeviceStartFlow"
-
 /**
- * DeviceStartProgressStepper — визуализация прогресса старта device-профиля.
+ * Прогресс запуска профиля устройства.
  *
- * DaisyUI `steps` компонент с 2-3 шагами:
- *   - "Запуск" (launcher_call) - всегда
- *   - "Загрузка ядра" (downloading_core) - conditional, появляется при первом
- *     получении state=downloading_core от server, остаётся видимым даже после
- *     перехода в running (чтобы оператор видел что был download)
- *   - "Готово" (running) - всегда
+ * Шагов два или три: «Запуск» и «Готово» всегда, «Загрузка ядра» появляется,
+ * когда устройство впервые сообщило о загрузке, и остаётся видимым после —
+ * иначе оператор не поймёт, почему запуск занял пять минут.
  *
- * Размеры (size prop):
- *   - 'sm' - compact для карточки в списке
- *   - 'md' - дефолт, для detail view
- *
- * Каждый шаг показывает: pending / active (spinner + секунды) / done (✓) / error (✗).
+ * Шаг ожидания подписывается по коду: блокировка профиля снимается секунды,
+ * ядро качается минуты, и путать их нельзя.
  */
+import type { StartFlowState } from '~/composables/useDeviceStartFlow'
 
-const props = withDefaults(
-  defineProps<{
-    state: StartFlowState
-    size?: "sm" | "md"
-  }>(),
-  { size: "md" },
-)
+const props = withDefaults(defineProps<{
+  state: StartFlowState
+  size?: 'sm' | 'md'
+}>(), { size: 'md' })
 
 const emit = defineEmits<{
   cancel: []
-  /** Открыть error detail (для failed state) */
+  /** Показать сырой ответ провайдера. */
   errorDetail: []
 }>()
 
-// Показывать ли шаг "Загрузка ядра". True если уже был download или сейчас в нём.
-const showDownloadStep = computed(
-  () => props.state.hadDownload || props.state.step === "downloading_core",
-)
-
-const launcherStepClass = computed(() => {
-  switch (props.state.step) {
-    case "launcher_call":
-      return "step-primary"
-    case "downloading_core":
-    case "running":
-      return "step-success"
-    case "failed":
-      // Failed на launcher_call (без download) - red. Если был download - launcher_call успел.
-      return props.state.hadDownload ? "step-success" : "step-error"
-    default:
-      return ""
-  }
-})
-
-const downloadStepClass = computed(() => {
-  switch (props.state.step) {
-    case "downloading_core":
-      return "step-primary"
-    case "running":
-      return "step-success"
-    case "failed":
-      return "step-error"
-    default:
-      return ""
-  }
-})
-
-const runningStepClass = computed(() => {
-  switch (props.state.step) {
-    case "running":
-      return "step-success"
-    default:
-      return ""
-  }
-})
+const showDownloadStep = computed(() =>
+  props.state.hadDownload || props.state.step === 'downloading_core')
 
 function formatSeconds(ms: number): string {
-  if (ms < 1000) return "0с"
+  if (ms < 1000) return '0 с'
   const seconds = Math.floor(ms / 1000)
-  if (seconds < 60) return `${seconds}с`
-  const minutes = Math.floor(seconds / 60)
-  const remSec = seconds % 60
-  return `${minutes}м ${remSec}с`
+  if (seconds < 60) return `${seconds} с`
+  return `${Math.floor(seconds / 60)} м ${seconds % 60} с`
 }
 
-const stepStyleSize = computed(() => (props.size === "sm" ? "text-xs" : "text-sm"))
-
-// Title и иконка waiting step динамические по downloadingCode:
-//   CORE_DOWNLOADING_STARTED - "Загрузка ядра" с download icon, ~2-5 мин
-//   LOCK_PROFILE_ERROR - "Освобождение блокировки" с lock icon, ~до 15с
-//   null/legacy - "Подготовка"
-const waitingStepConfig = computed(() => {
-  const code = props.state.downloadingCode
-  if (code === "LOCK_PROFILE_ERROR") {
+const waiting = computed(() => {
+  if (props.state.downloadingCode === 'LOCK_PROFILE_ERROR') {
     return {
-      label: "Освобождение блокировки",
-      hint: "Браузер держит lock на профиле",
-      icon: "mingcute:lock-line",
-      retryInfo: `попытка ${props.state.lockRetries}/5`,
+      label: 'Снятие блокировки',
+      icon: 'mingcute:lock-line',
+      retryInfo: `попытка ${props.state.lockRetries} из 5`,
     }
   }
   return {
-    label: "Загрузка ядра",
-    hint: "Устройство загружает Chromium ~2-5 мин",
-    icon: "mingcute:download-line",
-    retryInfo: props.state.coreRetries > 1 ? `попытка ${props.state.coreRetries}/60` : "",
+    label: 'Загрузка ядра',
+    icon: 'mingcute:download-line',
+    retryInfo: props.state.coreRetries > 1 ? `попытка ${props.state.coreRetries} из 60` : '',
   }
 })
+
+type StepState = 'done' | 'running' | 'failed' | 'pending'
+
+const steps = computed<Array<{ key: string, label: string, state: StepState, caption?: string }>>(() => {
+  const s = props.state
+  const launcher: StepState = s.step === 'launcher_call'
+    ? 'running'
+    : s.step === 'failed'
+      ? (s.hadDownload ? 'done' : 'failed')
+      : (s.step === 'downloading_core' || s.step === 'running' ? 'done' : 'pending')
+
+  const download: StepState = s.step === 'downloading_core'
+    ? 'running'
+    : s.step === 'running'
+      ? 'done'
+      : s.step === 'failed' ? 'failed' : 'pending'
+
+  const ready: StepState = s.step === 'running' ? 'done' : 'pending'
+
+  const list: Array<{ key: string, label: string, state: StepState, caption?: string }> = [
+    {
+      key: 'launcher',
+      label: 'Запуск',
+      state: launcher,
+      caption: s.step === 'launcher_call' ? formatSeconds(s.stepElapsedMs) : undefined,
+    },
+  ]
+  if (showDownloadStep.value) {
+    list.push({
+      key: 'download',
+      label: waiting.value.label,
+      state: download,
+      caption: s.step === 'downloading_core'
+        ? [formatSeconds(s.stepElapsedMs), waiting.value.retryInfo].filter(Boolean).join(' · ')
+        : undefined,
+    })
+  }
+  list.push({
+    key: 'ready',
+    label: 'Готово',
+    state: ready,
+    caption: s.step === 'running' && s.port ? `:${s.port}` : undefined,
+  })
+  return list
+})
+
+const STEP_ICON: Record<StepState, string> = {
+  done: 'mingcute:check-circle-line',
+  running: 'mingcute:loading-line',
+  failed: 'mingcute:close-circle-line',
+  pending: 'mingcute:time-line',
+}
+
+const STEP_TONE: Record<StepState, string> = {
+  done: 'text-success',
+  running: 'text-info',
+  failed: 'text-danger',
+  pending: 'text-subtle',
+}
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 w-full">
-    <ul
-      class="steps w-full"
-      :class="[stepStyleSize]"
-    >
-      <!-- Шаг 1: Запуск -->
-      <li class="step" :class="launcherStepClass">
-        <div class="flex flex-col items-center gap-0.5">
-          <span class="flex items-center gap-1">
-            <span
-              v-if="state.step === 'launcher_call'"
-              class="loading loading-spinner loading-xs"
-            />
-            <Icon
-              v-else-if="state.step === 'failed' && !state.hadDownload"
-              name="mingcute:close-circle-line"
-              class="text-error"
-            />
-            <Icon
-              v-else-if="['downloading_core','running'].includes(state.step) || state.hadDownload"
-              name="mingcute:check-circle-line"
-              class="text-success"
-            />
-            <span>Запуск</span>
-          </span>
-          <span
-            v-if="state.step === 'launcher_call'"
-            class="text-[10px] opacity-70"
-          >
-            {{ formatSeconds(state.stepElapsedMs) }}
-          </span>
-        </div>
-      </li>
+  <div class="flex w-full flex-col gap-2">
+    <UiStepProgress :steps="steps.map(s => s.state)" />
 
-      <!-- Шаг 2: Загрузка ядра / Освобождение блокировки (conditional, dynamic label) -->
-      <li v-if="showDownloadStep" class="step" :class="downloadStepClass">
-        <div class="flex flex-col items-center gap-0.5">
-          <span class="flex items-center gap-1">
-            <span
-              v-if="state.step === 'downloading_core'"
-              class="loading loading-spinner loading-xs"
-            />
-            <Icon
-              v-else-if="state.step === 'running'"
-              name="mingcute:check-circle-line"
-              class="text-success"
-            />
-            <Icon
-              v-else-if="state.step === 'failed'"
-              name="mingcute:close-circle-line"
-              class="text-error"
-            />
-            <span>{{ waitingStepConfig.label }}</span>
-          </span>
-          <span
-            v-if="state.step === 'downloading_core'"
-            class="text-[10px] opacity-70"
-          >
-            {{ formatSeconds(state.stepElapsedMs) }}
-            <template v-if="waitingStepConfig.retryInfo">
-              ({{ waitingStepConfig.retryInfo }})
-            </template>
-          </span>
-        </div>
-      </li>
-
-      <!-- Шаг 3: Готово -->
-      <li class="step" :class="runningStepClass">
-        <div class="flex flex-col items-center gap-0.5">
-          <span class="flex items-center gap-1">
-            <Icon
-              v-if="state.step === 'running'"
-              name="mingcute:check-circle-line"
-              class="text-success"
-            />
-            <span>Готово</span>
-          </span>
-          <span
-            v-if="state.step === 'running' && state.port"
-            class="text-[10px] opacity-70 font-mono"
-          >
-            :{{ state.port }}
-          </span>
-        </div>
-      </li>
-    </ul>
-
-    <!-- Status line под stepper'ом - dynamic по downloadingCode -->
-    <div
-      v-if="state.step === 'downloading_core'"
-      role="alert"
-      class="alert alert-info alert-soft text-xs py-2"
-    >
-      <Icon :name="waitingStepConfig.icon" class="text-info" />
-      <span v-if="state.downloadingCode === 'LOCK_PROFILE_ERROR'">
-        <b>Устройство держит блокировку профиля</b> ({{ formatSeconds(state.stepElapsedMs) }},
-        {{ waitingStepConfig.retryInfo }}). Освобождаем — обычно занимает до 15 секунд.
+    <div class="flex flex-wrap gap-x-4 gap-y-1" :class="size === 'sm' ? 'text-micro' : 'text-sm'">
+      <span v-for="s in steps" :key="s.key" class="flex items-center gap-1.5">
+        <Icon
+          :name="STEP_ICON[s.state]"
+          :class="[STEP_TONE[s.state], s.state === 'running' && 'animate-spin']"
+        />
+        <span :class="s.state === 'pending' ? 'text-subtle' : 'text-fg'">{{ s.label }}</span>
+        <span v-if="s.caption" class="tnum font-mono text-micro text-subtle">{{ s.caption }}</span>
       </span>
-      <span v-else>
-        <b>Устройство загружает Chromium ядро</b> через ваш прокси
-        ({{ formatSeconds(state.stepElapsedMs) }}). Это происходит однократно
-        после перезапуска контейнера. Можно подождать здесь или закрыть страницу
-        — устройство запустится автоматически.
-      </span>
-      <button class="btn btn-ghost btn-xs" @click="emit('cancel')">
-        Отменить ожидание
-      </button>
     </div>
 
-    <div
+    <p
+      v-if="state.step === 'downloading_core'"
+      role="status"
+      class="flex flex-wrap items-center gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-info"
+    >
+      <Icon :name="waiting.icon" class="shrink-0" />
+      <span v-if="state.downloadingCode === 'LOCK_PROFILE_ERROR'" class="min-w-0 flex-1">
+        Устройство держит блокировку профиля ({{ formatSeconds(state.stepElapsedMs) }},
+        {{ waiting.retryInfo }}). Снимаем — обычно до пятнадцати секунд.
+      </span>
+      <span v-else class="min-w-0 flex-1">
+        Устройство качает ядро Chromium через ваш прокси ({{ formatSeconds(state.stepElapsedMs) }}).
+        Это разово после перезапуска контейнера — страницу можно закрыть, запуск продолжится.
+      </span>
+      <UiButton variant="ghost" @click="emit('cancel')">Отменить ожидание</UiButton>
+    </p>
+
+    <p
       v-else-if="state.step === 'failed'"
       role="alert"
-      class="alert alert-error alert-soft text-xs py-2"
+      class="flex flex-wrap items-center gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
     >
-      <Icon name="mingcute:warning-line" />
-      <span class="truncate">{{ state.error?.message ?? "Не удалось запустить" }}</span>
-      <button class="btn btn-ghost btn-xs" @click="emit('errorDetail')">
-        Подробнее
-      </button>
-    </div>
+      <Icon name="mingcute:alert-line" class="shrink-0" />
+      <span class="min-w-0 flex-1">{{ state.error?.message ?? 'Не удалось запустить' }}</span>
+      <UiButton variant="ghost" @click="emit('errorDetail')">Подробнее</UiButton>
+    </p>
 
     <div
       v-else-if="state.step === 'running'"
-      role="alert"
-      class="alert alert-success text-sm py-3 font-semibold"
+      role="status"
+      class="flex items-start gap-2 rounded-md border border-success-border bg-success-bg px-2.5 py-2 text-sm text-success"
     >
-      <Icon name="mingcute:check-2-fill" class="text-base" />
-      <div class="flex-1">
-        <div class="flex items-center gap-2">
-          <span class="text-success">Успех! Профиль запущен.</span>
-          <span class="badge badge-success badge-sm">{{ formatSeconds(state.elapsedMs) }}</span>
+      <Icon name="mingcute:check-circle-line" class="mt-0.5 shrink-0" />
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-medium">Профиль запущен</span>
+          <span class="tnum font-mono text-micro">{{ formatSeconds(state.elapsedMs) }}</span>
         </div>
-        <div v-if="state.port" class="text-xs font-normal opacity-80 mt-0.5">
-          WebDriver на порту <strong>{{ state.port }}</strong>
-        </div>
-        <div v-else class="text-xs font-normal opacity-80 mt-0.5">
-          Устройство DuoPlus работает (standalone, без WebDriver).
-        </div>
+        <p class="mt-0.5 text-muted">
+          <template v-if="state.port">WebDriver слушает порт {{ state.port }}.</template>
+          <template v-else>Устройство работает без WebDriver — управление через интерфейс провайдера.</template>
+        </p>
       </div>
     </div>
   </div>

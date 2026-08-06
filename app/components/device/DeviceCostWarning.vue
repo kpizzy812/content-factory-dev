@@ -1,42 +1,34 @@
 <script setup lang="ts">
 /**
- * DeviceCostWarning — предупреждение о платности включённого устройства DuoPlus.
+ * Предупреждение о поминутной оплате включённого облачного устройства.
  *
- * Правило проекта: облачное устройство DuoPlus тарифицируется ПОМИНУТНО за
- * running-время. Оператор обязан выключать устройство после использования.
- * Это предупреждение показывается рядом с кнопкой powerOn (Start).
- *
- * variant:
- *   - "inline" (дефолт) — компактная строка-подсказка под/рядом с кнопкой.
- *   - "alert" — полноразмерный warning-alert (для detail-страницы).
+ * Правило проекта: включённое устройство тарифицируется поминутно, поэтому
+ * предупреждение стоит рядом с кнопкой включения, а не в справке.
  */
-withDefaults(
-  defineProps<{
-    variant?: "inline" | "alert"
-  }>(),
-  { variant: "inline" },
-)
+withDefaults(defineProps<{
+  variant?: 'inline' | 'alert'
+}>(), { variant: 'inline' })
 </script>
 
 <template>
-  <div
+  <p
     v-if="variant === 'alert'"
-    role="alert"
-    class="alert alert-warning alert-soft text-sm gap-2"
+    role="note"
+    class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-sm text-warning"
   >
-    <Icon name="mingcute:wallet-line" class="text-base" />
+    <Icon name="mingcute:wallet-line" class="mt-0.5 shrink-0" />
     <span>
-      <b>Устройство платное.</b> Включённое устройство тарифицируется DuoPlus
-      поминутно. Обязательно выключайте его после использования, чтобы не жечь бюджет.
+      <span class="font-medium">Устройство платное.</span>
+      Включённое устройство тарифицируется поминутно — выключайте после работы.
     </span>
-  </div>
+  </p>
 
   <span
     v-else
-    class="inline-flex items-center gap-1 text-[11px] text-warning"
-    title="Устройство DuoPlus тарифицируется поминутно за время работы — выключайте после использования"
+    class="inline-flex items-center gap-1 text-micro text-warning"
+    title="Облачное устройство тарифицируется поминутно за время работы — выключайте после использования"
   >
-    <Icon name="mingcute:wallet-line" class="text-xs" />
+    <Icon name="mingcute:wallet-line" />
     Платное — выключайте после
   </span>
 </template>

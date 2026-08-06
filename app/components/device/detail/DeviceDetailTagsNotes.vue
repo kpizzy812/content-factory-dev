@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { DeviceProfileDto } from "~~/shared/types/device-profile"
+/**
+ * Теги и заметки профиля.
+ *
+ * Правка по кнопке, а не постоянное поле: заметки читают чаще, чем меняют,
+ * а случайная правка тега ломает выборку в списке.
+ */
+import type { DeviceProfileDto } from '~~/shared/types/device-profile'
 
 const props = defineProps<{
   profile: DeviceProfileDto
@@ -13,21 +19,17 @@ const { updateProfile, isBusy } = useDeviceActions()
 
 const editMode = ref(false)
 const tagsDraft = ref<string[]>([...props.profile.tags])
-const notesDraft = ref(props.profile.notes ?? "")
+const notesDraft = ref(props.profile.notes ?? '')
 
 watch(() => props.profile, (next) => {
   tagsDraft.value = [...next.tags]
-  notesDraft.value = next.notes ?? ""
+  notesDraft.value = next.notes ?? ''
 })
 
 function startEdit() {
   tagsDraft.value = [...props.profile.tags]
-  notesDraft.value = props.profile.notes ?? ""
+  notesDraft.value = props.profile.notes ?? ''
   editMode.value = true
-}
-
-function cancelEdit() {
-  editMode.value = false
 }
 
 async function save() {
@@ -37,75 +39,57 @@ async function save() {
   })
   if (result) {
     editMode.value = false
-    emit("updated")
+    emit('updated')
   }
 }
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <div class="flex items-center justify-between gap-2">
-        <h3 class="font-semibold flex items-center gap-2">
-          <Icon name="mingcute:tag-line" />
-          Теги и заметки
-        </h3>
-        <button
-          v-if="!editMode"
-          class="btn btn-xs btn-ghost gap-1"
-          @click="startEdit"
-        >
-          <Icon name="mingcute:edit-line" />
-          Изменить
-        </button>
-        <div v-else class="flex items-center gap-1">
-          <button class="btn btn-xs btn-ghost" :disabled="isBusy" @click="cancelEdit">
-            Отмена
-          </button>
-          <button class="btn btn-xs btn-primary" :disabled="isBusy" @click="save">
-            <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-            Сохранить
-          </button>
-        </div>
-      </div>
-
-      <!-- Tags -->
-      <div>
-        <div class="text-xs text-base-content/60 mb-1">Теги</div>
-        <div v-if="!editMode" class="flex items-center gap-1 flex-wrap min-h-[1.5rem]">
-          <span
-            v-for="t in profile.tags"
-            :key="t"
-            class="badge badge-soft badge-sm"
-          >
-            {{ t }}
-          </span>
-          <span v-if="profile.tags.length === 0" class="text-sm text-base-content/50 italic">нет тегов</span>
-        </div>
-        <SharedTagPicker
-          v-else
-          v-model="tagsDraft"
-          endpoint="/api/device-profiles/tags"
-          :allow-create="false"
-          placeholder="Добавить тег..."
-        />
-      </div>
-
-      <!-- Notes -->
-      <div>
-        <div class="text-xs text-base-content/60 mb-1">Заметки</div>
-        <p v-if="!editMode" class="text-sm whitespace-pre-wrap min-h-[2rem]">
-          {{ profile.notes ?? "" }}
-          <span v-if="!profile.notes" class="text-base-content/50 italic">нет заметок</span>
-        </p>
-        <textarea
-          v-else
-          v-model="notesDraft"
-          class="textarea textarea-sm w-full"
-          rows="3"
-          placeholder="План прогрева, особенности..."
-        />
-      </div>
+  <section class="flex flex-col gap-2.5 rounded-lg border border-border bg-panel p-3.5">
+    <div class="flex items-center gap-2">
+      <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Теги и заметки</h2>
+      <span class="flex-1" />
+      <UiButton v-if="!editMode" variant="ghost" @click="startEdit">
+        <Icon name="mingcute:edit-line" />
+        Изменить
+      </UiButton>
+      <template v-else>
+        <UiButton variant="ghost" :disabled="isBusy" @click="editMode = false">Отмена</UiButton>
+        <UiButton variant="primary" :loading="isBusy" @click="save">Сохранить</UiButton>
+      </template>
     </div>
-  </div>
+
+    <UiField label="Теги">
+      <div v-if="!editMode" class="flex min-h-6 flex-wrap items-center gap-1">
+        <span
+          v-for="t in profile.tags"
+          :key="t"
+          class="rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted"
+        >
+          {{ t }}
+        </span>
+        <span v-if="!profile.tags.length" class="text-sm text-subtle">нет тегов</span>
+      </div>
+      <SharedTagPicker
+        v-else
+        v-model="tagsDraft"
+        endpoint="/api/device-profiles/tags"
+        :allow-create="false"
+        placeholder="Добавить тег"
+      />
+    </UiField>
+
+    <UiField label="Заметки">
+      <p v-if="!editMode" class="min-h-8 text-sm whitespace-pre-wrap">
+        <template v-if="profile.notes">{{ profile.notes }}</template>
+        <span v-else class="text-subtle">нет заметок</span>
+      </p>
+      <UiTextarea
+        v-else
+        v-model="notesDraft"
+        :rows="3"
+        placeholder="План прогрева, особенности профиля"
+      />
+    </UiField>
+  </section>
 </template>

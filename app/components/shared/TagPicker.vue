@@ -274,85 +274,80 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-2">
-    <!-- Selected tags -->
+  <div class="flex flex-col gap-2">
     <div v-if="modelValue.length > 0" class="flex flex-wrap gap-1.5">
       <span
         v-for="tag in modelValue"
         :key="tag"
-        class="badge badge-sm gap-1"
+        class="inline-flex items-center gap-1 rounded-sm border border-divider bg-card px-1.5 py-0.5 text-micro text-muted"
       >
         {{ tag }}
         <button
           type="button"
-          class="hover:text-error"
+          class="cursor-pointer text-subtle hover:text-danger"
           :disabled="disabled"
+          :aria-label="`Убрать тег ${tag}`"
           @click="removeTagFromSelection(tag)"
         >
-          <Icon name="mingcute:close-line" class="text-xs" />
+          <Icon name="mingcute:close-line" />
         </button>
       </span>
     </div>
 
-    <!-- Input with dropdown -->
     <div>
       <input
         ref="inputRef"
         v-model="search"
         type="text"
-        class="input input-sm w-full"
+        class="h-8 w-full rounded-md border border-border bg-card px-2.5 text-base text-fg outline-offset-1 focus:border-accent"
         :placeholder="placeholder"
         :disabled="disabled"
         @focus="onFocus"
         @blur="hideDropdown"
         @keydown="handleKeydown"
         @input="updateDropdownPosition"
-      />
+      >
 
       <Teleport v-if="isMounted && teleportTarget" :to="teleportTarget">
         <div
           v-if="showDropdown && (suggestions.length > 0 || canCreate || isLoading)"
           :style="dropdownStyle"
-          class="bg-base-100 border border-base-300 rounded-box shadow-lg max-h-48 overflow-y-auto"
+          class="max-h-48 overflow-y-auto rounded-md border border-border bg-raised shadow-md"
         >
-          <div v-if="isLoading" class="p-3 text-center">
-            <span class="loading loading-spinner loading-xs" />
+          <div v-if="isLoading" class="flex items-center justify-center gap-2 p-3 text-sm text-muted">
+            <Icon name="mingcute:loading-line" class="animate-spin" />
+            Загружаем
           </div>
           <template v-else>
-            <!-- Create new -->
             <button
               v-if="canCreate"
               type="button"
-              class="w-full text-left px-3 py-2 hover:bg-base-200 transition-colors text-sm flex items-center gap-2 border-b border-base-200"
+              class="flex w-full cursor-pointer items-center gap-2 border-b border-divider px-3 py-2 text-left text-sm hover:bg-card"
               @mousedown.prevent="addTag(search)"
             >
-              <Icon name="mingcute:add-line" class="text-xs text-primary" />
-              <span>Создать <strong>{{ search.trim() }}</strong></span>
+              <Icon name="mingcute:add-line" class="text-accent" />
+              <span>Создать «{{ search.trim() }}»</span>
             </button>
 
-            <!-- Existing tags -->
             <div
               v-for="tag in suggestions"
               :key="tag"
-              class="flex items-center hover:bg-base-200 transition-colors group"
+              class="group flex items-center hover:bg-card"
             >
-              <!-- Editing mode -->
-              <template v-if="editingTag === tag">
-                <input
-                  v-model="editingName"
-                  class="input input-xs flex-1 mx-1 my-1"
-                  @keydown.enter.prevent="finishEditing"
-                  @keydown.escape.prevent="cancelEditing"
-                  @blur="finishEditing"
-                  @mousedown.stop
-                />
-              </template>
+              <input
+                v-if="editingTag === tag"
+                v-model="editingName"
+                class="mx-1 my-1 h-7 flex-1 rounded-md border border-border bg-card px-2 text-sm text-fg"
+                @keydown.enter.prevent="finishEditing"
+                @keydown.escape.prevent="cancelEditing"
+                @blur="finishEditing"
+                @mousedown.stop
+              >
 
-              <!-- Normal mode -->
               <template v-else>
                 <button
                   type="button"
-                  class="flex-1 text-left px-3 py-2 text-sm"
+                  class="flex-1 cursor-pointer px-3 py-2 text-left text-sm"
                   @mousedown.prevent="addTag(tag)"
                 >
                   {{ tag }}
@@ -360,20 +355,20 @@ onBeforeUnmount(() => {
                 <button
                   v-if="allowRename"
                   type="button"
-                  class="px-1 py-1 opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-primary"
+                  class="cursor-pointer px-1 py-1 text-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:text-fg"
                   title="Переименовать"
                   @mousedown.prevent="startEditing(tag)"
                 >
-                  <Icon name="mingcute:edit-line" class="text-xs" />
+                  <Icon name="mingcute:edit-line" />
                 </button>
                 <button
                   v-if="allowDeletePool"
                   type="button"
-                  class="px-1 py-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-error"
-                  title="Удалить из пула"
+                  class="mr-1 cursor-pointer px-1 py-1 text-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+                  title="Убрать из общего списка"
                   @mousedown.prevent="deleteTagFromPool(tag)"
                 >
-                  <Icon name="mingcute:delete-2-line" class="text-xs" />
+                  <Icon name="mingcute:delete-2-line" />
                 </button>
               </template>
             </div>

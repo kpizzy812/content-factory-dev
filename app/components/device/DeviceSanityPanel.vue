@@ -129,19 +129,21 @@ const warnings = computed<SanityWarning[]>(() => {
 </script>
 
 <template>
-  <div v-if="warnings.length > 0" class="space-y-2">
-    <div
+  <div v-if="warnings.length > 0" class="flex flex-col gap-1.5">
+    <p
       v-for="(w, idx) in warnings"
       :key="idx"
-      role="alert"
-      class="alert text-xs py-2"
-      :class="w.kind === 'warning' ? 'alert-warning alert-soft' : 'alert-info alert-soft'"
+      :role="w.kind === 'warning' ? 'alert' : 'note'"
+      class="flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-sm"
+      :class="w.kind === 'warning'
+        ? 'border-warning-border bg-warning-bg text-warning'
+        : 'border-info-border bg-info-bg text-info'"
     >
       <Icon
-        :name="w.kind === 'warning' ? 'mingcute:warning-line' : 'mingcute:information-line'"
-        class="text-sm"
+        :name="w.kind === 'warning' ? 'mingcute:alert-line' : 'mingcute:information-line'"
+        class="mt-0.5 shrink-0"
       />
       <span>{{ w.message }}</span>
-    </div>
+    </p>
   </div>
 </template>

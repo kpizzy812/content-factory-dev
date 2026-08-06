@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import type { DeviceProfileDto } from "~~/shared/types/device-profile"
-
-// Цикл M.5 — модалка multi-account link. Фильтрует уже привязанные accounts,
-// показывает US-proxy баннер, делает POST /api/device-profiles/[id]/accounts.
+/**
+ * Привязка социального аккаунта к профилю устройства.
+ *
+ * Уже привязанные аккаунты в списке не показываются — повторная привязка
+ * вернула бы конфликт. Проверка страны прокси стоит выше выбора: если она не
+ * пройдена, привязывать нечего и объяснение важнее формы.
+ */
+import type { DeviceProfileDto } from '~~/shared/types/device-profile'
 
 interface SocialAccountSummary {
   id: number
@@ -15,43 +19,38 @@ const emit = defineEmits<{ saved: [] }>()
 
 const isOpen = ref(false)
 const profile = ref<DeviceProfileDto | null>(null)
-const selected = ref<number | "">("")
+const selected = ref<number | ''>('')
 const makePrimary = ref(false)
 
 const { addAccount, isBusy, error } = useDeviceActions()
 
 const { data: accountsData, pending } = useFetch<{ data: SocialAccountSummary[] }>(
-  "/api/accounts",
+  '/api/accounts',
   { lazy: true, server: false },
 )
 
-// Скрываем уже привязанные к этому профилю аккаунты — повторный POST вернёт 409.
 const availableAccounts = computed<SocialAccountSummary[]>(() => {
-  const linkedIds = new Set((profile.value?.accounts ?? []).map((a) => a.id))
-  return (accountsData.value?.data ?? []).filter((a) => !linkedIds.has(a.id))
+  const linkedIds = new Set((profile.value?.accounts ?? []).map(a => a.id))
+  return (accountsData.value?.data ?? []).filter(a => !linkedIds.has(a.id))
 })
 
-const guardOk = computed(() => profile.value?.proxyCountryGuard === "us_proxy_ok")
+const guardOk = computed(() => profile.value?.proxyCountryGuard === 'us_proxy_ok')
 const guardMessage = computed(() => {
-  if (!profile.value) return ""
+  if (!profile.value) return ''
   switch (profile.value.proxyCountryGuard) {
-    case "us_proxy_ok":
-      return "Профиль с US-proxy — привязка разрешена."
-    case "no_proxy":
-      return "У профиля не задан прокси. Сначала задайте US-proxy."
-    case "wrong_country":
-      return `Прокси не US (${profile.value.proxy?.expectedCountry ?? "?"}). Привязка заблокирована.`
-    case "unknown":
-      return "У прокси не задан expectedCountry. Установите 'US' в /proxies перед привязкой."
-    default:
-      return ""
+    case 'us_proxy_ok': return 'Прокси US — привязка разрешена.'
+    case 'no_proxy': return 'У профиля не задан прокси. Сначала задайте US-прокси.'
+    case 'wrong_country': return `Прокси не US (${profile.value.proxy?.expectedCountry ?? '?'}) — привязка заблокирована.`
+    case 'unknown': return 'У прокси не задана ожидаемая страна — проставьте её в разделе «Прокси».'
+    default: return ''
   }
 })
 
 function open(p: DeviceProfileDto) {
   profile.value = p
-  selected.value = ""
-  makePrimary.value = p.accounts.length === 0 // первый → автоматически primary
+  selected.value = ''
+  // Первый аккаунт профиля всегда основной — выбирать не из чего.
+  makePrimary.value = p.accounts.length === 0
   isOpen.value = true
 }
 
@@ -67,87 +66,81 @@ async function submit() {
     isPrimary: makePrimary.value,
   })
   if (result) {
-    emit("saved")
+    emit('saved')
     close()
   }
 }
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': isOpen }">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold mb-3">Привязать аккаунт к профилю</h3>
-
-      <p v-if="profile" class="text-sm text-base-content/70 mb-3">
-        Профиль:
-        <span class="font-semibold">{{ profile.name }}</span>
-        <span v-if="profile.accounts.length > 0" class="opacity-70 ml-2">
-          (уже привязано: {{ profile.accounts.length }})
-        </span>
+  <UiModal :open="isOpen" title="Привязать аккаунт к профилю" @close="close">
+    <div class="flex flex-col gap-3">
+      <p v-if="profile" class="text-sm text-muted">
+        Профиль <span class="font-medium text-fg">{{ profile.name }}</span>
+        <template v-if="profile.accounts.length">· уже привязано {{ profile.accounts.length }}</template>
       </p>
 
-      <div
+      <p
         v-if="profile"
-        role="alert"
-        class="alert alert-soft text-sm mb-3"
-        :class="guardOk ? 'alert-success' : 'alert-error'"
+        :role="guardOk ? 'note' : 'alert'"
+        class="flex items-start gap-2 rounded-md border px-2.5 py-2 text-sm"
+        :class="guardOk
+          ? 'border-success-border bg-success-bg text-success'
+          : 'border-danger-border bg-danger-bg text-danger'"
       >
         <Icon
-          :name="guardOk ? 'mingcute:check-circle-line' : 'mingcute:warning-line'"
+          :name="guardOk ? 'mingcute:check-circle-line' : 'mingcute:alert-line'"
+          class="mt-0.5 shrink-0"
         />
         <span>{{ guardMessage }}</span>
-      </div>
+      </p>
 
-      <fieldset class="fieldset" :disabled="!guardOk">
-        <legend class="fieldset-legend">Социальный аккаунт *</legend>
-        <div v-if="pending" class="flex items-center gap-2 py-2">
-          <span class="loading loading-spinner loading-sm" />
-          <span class="text-sm">Загрузка...</span>
+      <UiField
+        label="Социальный аккаунт"
+        :hint="!pending && !availableAccounts.length && guardOk
+          ? 'Все доступные аккаунты уже привязаны'
+          : undefined"
+      >
+        <div v-if="pending" class="flex items-center gap-2 text-sm text-muted">
+          <Icon name="mingcute:loading-line" class="animate-spin" />
+          Загружаем аккаунты
         </div>
-        <select v-else v-model="selected" class="select select-sm w-full">
-          <option value="">Выберите аккаунт</option>
-          <option v-for="a in availableAccounts" :key="a.id" :value="a.id">
-            {{ a.displayName }} · {{ a.platform }}
-          </option>
-        </select>
-        <p
-          v-if="!pending && availableAccounts.length === 0 && guardOk"
-          class="fieldset-label text-xs"
-        >
-          Все доступные аккаунты уже привязаны.
-        </p>
-      </fieldset>
+        <UiSelect
+          v-else
+          v-model="selected"
+          :disabled="!guardOk"
+          placeholder="Выберите аккаунт"
+          :options="availableAccounts.map(a => ({ value: a.id, label: `${a.displayName} · ${a.platform}` }))"
+        />
+      </UiField>
 
-      <fieldset v-if="guardOk && profile && profile.accounts.length > 0" class="fieldset">
-        <label class="label cursor-pointer gap-2 justify-start">
-          <input v-model="makePrimary" type="checkbox" class="checkbox checkbox-sm" />
-          <span class="label-text text-sm">Сделать primary</span>
-        </label>
-        <p class="fieldset-label text-xs">
-          Primary дублируется в SocialAccount.deviceProfileId — используется для legacy
-          warmup/upload dispatch. При смене primary текущий primary становится обычным.
-        </p>
-      </fieldset>
+      <UiField
+        v-if="guardOk && profile && profile.accounts.length > 0"
+        hint="Основной аккаунт используется унаследованным прогревом и загрузкой. Прежний основной станет обычным."
+      >
+        <UiCheckbox v-model="makePrimary" label="Сделать основным" />
+      </UiField>
 
-      <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm mt-3">
-        <Icon name="mingcute:warning-line" />
+      <p
+        v-if="error"
+        role="alert"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
         <span>{{ error }}</span>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-sm" :disabled="isBusy" @click="close">Отмена</button>
-        <button
-          class="btn btn-sm btn-primary"
-          :disabled="isBusy || !selected || !guardOk"
-          @click="submit"
-        >
-          <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-          Привязать
-        </button>
-      </div>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" :disabled="isBusy" @click="close">Отмена</UiButton>
+      <UiButton
+        variant="primary"
+        :disabled="!selected || !guardOk"
+        :loading="isBusy"
+        @click="submit"
+      >
+        Привязать
+      </UiButton>
+    </template>
+  </UiModal>
 </template>
