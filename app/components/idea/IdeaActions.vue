@@ -24,17 +24,22 @@ const isAnalyzingRef = ref(false)
 const showDeleteConfirm = ref(false)
 const errorMessage = ref('')
 
+function fail(message: string) {
+  errorMessage.value = message
+  setTimeout(() => { errorMessage.value = '' }, 5000)
+}
+
 async function handleDelete() {
   isDeleting.value = true
   errorMessage.value = ''
-
   try {
     await deleteIdea(props.ideaId)
     emit('deleted')
-  } catch {
-    errorMessage.value = 'Не удалось удалить идею.'
-    setTimeout(() => { errorMessage.value = '' }, 5000)
-  } finally {
+  }
+  catch {
+    fail('Не удалось удалить идею.')
+  }
+  finally {
     isDeleting.value = false
     showDeleteConfirm.value = false
   }
@@ -43,14 +48,14 @@ async function handleDelete() {
 async function handleToScenario() {
   isGenerating.value = true
   errorMessage.value = ''
-
   try {
     await toScenario(props.ideaId)
     emit('updated')
-  } catch {
-    errorMessage.value = 'Не удалось создать сценарии из идеи.'
-    setTimeout(() => { errorMessage.value = '' }, 5000)
-  } finally {
+  }
+  catch {
+    fail('Не удалось создать сценарий из идеи.')
+  }
+  finally {
     isGenerating.value = false
   }
 }
@@ -58,14 +63,14 @@ async function handleToScenario() {
 async function handleReanalyze() {
   isReanalyzing.value = true
   errorMessage.value = ''
-
   try {
     await reanalyze(props.ideaId)
     emit('updated')
-  } catch {
-    errorMessage.value = 'Не удалось запустить повторный анализ.'
-    setTimeout(() => { errorMessage.value = '' }, 5000)
-  } finally {
+  }
+  catch {
+    fail('Не удалось запустить повторный разбор.')
+  }
+  finally {
     isReanalyzing.value = false
   }
 }
@@ -73,109 +78,104 @@ async function handleReanalyze() {
 async function handleAnalyzeReference() {
   isAnalyzingRef.value = true
   errorMessage.value = ''
-
   try {
     await analyzeReference(props.ideaId)
     emit('updated')
-  } catch {
-    errorMessage.value = 'Не удалось выполнить reference analysis.'
-    setTimeout(() => { errorMessage.value = '' }, 5000)
-  } finally {
+  }
+  catch {
+    fail('Не удалось разобрать референс.')
+  }
+  finally {
     isAnalyzingRef.value = false
   }
 }
 
 const canGenerateScenario = computed(() => props.currentStatus === 'ready')
 const canEdit = computed(() => ['ready', 'pending', 'failed'].includes(props.currentStatus))
-const canReanalyze = computed(() =>
-  props.currentStatus === 'ready'
-  && props.analysisStatus !== 'running',
-)
+const canReanalyze = computed(() => props.currentStatus === 'ready' && props.analysisStatus !== 'running')
 const canAnalyzeReference = computed(() =>
-  ['ready', 'in_work', 'completed'].includes(props.currentStatus)
-  && props.referenceStatus !== 'running',
-)
-const isLoading = computed(() => isDeleting.value || isGenerating.value || isReanalyzing.value || isAnalyzingRef.value)
+  ['ready', 'in_work', 'completed'].includes(props.currentStatus) && props.referenceStatus !== 'running')
+
+const isBusy = computed(() =>
+  isDeleting.value || isGenerating.value || isReanalyzing.value || isAnalyzingRef.value)
+
+// Платное и разрушающее — в меню с ценой, частое — в строке.
+const menuItems = computed(() => {
+  const items: Array<{ key: string, label: string, icon?: string, cost?: string, danger?: boolean, disabled?: boolean }> = []
+  if (canAnalyzeReference.value && can('canRunAgent')) {
+    items.push({
+      key: 'reference',
+      label: props.hasReferenceBreakdown ? 'Обновить разбор референса' : 'Разобрать референс',
+      icon: 'mingcute:search-line',
+      cost: 'платно',
+      disabled: isBusy.value,
+    })
+  }
+  if (canReanalyze.value && can('canRunAgent')) {
+    items.push({
+      key: 'reanalyze',
+      label: 'Разобрать заново',
+      icon: 'mingcute:refresh-2-line',
+      cost: 'платно',
+      disabled: isBusy.value,
+    })
+  }
+  if (can('canDelete')) {
+    items.push({ key: 'delete', label: 'Удалить идею', icon: 'mingcute:delete-2-line', danger: true, disabled: isBusy.value })
+  }
+  return items
+})
+
+function onMenu(key: string) {
+  if (key === 'reference') void handleAnalyzeReference()
+  else if (key === 'reanalyze') void handleReanalyze()
+  else if (key === 'delete') showDeleteConfirm.value = true
+}
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-2">
-    <button
-      v-if="canGenerateScenario && can('canCreate') && can('canRunAgent')"
-      class="btn btn-sm btn-primary gap-1"
-      :disabled="isLoading"
-      @click="handleToScenario"
-    >
-      <span v-if="isGenerating" class="loading loading-spinner loading-xs" />
-      <Icon v-else name="mingcute:star-line" />
-      Создать сценарий
-    </button>
-
-    <button
-      v-if="canAnalyzeReference && can('canRunAgent')"
-      class="btn btn-sm btn-outline btn-secondary gap-1"
-      :disabled="isLoading"
-      @click="handleAnalyzeReference"
-    >
-      <span v-if="isAnalyzingRef" class="loading loading-spinner loading-xs" />
-      <Icon v-else name="mingcute:search-line" />
-      {{ hasReferenceBreakdown ? 'Обновить референс' : 'Анализ референса' }}
-    </button>
-
-    <button
-      v-if="canReanalyze && can('canRunAgent')"
-      class="btn btn-sm btn-outline btn-info gap-1"
-      :disabled="isLoading"
-      @click="handleReanalyze"
-    >
-      <span v-if="isReanalyzing" class="loading loading-spinner loading-xs" />
-      <Icon v-else name="mingcute:refresh-2-line" />
-      Переанализировать
-    </button>
-
-    <button
-      v-if="canEdit && can('canWrite')"
-      class="btn btn-sm btn-outline gap-1"
-      :disabled="isLoading"
-      @click="emit('edit')"
-    >
-      <Icon name="mingcute:edit-line" />
-      Редактировать
-    </button>
-
-    <template v-if="can('canDelete')">
-      <button
-        v-if="!showDeleteConfirm"
-        class="btn btn-sm btn-error btn-outline gap-1"
-        :disabled="isLoading"
-        @click="showDeleteConfirm = true"
+  <div class="flex flex-col gap-2">
+    <div class="flex flex-wrap items-center gap-1.5">
+      <UiButton
+        v-if="canGenerateScenario && can('canCreate') && can('canRunAgent')"
+        variant="primary"
+        :loading="isGenerating"
+        :disabled="isBusy && !isGenerating"
+        @click="handleToScenario"
       >
-        <Icon name="mingcute:delete-line" />
-        Удалить
-      </button>
-      <div v-else class="flex items-center gap-1">
-        <span class="text-sm text-error">Точно удалить?</span>
-        <button
-          class="btn btn-xs btn-error gap-1"
-          :disabled="isLoading"
-          @click="handleDelete"
-        >
-          <span v-if="isDeleting" class="loading loading-spinner loading-xs" />
-          Да
-        </button>
-        <button
-          class="btn btn-xs btn-ghost"
-          :disabled="isLoading"
-          @click="showDeleteConfirm = false"
-        >
-          Нет
-        </button>
-      </div>
-    </template>
+        <Icon v-if="!isGenerating" name="mingcute:star-line" />
+        Создать сценарий
+      </UiButton>
 
-    <div v-if="errorMessage" role="alert" class="alert alert-error alert-soft mt-2 text-sm w-full">
-      <Icon name="mingcute:warning-line" />
+      <UiButton v-if="canEdit && can('canWrite')" :disabled="isBusy" @click="emit('edit')">
+        <Icon name="mingcute:edit-line" />
+        Редактировать
+      </UiButton>
+
+      <UiButton v-if="isReanalyzing || isAnalyzingRef" loading>
+        {{ isAnalyzingRef ? 'Разбираем референс' : 'Разбираем' }}
+      </UiButton>
+
+      <UiActionMenu v-if="menuItems.length" :items="menuItems" @select="onMenu" />
+    </div>
+
+    <div
+      v-if="errorMessage"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ errorMessage }}</span>
     </div>
+
+    <UiModal :open="showDeleteConfirm" title="Удалить идею?" size="sm" @close="showDeleteConfirm = false">
+      <p class="text-sm text-muted">
+        Идея пропадёт из списка. Созданные из неё сценарии останутся.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" @click="showDeleteConfirm = false">Отмена</UiButton>
+        <UiButton variant="danger" :loading="isDeleting" @click="handleDelete">Удалить</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

@@ -28,7 +28,7 @@ const emit = defineEmits<{ accept: [], reject: [], rework: [] }>()
 
     <ul v-if="notes?.length" class="mt-2 flex flex-col gap-1 text-sm text-muted">
       <li v-for="(note, i) in notes" :key="i" class="flex items-start gap-1.5">
-        <Icon name="mingcute:minus-line" class="mt-0.5 shrink-0 text-subtle" />
+        <Icon name="mingcute:subtract-line" class="mt-0.5 shrink-0 text-subtle" />
         <span>{{ note }}</span>
       </li>
     </ul>

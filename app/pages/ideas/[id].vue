@@ -7,11 +7,11 @@ const ideaId = computed(() => route.params.id as string)
 const { data, pending, error, refresh, progress } = useIdeaDetail(ideaId)
 const idea = computed(() => data.value?.data ?? null)
 
-useHead({
-  title: computed(() => idea.value?.title ?? 'Идея'),
-})
+const toast = useToast()
 
-// === Editing ===
+useHead({ title: computed(() => `${idea.value?.title ?? 'Идея'} — идея`) })
+
+// ─── Редактирование ──────────────────────────────────────────────────────────
 const isEditing = ref(false)
 const { updateIdea } = useIdeaActions()
 
@@ -46,11 +46,6 @@ async function handleSave() {
   isSaving.value = true
   editError.value = ''
   try {
-    const tags = editForm.tags
-      .split(',')
-      .map(t => t.trim())
-      .filter(Boolean)
-
     await updateIdea(Number(ideaId.value), {
       title: editForm.title,
       hook: editForm.hook,
@@ -59,381 +54,305 @@ async function handleSave() {
       visualStyle: editForm.visualStyle,
       whyViral: editForm.whyViral,
       operatorNotes: editForm.operatorNotes,
-      tags,
+      tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean),
     })
     isEditing.value = false
     await refresh()
-  } catch {
+    toast.success('Идея сохранена')
+  }
+  catch {
     editError.value = 'Не удалось сохранить. Попробуйте ещё раз.'
-  } finally {
+  }
+  finally {
     isSaving.value = false
   }
 }
 
-async function onUpdated() {
-  isEditing.value = false
-  await refresh()
-}
+const EDIT_FIELDS = [
+  { key: 'hook', label: 'Хук', rows: 3 },
+  { key: 'body', label: 'Основная часть', rows: 5 },
+  { key: 'cta', label: 'Призыв к действию', rows: 3 },
+  { key: 'visualStyle', label: 'Визуальный стиль', rows: 3 },
+  { key: 'whyViral', label: 'Почему залетело', rows: 3 },
+  { key: 'operatorNotes', label: 'Заметки оператора', rows: 3 },
+] as const
 
-function onDeleted() {
-  navigateTo('/ideas')
-}
-
-// === Detail tabs ===
-const activeSection = ref<'analysis' | 'reference' | 'transcript' | 'history' | 'sync'>('analysis')
-
-// Auto-switch to reference tab when reference analysis is available
+// ─── Вкладки ─────────────────────────────────────────────────────────────────
+const tab = ref<'analysis' | 'reference' | 'transcript' | 'history' | 'sync'>('analysis')
 const hasReferenceBreakdown = computed(() => !!idea.value?.analysis?.referenceBreakdown)
 
-// === Utilities ===
-const platformMap: Record<string, { label: string; icon: string }> = {
-  youtube: { label: 'YouTube', icon: 'mingcute:youtube-line' },
-  tiktok: { label: 'TikTok', icon: 'mingcute:tiktok-line' },
-  instagram: { label: 'Instagram', icon: 'mingcute:instagram-line' },
+const tabs = computed(() => [
+  { key: 'analysis' as const, label: 'Разбор' },
+  { key: 'reference' as const, label: 'Референс', marked: hasReferenceBreakdown.value },
+  { key: 'transcript' as const, label: 'Транскрипт' },
+  { key: 'history' as const, label: 'История' },
+  { key: 'sync' as const, label: 'Синхронизация', marked: !!idea.value?.syncStatus && idea.value.syncStatus !== 'none' },
+])
+
+// ─── Навигация по соседям ────────────────────────────────────────────────────
+const filters = useIdeaFiltersStore()
+const { data: listData } = useIdeas(computed(() => filters.query))
+
+const siblings = computed(() => listData.value?.data?.map((i: { id: number }) => i.id) ?? [])
+const currentIndex = computed(() => siblings.value.indexOf(Number(ideaId.value)))
+const listMeta = computed(() => listData.value?.meta ?? null)
+const inList = computed(() => currentIndex.value >= 0)
+
+const hasPrev = computed(() => inList.value && (currentIndex.value > 0 || filters.page > 1))
+const hasNext = computed(() => inList.value && (
+  currentIndex.value < siblings.value.length - 1
+  || (!!listMeta.value && filters.page < listMeta.value.totalPages)))
+
+const position = computed(() => {
+  if (!inList.value || !listMeta.value) return undefined
+  const absolute = (filters.page - 1) * filters.perPage + currentIndex.value + 1
+  return `${absolute} из ${listMeta.value.total}`
+})
+
+async function goSibling(delta: -1 | 1) {
+  const next = siblings.value[currentIndex.value + delta]
+  if (next != null) {
+    await navigateTo(`/ideas/${next}`)
+    return
+  }
+  const targetPage = filters.page + delta
+  if (targetPage < 1 || (listMeta.value && targetPage > listMeta.value.totalPages)) return
+
+  filters.page = targetPage
+  await nextTick()
+  const edge = delta === 1 ? siblings.value[0] : siblings.value[siblings.value.length - 1]
+  if (edge != null) await navigateTo(`/ideas/${edge}`)
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+// ─── Утилиты ─────────────────────────────────────────────────────────────────
+const MEDIA_LABELS: Record<string, { label: string, icon: string }> = {
+  video: { label: 'Видео', icon: 'mingcute:video-line' },
+  image: { label: 'Изображение', icon: 'mingcute:pic-line' },
 }
 
-const actionTypeLabels: Record<string, string> = {
+const ACTION_LABELS: Record<string, string> = {
   create: 'Создание',
   edit: 'Редактирование',
   delete: 'Удаление',
   restore: 'Восстановление',
-  reanalyze: 'Переанализ',
+  reanalyze: 'Повторный разбор',
   send_to_scenario: 'Отправка в сценарии',
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('ru-RU', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Назад -->
-    <NuxtLink to="/ideas" class="btn btn-ghost btn-sm gap-1">
-      <Icon name="mingcute:arrow-left-line" />
-      Назад к идеям
-    </NuxtLink>
+  <div>
+    <UiSkeleton v-if="pending && !idea" variant="details" :count="6" />
 
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
+    <UiErrorState
+      v-else-if="error"
+      title="Не удалось загрузить идею"
+      :message="error.message"
+      @retry="refresh"
+    />
 
-    <!-- Error -->
-    <div v-else-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
-
-    <!-- Content -->
     <template v-else-if="idea">
-      <!-- Ошибка обработки -->
-      <div v-if="idea.status === 'failed'" role="alert" class="alert alert-error">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ idea.errorMessage || 'Произошла ошибка при обработке' }}</span>
-      </div>
+      <DetailHeader
+        :title="idea.title || idea.sourceUrl || 'Идея'"
+        :code="`idea_${idea.id}`"
+        back-to="/ideas"
+        back-label="К идеям"
+        :position="position"
+        :has-prev="hasPrev"
+        :has-next="hasNext"
+        @prev="goSibling(-1)"
+        @next="goSibling(1)"
+      >
+        <template #badges>
+          <IdeaStatusBadge :status="idea.status" :analysis-status="idea.analysisStatus" />
+          <UiPlatformBadge v-if="idea.platform" :platform="idea.platform" />
+        </template>
 
-      <!-- Processing -->
-      <div v-if="idea.status === 'processing'" role="alert" class="alert alert-info">
-        <span class="loading loading-spinner loading-sm" />
-        <span>Идея обрабатывается, подождите...</span>
-      </div>
-
-      <!-- Мета-информация -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <IdeaStatusBadge :status="idea.status" :analysis-status="idea.analysisStatus" />
-        <IdeaSourceBadge
-          :source="idea.source"
-          :sync-status="idea.syncStatus"
-          :external-id="idea.externalId"
-        />
-        <span
-          v-if="idea.platform && platformMap[idea.platform]"
-          class="badge badge-sm badge-ghost gap-1"
-        >
-          <Icon :name="platformMap[idea.platform!]!.icon" class="text-xs" />
-          {{ platformMap[idea.platform!]!.label }}
-        </span>
-        <span
-          v-if="idea.mediaType"
-          class="badge badge-sm badge-ghost gap-1"
-        >
-          <Icon
-            :name="idea.mediaType === 'video' ? 'mingcute:video-line' : idea.mediaType === 'image' ? 'mingcute:pic-line' : 'mingcute:file-line'"
-            class="text-xs"
+        <template #actions>
+          <IdeaActions
+            :idea-id="idea.id"
+            :current-status="idea.status"
+            :analysis-status="idea.analysisStatus"
+            :reference-status="idea.referenceStatus"
+            :has-reference-breakdown="hasReferenceBreakdown"
+            @updated="isEditing = false; refresh()"
+            @edit="startEditing"
+            @deleted="navigateTo('/ideas')"
           />
-          {{ idea.mediaType === 'video' ? 'Видео' : idea.mediaType === 'image' ? 'Изображение' : 'Медиа' }}
-        </span>
-        <span v-if="idea.app" class="text-sm text-base-content/60">
-          {{ idea.app.name }}
-        </span>
-        <NuxtLink
-          v-if="idea.sentToScenarioAt"
-          to="/scenarios"
-          class="badge badge-sm badge-outline badge-primary gap-1 hover:badge-primary hover:text-primary-content transition-colors"
-        >
-          <Icon name="mingcute:star-line" class="text-xs" />
-          Перейти к сценариям
-        </NuxtLink>
-      </div>
+        </template>
+      </DetailHeader>
 
-      <h1 class="text-xl font-bold text-base-content">
-        {{ idea.title || idea.sourceUrl || 'Идея' }}
-      </h1>
-
-      <!-- URL -->
-      <div v-if="idea.sourceUrl" class="text-sm text-base-content/50 flex items-center gap-1">
-        <Icon name="mingcute:link-line" class="text-xs" />
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 pb-3 text-sm text-muted">
+        <IdeaSourceBadge :source="idea.source" :sync-status="idea.syncStatus" :external-id="idea.externalId" />
+        <span v-if="idea.mediaType && MEDIA_LABELS[idea.mediaType]" class="flex items-center gap-1.5">
+          <Icon :name="MEDIA_LABELS[idea.mediaType]!.icon" />
+          {{ MEDIA_LABELS[idea.mediaType]!.label }}
+        </span>
+        <span v-if="idea.app" class="flex items-center gap-1.5">
+          Приложение
+          <span class="text-fg">{{ idea.app.name }}</span>
+        </span>
+        <span class="flex items-center gap-1.5">
+          Создана
+          <span class="tnum font-mono">{{ formatDate(idea.createdAt) }}</span>
+        </span>
         <a
+          v-if="idea.sourceUrl"
           :href="idea.sourceUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="link link-hover truncate"
+          class="flex min-w-0 items-center gap-1.5 hover:text-fg"
         >
-          {{ idea.sourceUrl }}
+          <Icon name="mingcute:link-line" class="shrink-0" />
+          <span class="max-w-80 truncate font-mono text-micro">{{ idea.sourceUrl }}</span>
         </a>
       </div>
 
-      <!-- Tags -->
-      <div v-if="idea.tags?.length" class="flex gap-1 flex-wrap">
-        <span
-          v-for="tag in idea.tags"
-          :key="tag"
-          class="badge badge-sm badge-outline"
+      <div class="flex flex-col gap-3">
+        <div
+          v-if="idea.status === 'failed'"
+          role="alert"
+          class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
         >
-          {{ tag }}
-        </span>
-      </div>
+          <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+          <span>{{ idea.errorMessage || 'Идея не разобралась. Причину модель не сообщила.' }}</span>
+        </div>
 
-      <!-- Заметки оператора -->
-      <div v-if="idea.operatorNotes && !isEditing" class="card bg-base-200/50">
-        <div class="card-body p-3 gap-1">
-          <div class="flex items-center gap-1 text-xs text-base-content/50">
-            <Icon name="mingcute:note-line" class="text-sm" />
+        <div
+          v-if="idea.status === 'processing'"
+          role="status"
+          class="flex items-center gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-info"
+        >
+          <Icon name="mingcute:loading-line" class="shrink-0 animate-spin" />
+          Идея разбирается.
+        </div>
+
+        <div v-if="idea.tags?.length" class="flex flex-wrap gap-1">
+          <span
+            v-for="tag in idea.tags"
+            :key="tag"
+            class="rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted"
+          >
+            {{ tag }}
+          </span>
+        </div>
+
+        <section v-if="idea.operatorNotes && !isEditing" class="rounded-lg border border-border bg-surface p-3">
+          <div class="mb-1 flex items-center gap-1.5 text-micro text-subtle">
+            <Icon name="mingcute:notebook-line" />
             Заметки оператора
           </div>
           <p class="text-sm whitespace-pre-wrap">{{ idea.operatorNotes }}</p>
-        </div>
-      </div>
+        </section>
 
-      <!-- Действия -->
-      <IdeaActions
-        :idea-id="idea.id"
-        :current-status="idea.status"
-        :analysis-status="idea.analysisStatus"
-        :reference-status="idea.referenceStatus"
-        :has-reference-breakdown="hasReferenceBreakdown"
-        @updated="onUpdated"
-        @edit="startEditing"
-        @deleted="onDeleted"
-      />
+        <!-- Редактор -->
+        <section v-if="isEditing" class="overflow-hidden rounded-lg border border-border bg-panel">
+          <header class="flex items-center gap-2 border-b border-border bg-card px-3.5 py-2.5">
+            <Icon name="mingcute:edit-line" class="text-accent" />
+            <h2 class="text-sm font-medium">Редактирование идеи</h2>
+          </header>
 
-      <!-- Редактор -->
-      <div v-if="isEditing" class="card bg-base-100 shadow-sm">
-        <div class="card-body p-4 gap-3">
-          <h3 class="card-title text-sm">
-            <Icon name="mingcute:edit-line" class="text-primary" />
-            Редактирование идеи
-          </h3>
+          <div class="flex flex-col gap-3 p-3.5">
+            <UiField label="Заголовок">
+              <UiInput v-model="editForm.title" placeholder="Заголовок идеи" />
+            </UiField>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Заголовок</legend>
-            <input v-model="editForm.title" type="text" class="input w-full" placeholder="Заголовок">
-          </fieldset>
+            <UiField v-for="f in EDIT_FIELDS" :key="f.key" :label="f.label">
+              <UiTextarea v-model="editForm[f.key]" :rows="f.rows" :placeholder="f.label" />
+            </UiField>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Хук</legend>
-            <textarea v-model="editForm.hook" class="textarea w-full" rows="3" placeholder="Хук" />
-          </fieldset>
+            <UiField label="Теги" hint="Через запятую">
+              <UiInput v-model="editForm.tags" placeholder="тренд, юмор, обзор" />
+            </UiField>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Основная часть</legend>
-            <textarea v-model="editForm.body" class="textarea w-full" rows="5" placeholder="Основная часть" />
-          </fieldset>
+            <div
+              v-if="editError"
+              role="alert"
+              class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+            >
+              <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+              <span>{{ editError }}</span>
+            </div>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Призыв к действию</legend>
-            <textarea v-model="editForm.cta" class="textarea w-full" rows="3" placeholder="CTA" />
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Визуальный стиль</legend>
-            <textarea v-model="editForm.visualStyle" class="textarea w-full" rows="3" placeholder="Визуальный стиль" />
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Почему залетело</legend>
-            <textarea v-model="editForm.whyViral" class="textarea w-full" rows="3" placeholder="Почему залетело" />
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Заметки оператора</legend>
-            <textarea v-model="editForm.operatorNotes" class="textarea w-full" rows="3" placeholder="Заметки, комментарии, контекст..." />
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Теги (через запятую)</legend>
-            <input v-model="editForm.tags" type="text" class="input w-full" placeholder="тренд, юмор, обзор">
-          </fieldset>
-
-          <div v-if="editError" role="alert" class="alert alert-error alert-soft text-sm">
-            <Icon name="mingcute:warning-line" />
-            <span>{{ editError }}</span>
-          </div>
-
-          <div class="flex gap-2 justify-end">
-            <button class="btn btn-sm btn-ghost" :disabled="isSaving" @click="isEditing = false">
-              Отмена
-            </button>
-            <button class="btn btn-sm btn-primary" :disabled="isSaving" @click="handleSave">
-              <span v-if="isSaving" class="loading loading-spinner loading-xs" />
-              Сохранить
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Секции: Анализ / Транскрипт / История -->
-      <template v-if="!isEditing">
-        <div class="tabs tabs-bordered">
-          <button
-            class="tab"
-            :class="{ 'tab-active': activeSection === 'analysis' }"
-            @click="activeSection = 'analysis'"
-          >
-            <Icon name="mingcute:brain-line" class="mr-1" />
-            Анализ
-          </button>
-          <button
-            class="tab"
-            :class="{ 'tab-active': activeSection === 'reference' }"
-            @click="activeSection = 'reference'"
-          >
-            <Icon name="mingcute:search-line" class="mr-1" />
-            Референс
-            <span
-              v-if="hasReferenceBreakdown"
-              class="badge badge-xs badge-success ml-1"
-            />
-          </button>
-          <button
-            class="tab"
-            :class="{ 'tab-active': activeSection === 'transcript' }"
-            @click="activeSection = 'transcript'"
-          >
-            <Icon name="mingcute:text-line" class="mr-1" />
-            Транскрипт
-          </button>
-          <button
-            class="tab"
-            :class="{ 'tab-active': activeSection === 'history' }"
-            @click="activeSection = 'history'"
-          >
-            <Icon name="mingcute:time-line" class="mr-1" />
-            История
-          </button>
-          <button
-            class="tab"
-            :class="{ 'tab-active': activeSection === 'sync' }"
-            @click="activeSection = 'sync'"
-          >
-            <Icon name="mingcute:refresh-2-line" class="mr-1" />
-            Синхронизация
-            <span
-              v-if="idea.syncStatus && idea.syncStatus !== 'none'"
-              class="badge badge-xs ml-1"
-              :class="{
-                'badge-success': idea.syncStatus === 'synced',
-                'badge-warning': idea.syncStatus === 'conflict',
-                'badge-error': idea.syncStatus === 'error',
-                'badge-info': idea.syncStatus === 'pending_export' || idea.syncStatus === 'pending_import',
-              }"
-            />
-          </button>
-        </div>
-
-        <!-- Анализ -->
-        <IdeaAnalysis v-if="activeSection === 'analysis'" :idea="idea" />
-
-        <!-- Референс -->
-        <IdeaReferenceAnalysis
-          v-if="activeSection === 'reference'"
-          :reference-breakdown="idea.analysis?.referenceBreakdown ?? null"
-          :reference-status="idea.referenceStatus"
-          :analysis-progress="progress"
-        />
-
-        <!-- Транскрипт -->
-        <div v-if="activeSection === 'transcript'" class="card bg-base-100 shadow-sm">
-          <div class="card-body p-4">
-            <template v-if="idea.transcription">
-              <p class="text-sm whitespace-pre-wrap text-base-content/80">
-                {{ idea.transcription }}
-              </p>
-            </template>
-            <div v-else class="text-center py-6 text-base-content/40">
-              <Icon name="mingcute:text-line" class="text-3xl mb-2" />
-              <p class="text-sm">Транскрибация отсутствует</p>
-              <p class="text-xs mt-1">Транскрибация появится, если была выполнена обработка аудио</p>
+            <div class="flex justify-end gap-1.5">
+              <UiButton variant="ghost" :disabled="isSaving" @click="isEditing = false">Отмена</UiButton>
+              <UiButton variant="primary" :loading="isSaving" @click="handleSave">Сохранить</UiButton>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Синхронизация -->
-        <IdeaSyncInfo
-          v-if="activeSection === 'sync'"
-          :idea-id="idea.id"
-          :external-id="idea.externalId ?? null"
-          :sync-status="idea.syncStatus ?? 'none'"
-          :sync-direction="idea.syncDirection ?? 'local'"
-          :last-synced-at="idea.lastSyncedAt ?? null"
-          :last-sync-error="idea.lastSyncError ?? null"
-          :local-dirty="idea.localDirty ?? false"
-          :remote-snapshot="idea.remoteSnapshot ?? null"
-          @synced="refresh()"
-        />
+        <!-- Вкладки -->
+        <template v-else>
+          <div role="tablist" class="flex flex-wrap gap-0.5 border-b border-border">
+            <button
+              v-for="t in tabs"
+              :key="t.key"
+              type="button"
+              role="tab"
+              :aria-selected="tab === t.key"
+              class="flex h-[34px] cursor-pointer items-center gap-1.5 border-b-2 px-2.5 text-sm"
+              :class="tab === t.key ? 'border-accent font-medium text-fg' : 'border-transparent text-muted hover:text-fg'"
+              @click="tab = t.key"
+            >
+              {{ t.label }}
+              <span v-if="t.marked" class="size-1.5 rounded-full bg-accent" />
+            </button>
+          </div>
 
-        <!-- История действий -->
-        <div v-if="activeSection === 'history'" class="card bg-base-100 shadow-sm">
-          <div class="card-body p-4">
-            <template v-if="idea.operatorActions?.length">
-              <div class="space-y-2">
-                <div
-                  v-for="action in idea.operatorActions"
-                  :key="action.id"
-                  class="flex items-start gap-3 text-sm"
-                >
-                  <span class="badge badge-xs badge-ghost mt-1 shrink-0">
-                    {{ actionTypeLabels[action.actionType] ?? action.actionType }}
-                  </span>
-                  <div class="flex-1 min-w-0">
-                    <span v-if="action.reason" class="text-base-content/70">{{ action.reason }}</span>
-                    <span class="text-xs text-base-content/40 ml-2">
-                      {{ formatDate(action.createdAt) }}
-                    </span>
-                  </div>
-                </div>
+          <IdeaAnalysis v-if="tab === 'analysis'" :idea="idea" />
+
+          <IdeaReferenceAnalysis
+            v-else-if="tab === 'reference'"
+            :reference-breakdown="idea.analysis?.referenceBreakdown ?? null"
+            :reference-status="idea.referenceStatus"
+            :analysis-progress="progress"
+          />
+
+          <section v-else-if="tab === 'transcript'" class="rounded-lg border border-border bg-panel p-3.5">
+            <p v-if="idea.transcription" class="text-sm whitespace-pre-wrap">{{ idea.transcription }}</p>
+            <UiEmptyState
+              v-else
+              title="Транскрипта нет"
+              description="Он появляется, когда идею разбирали вместе с аудиодорожкой."
+            />
+          </section>
+
+          <IdeaSyncInfo
+            v-else-if="tab === 'sync'"
+            :idea-id="idea.id"
+            :external-id="idea.externalId ?? null"
+            :sync-status="idea.syncStatus ?? 'none'"
+            :sync-direction="idea.syncDirection ?? 'local'"
+            :last-synced-at="idea.lastSyncedAt ?? null"
+            :last-sync-error="idea.lastSyncError ?? null"
+            :local-dirty="idea.localDirty ?? false"
+            :remote-snapshot="idea.remoteSnapshot ?? null"
+            @synced="refresh()"
+          />
+
+          <section v-else-if="tab === 'history'" class="rounded-lg border border-border bg-panel p-3.5">
+            <div v-if="idea.operatorActions?.length" class="flex flex-col">
+              <div
+                v-for="action in idea.operatorActions"
+                :key="action.id"
+                class="flex flex-wrap items-baseline gap-2 border-b border-divider py-1.5 text-sm last:border-b-0"
+              >
+                <span class="rounded-sm border border-divider px-1.5 py-0.5 text-micro text-muted">
+                  {{ ACTION_LABELS[action.actionType] ?? action.actionType }}
+                </span>
+                <span v-if="action.reason" class="min-w-0 flex-1 text-muted">{{ action.reason }}</span>
+                <span class="tnum ml-auto font-mono text-micro text-subtle">{{ formatDate(action.createdAt) }}</span>
               </div>
-            </template>
-            <div v-else class="text-center py-6 text-base-content/40">
-              <Icon name="mingcute:time-line" class="text-3xl mb-2" />
-              <p class="text-sm">Нет записей в истории</p>
             </div>
-          </div>
-        </div>
-      </template>
-
-      <!-- Мета-данные -->
-      <div class="text-xs text-base-content/30 flex gap-4">
-        <span>ID: {{ idea.id }}</span>
-        <span>Создано: {{ formatDate(idea.createdAt) }}</span>
-        <span>Обновлено: {{ formatDate(idea.updatedAt) }}</span>
+            <UiEmptyState v-else title="История пуста" description="С идеей ещё ничего не делали." />
+          </section>
+        </template>
       </div>
     </template>
   </div>

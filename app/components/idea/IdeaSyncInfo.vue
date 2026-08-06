@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { IDEA_SYNC_LABELS } from './IdeaStatusMap'
+
 const props = defineProps<{
   ideaId: number
   externalId: number | null
@@ -10,9 +12,7 @@ const props = defineProps<{
   remoteSnapshot: unknown
 }>()
 
-const emit = defineEmits<{
-  synced: []
-}>()
+const emit = defineEmits<{ synced: [] }>()
 
 const { resyncIdea, exportToMc } = useIdeaSync()
 
@@ -20,17 +20,25 @@ const isSyncing = ref(false)
 const syncError = ref('')
 const syncResult = ref('')
 
+function errorText(err: unknown, fallback: string) {
+  return (err as { data?: { message?: string }, message?: string })?.data?.message
+    || (err as Error)?.message
+    || fallback
+}
+
 async function handleResync(mode?: 'force_remote' | 'force_local') {
   isSyncing.value = true
   syncError.value = ''
   syncResult.value = ''
   try {
     const result = await resyncIdea(props.ideaId, mode)
-    syncResult.value = (result as any).data?.status ?? 'ok'
+    syncResult.value = (result as { data?: { status?: string } })?.data?.status ?? 'Синхронизировано'
     emit('synced')
-  } catch (err: any) {
-    syncError.value = err?.data?.message ?? err?.message ?? 'Ошибка синхронизации'
-  } finally {
+  }
+  catch (err) {
+    syncError.value = errorText(err, 'Ошибка синхронизации')
+  }
+  finally {
     isSyncing.value = false
   }
 }
@@ -41,143 +49,113 @@ async function handleExport() {
   syncResult.value = ''
   try {
     await exportToMc([props.ideaId])
-    syncResult.value = 'exported'
+    syncResult.value = 'Выгружено в MarketingCamp'
     emit('synced')
-  } catch (err: any) {
-    syncError.value = err?.data?.message ?? err?.message ?? 'Ошибка экспорта'
-  } finally {
+  }
+  catch (err) {
+    syncError.value = errorText(err, 'Ошибка выгрузки')
+  }
+  finally {
     isSyncing.value = false
   }
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+  return new Date(dateStr).toLocaleString('ru-RU', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
 
-const directionLabel: Record<string, string> = {
+const DIRECTION_LABELS: Record<string, string> = {
   local: 'Локальная',
-  imported: 'Импортирована из MarketingCamp',
-  exported: 'Экспортирована в MarketingCamp',
-  bidirectional: 'Двусторонняя синхронизация',
+  imported: 'Пришла из MarketingCamp',
+  exported: 'Выгружена в MarketingCamp',
+  bidirectional: 'Двусторонняя',
 }
 
-const statusLabel: Record<string, { text: string; class: string }> = {
-  none: { text: 'Не синхронизирована', class: 'badge-ghost' },
-  synced: { text: 'Синхронизирована', class: 'badge-success' },
-  pending_export: { text: 'Ожидает экспорта', class: 'badge-info' },
-  pending_import: { text: 'Ожидает импорта', class: 'badge-info' },
-  conflict: { text: 'Конфликт', class: 'badge-warning' },
-  error: { text: 'Ошибка', class: 'badge-error' },
+const SYNC_TONE: Record<string, string> = {
+  synced: 'border-success-border bg-success-bg text-success',
+  conflict: 'border-warning-border bg-warning-bg text-warning',
+  error: 'border-danger-border bg-danger-bg text-danger',
+  pending_export: 'border-info-border bg-info-bg text-info',
+  pending_import: 'border-info-border bg-info-bg text-info',
 }
+
+const info = computed(() => [
+  { label: 'Направление', value: DIRECTION_LABELS[props.syncDirection] ?? props.syncDirection, mono: false },
+  { label: 'Внешний ID', value: props.externalId },
+  { label: 'Синхронизация', value: props.lastSyncedAt ? formatDate(props.lastSyncedAt) : null },
+])
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4 gap-3">
-      <h3 class="card-title text-sm gap-2">
-        <Icon name="mingcute:refresh-2-line" class="text-primary" />
-        Синхронизация с MarketingCamp
-      </h3>
-
-      <!-- Статус -->
-      <div class="grid grid-cols-2 gap-2 text-sm">
-        <div class="text-base-content/60">Статус</div>
-        <div>
-          <span
-            class="badge badge-sm"
-            :class="statusLabel[syncStatus]?.class ?? 'badge-ghost'"
-          >
-            {{ statusLabel[syncStatus]?.text ?? syncStatus }}
-          </span>
-        </div>
-
-        <div class="text-base-content/60">Направление</div>
-        <div class="text-base-content">{{ directionLabel[syncDirection] ?? syncDirection }}</div>
-
-        <div class="text-base-content/60">External ID</div>
-        <div class="text-base-content">
-          {{ externalId ?? '—' }}
-        </div>
-
-        <div class="text-base-content/60">Последняя синхр.</div>
-        <div class="text-base-content">
-          {{ lastSyncedAt ? formatDate(lastSyncedAt) : '—' }}
-        </div>
-
-        <template v-if="localDirty">
-          <div class="text-base-content/60">Локальные изменения</div>
-          <div>
-            <span class="badge badge-xs badge-warning">Есть несинхронизированные правки</span>
-          </div>
-        </template>
-      </div>
-
-      <!-- Ошибка sync -->
-      <div v-if="lastSyncError" role="alert" class="alert alert-error alert-soft text-xs">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ lastSyncError }}</span>
-      </div>
-
-      <!-- Результат действия -->
-      <div v-if="syncResult" role="alert" class="alert alert-success alert-soft text-xs">
-        <Icon name="mingcute:check-line" />
-        <span>{{ syncResult }}</span>
-      </div>
-      <div v-if="syncError" role="alert" class="alert alert-error alert-soft text-xs">
-        <Icon name="mingcute:warning-line" />
-        <span>{{ syncError }}</span>
-      </div>
-
-      <!-- Действия -->
-      <div class="flex gap-2 flex-wrap">
-        <!-- Если есть externalId — ресинк -->
-        <template v-if="externalId">
-          <button
-            class="btn btn-sm btn-outline btn-primary gap-1"
-            :disabled="isSyncing"
-            @click="handleResync()"
-          >
-            <span v-if="isSyncing" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:refresh-2-line" class="text-xs" />
-            Ресинхронизация
-          </button>
-
-          <button
-            v-if="syncStatus === 'conflict'"
-            class="btn btn-sm btn-outline btn-warning gap-1"
-            :disabled="isSyncing"
-            @click="handleResync('force_remote')"
-          >
-            <Icon name="mingcute:download-line" class="text-xs" />
-            Принять remote
-          </button>
-        </template>
-
-        <!-- Если локальная — экспорт -->
-        <button
-          v-if="!externalId || syncDirection === 'local'"
-          class="btn btn-sm btn-outline btn-secondary gap-1"
-          :disabled="isSyncing"
-          @click="handleExport"
-        >
-          <span v-if="isSyncing" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:upload-line" class="text-xs" />
-          Экспорт в MarketingCamp
-        </button>
-      </div>
-
-      <!-- Remote snapshot preview -->
-      <details v-if="remoteSnapshot" class="collapse collapse-arrow bg-base-200/50">
-        <summary class="collapse-title text-xs font-medium py-2 min-h-0">
-          Remote snapshot (raw)
-        </summary>
-        <div class="collapse-content text-xs">
-          <pre class="whitespace-pre-wrap break-all text-base-content/60">{{ JSON.stringify(remoteSnapshot, null, 2) }}</pre>
-        </div>
-      </details>
+  <section class="rounded-lg border border-border bg-panel p-3.5">
+    <div class="mb-2 flex flex-wrap items-center gap-2">
+      <Icon name="mingcute:refresh-2-line" class="text-accent" />
+      <h2 class="text-sm font-medium">Синхронизация с MarketingCamp</h2>
+      <span
+        class="rounded-sm border px-1.5 py-0.5 text-micro"
+        :class="SYNC_TONE[syncStatus] ?? 'border-divider text-muted'"
+      >
+        {{ IDEA_SYNC_LABELS[syncStatus] ?? 'Не синхронизирована' }}
+      </span>
+      <span
+        v-if="localDirty"
+        class="rounded-sm border border-warning-border bg-warning-bg px-1.5 py-0.5 text-micro text-warning"
+      >
+        есть несохранённые правки
+      </span>
     </div>
-  </div>
+
+    <UiKeyValue :items="info" label-width="140px" />
+
+    <div
+      v-if="lastSyncError"
+      role="alert"
+      class="mt-2 flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+      <span>{{ lastSyncError }}</span>
+    </div>
+
+    <div
+      v-if="syncResult"
+      role="status"
+      class="mt-2 flex items-start gap-2 rounded-md border border-success-border bg-success-bg px-2.5 py-2 text-sm text-success"
+    >
+      <Icon name="mingcute:check-line" class="mt-0.5 shrink-0" />
+      <span>{{ syncResult }}</span>
+    </div>
+
+    <div
+      v-if="syncError"
+      role="alert"
+      class="mt-2 flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+      <span>{{ syncError }}</span>
+    </div>
+
+    <div class="mt-2.5 flex flex-wrap gap-1.5">
+      <template v-if="externalId">
+        <UiButton :loading="isSyncing" @click="handleResync()">
+          <Icon v-if="!isSyncing" name="mingcute:refresh-2-line" />
+          Синхронизировать
+        </UiButton>
+        <UiButton v-if="syncStatus === 'conflict'" :disabled="isSyncing" @click="handleResync('force_remote')">
+          <Icon name="mingcute:download-line" />
+          Принять версию MarketingCamp
+        </UiButton>
+      </template>
+
+      <UiButton v-if="!externalId || syncDirection === 'local'" :loading="isSyncing" @click="handleExport">
+        <Icon v-if="!isSyncing" name="mingcute:upload-line" />
+        Выгрузить в MarketingCamp
+      </UiButton>
+    </div>
+
+    <UiDisclosure v-if="remoteSnapshot" class="mt-2.5" title="Ответ MarketingCamp как есть">
+      <pre class="font-mono text-micro break-all whitespace-pre-wrap text-muted">{{ JSON.stringify(remoteSnapshot, null, 2) }}</pre>
+    </UiDisclosure>
+  </section>
 </template>

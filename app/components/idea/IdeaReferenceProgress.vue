@@ -21,15 +21,20 @@ const STEPS: StepDef[] = [
 const currentStageIndex = computed(() => {
   if (!props.progress) return 0
   if (props.progress.stage === 'queued') return -1
-  const idx = STEPS.findIndex(s => s.stage === props.progress!.stage)
-  return idx
+  return STEPS.findIndex(s => s.stage === props.progress!.stage)
 })
+
+const states = computed(() => STEPS.map((_, i) => {
+  if (i < currentStageIndex.value) return 'done' as const
+  if (i === currentStageIndex.value) return 'running' as const
+  return 'pending' as const
+}))
 
 function stepLabel(step: StepDef, i: number): string {
   if (step.stage === 'analyzing_frames' && currentStageIndex.value === i) {
     const done = props.progress?.framesDone ?? 0
     const total = props.progress?.framesTotal ?? 0
-    if (total > 0) return `${step.label} (${done} из ${total})`
+    if (total > 0) return `${step.label} · ${done} из ${total}`
   }
   return step.label
 }
@@ -39,28 +44,30 @@ const elapsedLabel = computed(() => {
   if (typeof sec !== 'number' || sec <= 0) return null
   const m = Math.floor(sec / 60)
   const s = sec % 60
-  return m > 0 ? `${m}м ${s}с` : `${s}с`
+  return m > 0 ? `${m} мин ${s} с` : `${s} с`
+})
+
+const currentLabel = computed(() => {
+  const i = currentStageIndex.value
+  if (i < 0) return 'В очереди'
+  const step = STEPS[i]
+  return step ? stepLabel(step, i) : 'Идёт разбор'
 })
 </script>
 
 <template>
-  <div class="space-y-3 py-2" aria-busy="true">
-    <ul class="steps steps-horizontal w-full text-xs">
-      <li
+  <div class="flex flex-col gap-2 py-2" aria-busy="true">
+    <UiStepProgress :steps="states" :label="currentLabel" :caption="elapsedLabel ?? undefined" />
+
+    <div class="flex flex-wrap gap-x-3 gap-y-1 text-micro text-subtle">
+      <span
         v-for="(step, i) in STEPS"
         :key="step.stage"
-        class="step"
-        :class="{ 'step-primary': i <= currentStageIndex }"
         :aria-current="i === currentStageIndex ? 'step' : undefined"
+        :class="i <= currentStageIndex ? 'text-muted' : ''"
       >
         {{ stepLabel(step, i) }}
-      </li>
-    </ul>
-
-    <div class="flex items-center justify-center gap-2 text-xs text-base-content/60">
-      <span class="loading loading-spinner loading-xs" />
-      <span>Анализ выполняется...</span>
-      <span v-if="elapsedLabel" class="badge badge-ghost badge-sm">{{ elapsedLabel }}</span>
+      </span>
     </div>
   </div>
 </template>

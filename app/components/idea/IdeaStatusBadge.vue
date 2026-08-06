@@ -1,39 +1,55 @@
 <script setup lang="ts">
-defineProps<{
+import { ideaStatus, ideaAnalysisStatus, IDEA_STATUS_LABELS } from './IdeaStatusMap'
+
+/**
+ * Статус идеи плюс состояние её разбора моделью.
+ *
+ * Разбор показывается отдельной пометкой: «Готова» у идеи и «Разобрана»
+ * моделью — разные вещи, и оператор ждёт именно второго. Подпись доменная,
+ * тон — из общего словаря, как у ProxyHealthBadge.
+ */
+const props = defineProps<{
   status: string
   analysisStatus?: string
 }>()
 
-const statusMap: Record<string, { label: string; class: string }> = {
-  pending: { label: 'Ожидание', class: 'badge-ghost' },
-  processing: { label: 'Обработка', class: 'badge-info' },
-  ready: { label: 'Готово', class: 'badge-success' },
-  in_work: { label: 'В работе', class: 'badge-warning' },
-  completed: { label: 'Завершено', class: 'badge-primary' },
-  failed: { label: 'Ошибка', class: 'badge-error' },
+const ANALYSIS_LABELS: Record<string, string> = {
+  pending: 'Разбор в очереди',
+  processing: 'Разбирается',
+  running: 'Разбирается',
+  completed: 'Разбор готов',
+  failed: 'Разбор упал',
 }
 
-const analysisStatusMap: Record<string, { label: string; class: string }> = {
-  none: { label: 'Нет анализа', class: 'badge-ghost' },
-  pending: { label: 'Анализ ожидает', class: 'badge-ghost' },
-  running: { label: 'Анализ...', class: 'badge-info' },
-  completed: { label: 'Анализ готов', class: 'badge-accent' },
-  failed: { label: 'Анализ ошибка', class: 'badge-error' },
+const TONE: Record<string, string> = {
+  draft: 'border-neutral-border bg-neutral-bg text-neutral',
+  queued: 'border-neutral-border bg-neutral-bg text-neutral',
+  running: 'border-info-border bg-info-bg text-info',
+  review: 'border-warning-border bg-warning-bg text-warning',
+  done: 'border-success-border bg-success-bg text-success',
+  failed: 'border-danger-border bg-danger-bg text-danger',
+  blocked: 'border-danger-border bg-danger-bg text-danger',
+  cancelled: 'border-divider bg-transparent text-subtle',
 }
+
+const showAnalysis = computed(() =>
+  !!props.analysisStatus
+  && props.analysisStatus !== 'none'
+  && props.analysisStatus !== props.status
+  && !!ANALYSIS_LABELS[props.analysisStatus],
+)
+
+const analysisTone = computed(() => TONE[ideaAnalysisStatus(props.analysisStatus)] ?? TONE.draft)
 </script>
 
 <template>
+  <UiStatusBadge :status="ideaStatus(status)" size="sm" :title="IDEA_STATUS_LABELS[status] ?? status" />
+
   <span
-    class="badge badge-sm"
-    :class="statusMap[status]?.class ?? 'badge-ghost'"
+    v-if="showAnalysis"
+    class="inline-flex h-[22px] w-fit items-center rounded-sm border px-2 text-sm whitespace-nowrap"
+    :class="analysisTone"
   >
-    {{ statusMap[status]?.label ?? status }}
-  </span>
-  <span
-    v-if="analysisStatus && analysisStatus !== 'none' && analysisStatus !== status"
-    class="badge badge-sm badge-outline"
-    :class="analysisStatusMap[analysisStatus]?.class ?? 'badge-ghost'"
-  >
-    {{ analysisStatusMap[analysisStatus]?.label ?? analysisStatus }}
+    {{ ANALYSIS_LABELS[analysisStatus!] }}
   </span>
 </template>
