@@ -7,15 +7,14 @@ useHead({ title: 'Конвейер' })
 
 const store = usePipelineMonitorStore()
 
-// URL ↔ state-синк выполняем ДО вызова usePipelineMonitor(), чтобы первый
-// useFetch сразу ушёл с корректными параметрами из query.
+// Синхронизация с адресом делается до первого запроса, иначе он уйдёт без
+// параметров из ссылки.
 usePipelineMonitorUrlSync()
 
 const { data, pending, error, refresh } = usePipelineMonitor()
 
-// Чтение localStorage вынесено из setup store'a в onMounted,
-// чтобы SSR и первый клиентский рендер давали одинаковое состояние
-// viewMode/catalogBlockExpanded/monitorBlockExpanded — иначе hydration mismatch.
+// Чтение localStorage вынесено из стора в onMounted: иначе сервер и первый
+// клиентский рендер расходятся по свёрнутости блоков.
 onMounted(() => {
   store.hydrateFromStorage()
 })
@@ -23,16 +22,15 @@ onMounted(() => {
 const pipelines = computed<PipelineMonitorItem[]>(() => data.value?.data ?? [])
 const meta = computed(() => data.value?.meta ?? null)
 
-function onPageUpdate(p: number) {
-  store.catalogPage = p
-}
-
 const createModalRef = ref<{ open: () => void } | null>(null)
 const presetsModalRef = ref<{ open: () => void } | null>(null)
 const importModalRef = ref<{ open: () => void } | null>(null)
-const previewModalRef = ref<{ open: (p: any) => void } | null>(null)
+const previewModalRef = ref<{ open: (p: unknown) => void } | null>(null)
+
+const presetError = ref('')
 
 async function handlePresetSelect(preset: PipelinePreset) {
+  presetError.value = ''
   try {
     const result = await $fetch<{ data: { id: number } }>('/api/pipelines', {
       method: 'POST',
@@ -47,25 +45,23 @@ async function handlePresetSelect(preset: PipelinePreset) {
     })
     await navigateTo(`/pipeline/${result.data.id}`)
   }
-  catch {
-    // silent
+  catch (e) {
+    presetError.value = (e as { data?: { message?: string }, message?: string })?.data?.message
+      || (e as Error)?.message
+      || 'Не удалось создать конвейер из шаблона'
   }
 }
 
 async function handleCardClick(pipeline: PipelineMonitorItem) {
-  // Monitor endpoint не возвращает полный graphData/markdownDescription —
-  // подгружаем pipeline целиком перед открытием превью.
+  // Список монитора не несёт граф и описание целиком — подгружаем конвейер
+  // перед открытием превью.
   try {
-    const res = await $fetch<{ data: any }>(`/api/pipelines/${pipeline.id}`)
+    const res = await $fetch<{ data: unknown }>(`/api/pipelines/${pipeline.id}`)
     previewModalRef.value?.open(res.data)
   }
   catch {
-    previewModalRef.value?.open(pipeline as any)
+    previewModalRef.value?.open(pipeline)
   }
-}
-
-function handleRefresh() {
-  refresh()
 }
 
 function handleImported(id: number) {
@@ -75,56 +71,59 @@ function handleImported(id: number) {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-2xl font-bold text-base-content">
-        Конвейер
-      </h1>
-      <div class="flex items-center gap-2">
-        <div class="tooltip tooltip-bottom" data-tip="Загрузить конвейер из файла">
-          <button class="btn btn-ghost btn-sm" @click="importModalRef?.open()">
-            <Icon name="mingcute:upload-3-line" />
-            Импорт
-          </button>
-        </div>
-        <div class="tooltip tooltip-bottom" data-tip="Готовые шаблоны конвейеров для быстрого старта">
-          <button class="btn btn-ghost btn-sm" @click="presetsModalRef?.open()">
-            <Icon name="mingcute:layout-11-line" />
-            Шаблоны
-          </button>
-        </div>
-        <button class="btn btn-primary btn-sm" @click="createModalRef?.open()">
-          <Icon name="mingcute:add-line" />
-          Создать конвейер
-        </button>
-      </div>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="text-xl font-semibold">Конвейер</h1>
+      <span v-if="meta" class="tnum text-sm text-subtle">{{ meta.total }}</span>
+      <span class="flex-1" />
+      <UiButton title="Загрузить конвейер из файла" @click="importModalRef?.open()">
+        <Icon name="mingcute:upload-line" />
+        Импорт
+      </UiButton>
+      <UiButton title="Готовые шаблоны для быстрого старта" @click="presetsModalRef?.open()">
+        <Icon name="mingcute:layout-line" />
+        Шаблоны
+      </UiButton>
+      <UiButton variant="primary" @click="createModalRef?.open()">
+        <Icon name="mingcute:add-line" />
+        Создать конвейер
+      </UiButton>
     </div>
 
-    <SharedPageGuide
-      guide-key="pipeline"
-      :title="pageGuides.pipeline.title"
-      :steps="pageGuides.pipeline.steps"
-      :tips="pageGuides.pipeline.tips"
+    <p class="text-sm text-muted">
+      Конвейер собирает шаги производства в один граф — от поиска трендов до публикации.
+    </p>
+
+    <UiErrorState
+      v-if="error"
+      message="Не удалось загрузить конвейеры."
+      :details="error.message"
+      @retry="refresh()"
     />
 
-    <div v-if="error" role="alert" class="alert alert-error">
-      <Icon name="mingcute:warning-line" />
-      <span>Ошибка загрузки: {{ error.message }}</span>
-    </div>
+    <p
+      v-if="presetError"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+      <span class="min-w-0 flex-1">{{ presetError }}</span>
+      <UiButton variant="ghost" @click="presetError = ''">Закрыть</UiButton>
+    </p>
 
     <PipelineMonitorDirectoryBlock
       :pipelines="pipelines"
       :meta="meta"
       :pending="pending"
       @click="handleCardClick"
-      @update:page="onPageUpdate"
+      @update:page="(p) => store.catalogPage = p"
     />
 
     <PipelineMonitorBlock
       :items="pipelines"
       :meta="meta"
       :pending="pending"
-      @refresh="handleRefresh"
+      @refresh="refresh()"
     />
 
     <PipelineCreateModal ref="createModalRef" />
@@ -132,9 +131,9 @@ function handleImported(id: number) {
     <PipelineImportModal ref="importModalRef" @imported="handleImported" />
     <PipelinePreviewModal
       ref="previewModalRef"
-      @deleted="handleRefresh"
-      @duplicated="handleRefresh"
-      @updated="handleRefresh"
+      @deleted="refresh()"
+      @duplicated="refresh()"
+      @updated="refresh()"
     />
   </div>
 </template>

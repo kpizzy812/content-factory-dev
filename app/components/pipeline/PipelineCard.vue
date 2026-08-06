@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { getPipelineColorClasses } from '~~/shared/utils/pipeline-meta'
+/**
+ * Карточка конвейера в каталоге.
+ *
+ * Клик открывает превью, а не редактор: конвейеров много, и перед правкой
+ * оператор смотрит, что внутри.
+ */
 import { formatDateOnly } from '~~/shared/utils/pipeline-format'
+import { pipelineColor } from './PipelineColorMap'
 
 const props = defineProps<{
   pipeline: {
@@ -9,7 +15,7 @@ const props = defineProps<{
     description: string | null
     icon: string | null
     color: string | null
-    tags: Array<{ id: number; name: string }>
+    tags: Array<{ id: number, name: string }>
     status: string
     nodesCount: number
     updatedAt: string
@@ -21,65 +27,42 @@ const emit = defineEmits<{
   click: [pipeline: typeof props.pipeline]
 }>()
 
-const colorClasses = computed(() => getPipelineColorClasses(props.pipeline.color))
-
-function handleClick() {
-  emit('click', props.pipeline)
-}
+const color = computed(() => pipelineColor(props.pipeline.color))
 </script>
 
 <template>
-  <div
-    class="card bg-base-100 shadow-sm cursor-pointer transition-shadow hover:shadow-md"
-    @click="handleClick"
+  <button
+    type="button"
+    class="flex cursor-pointer flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors duration-(--duration-fast) hover:border-subtle"
+    @click="emit('click', pipeline)"
   >
-    <div class="card-body p-4 gap-2">
-      <div class="flex items-center gap-2">
-        <div
-          class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          :class="colorClasses.bg20"
-        >
-          <Icon
-            :name="pipeline.icon || 'mingcute:git-merge-line'"
-            class="text-lg"
-            :class="colorClasses.text"
-          />
-        </div>
-        <h3 class="card-title text-sm flex-1 truncate">
-          {{ pipeline.name }}
-        </h3>
-        <PipelineStatusBadge :status="pipeline.status" />
-      </div>
-
-      <p
-        v-if="pipeline.description"
-        class="text-xs text-base-content/60 line-clamp-2"
-      >
-        {{ pipeline.description }}
-      </p>
-
-      <div class="flex items-center justify-between mt-1 text-xs text-base-content/40 gap-2">
-        <div class="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
-          <span class="flex items-center gap-1 shrink-0">
-            <Icon name="mingcute:box-line" class="text-sm" />
-            {{ pipeline.nodesCount }} {{ pipeline.nodesCount === 1 ? 'блок' : 'блоков' }}
-          </span>
-          <span
-            v-for="tag in pipeline.tags.slice(0, 3)"
-            :key="tag.id"
-            class="badge badge-ghost badge-xs shrink-0"
-          >
-            {{ tag.name }}
-          </span>
-          <span
-            v-if="pipeline.tags.length > 3"
-            class="badge badge-ghost badge-xs shrink-0"
-          >
-            +{{ pipeline.tags.length - 3 }}
-          </span>
-        </div>
-        <span class="shrink-0">{{ formatDateOnly(pipeline.lastEditedAt || pipeline.updatedAt) }}</span>
-      </div>
+    <div class="flex w-full items-center gap-2">
+      <span class="flex size-8 shrink-0 items-center justify-center rounded-md" :class="color.bg">
+        <Icon :name="pipeline.icon || 'mingcute:git-merge-line'" :class="color.text" />
+      </span>
+      <span class="min-w-0 flex-1 truncate font-medium">{{ pipeline.name }}</span>
+      <PipelineStatusBadge :status="pipeline.status" />
     </div>
-  </div>
+
+    <p v-if="pipeline.description" class="line-clamp-2 text-sm text-muted">
+      {{ pipeline.description }}
+    </p>
+
+    <div class="flex w-full items-center gap-2 text-micro text-subtle">
+      <span class="tnum shrink-0 font-mono">{{ pipeline.nodesCount }} блоков</span>
+      <span
+        v-for="tag in pipeline.tags.slice(0, 3)"
+        :key="tag.id"
+        class="shrink-0 rounded-sm border border-divider px-1.5"
+      >
+        {{ tag.name }}
+      </span>
+      <span v-if="pipeline.tags.length > 3" class="shrink-0 rounded-sm border border-divider px-1.5">
+        +{{ pipeline.tags.length - 3 }}
+      </span>
+      <span class="tnum ml-auto shrink-0 font-mono">
+        {{ formatDateOnly(pipeline.lastEditedAt || pipeline.updatedAt) }}
+      </span>
+    </div>
+  </button>
 </template>
