@@ -2,7 +2,7 @@
 import type { ColumnDef } from '~/components/list/ListColumnsMenu.vue'
 import type { FilterChip } from '~/components/list/ListFilterChips.vue'
 import type { SystemView } from '~/composables/useSavedViews'
-import type { EntityStatus } from '~~/shared/utils/entity-status'
+import { uploadStatus, UPLOAD_STATUS_LABELS } from './UploadStatusMap'
 
 /**
  * Список публикаций через официальные API по эталону `TrendListView`.
@@ -11,30 +11,6 @@ import type { EntityStatus } from '~~/shared/utils/entity-status'
  * оператор разбирает очередь пачкой и не должен открывать каждую, чтобы
  * понять, что именно упало.
  */
-const UPLOAD_STATUS_TO_ENTITY: Record<string, EntityStatus> = {
-  pending: 'queued',
-  scheduled: 'queued',
-  uploading: 'running',
-  published: 'done',
-  failed: 'failed',
-  canceled: 'cancelled',
-  blocked_by_env: 'blocked',
-}
-
-const UPLOAD_STATUS_LABELS: Record<string, string> = {
-  pending: 'Ожидает',
-  scheduled: 'Запланирована',
-  uploading: 'Загружается',
-  published: 'Опубликована',
-  failed: 'Ошибка',
-  canceled: 'Отменена',
-  blocked_by_env: 'Постинг выключен',
-}
-
-function uploadStatus(raw: string | null | undefined): EntityStatus {
-  return UPLOAD_STATUS_TO_ENTITY[raw ?? ''] ?? 'draft'
-}
-
 const filters = useUploadFiltersStore()
 const { can } = usePermissions()
 const canDelete = computed(() => can('canDelete'))
