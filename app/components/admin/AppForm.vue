@@ -192,12 +192,13 @@ function requiredFieldSource(field: string) {
   return parserKey ? report.sources[parserKey] ?? null : null
 }
 
+/** Откуда взялось поле: разобрано из страницы, дописано моделью или не найдено. */
 function requiredFieldClass(field: string): string {
   const src = requiredFieldSource(field)
-  if (!src) return 'badge-error badge-outline'
-  if (src.source === 'ai_fallback') return 'badge-warning'
-  if (src.source.startsWith('parser_')) return 'badge-success badge-outline'
-  return 'badge-ghost'
+  if (!src) return 'border-danger-border bg-danger-bg text-danger'
+  if (src.source === 'ai_fallback') return 'border-warning-border bg-warning-bg text-warning'
+  if (src.source.startsWith('parser_')) return 'border-success-border bg-success-bg text-success'
+  return 'border-divider text-muted'
 }
 
 function requiredFieldIcon(field: string): string {
@@ -227,10 +228,58 @@ function sourceLabel(source: string): string {
 }
 
 function sourceBadgeClass(source: string): string {
-  if (source === 'ai_fallback') return 'badge-warning'
-  if (source === 'user') return 'badge-info'
-  if (source === 'default') return 'badge-ghost'
-  return 'badge-success badge-outline'
+  if (source === 'ai_fallback') return 'border-warning-border bg-warning-bg text-warning'
+  if (source === 'user') return 'border-info-border bg-info-bg text-info'
+  if (source === 'default') return 'border-divider text-subtle'
+  return 'border-success-border bg-success-bg text-success'
+}
+
+const GEO_OPTIONS = [
+  { value: '', label: 'Не указано' },
+  { value: 'US', label: 'US — США' },
+  { value: 'GB', label: 'GB — Великобритания' },
+  { value: 'DE', label: 'DE — Германия' },
+  { value: 'FR', label: 'FR — Франция' },
+  { value: 'NL', label: 'NL — Нидерланды' },
+  { value: 'ES', label: 'ES — Испания' },
+  { value: 'IT', label: 'IT — Италия' },
+  { value: 'BR', label: 'BR — Бразилия' },
+  { value: 'IN', label: 'IN — Индия' },
+  { value: 'JP', label: 'JP — Япония' },
+  { value: 'KR', label: 'KR — Южная Корея' },
+  { value: 'TR', label: 'TR — Турция' },
+  { value: 'KZ', label: 'KZ — Казахстан' },
+  { value: 'UA', label: 'UA — Украина' },
+  { value: 'BY', label: 'BY — Беларусь' },
+  { value: 'RU', label: 'RU — Россия' },
+]
+
+const LANGUAGE_OPTIONS = [
+  { value: '', label: 'Не указано' },
+  { value: 'EN', label: 'EN — English' },
+  { value: 'RU', label: 'RU — Русский' },
+  { value: 'ES', label: 'ES — Español' },
+  { value: 'DE', label: 'DE — Deutsch' },
+  { value: 'FR', label: 'FR — Français' },
+  { value: 'PT', label: 'PT — Português' },
+  { value: 'JA', label: 'JA — 日本語' },
+  { value: 'KO', label: 'KO — 한국어' },
+]
+
+const ENRICHMENT_LABELS: Record<string, string> = {
+  completed: 'Данные подтянуты',
+  partial: 'Подтянуто частично',
+  running: 'Разбираем страницу',
+  failed: 'Разбор упал',
+  idle: 'Не разбиралось',
+}
+
+const ENRICHMENT_TONE: Record<string, string> = {
+  completed: 'border-success-border bg-success-bg text-success',
+  partial: 'border-warning-border bg-warning-bg text-warning',
+  running: 'border-info-border bg-info-bg text-info',
+  failed: 'border-danger-border bg-danger-bg text-danger',
+  idle: 'border-divider text-subtle',
 }
 
 // --- Submit ---
@@ -312,391 +361,316 @@ async function submit() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Статус обогащения -->
-    <div v-if="isEdit && enrichmentStatus" class="flex items-center gap-2 text-sm">
-      <span
-        class="badge badge-sm"
-        :class="{
-          'badge-success': enrichmentStatus === 'completed',
-          'badge-warning': enrichmentStatus === 'partial' || enrichmentStatus === 'running',
-          'badge-error': enrichmentStatus === 'failed',
-          'badge-ghost': enrichmentStatus === 'idle',
-        }"
+  <div class="flex flex-col gap-3.5">
+    <!-- Разбор страницы магазина -->
+    <section class="rounded-lg border border-border bg-surface p-3.5">
+      <div class="mb-2.5 flex flex-wrap items-center gap-2">
+        <Icon name="mingcute:store-2-line" class="text-accent" />
+        <h3 class="text-sm font-medium">Заполнить из магазина приложений</h3>
+        <span
+          v-if="isEdit && enrichmentStatus"
+          class="rounded-sm border px-1.5 py-0.5 text-micro"
+          :class="ENRICHMENT_TONE[enrichmentStatus] ?? 'border-divider text-subtle'"
+        >
+          {{ ENRICHMENT_LABELS[enrichmentStatus] ?? enrichmentStatus }}
+        </span>
+        <span v-if="lastEnrichedAt" class="tnum font-mono text-micro text-subtle">{{ lastEnrichedAt }}</span>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <UiField label="Ссылка в App Store">
+          <UiInput v-model="form.appStoreUrl" type="url" placeholder="https://apps.apple.com/…" />
+        </UiField>
+        <UiField label="Ссылка в Google Play">
+          <UiInput v-model="form.playStoreUrl" type="url" placeholder="https://play.google.com/store/apps/…" />
+        </UiField>
+      </div>
+
+      <div class="mt-2.5 flex flex-wrap items-center gap-3">
+        <UiButton
+          variant="primary"
+          :disabled="!storeUrlForEnrich"
+          :loading="enriching"
+          @click="handleEnrich"
+        >
+          <Icon v-if="!enriching" name="mingcute:sparkles-2-line" />
+          {{ enriching ? 'Читаем страницу' : 'Разобрать и заполнить' }}
+        </UiButton>
+
+        <UiToggle
+          v-model="useUrlLocale"
+          label="Гео из ссылки"
+          title="Брать страну и язык из локали в ссылке (apps.apple.com/ru/…). Иначе US и английский."
+        />
+      </div>
+
+      <div
+        v-if="enrichError"
+        role="alert"
+        class="mt-2.5 flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
       >
-        {{ enrichmentStatus === 'completed' ? 'Обогащено' :
-           enrichmentStatus === 'partial' ? 'Частично' :
-           enrichmentStatus === 'running' ? 'Анализ...' :
-           enrichmentStatus === 'failed' ? 'Ошибка' : 'Не обогащено' }}
-      </span>
-      <span v-if="lastEnrichedAt" class="text-base-content/60">
-        Обновлено: {{ lastEnrichedAt }}
-      </span>
-    </div>
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span>{{ enrichError }}</span>
+      </div>
 
-    <!-- === СЕКЦИЯ: Store URL и обогащение (доступна и при создании) === -->
-    <div class="card bg-base-200/50">
-      <div class="card-body p-4 gap-3">
-        <h3 class="card-title text-sm">
-          <Icon name="mingcute:store-2-line" class="size-4" />
-          {{ isEdit ? 'Обогащение из магазина' : 'Автозаполнение из магазина' }}
-        </h3>
+      <div
+        v-if="enrichResult"
+        role="status"
+        class="mt-2.5 flex items-start gap-2 rounded-md border px-2.5 py-2 text-sm"
+        :class="enrichResult.status === 'completed'
+          ? 'border-success-border bg-success-bg text-success'
+          : enrichResult.status === 'partial'
+            ? 'border-warning-border bg-warning-bg text-warning'
+            : 'border-danger-border bg-danger-bg text-danger'"
+      >
+        <Icon
+          :name="enrichResult.status === 'completed'
+            ? 'mingcute:check-circle-line'
+            : enrichResult.status === 'partial' ? 'mingcute:information-line' : 'mingcute:alert-line'"
+          class="mt-0.5 shrink-0"
+        />
+        <span>{{ enrichResult.message }}</span>
+      </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">App Store URL</legend>
-            <input
-              v-model="form.appStoreUrl"
-              type="url"
-              class="input input-sm w-full"
-              placeholder="https://apps.apple.com/..."
-            />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Google Play URL</legend>
-            <input
-              v-model="form.playStoreUrl"
-              type="url"
-              class="input input-sm w-full"
-              placeholder="https://play.google.com/store/apps/..."
-            />
-          </fieldset>
+      <!-- Откуда взялось каждое поле -->
+      <div v-if="enrichResult?.extractionReport" class="mt-2.5 flex flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-2 text-micro text-muted">
+          <span>
+            со страницы
+            <span class="tnum font-mono text-fg">{{ enrichResult.extractionReport.found.length }}</span>
+          </span>
+          <span>
+            не нашлось
+            <span class="tnum font-mono text-fg">{{ enrichResult.extractionReport.missing.length }}</span>
+          </span>
+          <span v-if="enrichResult.extractionReport.aiBackfilled?.length">
+            дописала модель
+            <span class="tnum font-mono text-warning">{{ enrichResult.extractionReport.aiBackfilled.length }}</span>
+          </span>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <button
-            class="btn btn-secondary btn-sm"
-            :disabled="enriching || !storeUrlForEnrich"
-            @click="handleEnrich"
+        <div class="flex flex-wrap gap-1">
+          <span
+            v-for="field in ['productName', 'longDescription', 'developer', 'iconUrl']"
+            :key="field"
+            class="flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-micro"
+            :class="requiredFieldClass(field)"
+            :title="requiredFieldTitle(field)"
           >
-            <span v-if="enriching" class="loading loading-spinner loading-sm" />
-            <Icon v-else name="mingcute:sparkles-2-line" class="size-4" />
-            Проанализировать и заполнить
-          </button>
-          <label class="label cursor-pointer gap-2 py-0" title="Извлекать гео и язык из локали в App Store URL (apps.apple.com/ru/...). Если выключено — по умолчанию US/EN.">
-            <input v-model="useUrlLocale" type="checkbox" class="checkbox checkbox-xs checkbox-secondary" />
-            <span class="label-text text-xs">Гео из ссылки</span>
-          </label>
-          <span v-if="enriching" class="text-sm text-base-content/60">
-            Загрузка страницы и AI-анализ...
-          </span>
-          <span v-if="!isEdit && enrichResult" class="badge badge-sm" :class="enrichResult.status === 'completed' ? 'badge-success' : enrichResult.status === 'partial' ? 'badge-warning' : 'badge-ghost'">
-            {{ enrichResult.status === 'completed' ? 'Данные загружены' : enrichResult.status === 'partial' ? 'Частично загружено' : 'Ожидание' }}
+            <Icon :name="requiredFieldIcon(field)" />
+            {{ requiredFieldLabel(field) }}
           </span>
         </div>
 
-        <div v-if="enrichError" role="alert" class="alert alert-error alert-soft text-sm py-2">
-          <Icon name="mingcute:warning-line" class="size-4" />
-          <span>{{ enrichError }}</span>
-        </div>
-
-        <div v-if="enrichResult" role="alert" class="alert alert-soft text-sm py-2" :class="enrichResult.status === 'completed' ? 'alert-success' : enrichResult.status === 'partial' ? 'alert-warning' : 'alert-error'">
-          <Icon :name="enrichResult.status === 'completed' ? 'mingcute:check-circle-line' : enrichResult.status === 'partial' ? 'mingcute:information-line' : 'mingcute:warning-line'" class="size-4" />
-          <span>{{ enrichResult.message }}</span>
-        </div>
-
-        <!-- Debug: field-level provenance -->
-        <div v-if="enrichResult?.extractionReport" class="space-y-2 mt-2">
-          <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="text-base-content/70">Полей из магазина:</span>
-            <span class="badge badge-ghost badge-sm">{{ enrichResult.extractionReport.found.length }}</span>
-            <span class="text-base-content/70">Не найдено:</span>
-            <span class="badge badge-ghost badge-sm">{{ enrichResult.extractionReport.missing.length }}</span>
-            <span v-if="enrichResult.extractionReport.aiBackfilled?.length" class="text-base-content/70">
-              AI-backfill:
-            </span>
-            <span v-if="enrichResult.extractionReport.aiBackfilled?.length" class="badge badge-warning badge-sm">
-              {{ enrichResult.extractionReport.aiBackfilled.length }}
-            </span>
-          </div>
-
-          <!-- Required fields status -->
-          <div class="flex flex-wrap gap-1">
-            <template v-for="field in ['productName', 'longDescription', 'developer', 'iconUrl']" :key="field">
-              <span
-                class="badge badge-sm"
-                :class="requiredFieldClass(field)"
-                :title="requiredFieldTitle(field)"
-              >
-                <Icon :name="requiredFieldIcon(field)" class="size-3" />
-                {{ requiredFieldLabel(field) }}
+        <UiDisclosure
+          :title="`Разбор по полям`"
+          :count="Object.keys(enrichResult.extractionReport.sources).length"
+        >
+          <div class="flex flex-col gap-0.5">
+            <div
+              v-for="(prov, fieldName) in enrichResult.extractionReport.sources"
+              :key="fieldName"
+              class="flex items-center gap-2 text-micro"
+            >
+              <span class="min-w-36 font-mono text-muted">{{ fieldName }}</span>
+              <span class="rounded-sm border px-1.5 py-0.5" :class="sourceBadgeClass(prov.source)">
+                {{ sourceLabel(prov.source) }}
               </span>
-            </template>
-          </div>
-
-          <!-- Per-source breakdown -->
-          <details class="text-xs">
-            <summary class="cursor-pointer text-base-content/60 hover:text-base-content">
-              Подробный разбор источников ({{ Object.keys(enrichResult.extractionReport.sources).length }})
-            </summary>
-            <div class="mt-2 space-y-0.5 pl-2 border-l border-base-300">
-              <div
-                v-for="(prov, fieldName) in enrichResult.extractionReport.sources"
-                :key="fieldName"
-                class="flex items-center gap-2"
-              >
-                <span class="font-mono text-base-content/80 min-w-[9rem]">{{ fieldName }}</span>
-                <span class="badge badge-xs" :class="sourceBadgeClass(prov.source)">
-                  {{ sourceLabel(prov.source) }}
-                </span>
-                <span v-if="prov.confidence !== undefined" class="text-base-content/50">
-                  {{ Math.round((prov.confidence ?? 0) * 100) }}%
-                </span>
-              </div>
-              <div
-                v-for="field in enrichResult.extractionReport.requiredMissing"
-                :key="`missing-${field}`"
-                class="flex items-center gap-2"
-              >
-                <span class="font-mono text-error/80 min-w-[9rem]">{{ field }}</span>
-                <span class="badge badge-xs badge-error">not found</span>
-              </div>
+              <span v-if="prov.confidence !== undefined" class="tnum font-mono text-subtle">
+                {{ Math.round((prov.confidence ?? 0) * 100) }}%
+              </span>
             </div>
-          </details>
-        </div>
-      </div>
-    </div>
-
-    <!-- === СЕКЦИЯ: Основное === -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Название *</legend>
-      <input v-model="form.name" type="text" class="input input-sm w-full" placeholder="Название приложения" />
-    </fieldset>
-
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Описание</legend>
-      <textarea v-model="form.description" class="textarea textarea-sm w-full" rows="2" placeholder="Краткое описание" />
-    </fieldset>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Гео</legend>
-        <select v-model="form.geo" class="select select-sm w-full">
-          <option value="">Не указано</option>
-          <option value="US">US — США</option>
-          <option value="GB">GB — Великобритания</option>
-          <option value="DE">DE — Германия</option>
-          <option value="FR">FR — Франция</option>
-          <option value="NL">NL — Нидерланды</option>
-          <option value="ES">ES — Испания</option>
-          <option value="IT">IT — Италия</option>
-          <option value="BR">BR — Бразилия</option>
-          <option value="IN">IN — Индия</option>
-          <option value="JP">JP — Япония</option>
-          <option value="KR">KR — Южная Корея</option>
-          <option value="TR">TR — Турция</option>
-          <option value="KZ">KZ — Казахстан</option>
-          <option value="UA">UA — Украина</option>
-          <option value="BY">BY — Беларусь</option>
-          <option value="RU">RU — Россия</option>
-        </select>
-      </fieldset>
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Язык</legend>
-        <select v-model="form.language" class="select select-sm w-full">
-          <option value="">Не указано</option>
-          <option value="EN">EN — English</option>
-          <option value="RU">RU — Русский</option>
-          <option value="ES">ES — Español</option>
-          <option value="DE">DE — Deutsch</option>
-          <option value="FR">FR — Français</option>
-          <option value="PT">PT — Português</option>
-          <option value="JA">JA — 日本語</option>
-          <option value="KO">KO — 한국어</option>
-        </select>
-      </fieldset>
-    </div>
-
-    <!-- === СЕКЦИЯ: Метаданные из магазина === -->
-    <div class="collapse collapse-arrow bg-base-200/30">
-      <input type="checkbox" :checked="!!form.productName" />
-      <div class="collapse-title font-medium text-sm">
-        <Icon name="mingcute:app-2-line" class="size-4 mr-1" />
-        Данные из магазина
-        <span v-if="form.productName" class="badge badge-ghost badge-sm ml-1">заполнено</span>
-      </div>
-      <div class="collapse-content space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Публичное название</legend>
-            <input v-model="form.productName" type="text" class="input input-sm w-full" placeholder="Название в store" />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Подзаголовок</legend>
-            <input v-model="form.subtitle" type="text" class="input input-sm w-full" placeholder="Слоган / short description" />
-          </fieldset>
-        </div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Полное описание из store</legend>
-          <textarea v-model="form.longDescription" class="textarea textarea-sm w-full" rows="3" placeholder="Полное описание из магазина приложений" />
-        </fieldset>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Разработчик</legend>
-            <input v-model="form.developer" type="text" class="input input-sm w-full" placeholder="Издатель / разработчик" />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Категории (через запятую)</legend>
-            <input v-model="form.categoriesText" type="text" class="input input-sm w-full" placeholder="Здоровье, Фитнес" />
-          </fieldset>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Целевая аудитория</legend>
-            <input v-model="form.targetAudience" type="text" class="input input-sm w-full" placeholder="Женщины 25-45, интересующиеся..." />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Монетизация / Цена</legend>
-            <input v-model="form.pricingNotes" type="text" class="input input-sm w-full" placeholder="Freemium, подписка $9.99/мес" />
-          </fieldset>
-        </div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">URL иконки</legend>
-          <div class="flex items-center gap-2">
-            <img
-              v-if="form.iconUrl"
-              :src="form.iconUrl"
-              class="size-8 rounded-lg"
-              :alt="form.name"
-            />
-            <input v-model="form.iconUrl" type="url" class="input input-sm w-full" placeholder="https://..." />
+            <div
+              v-for="field in enrichResult.extractionReport.requiredMissing"
+              :key="`missing-${field}`"
+              class="flex items-center gap-2 text-micro"
+            >
+              <span class="min-w-36 font-mono text-danger">{{ field }}</span>
+              <span class="rounded-sm border border-danger-border bg-danger-bg px-1.5 py-0.5 text-danger">
+                не найдено
+              </span>
+            </div>
           </div>
-        </fieldset>
+        </UiDisclosure>
+      </div>
+    </section>
 
-        <!-- Скриншоты (readonly, заполняются из enrichment) -->
-        <div v-if="form.screenshotUrls.length" class="space-y-1">
-          <span class="text-xs text-base-content/60">Скриншоты ({{ form.screenshotUrls.length }})</span>
+    <!-- Основное -->
+    <UiField label="Название">
+      <UiInput v-model="form.name" placeholder="Название приложения" />
+    </UiField>
+
+    <UiField label="Описание">
+      <UiTextarea v-model="form.description" :rows="2" placeholder="Коротко, для операторов" />
+    </UiField>
+
+    <div class="grid gap-3 sm:grid-cols-2">
+      <UiField label="Гео">
+        <UiSelect v-model="form.geo" :options="GEO_OPTIONS" />
+      </UiField>
+      <UiField label="Язык">
+        <UiSelect v-model="form.language" :options="LANGUAGE_OPTIONS" />
+      </UiField>
+    </div>
+
+    <!-- Данные из магазина -->
+    <UiDisclosure
+      title="Данные из магазина"
+      icon="mingcute:cellphone-line"
+      icon-tone="text-accent"
+      :default-open="!!form.productName"
+    >
+      <div class="flex flex-col gap-3">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiField label="Публичное название">
+            <UiInput v-model="form.productName" placeholder="Как называется в магазине" />
+          </UiField>
+          <UiField label="Подзаголовок">
+            <UiInput v-model="form.subtitle" placeholder="Слоган из карточки" />
+          </UiField>
+        </div>
+
+        <UiField label="Полное описание из магазина">
+          <UiTextarea v-model="form.longDescription" :rows="3" placeholder="Текст карточки приложения" />
+        </UiField>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiField label="Разработчик">
+            <UiInput v-model="form.developer" placeholder="Издатель" />
+          </UiField>
+          <UiField label="Категории" hint="Через запятую">
+            <UiInput v-model="form.categoriesText" placeholder="Здоровье, Фитнес" />
+          </UiField>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiField label="Аудитория">
+            <UiInput v-model="form.targetAudience" placeholder="Женщины 25–45, интересуются…" />
+          </UiField>
+          <UiField label="Монетизация">
+            <UiInput v-model="form.pricingNotes" placeholder="Подписка $9.99 в месяц" />
+          </UiField>
+        </div>
+
+        <UiField label="Ссылка на иконку">
+          <div class="flex items-center gap-2">
+            <img v-if="form.iconUrl" :src="form.iconUrl" class="size-8 shrink-0 rounded-md" :alt="form.name">
+            <UiInput v-model="form.iconUrl" type="url" placeholder="https://…" />
+          </div>
+        </UiField>
+
+        <div v-if="form.screenshotUrls.length">
+          <div class="mb-1 text-[11.5px] text-muted">Скриншоты · {{ form.screenshotUrls.length }}</div>
           <div class="flex gap-2 overflow-x-auto pb-1">
             <img
               v-for="(url, i) in form.screenshotUrls.slice(0, 5)"
               :key="i"
               :src="url"
-              class="h-20 rounded-md border border-base-300"
+              class="h-20 rounded-md border border-border"
               :alt="`Скриншот ${i + 1}`"
-            />
+            >
           </div>
         </div>
 
-        <!-- Hero image -->
-        <div v-if="form.heroImageUrl" class="space-y-1">
-          <span class="text-xs text-base-content/60">Hero image</span>
-          <img :src="form.heroImageUrl" class="h-16 rounded-md" alt="Hero" />
+        <div v-if="form.heroImageUrl">
+          <div class="mb-1 text-[11.5px] text-muted">Обложка</div>
+          <img :src="form.heroImageUrl" class="h-16 rounded-md border border-border" alt="Обложка">
         </div>
       </div>
-    </div>
+    </UiDisclosure>
 
-    <!-- === СЕКЦИЯ: AI-контекст === -->
-    <div class="collapse collapse-arrow bg-base-200/30">
-      <input type="checkbox" :checked="!!form.aiSummary" />
-      <div class="collapse-title font-medium text-sm">
-        <Icon name="mingcute:ai-line" class="size-4 mr-1" />
-        AI-контекст и креатив
-        <span v-if="form.aiSummary" class="badge badge-ghost badge-sm ml-1">заполнено</span>
-      </div>
-      <div class="collapse-content space-y-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">AI Summary</legend>
-          <textarea v-model="form.aiSummary" class="textarea textarea-sm w-full" rows="3" placeholder="AI-сводка для креативного использования" />
-        </fieldset>
+    <!-- Контекст для генерации -->
+    <UiDisclosure
+      title="Контекст для генерации"
+      icon="mingcute:ai-line"
+      icon-tone="text-accent"
+      :default-open="!!form.aiSummary"
+    >
+      <div class="flex flex-col gap-3">
+        <UiField label="Сводка для моделей">
+          <UiTextarea v-model="form.aiSummary" :rows="3" placeholder="Что за продукт и как о нём говорить" />
+        </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Ключевые фичи (по одной на строку)</legend>
-          <textarea v-model="form.featureBulletsText" class="textarea textarea-sm w-full" rows="3" placeholder="Фича 1&#10;Фича 2&#10;Фича 3" />
-        </fieldset>
+        <UiField label="Ключевые возможности" hint="По одной на строку">
+          <UiTextarea v-model="form.featureBulletsText" :rows="3" placeholder="Что умеет приложение" />
+        </UiField>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Тон бренда</legend>
-            <input v-model="form.brandTone" type="text" class="input input-sm w-full" placeholder="Дружелюбный, экспертный" />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Визуальные подсказки</legend>
-            <input v-model="form.visualCues" type="text" class="input input-sm w-full" placeholder="Яркие цвета, минимализм" />
-          </fieldset>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiField label="Тон бренда">
+            <UiInput v-model="form.brandTone" placeholder="Дружелюбный, экспертный" />
+          </UiField>
+          <UiField label="Визуальные подсказки">
+            <UiInput v-model="form.visualCues" placeholder="Яркие цвета, минимализм" />
+          </UiField>
         </div>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Онбординг / use-case</legend>
-          <textarea v-model="form.onboardingSummary" class="textarea textarea-sm w-full" rows="2" placeholder="Типичный сценарий использования" />
-        </fieldset>
+        <UiField label="Как им пользуются">
+          <UiTextarea v-model="form.onboardingSummary" :rows="2" placeholder="Типичный сценарий" />
+        </UiField>
       </div>
-    </div>
+    </UiDisclosure>
 
-    <!-- === СЕКЦИЯ: Трансформация и боли === -->
-    <div class="collapse collapse-arrow bg-base-200/30">
-      <input type="checkbox" :checked="!!form.corePain" />
-      <div class="collapse-title font-medium text-sm">
-        <Icon name="mingcute:target-line" class="size-4 mr-1" />
-        Трансформация и боли
-        <span v-if="form.corePain" class="badge badge-ghost badge-sm ml-1">заполнено</span>
+    <!-- Боль и результат -->
+    <UiDisclosure
+      title="Боль и результат"
+      icon="mingcute:target-line"
+      icon-tone="text-accent"
+      :default-open="!!form.corePain"
+    >
+      <div class="flex flex-col gap-3">
+        <UiField label="Боль пользователя">
+          <UiInput v-model="form.corePain" placeholder="Не может похудеть, теряет мотивацию" />
+        </UiField>
+        <UiField label="Результат">
+          <UiInput v-model="form.coreOutcome" placeholder="Привычка заниматься" />
+        </UiField>
+        <UiField label="Обещание «до и после»">
+          <UiTextarea
+            v-model="form.transformationPromise"
+            :rows="2"
+            placeholder="Из домоседа — в человека, который тренируется каждый день"
+          />
+        </UiField>
       </div>
-      <div class="collapse-content space-y-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Ключевая боль пользователя</legend>
-          <input v-model="form.corePain" type="text" class="input input-sm w-full" placeholder="Не может похудеть, теряет мотивацию" />
-        </fieldset>
+    </UiDisclosure>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Ключевой результат</legend>
-          <input v-model="form.coreOutcome" type="text" class="input input-sm w-full" placeholder="Стройная фигура, привычка заниматься" />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Обещание трансформации (до/после)</legend>
-          <textarea v-model="form.transformationPromise" class="textarea textarea-sm w-full" rows="2" placeholder="Из ленивого домоседа — в человека, который тренируется каждый день" />
-        </fieldset>
+    <!-- Ограничения и ASO -->
+    <UiDisclosure
+      title="Ограничения и ASO"
+      icon="mingcute:shield-line"
+      icon-tone="text-warning"
+      :default-open="!!form.forbiddenClaimsText || !!form.asoKeywordsText"
+    >
+      <div class="flex flex-col gap-3">
+        <UiField label="Запрещённые утверждения" hint="По одному на строку — в ролики не попадут">
+          <UiTextarea v-model="form.forbiddenClaimsText" :rows="2" placeholder="Гарантия результата" />
+        </UiField>
+        <UiField label="Рискованные утверждения" hint="По одному на строку — потребуют проверки">
+          <UiTextarea v-model="form.riskyClaimsText" :rows="2" placeholder="Результат за 30 дней" />
+        </UiField>
+        <UiField label="Ключевые слова проекта" hint="По одному на строку">
+          <UiTextarea v-model="form.keywordsText" :rows="3" placeholder="фитнес трекер" />
+        </UiField>
+        <UiField label="ASO-ключи" hint="По одному на строку">
+          <UiTextarea v-model="form.asoKeywordsText" :rows="3" placeholder="тренировки дома" />
+        </UiField>
       </div>
-    </div>
+    </UiDisclosure>
 
-    <!-- === СЕКЦИЯ: Ограничения и ключевые слова === -->
-    <div class="collapse collapse-arrow bg-base-200/30">
-      <input type="checkbox" :checked="!!form.forbiddenClaimsText || !!form.asoKeywordsText" />
-      <div class="collapse-title font-medium text-sm">
-        <Icon name="mingcute:shield-line" class="size-4 mr-1" />
-        Ограничения и ASO
-      </div>
-      <div class="collapse-content space-y-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-error">Запрещённые утверждения (по одному на строку)</legend>
-          <textarea v-model="form.forbiddenClaimsText" class="textarea textarea-sm w-full" rows="2" placeholder="Гарантия похудения на 10 кг&#10;Лечит заболевания" />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-warning">Рискованные утверждения (по одному на строку)</legend>
-          <textarea v-model="form.riskyClaimsText" class="textarea textarea-sm w-full" rows="2" placeholder="Результат за 30 дней&#10;Лучше аналогов" />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Ключевые слова проекта (по одному на строку)</legend>
-          <textarea v-model="form.keywordsText" class="textarea textarea-sm w-full" rows="3" placeholder="Ключевое слово 1&#10;Ключевое слово 2" />
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">ASO-ключевые слова (по одному на строку)</legend>
-          <textarea v-model="form.asoKeywordsText" class="textarea textarea-sm w-full" rows="3" placeholder="фитнес трекер&#10;похудение&#10;тренировки дома" />
-        </fieldset>
-      </div>
-    </div>
-
-    <!-- Ошибки -->
-    <div v-if="error" role="alert" class="alert alert-error alert-soft">
-      <Icon name="mingcute:warning-line" />
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
 
-    <!-- Действия -->
-    <div class="flex gap-2">
-      <button class="btn btn-primary btn-sm" :disabled="saving" @click="submit">
-        <span v-if="saving" class="loading loading-spinner loading-sm" />
+    <div class="flex gap-1.5">
+      <UiButton variant="primary" :loading="saving" @click="submit">
         {{ isEdit ? 'Сохранить' : 'Создать' }}
-      </button>
-      <button class="btn btn-ghost btn-sm" @click="emit('cancel')">
-        Отмена
-      </button>
+      </UiButton>
+      <UiButton variant="ghost" @click="emit('cancel')">Отмена</UiButton>
     </div>
   </div>
 </template>

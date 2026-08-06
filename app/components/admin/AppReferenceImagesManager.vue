@@ -165,11 +165,11 @@ if (props.enableGlobalPaste) {
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- Drop zone / upload trigger. Ctrl+V работает если сюда кликнуть (получит focus через tabindex). -->
+  <div class="flex flex-col gap-3">
+    <!-- Зона загрузки. Ctrl+V работает, если сюда кликнуть: элемент получает фокус. -->
     <div
-      class="border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      :class="dragOver ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/40'"
+      class="cursor-pointer rounded-lg border-2 border-dashed p-4 outline-none transition-colors duration-(--duration-fast)"
+      :class="dragOver ? 'border-accent bg-accent-bg' : 'border-border hover:border-subtle'"
       role="button"
       tabindex="0"
       @click="() => { fileInput?.click(); focusPasteCatcher() }"
@@ -189,14 +189,14 @@ if (props.enableGlobalPaste) {
       <div class="flex flex-col items-center gap-1 text-center">
         <Icon
           :name="uploading ? 'mingcute:loading-3-line' : 'mingcute:pic-2-line'"
-          class="size-7 text-base-content/50"
-          :class="{ 'animate-spin': uploading }"
+          class="text-2xl text-subtle"
+          :class="uploading && 'animate-spin'"
         />
         <span class="text-sm font-medium">
-          {{ uploading ? 'Загрузка...' : 'Перетащите, вставьте (Ctrl+V) или кликните' }}
+          {{ uploading ? 'Загружаем' : 'Перетащите, вставьте или выберите файлы' }}
         </span>
-        <span class="text-xs text-base-content/50">
-          PNG, JPEG, WebP, GIF - до 20 MB. После загрузки AI определит тип экрана и теги.
+        <span class="text-micro text-subtle">
+          PNG, JPEG, WebP, GIF до 20 МБ. После загрузки модель определит тип экрана и теги.
         </span>
       </div>
     </div>
@@ -211,147 +211,135 @@ if (props.enableGlobalPaste) {
       @input.prevent="(e: Event) => { (e.target as HTMLElement).innerHTML = '' }"
     />
 
-    <div v-if="clipboardReadSupported" class="flex items-center gap-2 flex-wrap">
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost"
-        :disabled="uploading"
-        title="Прочитать изображение из буфера обмена"
-        @click="onPasteButton"
-      >
-        <Icon name="mingcute:paste-line" class="size-4" />
-        Вставить из буфера
-      </button>
-      <span v-if="isFirefox" class="text-xs text-base-content/50">
-        в Firefox/другой браузер для работы кнопки нужно включить dom.events.asyncClipboard.clipboardItem в about:config - иначе используйте Ctrl+V
-      </span>
-      <span v-else class="text-xs text-base-content/50">
-        при первом клике браузер попросит разрешение - нажмите «Разрешить»
-      </span>
-    </div>
+    <!--
+      Поддержка чтения буфера известна только в браузере, поэтому блок
+      рисуется клиентом: на сервере его нет, и Vue иначе ругается на расхождение.
+    -->
+    <ClientOnly>
+      <div v-if="clipboardReadSupported" class="flex flex-wrap items-center gap-2">
+        <UiButton variant="ghost" :disabled="uploading" title="Прочитать изображение из буфера" @click="onPasteButton">
+          <Icon name="mingcute:paste-line" />
+          Вставить из буфера
+        </UiButton>
+        <span v-if="isFirefox" class="text-micro text-subtle">
+          В Firefox кнопке нужен флаг dom.events.asyncClipboard.clipboardItem — или просто Ctrl+V.
+        </span>
+        <span v-else class="text-micro text-subtle">
+          При первом клике браузер спросит разрешение на чтение буфера.
+        </span>
+      </div>
+    </ClientOnly>
 
-    <div v-if="error" role="alert" class="alert alert-error alert-soft text-sm py-2">
-      <Icon name="mingcute:warning-line" class="size-4" />
+    <div
+      v-if="error"
+      role="alert"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
       <span>{{ error }}</span>
     </div>
 
-    <!-- Grid карточек -->
-    <div v-if="cards.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div v-if="cards.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <div
         v-for="card in cards"
         :key="card.url"
-        class="rounded-lg border border-base-300 bg-base-100 overflow-hidden flex flex-col"
+        class="flex flex-col overflow-hidden rounded-md border border-border bg-card"
       >
-        <!-- Превью + actions -->
-        <div class="group relative aspect-video bg-base-200">
-          <img :src="card.url" :alt="card.ref?.aiCaption || card.url" class="w-full h-full object-cover" />
+        <div class="group relative aspect-video bg-surface">
+          <img :src="card.url" :alt="card.ref?.aiCaption || card.url" class="size-full object-cover">
 
-          <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
-            <button
-              type="button"
-              class="btn btn-xs btn-ghost text-white hover:bg-white/20"
-              :title="copiedUrl === card.url ? 'Скопировано!' : 'Копировать URL'"
+          <div
+            class="absolute inset-0 flex items-center justify-center gap-1.5 bg-overlay opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100"
+          >
+            <UiButton
+              variant="ghost"
+              :title="copiedUrl === card.url ? 'Скопировано' : 'Скопировать ссылку'"
               @click.stop="onCopy(card.url)"
             >
-              <Icon
-                :name="copiedUrl === card.url ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-                class="size-3.5"
-              />
-              <span class="text-xs">{{ copiedUrl === card.url ? 'Скопировано' : 'URL' }}</span>
-            </button>
-            <button
+              <Icon :name="copiedUrl === card.url ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
+              {{ copiedUrl === card.url ? 'Скопировано' : 'Ссылка' }}
+            </UiButton>
+
+            <UiButton
               v-if="card.ref"
-              type="button"
-              class="btn btn-xs btn-ghost text-white hover:bg-white/20"
-              :disabled="analyzingRefId === card.ref.id"
-              title="Перезапустить AI-анализ"
+              icon-only
+              variant="ghost"
+              :loading="analyzingRefId === card.ref.id"
+              title="Разобрать заново"
+              aria-label="Разобрать заново"
               @click.stop="onReanalyze(card.ref)"
             >
-              <Icon
-                :name="analyzingRefId === card.ref.id ? 'mingcute:loading-3-line' : 'mingcute:ai-line'"
-                class="size-3.5"
-                :class="{ 'animate-spin': analyzingRefId === card.ref.id }"
-              />
-              <span class="text-xs">AI</span>
-            </button>
-            <button
-              type="button"
-              class="btn btn-xs btn-error"
-              :disabled="deletingUrl === card.url"
+              <Icon v-if="analyzingRefId !== card.ref.id" name="mingcute:ai-line" />
+            </UiButton>
+
+            <UiButton
+              icon-only
+              variant="danger"
+              :loading="deletingUrl === card.url"
               title="Удалить"
+              aria-label="Удалить"
               @click.stop="onRemove(card)"
             >
-              <Icon
-                :name="deletingUrl === card.url ? 'mingcute:loading-3-line' : 'mingcute:delete-2-line'"
-                class="size-3.5"
-                :class="{ 'animate-spin': deletingUrl === card.url }"
-              />
-            </button>
+              <Icon v-if="deletingUrl !== card.url" name="mingcute:delete-2-line" />
+            </UiButton>
           </div>
         </div>
 
-        <!-- AI-метаданные -->
-        <div class="p-2.5 space-y-1.5 text-xs flex-1 flex flex-col">
-          <!-- Pending -->
+        <div class="flex flex-1 flex-col gap-1.5 p-2.5 text-micro">
           <div
             v-if="card.ref && !card.ref.aiAnalyzedAt && !card.ref.aiError"
-            class="flex items-center gap-1.5 text-base-content/60"
+            class="flex items-center gap-1.5 text-muted"
           >
-            <Icon name="mingcute:loading-3-line" class="animate-spin size-3.5 text-primary" />
-            <span>AI анализирует скриншот...</span>
+            <Icon name="mingcute:loading-3-line" class="animate-spin text-accent" />
+            Разбираем скриншот
           </div>
 
-          <!-- Error -->
           <div
             v-else-if="card.ref?.aiError"
-            class="flex items-start gap-1.5 text-error"
+            class="flex items-start gap-1.5 text-danger"
             :title="card.ref.aiError"
           >
-            <Icon name="mingcute:warning-line" class="size-3.5 mt-0.5 shrink-0" />
+            <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
             <span class="line-clamp-2">{{ card.ref.aiError }}</span>
           </div>
 
-          <!-- Analyzed -->
           <template v-else-if="card.ref?.aiAnalyzedAt">
-            <p v-if="card.ref.aiCaption" class="text-base-content/80 line-clamp-2">
-              {{ card.ref.aiCaption }}
-            </p>
+            <p v-if="card.ref.aiCaption" class="line-clamp-2 text-muted">{{ card.ref.aiCaption }}</p>
+
             <div v-if="card.ref.aiTags?.length" class="flex flex-wrap gap-1">
               <span
                 v-for="tag in card.ref.aiTags"
                 :key="tag"
-                class="badge badge-xs badge-ghost"
+                class="rounded-sm border border-divider px-1.5 py-0.5 text-subtle"
               >
                 {{ tag }}
               </span>
             </div>
-            <div
-              v-if="card.ref.aiPrimaryAction"
-              class="flex items-center gap-1 text-base-content/60"
-            >
-              <Icon name="mingcute:cursor-2-line" class="size-3" />
+
+            <div v-if="card.ref.aiPrimaryAction" class="flex items-center gap-1 text-subtle">
+              <Icon name="mingcute:cursor-2-line" />
               <span class="truncate">{{ card.ref.aiPrimaryAction }}</span>
             </div>
+
             <div
               v-if="card.ref.aiHasUI === false"
               class="flex items-center gap-1 text-warning"
-              title="AI считает, что это не UI приложения — image-to-video может выдать неожиданный результат"
+              title="Похоже, это не экран приложения — генерация по такому кадру даст неожиданный результат"
             >
-              <Icon name="mingcute:information-line" class="size-3" />
-              <span>не UI</span>
+              <Icon name="mingcute:information-line" />
+              не экран приложения
             </div>
           </template>
 
-          <!-- Legacy (без AppReferenceImage record) -->
-          <p v-else class="text-base-content/40 italic">
-            Старая картинка без AI-разметки. Удалите и загрузите снова, чтобы получить теги.
+          <p v-else class="text-subtle italic">
+            Старая картинка без разметки. Загрузите заново, чтобы появились теги.
           </p>
         </div>
       </div>
     </div>
 
-    <p v-else class="text-xs text-base-content/50 text-center py-2">
-      Пока нет референсов. Добавленные картинки появятся здесь, AI определит тип экрана и теги, и они будут использоваться при генерации сценариев и видео.
+    <p v-else class="py-2 text-center text-sm text-subtle">
+      Референсов нет. Загруженные кадры уходят в контекст генерации сценариев и роликов.
     </p>
   </div>
 </template>
