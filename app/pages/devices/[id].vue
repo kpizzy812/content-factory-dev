@@ -190,8 +190,9 @@ function onMenuSelect(key: string) {
 // ─── Навигация по соседям ────────────────────────────────────────────────────
 const { data: listData } = useDeviceProfiles()
 
-// У /api/device-profiles нет постраничной выдачи — позиция считается по
-// загруженному списку.
+// Пагинация у /api/device-profiles включается только по просьбе
+// (page/perPage), а страница их не передаёт — список приходит целиком,
+// и позиция по нему точная.
 const siblings = computed(() => listData.value?.data?.map((p: { id: string }) => p.id) ?? [])
 const currentIndex = computed(() => siblings.value.indexOf(id.value))
 const inList = computed(() => currentIndex.value >= 0)

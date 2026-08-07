@@ -161,8 +161,9 @@ function onRegenerateNew(promptText: string) {
 const filters = useCharacterFiltersStore()
 const { data: listData } = useCharacters(computed(() => filters.query))
 
-// У /api/characters нет постраничной выдачи — список приходит целиком,
-// поэтому позиция считается по нему, а не по мете.
+// Пагинация у /api/characters включается только по просьбе (page/perPage),
+// а страница их не передаёт — список приходит целиком, и его длина совпадает
+// с meta.total. Поэтому позиция считается по нему.
 const siblings = computed(() => listData.value?.data?.map((c: { id: string }) => c.id) ?? [])
 const currentIndex = computed(() => siblings.value.indexOf(id.value))
 const inList = computed(() => currentIndex.value >= 0)
