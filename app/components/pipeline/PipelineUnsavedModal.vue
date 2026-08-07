@@ -1,78 +1,67 @@
 <script setup lang="ts">
+/**
+ * Несохранённые правки при уходе со страницы редактора.
+ *
+ * Открывается императивно из навигационного гарда: страница узнаёт о попытке
+ * уйти раньше, чем успевает выставить проп.
+ */
 const emit = defineEmits<{
   save: []
   discard: []
   cancel: []
 }>()
 
-const modalRef = ref<HTMLDialogElement | null>(null)
-const intentHandled = ref(false)
+const isOpen = ref(false)
 
 function open() {
-  intentHandled.value = false
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function handleCancel() {
-  intentHandled.value = true
-  modalRef.value?.close()
+  isOpen.value = false
   emit('cancel')
 }
 
 function handleDiscard() {
-  intentHandled.value = true
-  modalRef.value?.close()
+  isOpen.value = false
   emit('discard')
 }
 
 function handleSave() {
-  intentHandled.value = true
+  isOpen.value = false
   emit('save')
-  modalRef.value?.close()
-}
-
-function onClose() {
-  if (!intentHandled.value) {
-    emit('cancel')
-  }
-  intentHandled.value = false
 }
 
 defineExpose({ open })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal" @close="onClose">
-    <div class="modal-box space-y-4">
-      <h3 class="text-lg font-bold flex items-center gap-2">
-        <Icon name="mingcute:warning-line" class="text-warning text-xl" />
-        Несохраненные изменения
-      </h3>
+  <UiModal :open="isOpen" @close="handleCancel">
+    <template #header>
+      <span class="flex items-center gap-2">
+        <Icon name="mingcute:warning-line" class="text-warning" />
+        Несохранённые изменения
+      </span>
+    </template>
 
-      <p class="text-base-content/70">
-        У вас есть несохраненные изменения. Что вы хотите сделать?
+    <div class="flex flex-col gap-3">
+      <p class="text-muted">
+        У вас есть несохранённые изменения. Что вы хотите сделать?
       </p>
 
-      <div role="alert" class="alert alert-warning alert-soft text-sm">
-        <Icon name="mingcute:warning-line" />
-        <span>Если вы уйдете без сохранения, все изменения будут потеряны.</span>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-ghost" @click="handleCancel">
-          Остаться
-        </button>
-        <button class="btn btn-warning btn-outline" @click="handleDiscard">
-          Уйти без сохранения
-        </button>
-        <button class="btn btn-primary" @click="handleSave">
-          <Icon name="mingcute:save-line" />
-          Сохранить и уйти
-        </button>
-      </div>
+      <p class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-muted">
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
+        <span>Если вы уйдёте без сохранения, все изменения будут потеряны.</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="emit('cancel')">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" size="md" @click="handleCancel">Остаться</UiButton>
+      <UiButton variant="danger" size="md" @click="handleDiscard">Уйти без сохранения</UiButton>
+      <UiButton variant="primary" size="md" @click="handleSave">
+        <Icon name="mingcute:save-line" />
+        Сохранить и уйти
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

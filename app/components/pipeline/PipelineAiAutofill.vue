@@ -237,127 +237,121 @@ function hasChanged(key: string, suggestedValue: unknown): boolean {
   }
   return String(current) !== String(suggestedValue)
 }
+
+const BADGE = 'inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro'
+const NEUTRAL_TONE = 'border-neutral-border bg-neutral-bg text-neutral'
 </script>
 
 <template>
-  <div class="border border-primary/20 rounded-box overflow-hidden">
-    <!-- Toggle header -->
+  <div class="overflow-hidden rounded-md border border-accent-border">
+    <!-- Заголовок-переключатель -->
     <button
       type="button"
-      class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium hover:bg-primary/5 transition-colors"
-      :class="expanded ? 'bg-primary/5 text-primary' : 'text-base-content/70'"
+      class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 font-medium transition-colors duration-(--duration-fast) ease-out hover:bg-accent-bg"
+      :class="expanded ? 'bg-accent-bg text-accent-text' : 'text-muted'"
       @click="expanded = !expanded"
     >
-      <Icon name="mingcute:sparkles-2-line" class="text-sm text-primary" />
+      <Icon name="mingcute:sparkles-2-line" class="text-accent-text" />
       AI автозаполнение
-      <Icon
-        :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'"
-        class="ml-auto text-xs text-base-content/40"
-      />
+      <Icon :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'" class="ml-auto text-subtle" />
     </button>
 
-    <!-- Content -->
     <Transition name="panel">
-      <div v-if="expanded" class="px-3 pb-3 space-y-2">
-        <!-- Prompt input -->
+      <div v-if="expanded" class="flex flex-col gap-2 px-3 pb-3">
+        <!-- Промт -->
         <div class="flex gap-1.5">
-          <textarea
+          <UiTextarea
             v-model="prompt"
-            class="textarea textarea-sm w-full text-xs"
-            rows="2"
-            placeholder="Опишите задачу: что должен делать этот блок? Например: «Искать тренды фитнеса в TikTok для русской аудитории»"
+            :rows="2"
             :disabled="loading"
+            class="flex-1"
+            placeholder="Опишите задачу: что должен делать этот блок? Например: «Искать тренды фитнеса в TikTok для русской аудитории»"
             @keydown="onKeydown"
           />
-          <div class="tooltip tooltip-left self-end" data-tip="Отправить запрос к AI">
-            <button
-              type="button"
-              class="btn btn-primary btn-sm btn-square"
-              :disabled="!prompt.trim() || loading"
+          <UiTooltip text="Отправить запрос к AI" placement="left" class="self-end">
+            <UiButton
+              variant="primary"
+              icon-only
+              size="md"
+              :disabled="!prompt.trim()"
+              :loading="loading"
               @click="generate"
             >
-              <span v-if="loading" class="loading loading-spinner loading-xs" />
-              <Icon v-else name="mingcute:send-line" class="text-xs" />
-            </button>
-          </div>
+              <Icon v-if="!loading" name="mingcute:send-line" />
+            </UiButton>
+          </UiTooltip>
         </div>
 
-        <!-- Error -->
-        <div v-if="error" class="rounded-box bg-error/10 border border-error/20 p-2 text-xs text-error flex items-start gap-1.5">
-          <Icon name="mingcute:close-circle-line" class="text-sm shrink-0 mt-0.5" />
+        <!-- Ошибка -->
+        <div
+          v-if="error"
+          class="flex items-start gap-1.5 rounded-md border border-danger-border bg-danger-bg p-2 text-danger"
+        >
+          <Icon name="mingcute:close-circle-line" class="mt-0.5 shrink-0" />
           <div>
             <p class="font-medium">Ошибка</p>
-            <p class="text-error/80">{{ error }}</p>
+            <p class="text-sm">{{ error }}</p>
           </div>
         </div>
 
-        <!-- Preview: suggestions with diff -->
-        <div v-if="hasSuggestions" class="space-y-2">
-          <div class="flex items-center gap-1 text-xs font-medium text-base-content/70">
-            <Icon name="mingcute:eye-line" class="text-sm" />
-            Предпросмотр ({{ selectedCount }}/{{ Object.keys(result!.suggestions).length }} выбрано)
+        <!-- Предпросмотр -->
+        <div v-if="hasSuggestions" class="flex flex-col gap-2">
+          <div class="flex items-center gap-1 font-medium text-muted">
+            <Icon name="mingcute:eye-line" />
+            Предпросмотр ({{ selectedCount }} из {{ Object.keys(result!.suggestions).length }} выбрано)
           </div>
 
-          <!-- Reasoning -->
-          <div v-if="result!.reasoning" class="rounded-box bg-info/5 border border-info/10 p-2 text-[10px] text-base-content/60">
-            <Icon name="mingcute:bulb-line" class="inline mr-0.5 text-info text-[10px]" />
+          <p
+            v-if="result!.reasoning"
+            class="flex items-start gap-1.5 rounded-md border border-info-border bg-info-bg p-2 text-micro text-muted"
+          >
+            <Icon name="mingcute:bulb-line" class="mt-0.5 shrink-0 text-info" />
             {{ result!.reasoning }}
-          </div>
+          </p>
 
-          <!-- Fields preview with diff -->
-          <div class="space-y-1">
+          <!-- Поля с разницей -->
+          <div class="flex flex-col gap-1">
             <label
               v-for="(value, key) in result!.suggestions"
               :key="key"
-              class="flex items-start gap-2 p-1.5 rounded hover:bg-base-200/50 cursor-pointer"
+              class="flex cursor-pointer items-start gap-2 rounded-md p-1.5 hover:bg-raised"
             >
               <input
                 v-model="selectedFields[key as string]"
                 type="checkbox"
-                class="checkbox checkbox-xs checkbox-primary mt-0.5"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="text-[11px] font-medium text-base-content/80 flex items-center gap-1 flex-wrap">
+                class="mt-0.5 size-3.5 shrink-0 rounded-sm accent-(--color-accent)"
+              >
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1 font-medium text-fg">
                   <span>{{ labelFor(key as string) }}</span>
-                  <span class="text-[9px] font-mono text-base-content/40">{{ key }}</span>
+                  <span class="font-mono text-micro text-subtle">{{ key }}</span>
                   <span
                     v-if="hasChanged(key as string, value)"
-                    class="badge badge-xs badge-warning"
-                  >
-                    изменено
-                  </span>
-                  <span
-                    v-else
-                    class="badge badge-xs badge-ghost"
-                  >
-                    без изменений
-                  </span>
+                    :class="[BADGE, 'border-warning-border bg-warning-bg text-warning']"
+                  >изменено</span>
+                  <span v-else :class="[BADGE, NEUTRAL_TONE]">без изменений</span>
                 </div>
 
-                <!-- Diff: current value -->
                 <div
                   v-if="hasChanged(key as string, value) && config[key as string] !== undefined && config[key as string] !== null && config[key as string] !== ''"
-                  class="text-[10px] text-error/60 line-through mt-0.5"
+                  class="mt-0.5 text-micro text-muted line-through decoration-danger"
                 >
                   {{ formatValue(config[key as string]) }}
                 </div>
 
-                <!-- Suggested value -->
-                <div class="text-[10px] text-base-content/60 break-words">
+                <div class="text-micro break-words text-muted">
                   <template v-if="Array.isArray(value)">
                     <span
                       v-for="(tag, i) in (value as string[])"
                       :key="i"
-                      class="inline-block bg-primary/10 text-primary rounded px-1 py-0.5 mr-0.5 mb-0.5"
-                    >
-                      {{ tag }}
-                    </span>
+                      class="mr-0.5 mb-0.5 inline-block rounded-sm border border-accent-border bg-accent-bg px-1 text-accent-text"
+                    >{{ tag }}</span>
                   </template>
                   <template v-else-if="typeof value === 'string' && (value as string).length > 80">
-                    <details class="group">
-                      <summary class="cursor-pointer text-primary/70 hover:text-primary">
-                        {{ (value as string).slice(0, 80) }}...
-                        <span class="text-[9px]">(развернуть)</span>
+                    <details>
+                      <summary class="cursor-pointer text-accent-text">
+                        {{ (value as string).slice(0, 80) }}…
+                        <span class="text-subtle">(развернуть)</span>
                       </summary>
                       <p class="mt-1 whitespace-pre-wrap">{{ value }}</p>
                     </details>
@@ -370,60 +364,63 @@ function hasChanged(key: string, suggestedValue: unknown): boolean {
             </label>
           </div>
 
-          <!-- Blocked fields info -->
-          <div v-if="result!.blocked?.length" class="rounded-box bg-warning/5 border border-warning/20 p-2 text-[10px] space-y-0.5">
-            <div class="flex items-center gap-1 text-warning font-medium mb-1">
-              <Icon name="mingcute:shield-line" class="text-xs" />
+          <!-- Заблокированные поля -->
+          <div
+            v-if="result!.blocked?.length"
+            class="flex flex-col gap-0.5 rounded-md border border-warning-border bg-warning-bg p-2 text-micro"
+          >
+            <div class="mb-1 flex items-center gap-1 font-medium text-warning">
+              <Icon name="mingcute:shield-line" />
               Заблокировано для AI
             </div>
-            <div v-for="b in result!.blocked" :key="b.field" class="text-base-content/50">
+            <div v-for="b in result!.blocked" :key="b.field" class="text-muted">
               <span class="font-medium">{{ b.label }}:</span> {{ b.reason }}
             </div>
           </div>
 
-          <!-- Rejected fields -->
-          <div v-if="result!.rejected?.length" class="rounded-box bg-error/5 border border-error/10 p-2 text-[10px] space-y-0.5">
-            <div class="flex items-center gap-1 text-error/80 font-medium mb-1">
-              <Icon name="mingcute:alert-line" class="text-xs" />
+          <!-- Отклонённые поля -->
+          <div
+            v-if="result!.rejected?.length"
+            class="flex flex-col gap-0.5 rounded-md border border-danger-border bg-danger-bg p-2 text-micro"
+          >
+            <div class="mb-1 flex items-center gap-1 font-medium text-danger">
+              <Icon name="mingcute:alert-line" />
               Отклонено при валидации
             </div>
-            <div v-for="r in result!.rejected" :key="r.field" class="text-base-content/50">
+            <div v-for="r in result!.rejected" :key="r.field" class="text-muted">
               <span class="font-medium">{{ r.field }}:</span> {{ r.reason }}
             </div>
           </div>
 
-          <!-- Apply buttons -->
+          <!-- Применить -->
           <div class="flex gap-1.5">
-            <button
-              class="btn btn-primary btn-sm flex-1"
+            <UiButton
+              variant="primary"
+              size="md"
+              class="flex-1 justify-center"
               :disabled="selectedCount === 0"
               @click="applySelected"
             >
               <Icon name="mingcute:check-line" />
               Применить выбранные ({{ selectedCount }})
-            </button>
-            <button
-              class="btn btn-outline btn-sm"
-              @click="applyAll"
-            >
-              Всё
-            </button>
-            <div class="tooltip tooltip-left" data-tip="Отклонить предложения AI">
-              <button class="btn btn-ghost btn-sm btn-square" @click="dismiss">
+            </UiButton>
+            <UiButton size="md" @click="applyAll">Всё</UiButton>
+            <UiTooltip text="Отклонить предложения AI" placement="left">
+              <UiButton variant="ghost" icon-only size="md" @click="dismiss">
                 <Icon name="mingcute:close-line" />
-              </button>
-            </div>
+              </UiButton>
+            </UiTooltip>
           </div>
         </div>
 
-        <!-- Empty result -->
+        <!-- Пустой результат -->
         <div
           v-else-if="result && !hasSuggestions"
-          class="rounded-box bg-warning/5 border border-warning/20 p-2 text-xs text-base-content/60"
+          class="rounded-md border border-warning-border bg-warning-bg p-2 text-muted"
         >
-          <Icon name="mingcute:information-line" class="inline mr-1 text-warning" />
+          <Icon name="mingcute:information-line" class="mr-1 inline text-warning" />
           AI не смог предложить безопасные значения для этого блока.
-          <span v-if="result.reasoning" class="block mt-1 text-[10px]">{{ result.reasoning }}</span>
+          <span v-if="result.reasoning" class="mt-1 block text-micro">{{ result.reasoning }}</span>
         </div>
       </div>
     </Transition>

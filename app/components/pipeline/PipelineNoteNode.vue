@@ -16,13 +16,15 @@ const store = usePipelineEditorStore()
 const isEditing = ref(false)
 const editText = ref('')
 
+// Цвета заметки — из словаря состояний, а не отдельная палитра: заметка живёт
+// на том же канвасе, что и блоки, и второй набор оттенков спорил бы с ними.
 const noteColors: Record<string, string> = {
-  yellow: 'bg-warning/15 border-warning/40',
-  blue: 'bg-info/15 border-info/40',
-  green: 'bg-success/15 border-success/40',
-  red: 'bg-error/15 border-error/40',
-  purple: 'bg-secondary/15 border-secondary/40',
-  neutral: 'bg-base-200 border-base-300',
+  yellow: 'bg-warning-bg border-warning-border',
+  blue: 'bg-info-bg border-info-border',
+  green: 'bg-success-bg border-success-border',
+  red: 'bg-danger-bg border-danger-border',
+  purple: 'bg-accent-bg border-accent-border',
+  neutral: 'bg-neutral-bg border-neutral-border',
 }
 
 const sizeClasses: Record<string, string> = {
@@ -72,58 +74,52 @@ function deleteNote() {
 
 <template>
   <div
-    class="rounded-lg border-2 border-dashed p-3 transition-all cursor-default"
-    :class="[colorClass, sizeClass, selected ? 'ring-2 ring-primary ring-offset-1 ring-offset-base-100 shadow-lg' : 'hover:shadow-sm']"
+    class="cursor-default rounded-lg border-2 border-dashed p-3 transition-shadow duration-(--duration-fast) ease-out"
+    :class="[colorClass, sizeClass, selected ? 'border-solid border-accent shadow-lg' : 'hover:shadow-sm']"
   >
-    <!-- Header -->
-    <div class="flex items-center gap-1.5 mb-1">
-      <Icon name="mingcute:notebook-line" class="text-sm text-base-content/50" />
-      <span class="text-[10px] font-semibold text-base-content/50 uppercase tracking-wider flex-1">
+    <!-- Шапка -->
+    <div class="mb-1 flex items-center gap-1.5">
+      <Icon name="mingcute:notebook-line" class="shrink-0 text-subtle" />
+      <span class="flex-1 text-micro font-semibold tracking-wider text-subtle uppercase">
         Заметка
       </span>
 
-      <!-- Quick actions -->
       <div v-if="selected" class="flex gap-0.5">
-        <div class="tooltip tooltip-top" data-tip="Сменить цвет заметки">
-          <button class="btn btn-ghost btn-xs btn-square" @click.stop="cycleColor">
-            <Icon name="mingcute:palette-line" class="text-xs" />
-          </button>
-        </div>
-        <div class="tooltip tooltip-top" data-tip="Редактировать текст">
-          <button class="btn btn-ghost btn-xs btn-square" @click.stop="startEdit">
-            <Icon name="mingcute:edit-line" class="text-xs" />
-          </button>
-        </div>
-        <div class="tooltip tooltip-top" data-tip="Удалить заметку">
-          <button class="btn btn-ghost btn-xs btn-square text-error" @click.stop="deleteNote">
-            <Icon name="mingcute:delete-2-line" class="text-xs" />
-          </button>
-        </div>
+        <UiTooltip text="Сменить цвет заметки">
+          <UiButton variant="ghost" icon-only @click.stop="cycleColor">
+            <Icon name="mingcute:palette-line" />
+          </UiButton>
+        </UiTooltip>
+        <UiTooltip text="Редактировать текст">
+          <UiButton variant="ghost" icon-only @click.stop="startEdit">
+            <Icon name="mingcute:edit-line" />
+          </UiButton>
+        </UiTooltip>
+        <UiTooltip text="Удалить заметку">
+          <UiButton variant="ghost" icon-only @click.stop="deleteNote">
+            <Icon name="mingcute:delete-2-line" class="text-danger" />
+          </UiButton>
+        </UiTooltip>
       </div>
     </div>
 
-    <!-- Edit mode -->
-    <div v-if="isEditing" class="space-y-2">
-      <textarea
+    <!-- Правка -->
+    <div v-if="isEditing" class="flex flex-col gap-2">
+      <UiTextarea
         v-model="editText"
-        class="textarea textarea-sm w-full min-h-[60px] bg-base-100/50"
-        placeholder="Текст заметки..."
-        rows="3"
+        :rows="3"
+        placeholder="Текст заметки…"
         @keydown.ctrl.enter="saveEdit"
         @keydown.escape="isEditing = false"
       />
-      <div class="flex gap-1">
-        <button class="btn btn-primary btn-xs" @click.stop="saveEdit">
-          Сохранить
-        </button>
-        <button class="btn btn-ghost btn-xs" @click.stop="isEditing = false">
-          Отмена
-        </button>
+      <div class="flex gap-1.5">
+        <UiButton variant="primary" @click.stop="saveEdit">Сохранить</UiButton>
+        <UiButton variant="ghost" @click.stop="isEditing = false">Отмена</UiButton>
       </div>
     </div>
 
-    <!-- Display mode -->
-    <div v-else class="text-xs text-base-content/70 whitespace-pre-wrap break-words" @dblclick.stop="startEdit">
+    <!-- Просмотр -->
+    <div v-else class="break-words whitespace-pre-wrap text-muted" @dblclick.stop="startEdit">
       {{ displayText }}
     </div>
   </div>

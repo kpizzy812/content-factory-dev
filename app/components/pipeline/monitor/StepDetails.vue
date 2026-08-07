@@ -96,7 +96,8 @@ const edgeSnapshot = computed(() => {
           {{ unitTarget.label }}
         </UiButton>
       </NuxtLink>
-      <NuxtLink :to="`/pipeline/${pipelineId}`">
+      <!-- Глубокая ссылка на блок: редактор читает ?node и выделяет его. -->
+      <NuxtLink :to="{ path: `/pipeline/${pipelineId}`, query: { node: step.nodeId } }">
         <UiButton variant="ghost">
           <Icon name="mingcute:edit-2-line" />
           Открыть в редакторе

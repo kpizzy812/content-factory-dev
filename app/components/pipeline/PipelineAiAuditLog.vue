@@ -37,12 +37,16 @@ const actionLabels: Record<string, string> = {
   taxonomy_suggest: 'Генерация taxonomy',
 }
 
-const statusLabels: Record<string, { label: string; class: string }> = {
-  suggested: { label: 'Предложено', class: 'badge-info' },
-  applied: { label: 'Применено', class: 'badge-success' },
-  partial: { label: 'Частично', class: 'badge-warning' },
-  dismissed: { label: 'Отклонено', class: 'badge-error' },
+// Тон из общего словаря состояний, подписи доменные: «Предложено» и «Применено»
+// — это про судьбу подсказки, а не про состояние сущности.
+const statusLabels: Record<string, { label: string, tone: string }> = {
+  suggested: { label: 'Предложено', tone: 'border-info-border bg-info-bg text-info' },
+  applied: { label: 'Применено', tone: 'border-success-border bg-success-bg text-success' },
+  partial: { label: 'Частично', tone: 'border-warning-border bg-warning-bg text-warning' },
+  dismissed: { label: 'Отклонено', tone: 'border-danger-border bg-danger-bg text-danger' },
 }
+
+const NEUTRAL_TONE = 'border-neutral-border bg-neutral-bg text-neutral'
 
 async function loadHistory() {
   loading.value = true
@@ -52,14 +56,13 @@ async function loadHistory() {
     if (filterStatus.value) params.status = filterStatus.value
     if (store.pipelineId) params.pipelineId = store.pipelineId
 
-    const res = await $fetch<{ data: AuditEntry[]; total: number; stats: Record<string, number> }>('/api/ai/audit', {
+    const res = await $fetch<{ data: AuditEntry[], total: number, stats: Record<string, number> }>('/api/ai/audit', {
       params,
     })
     entries.value = res.data
     total.value = res.total
     stats.value = res.stats ?? {}
-  }
-  finally {
+  } finally {
     loading.value = false
   }
 }
@@ -82,106 +85,108 @@ function formatDate(iso: string): string {
 }
 
 function truncate(s: string, max = 60): string {
-  return s.length > max ? s.slice(0, max) + '...' : s
+  return s.length > max ? s.slice(0, max) + '…' : s
 }
 
 // Reload when nodeType changes
 watch(() => props.nodeType, () => {
   if (expanded.value) loadHistory()
 })
+
+const CHIP = 'inline-flex h-[18px] cursor-pointer items-center rounded-sm border px-1.5 text-micro transition-opacity duration-(--duration-fast) ease-out'
+const JSON_BOX = 'mt-1 max-h-24 overflow-auto rounded-sm border border-divider bg-card p-1 font-mono text-micro break-all whitespace-pre-wrap'
 </script>
 
 <template>
-  <div class="border border-base-300 rounded-box overflow-hidden">
+  <div class="overflow-hidden rounded-md border border-border">
     <button
       type="button"
-      class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium hover:bg-base-200/50 transition-colors text-base-content/60"
+      class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 font-medium text-muted transition-colors duration-(--duration-fast) ease-out hover:bg-raised hover:text-fg"
       @click="toggle"
     >
-      <Icon name="mingcute:history-line" class="text-sm" />
+      <Icon name="mingcute:history-line" />
       История AI-предложений
-      <span v-if="total > 0" class="badge badge-xs badge-ghost">{{ total }}</span>
-      <Icon
-        :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'"
-        class="ml-auto text-xs text-base-content/40"
-      />
+      <span v-if="total > 0" class="tnum rounded-sm border border-neutral-border bg-neutral-bg px-1 text-micro text-neutral">
+        {{ total }}
+      </span>
+      <Icon :name="expanded ? 'mingcute:up-line' : 'mingcute:down-line'" class="ml-auto text-subtle" />
     </button>
 
     <Transition name="panel">
-      <div v-if="expanded" class="px-3 pb-3 space-y-2">
-        <!-- Stats row -->
+      <div v-if="expanded" class="flex flex-col gap-2 px-3 pb-3">
+        <!-- Разбивка по статусам, она же фильтр -->
         <div v-if="totalActions > 0" class="flex flex-wrap gap-1">
           <button
             v-for="(cfg, key) in statusLabels"
             :key="key"
-            class="badge badge-xs cursor-pointer transition-opacity"
-            :class="[cfg.class, filterStatus && filterStatus !== key ? 'opacity-40' : '']"
+            type="button"
+            :class="[CHIP, cfg.tone, filterStatus && filterStatus !== key ? 'opacity-40' : '']"
             @click="setFilter(key)"
           >
             {{ cfg.label }} {{ stats[key] ?? 0 }}
           </button>
           <button
             v-if="filterStatus"
-            class="badge badge-xs badge-ghost cursor-pointer"
+            type="button"
+            :class="[CHIP, NEUTRAL_TONE]"
             @click="setFilter(null)"
           >
             Сбросить
           </button>
         </div>
 
-        <div v-if="loading" class="flex justify-center py-4">
-          <span class="loading loading-spinner loading-sm text-base-content/40" />
+        <div v-if="loading" class="flex justify-center py-4 text-subtle">
+          <Icon name="mingcute:loading-line" class="animate-spin text-lg" />
         </div>
 
-        <div v-else-if="entries.length === 0" class="text-center text-[10px] text-base-content/40 py-3">
+        <p v-else-if="entries.length === 0" class="py-3 text-center text-micro text-subtle">
           {{ filterStatus ? 'Нет записей с таким статусом' : 'Пока нет AI-предложений' }}
-        </div>
+        </p>
 
-        <div v-else class="space-y-1.5 max-h-64 overflow-y-auto">
+        <div v-else class="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
           <details
             v-for="entry in entries"
             :key="entry.id"
-            class="rounded-box border border-base-300 bg-base-100"
+            class="rounded-md border border-border bg-card"
           >
-            <summary class="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer text-[10px] hover:bg-base-200/30">
-              <span class="badge badge-xs" :class="statusLabels[entry.status]?.class ?? 'badge-ghost'">
-                {{ statusLabels[entry.status]?.label ?? entry.status }}
-              </span>
-              <span class="font-medium text-base-content/70">
+            <summary class="flex cursor-pointer items-center gap-1.5 px-2 py-1.5 text-micro hover:bg-raised">
+              <span
+                class="inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro"
+                :class="statusLabels[entry.status]?.tone ?? NEUTRAL_TONE"
+              >{{ statusLabels[entry.status]?.label ?? entry.status }}</span>
+              <span class="font-medium text-muted">
                 {{ actionLabels[entry.action] ?? entry.action }}
               </span>
-              <span v-if="entry.nodeType" class="text-base-content/40">
-                ({{ entry.nodeType }})
-              </span>
-              <span class="ml-auto text-base-content/30">
-                {{ formatDate(entry.createdAt) }}
-              </span>
+              <span v-if="entry.nodeType" class="text-subtle">({{ entry.nodeType }})</span>
+              <ClientOnly>
+                <span class="ml-auto text-subtle">{{ formatDate(entry.createdAt) }}</span>
+              </ClientOnly>
             </summary>
 
-            <div class="px-2 pb-2 space-y-1 text-[10px]">
-              <div class="text-base-content/50">
+            <div class="flex flex-col gap-1 px-2 pb-2 text-micro">
+              <div class="text-muted">
                 <span class="font-medium">Промт:</span> {{ truncate(entry.prompt, 120) }}
               </div>
-              <div class="text-base-content/40">
+              <div class="text-subtle">
                 <span class="font-medium">Модель:</span> {{ entry.model }}
               </div>
 
-              <details v-if="entry.suggestions" class="mt-1">
-                <summary class="text-base-content/40 cursor-pointer hover:text-base-content/60">Предложения</summary>
-                <pre class="mt-1 whitespace-pre-wrap break-all text-[9px] max-h-24 overflow-auto bg-base-200/50 rounded p-1">{{ JSON.stringify(entry.suggestions, null, 2) }}</pre>
+              <details v-if="entry.suggestions">
+                <summary class="cursor-pointer text-subtle hover:text-muted">Предложения</summary>
+                <pre :class="JSON_BOX">{{ JSON.stringify(entry.suggestions, null, 2) }}</pre>
               </details>
 
-              <details v-if="entry.appliedFields" class="mt-1">
-                <summary class="text-success/60 cursor-pointer hover:text-success">Применено</summary>
-                <pre class="mt-1 whitespace-pre-wrap break-all text-[9px] max-h-24 overflow-auto bg-success/5 rounded p-1">{{ JSON.stringify(entry.appliedFields, null, 2) }}</pre>
+              <details v-if="entry.appliedFields">
+                <summary class="cursor-pointer text-success">Применено</summary>
+                <pre :class="JSON_BOX">{{ JSON.stringify(entry.appliedFields, null, 2) }}</pre>
               </details>
 
-              <details v-if="entry.rejectedFields" class="mt-1">
-                <summary class="text-error/60 cursor-pointer hover:text-error">Отклонено валидацией</summary>
-                <pre class="mt-1 whitespace-pre-wrap break-all text-[9px] max-h-24 overflow-auto bg-error/5 rounded p-1">{{ JSON.stringify(entry.rejectedFields, null, 2) }}</pre>
+              <details v-if="entry.rejectedFields">
+                <summary class="cursor-pointer text-danger">Отклонено валидацией</summary>
+                <pre :class="JSON_BOX">{{ JSON.stringify(entry.rejectedFields, null, 2) }}</pre>
               </details>
 
-              <div v-if="entry.blockedFields" class="text-warning/60">
+              <div v-if="entry.blockedFields" class="text-warning">
                 <span class="font-medium">Заблокировано:</span>
                 {{ Array.isArray(entry.blockedFields) ? (entry.blockedFields as any[]).map((b: any) => b.label || b.field).join(', ') : '—' }}
               </div>

@@ -80,7 +80,7 @@ async function runTest() {
       try {
         mockInput = JSON.parse(testMockInput.value)
       } catch {
-        testResult.value = { success: false, error: 'Некорректный JSON в mock input' }
+        testResult.value = { success: false, error: 'Некорректный JSON во входных данных' }
         showResult.value = true
         isTesting.value = false
         return
@@ -121,9 +121,8 @@ const resultSummary = computed(() => {
   if (!testResult.value.success) {
     return {
       icon: 'mingcute:close-circle-line',
-      color: 'error',
-      borderBg: 'border-error/30 bg-error/5',
-      text: 'text-error',
+      box: 'border-danger-border bg-danger-bg',
+      text: 'text-danger',
       title: 'Ошибка при выполнении',
       detail: testResult.value.error || 'Неизвестная ошибка',
       hint: 'Проверьте настройки блока и входные данные. Если ошибка повторяется — проблема в конфигурации.',
@@ -142,7 +141,7 @@ const resultSummary = computed(() => {
       : 'Блок вернул данные. Они будут переданы следующему блоку конвейера.'
   } else if (outputType === 'object' && output !== null) {
     const keys = Object.keys(output)
-    detail = `Результат: ${keys.length} полей (${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''})`
+    detail = `Результат: ${keys.length} полей (${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '…' : ''})`
     hint = 'Блок вернул объект с данными — они будут доступны следующему блоку.'
   } else if (outputType === 'string') {
     detail = output.length > 100 ? `Текст (${output.length} символов)` : output
@@ -154,8 +153,7 @@ const resultSummary = computed(() => {
 
   return {
     icon: 'mingcute:check-circle-line',
-    color: 'success',
-    borderBg: 'border-success/30 bg-success/5',
+    box: 'border-success-border bg-success-bg',
     text: 'text-success',
     title: 'Блок работает корректно',
     detail,
@@ -184,154 +182,136 @@ watch(() => props.nodeType, () => {
   testMockInput.value = ''
   simpleFields.value = [{ key: '', value: '' }]
 })
+
+const KBD = 'rounded-sm border border-border bg-card px-1 font-mono text-micro text-fg'
 </script>
 
 <template>
-  <div class="space-y-2">
-    <!-- What is testing — collapsible help -->
+  <div class="flex flex-col gap-2">
+    <!-- Справка -->
     <button
       type="button"
-      class="inline-flex items-center gap-0.5 text-[10px] text-base-content/40 hover:text-base-content/60 transition-colors"
+      class="inline-flex cursor-pointer items-center gap-0.5 self-start text-micro text-subtle transition-colors duration-(--duration-fast) ease-out hover:text-muted"
       @click="showHelp = !showHelp"
     >
-      <Icon name="mingcute:question-line" class="text-[10px]" />
+      <Icon name="mingcute:question-line" />
       <span>{{ showHelp ? 'Скрыть справку' : 'Что это?' }}</span>
     </button>
 
     <Transition name="fade">
-      <div v-if="showHelp" class="rounded-box bg-base-200/60 p-2 text-[10px] text-base-content/60 leading-relaxed space-y-1">
-        <p><strong>Тестирование блока</strong> — проверка работы с пробными данными, без запуска всего конвейера.</p>
+      <div
+        v-if="showHelp"
+        class="flex flex-col gap-1 rounded-md border border-border bg-card p-2 text-micro leading-relaxed text-muted"
+      >
+        <p><strong class="text-fg">Тестирование блока</strong> — проверка работы с пробными данными, без запуска всего конвейера.</p>
         <p>Вы задаёте входные данные (то, что блок получит от предыдущего блока), и система показывает результат.</p>
-        <p><strong>Простой режим:</strong> добавьте пары «ключ = значение». Например: <kbd class="kbd kbd-xs">title</kbd> = <kbd class="kbd kbd-xs">Мой тренд</kbd></p>
-        <p><strong>JSON режим:</strong> вставьте готовый JSON-объект для опытных пользователей.</p>
-        <p class="text-base-content/40">Тест безопасен — он не изменяет данные и не запускает внешние API.</p>
+        <p><strong class="text-fg">Простой режим:</strong> добавьте пары «ключ = значение». Например: <span :class="KBD">title</span> = <span :class="KBD">Мой тренд</span></p>
+        <p><strong class="text-fg">JSON режим:</strong> вставьте готовый JSON-объект для опытных пользователей.</p>
+        <p class="text-subtle">Тест безопасен — он не изменяет данные и не запускает внешние API.</p>
       </div>
     </Transition>
 
-    <!-- Config issues warning -->
-    <div v-if="configIssues.length" class="rounded-box bg-warning/5 border border-warning/20 p-2 text-[10px]">
-      <div class="flex items-center gap-1 text-warning font-medium mb-1">
-        <Icon name="mingcute:alert-line" class="text-xs" />
+    <!-- Незаполненные обязательные поля -->
+    <div
+      v-if="configIssues.length"
+      class="rounded-md border border-warning-border bg-warning-bg p-2 text-micro"
+    >
+      <div class="mb-1 flex items-center gap-1 font-medium text-warning">
+        <Icon name="mingcute:alert-line" />
         Не заполнены обязательные поля
       </div>
-      <ul class="text-base-content/50 space-y-0.5">
+      <ul class="flex flex-col gap-0.5 text-muted">
         <li v-for="issue in configIssues" :key="issue">{{ issue }}</li>
       </ul>
     </div>
 
-    <!-- Mode toggle -->
-    <div class="flex items-center gap-1">
-      <span class="text-[10px] text-base-content/50">Входные данные:</span>
-      <div class="join">
+    <!-- Режим ввода -->
+    <div class="flex items-center gap-2">
+      <span class="text-micro text-subtle">Входные данные:</span>
+      <div class="flex rounded-md border border-border bg-card p-0.5">
         <button
-          class="join-item btn btn-xs"
-          :class="mode === 'simple' ? 'btn-primary' : 'btn-ghost'"
+          type="button"
+          class="h-5 cursor-pointer rounded-sm px-2 text-micro font-medium transition-colors duration-(--duration-fast) ease-out"
+          :class="mode === 'simple' ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
           @click="mode = 'simple'"
-        >
-          Простой
-        </button>
+        >Простой</button>
         <button
-          class="join-item btn btn-xs"
-          :class="mode === 'advanced' ? 'btn-primary' : 'btn-ghost'"
+          type="button"
+          class="h-5 cursor-pointer rounded-sm px-2 text-micro font-medium transition-colors duration-(--duration-fast) ease-out"
+          :class="mode === 'advanced' ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
           @click="mode = 'advanced'"
-        >
-          JSON
-        </button>
+        >JSON</button>
       </div>
     </div>
 
-    <!-- Simple mode -->
-    <div v-if="mode === 'simple'" class="space-y-1">
+    <!-- Простой режим -->
+    <div v-if="mode === 'simple'" class="flex flex-col gap-1">
       <div
         v-for="(field, idx) in simpleFields"
         :key="idx"
         class="flex items-center gap-1"
       >
-        <input
-          v-model="field.key"
-          type="text"
-          class="input input-xs w-24 font-mono"
-          placeholder="ключ"
-        />
-        <span class="text-base-content/30 text-xs">=</span>
-        <input
-          v-model="field.value"
-          type="text"
-          class="input input-xs flex-1 font-mono"
-          placeholder="значение"
-        />
-        <div v-if="simpleFields.length > 1" class="tooltip tooltip-left" data-tip="Убрать поле">
-          <button class="btn btn-ghost btn-xs btn-square" @click="removeSimpleField(idx)">
-            <Icon name="mingcute:close-line" class="text-error text-[10px]" />
-          </button>
-        </div>
+        <UiInput v-model="field.key" mono class="w-24 shrink-0" placeholder="ключ" />
+        <span class="text-subtle">=</span>
+        <UiInput v-model="field.value" mono class="min-w-0 flex-1" placeholder="значение" />
+        <UiTooltip v-if="simpleFields.length > 1" text="Убрать поле" placement="left">
+          <UiButton variant="ghost" icon-only @click="removeSimpleField(idx)">
+            <Icon name="mingcute:close-line" class="text-danger" />
+          </UiButton>
+        </UiTooltip>
       </div>
-      <button class="btn btn-ghost btn-xs gap-0.5" @click="addSimpleField">
-        <Icon name="mingcute:add-line" class="text-[10px]" />
-        <span class="text-[10px]">Добавить поле</span>
-      </button>
+      <UiButton variant="ghost" class="self-start" @click="addSimpleField">
+        <Icon name="mingcute:add-line" />
+        Добавить поле
+      </UiButton>
     </div>
 
-    <!-- Advanced mode -->
-    <div v-else>
-      <textarea
-        v-model="testMockInput"
-        class="textarea textarea-xs w-full font-mono text-[10px] h-16"
-        placeholder='{"trends": [...], "key": "value"}'
-      />
-    </div>
+    <!-- JSON-режим -->
+    <UiTextarea
+      v-else
+      v-model="testMockInput"
+      :rows="3"
+      class="font-mono text-micro"
+      placeholder='{"trends": [...], "key": "value"}'
+    />
 
-    <!-- Run button -->
-    <button
-      class="btn btn-outline btn-sm btn-block"
-      :disabled="isTesting"
-      @click="runTest"
-    >
-      <span v-if="isTesting" class="loading loading-spinner loading-sm" />
-      <Icon v-else name="mingcute:play-fill" />
+    <UiButton class="w-full justify-center" :loading="isTesting" @click="runTest">
+      <Icon v-if="!isTesting" name="mingcute:play-fill" />
       Запустить тест
-    </button>
+    </UiButton>
 
-    <!-- Result: human-friendly -->
+    <!-- Результат -->
     <Transition name="fade">
       <div
         v-if="showResult && resultSummary"
-        class="rounded-box border p-2.5 text-xs"
-        :class="resultSummary.borderBg"
+        class="rounded-md border p-2.5"
+        :class="resultSummary.box"
       >
-        <div class="flex items-center gap-1.5 mb-1">
-          <Icon
-            :name="resultSummary.icon"
-            :class="resultSummary.text"
-            class="text-base"
-          />
-          <span class="font-semibold" :class="resultSummary.text">
-            {{ resultSummary.title }}
-          </span>
+        <div class="mb-1 flex items-center gap-1.5">
+          <Icon :name="resultSummary.icon" :class="resultSummary.text" />
+          <span class="font-semibold" :class="resultSummary.text">{{ resultSummary.title }}</span>
           <span class="flex-1" />
-          <span v-if="testResult?.duration" class="text-[10px] text-base-content/40">
-            {{ testResult.duration }}мс
+          <span v-if="testResult?.duration" class="tnum text-micro text-subtle">
+            {{ testResult.duration }} мс
           </span>
-          <div class="tooltip tooltip-left" data-tip="Скрыть результат">
-            <button class="btn btn-ghost btn-xs btn-square" @click="dismissResult">
-              <Icon name="mingcute:close-line" class="text-[10px]" />
-            </button>
-          </div>
+          <UiTooltip text="Скрыть результат" placement="left">
+            <UiButton variant="ghost" icon-only @click="dismissResult">
+              <Icon name="mingcute:close-line" />
+            </UiButton>
+          </UiTooltip>
         </div>
 
-        <p class="text-base-content/70 text-[11px]">{{ resultSummary.detail }}</p>
+        <p class="text-sm text-muted">{{ resultSummary.detail }}</p>
 
-        <!-- Human-friendly hint -->
-        <p v-if="resultSummary.hint" class="text-[10px] text-base-content/40 mt-1">
+        <p v-if="resultSummary.hint" class="mt-1 text-micro text-subtle">
           {{ resultSummary.hint }}
         </p>
 
-        <!-- Expandable raw output -->
         <details v-if="testResult?.success && testResult?.output" class="mt-2">
-          <summary class="text-[10px] text-base-content/40 cursor-pointer hover:text-base-content/60">
+          <summary class="cursor-pointer text-micro text-subtle hover:text-muted">
             Подробный результат (JSON)
           </summary>
-          <pre class="mt-1 whitespace-pre-wrap break-all text-[10px] max-h-32 overflow-auto bg-base-200/50 rounded p-1.5">{{ JSON.stringify(testResult.output, null, 2) }}</pre>
+          <pre class="mt-1 max-h-32 overflow-auto rounded-sm border border-divider bg-card p-1.5 font-mono text-micro break-all whitespace-pre-wrap">{{ JSON.stringify(testResult.output, null, 2) }}</pre>
         </details>
       </div>
     </Transition>

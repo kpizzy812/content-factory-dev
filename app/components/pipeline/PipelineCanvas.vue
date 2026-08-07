@@ -179,6 +179,30 @@ function handleFitView() {
   fitView({ padding: 0.2 })
 }
 
+/**
+ * Глубокая ссылка на блок: `/pipeline/:id?node=<nodeId>`.
+ *
+ * Монитор запуска ведёт «Открыть в редакторе» на конкретный шаг, а не на граф
+ * целиком. Раз применяем — и только когда узел действительно есть в графе:
+ * граф с тех пор могли перерисовать, и наводить камеру некуда.
+ */
+const route = useRoute()
+const focusApplied = ref(false)
+
+watch(
+  () => [route.query.node, store.nodes.length] as const,
+  async ([nodeId]) => {
+    if (focusApplied.value || typeof nodeId !== 'string' || !nodeId) return
+    if (!store.nodes.some((n: any) => n.id === nodeId)) return
+
+    focusApplied.value = true
+    store.selectNode(nodeId)
+    await nextTick()
+    fitView({ nodes: [nodeId], padding: 0.8, duration: 200, maxZoom: 1.2 })
+  },
+  { immediate: true },
+)
+
 defineExpose({ fitView: handleFitView })
 </script>
 

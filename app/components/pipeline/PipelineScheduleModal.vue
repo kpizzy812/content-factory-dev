@@ -22,9 +22,19 @@ const hasSchedule = ref(false)
 const showAdvanced = ref(false)
 const advancedCron = ref('')
 
+// Удаление расписания необратимо — спрашиваем модалкой, а не confirm().
+const deleteConfirmRef = ref<{ open: () => void, close: () => void, setBusy: (v: boolean) => void } | null>(null)
+
 // --- Schedule mode ---
 type ScheduleMode = 'daily' | 'weekly' | 'interval' | 'weekdays' | 'custom'
 const scheduleMode = ref<ScheduleMode>('daily')
+
+const MODE_TABS: Array<{ key: ScheduleMode, label: string }> = [
+  { key: 'daily', label: 'Ежедневно' },
+  { key: 'weekly', label: 'Еженедельно' },
+  { key: 'interval', label: 'Интервал' },
+  { key: 'weekdays', label: 'По дням' },
+]
 
 // --- Daily ---
 const dailyHour = ref(9)
@@ -59,8 +69,13 @@ const dayNames = [
   { value: 6, short: 'Сб', full: 'Суббота' },
 ]
 
-const hourOptions = Array.from({ length: 24 }, (_, i) => i)
-const minuteOptions = Array.from({ length: 60 }, (_, i) => i)
+function pad(n: number) {
+  return n.toString().padStart(2, '0')
+}
+
+const hourSelectOptions = Array.from({ length: 24 }, (_, i) => ({ value: i, label: pad(i) }))
+const minuteSelectOptions = Array.from({ length: 60 }, (_, i) => ({ value: i, label: pad(i) }))
+
 const intervalOptions = [
   { value: 'min5', label: 'Каждые 5 мин', cron: '*/5 * * * *' },
   { value: 'min10', label: 'Каждые 10 мин', cron: '*/10 * * * *' },
@@ -131,10 +146,6 @@ const humanDescription = computed(() => {
       return ''
   }
 })
-
-function pad(n: number) {
-  return n.toString().padStart(2, '0')
-}
 
 function toggleDay(day: number) {
   const idx = selectedDays.value.indexOf(day)
@@ -302,16 +313,18 @@ async function saveSchedule() {
 }
 
 async function deleteSchedule() {
-  if (!confirm('Удалить расписание? Конвейер больше не будет запускаться автоматически.')) return
   isDeleting.value = true
+  deleteConfirmRef.value?.setBusy(true)
   try {
     await $fetch(`/api/pipelines/${props.pipelineId}/schedule`, { method: 'DELETE' })
     hasSchedule.value = false
+    deleteConfirmRef.value?.close()
     emit('close')
   } catch {
     errorMsg.value = 'Ошибка удаления'
   } finally {
     isDeleting.value = false
+    deleteConfirmRef.value?.setBusy(false)
   }
 }
 
@@ -320,19 +333,27 @@ function formatDate(dateStr: string | null) {
   return new Date(dateStr).toLocaleString('ru-RU')
 }
 
+// Тон из общего словаря, подписи доменные: у планировщика свои причины пропуска.
 const lastRunStatusLabel = computed(() => {
   if (!lastRunStatus.value) return null
-  const map: Record<string, { label: string; class: string }> = {
-    triggered: { label: 'Запущен', class: 'badge-success' },
-    no_data: { label: 'Нет данных', class: 'badge-warning' },
-    skipped_inactive: { label: 'Пропущен (неактивен)', class: 'badge-warning' },
-    skipped_empty: { label: 'Пропущен (нет блоков)', class: 'badge-warning' },
-    skipped_already_running: { label: 'Пропущен (уже запущен)', class: 'badge-warning' },
+  const warn = 'border-warning-border bg-warning-bg text-warning'
+  const map: Record<string, { label: string, tone: string }> = {
+    triggered: { label: 'Запущен', tone: 'border-success-border bg-success-bg text-success' },
+    no_data: { label: 'Нет данных', tone: warn },
+    skipped_inactive: { label: 'Пропущен (неактивен)', tone: warn },
+    skipped_empty: { label: 'Пропущен (нет блоков)', tone: warn },
+    skipped_already_running: { label: 'Пропущен (уже запущен)', tone: warn },
   }
   if (lastRunStatus.value.startsWith('error:')) {
-    return { label: `Ошибка: ${lastRunStatus.value.slice(7)}`, class: 'badge-error' }
+    return {
+      label: `Ошибка: ${lastRunStatus.value.slice(7)}`,
+      tone: 'border-danger-border bg-danger-bg text-danger',
+    }
   }
-  return map[lastRunStatus.value] ?? { label: lastRunStatus.value, class: 'badge-ghost' }
+  return map[lastRunStatus.value] ?? {
+    label: lastRunStatus.value,
+    tone: 'border-neutral-border bg-neutral-bg text-neutral',
+  }
 })
 
 watch(() => props.visible, (v) => {
@@ -342,311 +363,249 @@ watch(() => props.visible, (v) => {
     loadSchedule()
   }
 })
+
+const DAY_BTN = 'h-7 flex-1 cursor-pointer rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out'
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': visible }">
-    <div class="modal-box max-w-lg">
-      <!-- Header -->
-      <h3 class="font-bold text-lg mb-1 flex items-center gap-2">
-        <Icon name="mingcute:calendar-time-add-line" class="text-primary" />
+  <UiModal :open="visible" @close="emit('close')">
+    <template #header>
+      <span class="flex items-center gap-2">
+        <Icon name="mingcute:calendar-time-add-line" class="text-accent-text" />
         Расписание запуска
-      </h3>
-      <p class="text-xs text-base-content/60 mb-4">
-        Cron или интервал. Можно отключить расписание в любой момент.
+      </span>
+    </template>
+
+    <div class="flex flex-col gap-3">
+      <p class="text-muted">
+        Cron или интервал. Расписание можно отключить в любой момент.
       </p>
 
-      <!-- Loading -->
-      <div v-if="isLoading" class="flex justify-center py-8">
-        <span class="loading loading-spinner loading-md" />
+      <div v-if="isLoading" class="flex justify-center py-8 text-muted">
+        <Icon name="mingcute:loading-line" class="animate-spin text-2xl" />
       </div>
 
       <template v-else>
-        <!-- Mode tabs (badge-style) -->
-        <div v-if="!showAdvanced" class="space-y-4">
-          <div role="tablist" class="tabs tabs-box tabs-sm">
+        <!-- Простой режим -->
+        <div v-if="!showAdvanced" class="flex flex-col gap-3">
+          <div role="tablist" class="flex rounded-md border border-border bg-card p-0.5">
             <button
+              v-for="t in MODE_TABS"
+              :key="t.key"
               role="tab"
-              class="tab"
-              :class="{ 'tab-active': scheduleMode === 'daily' }"
-              @click="scheduleMode = 'daily'"
-            >
-              Ежедневно
-            </button>
-            <button
-              role="tab"
-              class="tab"
-              :class="{ 'tab-active': scheduleMode === 'weekly' }"
-              @click="scheduleMode = 'weekly'"
-            >
-              Еженедельно
-            </button>
-            <button
-              role="tab"
-              class="tab"
-              :class="{ 'tab-active': scheduleMode === 'interval' }"
-              @click="scheduleMode = 'interval'"
-            >
-              Интервал
-            </button>
-            <button
-              role="tab"
-              class="tab"
-              :class="{ 'tab-active': scheduleMode === 'weekdays' }"
-              @click="scheduleMode = 'weekdays'"
-            >
-              По дням
-            </button>
+              type="button"
+              class="h-6 flex-1 cursor-pointer rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+              :class="scheduleMode === t.key ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
+              @click="scheduleMode = t.key"
+            >{{ t.label }}</button>
           </div>
 
-          <!-- Daily -->
-          <div v-if="scheduleMode === 'daily'" class="space-y-3">
-            <p class="text-xs text-base-content/60">
-              Конвейер будет запускаться каждый день в указанное время
-            </p>
-            <div class="flex items-center gap-2">
-              <fieldset class="fieldset flex-1">
-                <legend class="fieldset-legend">Час</legend>
-                <select v-model.number="dailyHour" class="select select-sm w-full">
-                  <option v-for="h in hourOptions" :key="h" :value="h">{{ pad(h) }}</option>
-                </select>
-              </fieldset>
-              <span class="text-xl font-bold mt-4">:</span>
-              <fieldset class="fieldset flex-1">
-                <legend class="fieldset-legend">Минута</legend>
-                <select v-model.number="dailyMinute" class="select select-sm w-full">
-                  <option v-for="m in minuteOptions" :key="m" :value="m">{{ pad(m) }}</option>
-                </select>
-              </fieldset>
+          <!-- Ежедневно -->
+          <div v-if="scheduleMode === 'daily'" class="flex flex-col gap-2">
+            <p class="text-sm text-muted">Конвейер будет запускаться каждый день в указанное время</p>
+            <div class="flex items-end gap-2">
+              <UiField label="Час" class="flex-1">
+                <UiSelect
+                  :model-value="dailyHour"
+                  :options="hourSelectOptions"
+                  @update:model-value="(v) => dailyHour = Number(v)"
+                />
+              </UiField>
+              <span class="pb-1 text-lg font-bold">:</span>
+              <UiField label="Минута" class="flex-1">
+                <UiSelect
+                  :model-value="dailyMinute"
+                  :options="minuteSelectOptions"
+                  @update:model-value="(v) => dailyMinute = Number(v)"
+                />
+              </UiField>
             </div>
           </div>
 
-          <!-- Weekly -->
-          <div v-if="scheduleMode === 'weekly'" class="space-y-3">
-            <p class="text-xs text-base-content/60">
-              Конвейер будет запускаться раз в неделю в выбранный день
-            </p>
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">День недели</legend>
-              <div class="join join-horizontal w-full">
+          <!-- Еженедельно -->
+          <div v-if="scheduleMode === 'weekly'" class="flex flex-col gap-2">
+            <p class="text-sm text-muted">Конвейер будет запускаться раз в неделю в выбранный день</p>
+            <UiField label="День недели">
+              <div class="flex gap-0.5 rounded-md border border-border bg-card p-0.5">
                 <button
                   v-for="day in dayNames"
                   :key="day.value"
-                  class="join-item btn btn-sm flex-1"
-                  :class="weeklyDay === day.value ? 'btn-primary' : 'btn-ghost'"
+                  type="button"
+                  :class="[DAY_BTN, weeklyDay === day.value ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg']"
+                  :title="day.full"
                   @click="weeklyDay = day.value"
-                >
-                  {{ day.short }}
-                </button>
+                >{{ day.short }}</button>
               </div>
-            </fieldset>
-            <div class="flex items-center gap-2">
-              <fieldset class="fieldset flex-1">
-                <legend class="fieldset-legend">Час</legend>
-                <select v-model.number="weeklyHour" class="select select-sm w-full">
-                  <option v-for="h in hourOptions" :key="h" :value="h">{{ pad(h) }}</option>
-                </select>
-              </fieldset>
-              <span class="text-xl font-bold mt-4">:</span>
-              <fieldset class="fieldset flex-1">
-                <legend class="fieldset-legend">Минута</legend>
-                <select v-model.number="weeklyMinute" class="select select-sm w-full">
-                  <option v-for="m in minuteOptions" :key="m" :value="m">{{ pad(m) }}</option>
-                </select>
-              </fieldset>
+            </UiField>
+            <div class="flex items-end gap-2">
+              <UiField label="Час" class="flex-1">
+                <UiSelect
+                  :model-value="weeklyHour"
+                  :options="hourSelectOptions"
+                  @update:model-value="(v) => weeklyHour = Number(v)"
+                />
+              </UiField>
+              <span class="pb-1 text-lg font-bold">:</span>
+              <UiField label="Минута" class="flex-1">
+                <UiSelect
+                  :model-value="weeklyMinute"
+                  :options="minuteSelectOptions"
+                  @update:model-value="(v) => weeklyMinute = Number(v)"
+                />
+              </UiField>
             </div>
           </div>
 
-          <!-- Interval -->
-          <div v-if="scheduleMode === 'interval'" class="space-y-3">
-            <p class="text-xs text-base-content/60">
-              Конвейер будет запускаться через равные промежутки времени
-            </p>
-            <div class="flex flex-wrap gap-2">
-              <button
+          <!-- Интервал -->
+          <div v-if="scheduleMode === 'interval'" class="flex flex-col gap-2">
+            <p class="text-sm text-muted">Конвейер будет запускаться через равные промежутки времени</p>
+            <div class="flex flex-wrap gap-1.5">
+              <UiButton
                 v-for="opt in intervalOptions"
                 :key="opt.value"
-                class="btn btn-sm"
-                :class="intervalValue === opt.value ? 'btn-primary' : 'btn-ghost'"
+                :variant="intervalValue === opt.value ? 'primary' : 'secondary'"
                 @click="intervalValue = opt.value"
-              >
-                {{ opt.label }}
-              </button>
+              >{{ opt.label }}</UiButton>
             </div>
           </div>
 
-          <!-- Weekdays -->
-          <div v-if="scheduleMode === 'weekdays'" class="space-y-3">
-            <p class="text-xs text-base-content/60">
-              Выберите конкретные дни недели и время запуска
-            </p>
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">Дни недели</legend>
-              <div class="join join-horizontal w-full">
+          <!-- По дням -->
+          <div v-if="scheduleMode === 'weekdays'" class="flex flex-col gap-2">
+            <p class="text-sm text-muted">Выберите конкретные дни недели и время запуска</p>
+            <UiField label="Дни недели">
+              <div class="flex gap-0.5 rounded-md border border-border bg-card p-0.5">
                 <button
                   v-for="day in dayNames"
                   :key="day.value"
-                  class="join-item btn btn-sm flex-1"
-                  :class="selectedDays.includes(day.value) ? 'btn-primary' : 'btn-ghost'"
+                  type="button"
+                  :class="[DAY_BTN, selectedDays.includes(day.value) ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg']"
+                  :title="day.full"
                   @click="toggleDay(day.value)"
-                >
-                  {{ day.short }}
-                </button>
+                >{{ day.short }}</button>
               </div>
-            </fieldset>
-            <div class="flex items-center gap-2">
-              <fieldset class="fieldset flex-1">
-                <legend class="fieldset-legend">Час</legend>
-                <select v-model.number="weekdaysHour" class="select select-sm w-full">
-                  <option v-for="h in hourOptions" :key="h" :value="h">{{ pad(h) }}</option>
-                </select>
-              </fieldset>
-              <span class="text-xl font-bold mt-4">:</span>
-              <fieldset class="fieldset flex-1">
-                <legend class="fieldset-legend">Минута</legend>
-                <select v-model.number="weekdaysMinute" class="select select-sm w-full">
-                  <option v-for="m in minuteOptions" :key="m" :value="m">{{ pad(m) }}</option>
-                </select>
-              </fieldset>
+            </UiField>
+            <div class="flex items-end gap-2">
+              <UiField label="Час" class="flex-1">
+                <UiSelect
+                  :model-value="weekdaysHour"
+                  :options="hourSelectOptions"
+                  @update:model-value="(v) => weekdaysHour = Number(v)"
+                />
+              </UiField>
+              <span class="pb-1 text-lg font-bold">:</span>
+              <UiField label="Минута" class="flex-1">
+                <UiSelect
+                  :model-value="weekdaysMinute"
+                  :options="minuteSelectOptions"
+                  @update:model-value="(v) => weekdaysMinute = Number(v)"
+                />
+              </UiField>
             </div>
 
-            <!-- Quick presets for weekdays -->
-            <div class="flex gap-1.5 flex-wrap">
-              <button
-                class="btn btn-xs btn-ghost"
-                @click="selectedDays = [1, 2, 3, 4, 5]"
-              >
-                Будни
-              </button>
-              <button
-                class="btn btn-xs btn-ghost"
-                @click="selectedDays = [0, 6]"
-              >
-                Выходные
-              </button>
-              <button
-                class="btn btn-xs btn-ghost"
-                @click="selectedDays = [0, 1, 2, 3, 4, 5, 6]"
-              >
-                Все дни
-              </button>
+            <div class="flex flex-wrap gap-1.5">
+              <UiButton variant="ghost" @click="selectedDays = [1, 2, 3, 4, 5]">Будни</UiButton>
+              <UiButton variant="ghost" @click="selectedDays = [0, 6]">Выходные</UiButton>
+              <UiButton variant="ghost" @click="selectedDays = [0, 1, 2, 3, 4, 5, 6]">Все дни</UiButton>
             </div>
           </div>
         </div>
 
-        <!-- Advanced cron mode -->
-        <div v-if="showAdvanced" class="space-y-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Cron-выражение</legend>
-            <input
-              v-model="advancedCron"
-              type="text"
-              class="input input-sm w-full font-mono"
-              placeholder="0 9 * * *"
-            />
-            <p class="label text-xs text-base-content/50">
-              Формат: минута час день месяц день_недели
-            </p>
-          </fieldset>
-        </div>
+        <!-- Cron-выражение -->
+        <UiField
+          v-if="showAdvanced"
+          label="Cron-выражение"
+          hint="Формат: минута час день месяц день_недели"
+        >
+          <UiInput v-model="advancedCron" mono placeholder="0 9 * * *" />
+        </UiField>
 
-        <!-- Toggle advanced mode -->
-        <div class="mt-3">
-          <button
-            class="btn btn-xs btn-ghost text-base-content/50"
-            @click="showAdvanced = !showAdvanced"
-          >
-            <Icon :name="showAdvanced ? 'mingcute:grid-line' : 'mingcute:code-line'" class="text-xs" />
-            {{ showAdvanced ? 'Простой режим' : 'Cron-выражение' }}
-          </button>
-        </div>
+        <UiButton variant="ghost" class="self-start" @click="showAdvanced = !showAdvanced">
+          <Icon :name="showAdvanced ? 'mingcute:grid-line' : 'mingcute:code-line'" />
+          {{ showAdvanced ? 'Простой режим' : 'Cron-выражение' }}
+        </UiButton>
 
-        <div class="divider my-2" />
+        <span class="h-px bg-divider" />
 
-        <!-- Human-readable preview -->
-        <div class="rounded-box bg-base-200/60 p-3 space-y-2">
-          <div class="flex items-center gap-2 text-sm font-medium">
-            <Icon name="mingcute:calendar-2-line" class="text-primary" />
+        <!-- Человеческая запись -->
+        <div class="flex flex-col gap-1 rounded-md border border-border bg-card p-3">
+          <div class="flex items-center gap-2 font-medium">
+            <Icon name="mingcute:calendar-2-line" class="text-accent-text" />
             <span>{{ humanDescription }}</span>
           </div>
-          <div v-if="generatedCron" class="text-[10px] font-mono text-base-content/40">
+          <div v-if="generatedCron" class="font-mono text-micro text-subtle">
             {{ generatedCron }}
           </div>
         </div>
 
-        <!-- Timezone -->
-        <fieldset class="fieldset mt-3">
-          <legend class="fieldset-legend">Часовой пояс</legend>
-          <select v-model="timezone" class="select select-sm w-full">
-            <option v-for="tz in timezones" :key="tz.value" :value="tz.value">{{ tz.label }}</option>
-          </select>
-        </fieldset>
+        <UiField label="Часовой пояс">
+          <UiSelect v-model="timezone" :options="timezones" />
+        </UiField>
 
-        <!-- Active toggle -->
-        <div class="flex items-center justify-between mt-3">
+        <div class="flex items-center justify-between gap-3">
           <div>
-            <span class="text-sm">Расписание активно</span>
-            <p class="text-[10px] text-base-content/40">Выключите, чтобы приостановить без удаления</p>
+            <span class="block">Расписание активно</span>
+            <span class="block text-micro text-subtle">Выключите, чтобы приостановить без удаления</span>
           </div>
-          <input
-            v-model="enabled"
-            type="checkbox"
-            class="toggle toggle-sm toggle-primary"
-          />
+          <UiToggle v-model="enabled" />
         </div>
 
-        <!-- Schedule info (existing schedule) -->
-        <div v-if="hasSchedule" class="mt-3 space-y-1.5 text-xs text-base-content/60">
-          <div v-if="nextRunAt" class="flex items-center gap-1.5">
-            <Icon name="mingcute:time-line" class="text-info shrink-0" />
-            <span>Следующий запуск: <strong class="text-base-content">{{ formatDate(nextRunAt) }}</strong></span>
+        <!-- Состояние существующего расписания -->
+        <ClientOnly>
+          <div v-if="hasSchedule" class="flex flex-col gap-1.5 text-sm text-muted">
+            <div v-if="nextRunAt" class="flex items-center gap-1.5">
+              <Icon name="mingcute:time-line" class="shrink-0 text-info" />
+              <span>Следующий запуск: <strong class="text-fg">{{ formatDate(nextRunAt) }}</strong></span>
+            </div>
+            <div v-if="lastRunAt" class="flex items-center gap-1.5">
+              <Icon name="mingcute:history-line" class="shrink-0 text-subtle" />
+              <span>Последний запуск: {{ formatDate(lastRunAt) }}</span>
+            </div>
+            <div v-if="lastRunStatusLabel">
+              <span
+                class="inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro"
+                :class="lastRunStatusLabel.tone"
+              >{{ lastRunStatusLabel.label }}</span>
+            </div>
+            <div v-if="missedRunCount > 0" class="flex items-center gap-1.5 text-warning">
+              <Icon name="mingcute:warning-line" class="shrink-0" />
+              <span>Пропущенных запусков: {{ missedRunCount }}</span>
+            </div>
           </div>
-          <div v-if="lastRunAt" class="flex items-center gap-1.5">
-            <Icon name="mingcute:history-line" class="shrink-0" />
-            <span>Последний запуск: {{ formatDate(lastRunAt) }}</span>
-          </div>
-          <div v-if="lastRunStatusLabel" class="flex items-center gap-1.5">
-            <span class="badge badge-xs" :class="lastRunStatusLabel.class">
-              {{ lastRunStatusLabel.label }}
-            </span>
-          </div>
-          <div v-if="missedRunCount > 0" class="flex items-center gap-1.5 text-warning">
-            <Icon name="mingcute:warning-line" class="shrink-0" />
-            <span>Пропущенных запусков: {{ missedRunCount }}</span>
-          </div>
-        </div>
+        </ClientOnly>
 
-        <!-- Error -->
-        <div v-if="errorMsg" class="alert alert-error alert-soft text-sm mt-3">
+        <p
+          v-if="errorMsg"
+          class="rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+        >
           {{ errorMsg }}
-        </div>
-
-        <!-- Actions -->
-        <div class="modal-action">
-          <button
-            v-if="hasSchedule"
-            class="btn btn-sm btn-error btn-outline"
-            :disabled="isDeleting"
-            @click="deleteSchedule"
-          >
-            <span v-if="isDeleting" class="loading loading-spinner loading-sm" />
-            Удалить расписание
-          </button>
-          <div class="flex-1" />
-          <button class="btn btn-sm" @click="emit('close')">Отмена</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="isSaving || !generatedCron"
-            @click="saveSchedule"
-          >
-            <span v-if="isSaving" class="loading loading-spinner loading-sm" />
-            Сохранить
-          </button>
-        </div>
+        </p>
       </template>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="emit('close')">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton
+        v-if="hasSchedule"
+        variant="danger"
+        size="md"
+        class="mr-auto"
+        :loading="isDeleting"
+        @click="deleteConfirmRef?.open()"
+      >
+        Удалить расписание
+      </UiButton>
+      <UiButton size="md" @click="emit('close')">Отмена</UiButton>
+      <UiButton variant="primary" size="md" :disabled="!generatedCron" :loading="isSaving" @click="saveSchedule">
+        Сохранить
+      </UiButton>
+    </template>
+  </UiModal>
+
+  <SharedConfirmModal
+    ref="deleteConfirmRef"
+    title="Удалить расписание?"
+    message="Конвейер больше не будет запускаться автоматически. Настройки расписания восстановить нельзя — их придётся задать заново."
+    confirm-label="Удалить"
+    variant="danger"
+    @confirm="deleteSchedule"
+  />
 </template>

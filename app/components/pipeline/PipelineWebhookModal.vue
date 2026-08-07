@@ -31,10 +31,13 @@ const webhookUrl = computed(() => {
 
 const copied = ref(false)
 
+// Отзыв токена ломает все внешние интеграции — спрашиваем модалкой, а не confirm().
+const revokeConfirmRef = ref<{ open: () => void, close: () => void, setBusy: (v: boolean) => void } | null>(null)
+
 async function generateToken() {
   isGenerating.value = true
   try {
-    const res = await $fetch<{ data: { token: string; secret: string } }>(
+    const res = await $fetch<{ data: { token: string, secret: string } }>(
       `/api/pipelines/${props.pipelineId}/webhook`,
       { method: 'POST' },
     )
@@ -49,17 +52,19 @@ async function generateToken() {
 }
 
 async function revokeToken() {
-  if (!confirm('Отозвать токен? Все интеграции, использующие этот URL, перестанут работать.')) return
   isRevoking.value = true
+  revokeConfirmRef.value?.setBusy(true)
   try {
     await $fetch(`/api/pipelines/${props.pipelineId}/webhook`, { method: 'DELETE' })
     emit('tokenUpdated', null)
     signingSecret.value = null
     showSecret.value = false
+    revokeConfirmRef.value?.close()
   } catch {
     // Error handled by UI
   } finally {
     isRevoking.value = false
+    revokeConfirmRef.value?.setBusy(false)
   }
 }
 
@@ -105,13 +110,16 @@ async function loadLogs() {
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString('ru-RU', {
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   })
 }
 
 // Abuse stats
-const abuseStats = ref<{ totalCount: number; errorCount: number; suspiciousIps: string[] } | null>(null)
+const abuseStats = ref<{ totalCount: number, errorCount: number, suspiciousIps: string[] } | null>(null)
 
 async function loadAbuseStats() {
   try {
@@ -152,6 +160,25 @@ const securityLevel = computed(() => {
   return 'ok'
 })
 
+const securityTone = computed(() => ({
+  critical: { box: 'border-danger-border bg-danger-bg', text: 'text-danger', label: 'Высокий риск злоупотребления' },
+  warning: { box: 'border-warning-border bg-warning-bg', text: 'text-warning', label: 'Подозрительная активность' },
+  ok: { box: 'border-success-border bg-success-bg', text: 'text-success', label: 'Без угроз' },
+  unknown: { box: 'border-border bg-card', text: 'text-muted', label: 'Данных нет' },
+}[securityLevel.value]))
+
+const SIGNING_EXAMPLE = `Headers:
+  X-Webhook-Timestamp: {unix_ms}
+  X-Webhook-Signature: HMAC-SHA256("{timestamp}.{body}", secret)
+  X-Webhook-Nonce: {unique_id} (опционально)`
+
+const GUARANTEES = [
+  'Многоуровневый rate limiting (конвейер, IP, глобальный)',
+  'Подпись HMAC-SHA256 при настроенном секрете',
+  'Защита от повторов (timestamp и nonce)',
+  'Авто-отключение при массовом злоупотреблении',
+]
+
 watch(() => props.visible, (v) => {
   if (v && props.currentToken) {
     loadLogs()
@@ -161,226 +188,178 @@ watch(() => props.visible, (v) => {
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': visible }">
-    <div class="modal-box max-w-lg">
-      <h3 class="text-lg font-bold flex items-center gap-2">
-        <Icon name="mingcute:link-line" class="text-primary" />
+  <UiModal :open="visible" @close="emit('close')">
+    <template #header>
+      <span class="flex items-center gap-2">
+        <Icon name="mingcute:link-line" class="text-accent-text" />
         Webhook
-      </h3>
+      </span>
+    </template>
 
-      <p class="text-sm text-base-content/60 mt-2">
+    <div class="flex flex-col gap-3">
+      <p class="text-muted">
         Webhook позволяет запускать конвейер через HTTP POST-запрос из внешних сервисов.
       </p>
 
-      <!-- No token -->
-      <div v-if="!currentToken" class="mt-4">
-        <div class="rounded-box border border-base-300 bg-base-200/50 p-4 text-center">
-          <Icon name="mingcute:link-line" class="text-3xl text-base-content/30 mb-2" />
-          <p class="text-sm text-base-content/50">Webhook не настроен</p>
+      <!-- Токена нет -->
+      <template v-if="!currentToken">
+        <div class="flex flex-col items-center gap-2 rounded-md border border-border bg-card p-4 text-center">
+          <Icon name="mingcute:link-line" class="text-2xl text-subtle" />
+          <p class="text-muted">Webhook не настроен</p>
         </div>
 
-        <button
-          class="btn btn-primary btn-sm btn-block mt-3"
-          :disabled="isGenerating"
-          @click="generateToken"
-        >
-          <span v-if="isGenerating" class="loading loading-spinner loading-sm" />
-          <Icon v-else name="mingcute:key-1-line" />
+        <UiButton variant="primary" size="md" class="w-full justify-center" :loading="isGenerating" @click="generateToken">
+          <Icon v-if="!isGenerating" name="mingcute:key-1-line" />
           Сгенерировать токен
-        </button>
-      </div>
+        </UiButton>
+      </template>
 
-      <!-- Has token -->
-      <div v-else class="mt-4 space-y-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">URL для вызова (POST)</legend>
+      <!-- Токен есть -->
+      <template v-else>
+        <UiField label="URL для вызова (POST)">
           <div class="flex gap-1">
-            <input
-              :value="webhookUrl"
-              type="text"
-              class="input input-sm flex-1 font-mono text-xs"
-              readonly
-            />
-            <div class="tooltip tooltip-left" :data-tip="copied ? 'Скопировано!' : 'Копировать URL'">
-              <button
-                class="btn btn-sm btn-ghost btn-square"
-                :class="{ 'text-success': copied }"
-                @click="copyUrl"
-              >
-                <Icon :name="copied ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
-              </button>
-            </div>
+            <UiInput :model-value="webhookUrl" mono readonly class="min-w-0 flex-1" />
+            <UiTooltip :text="copied ? 'Скопировано' : 'Копировать URL'" placement="left">
+              <UiButton variant="ghost" icon-only size="md" @click="copyUrl">
+                <Icon
+                  :name="copied ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
+                  :class="copied && 'text-success'"
+                />
+              </UiButton>
+            </UiTooltip>
           </div>
-        </fieldset>
+        </UiField>
 
-        <!-- Signing secret -->
-        <div v-if="signingSecret && showSecret" class="rounded-box border border-warning/30 bg-warning/5 p-3 space-y-2">
-          <div class="flex items-center gap-1.5 text-xs font-semibold text-warning">
+        <!-- Секрет подписи -->
+        <div
+          v-if="signingSecret && showSecret"
+          class="flex flex-col gap-2 rounded-md border border-warning-border bg-warning-bg p-3"
+        >
+          <div class="flex items-center gap-1.5 font-semibold text-warning">
             <Icon name="mingcute:shield-line" />
             Signing Secret (HMAC-SHA256)
           </div>
-          <p class="text-[10px] text-base-content/50">
+          <p class="text-micro text-muted">
             Сохраните этот секрет — он показывается только один раз. Используйте для подписи запросов.
           </p>
           <div class="flex gap-1">
-            <input
-              :value="signingSecret"
-              type="text"
-              class="input input-sm flex-1 font-mono text-[10px]"
-              readonly
-            />
-            <div class="tooltip tooltip-left" :data-tip="secretCopied ? 'Скопировано!' : 'Копировать секрет'">
-              <button
-                class="btn btn-sm btn-ghost btn-square"
-                :class="{ 'text-success': secretCopied }"
-                @click="copySecret"
-              >
-                <Icon :name="secretCopied ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
-              </button>
-            </div>
+            <UiInput :model-value="signingSecret" mono readonly class="min-w-0 flex-1" />
+            <UiTooltip :text="secretCopied ? 'Скопировано' : 'Копировать секрет'" placement="left">
+              <UiButton variant="ghost" icon-only size="md" @click="copySecret">
+                <Icon
+                  :name="secretCopied ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
+                  :class="secretCopied && 'text-success'"
+                />
+              </UiButton>
+            </UiTooltip>
           </div>
-          <details class="text-[10px] text-base-content/40">
+          <details class="text-micro text-subtle">
             <summary class="cursor-pointer">Как подписывать запросы</summary>
-            <pre class="mt-1 p-2 bg-base-200 rounded text-[9px] whitespace-pre-wrap">Headers:
-  X-Webhook-Timestamp: {unix_ms}
-  X-Webhook-Signature: HMAC-SHA256("{timestamp}.{body}", secret)
-  X-Webhook-Nonce: {unique_id} (опционально)</pre>
+            <pre class="mt-1 rounded-sm border border-divider bg-card p-2 font-mono text-micro whitespace-pre-wrap">{{ SIGNING_EXAMPLE }}</pre>
           </details>
         </div>
 
-        <!-- Enable/disable toggle -->
-        <div class="flex items-center justify-between">
-          <span class="text-sm">Webhook активен</span>
-          <input
-            type="checkbox"
-            class="toggle toggle-sm toggle-primary"
-            :checked="store.webhookEnabled"
-            @change="toggleWebhookEnabled"
-          />
+        <div class="flex items-center justify-between gap-3">
+          <span>Webhook активен</span>
+          <UiToggle :model-value="store.webhookEnabled" @update:model-value="toggleWebhookEnabled" />
         </div>
 
-        <div v-if="!store.webhookEnabled" class="alert alert-warning alert-soft text-xs">
-          <Icon name="mingcute:warning-line" />
+        <p
+          v-if="!store.webhookEnabled"
+          class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-muted"
+        >
+          <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0 text-warning" />
           Webhook отключён. Запросы будут отклонены с кодом 403.
-        </div>
+        </p>
 
         <div class="flex gap-2">
-          <button
-            class="btn btn-outline btn-sm flex-1"
-            :disabled="isGenerating"
-            @click="generateToken"
-          >
-            <span v-if="isGenerating" class="loading loading-spinner loading-sm" />
-            <Icon v-else name="mingcute:refresh-1-line" />
+          <UiButton size="md" class="flex-1 justify-center" :loading="isGenerating" @click="generateToken">
+            <Icon v-if="!isGenerating" name="mingcute:refresh-1-line" />
             Перегенерировать
-          </button>
-          <button
-            class="btn btn-error btn-outline btn-sm"
-            :disabled="isRevoking"
-            @click="revokeToken"
-          >
-            <span v-if="isRevoking" class="loading loading-spinner loading-sm" />
-            <Icon v-else name="mingcute:delete-2-line" />
+          </UiButton>
+          <UiButton variant="danger" size="md" :loading="isRevoking" @click="revokeConfirmRef?.open()">
+            <Icon v-if="!isRevoking" name="mingcute:delete-2-line" />
             Отозвать
-          </button>
+          </UiButton>
         </div>
 
-        <!-- Security posture panel -->
-        <div class="divider text-xs">Безопасность</div>
+        <!-- Безопасность -->
+        <div class="flex items-center gap-2 text-micro text-subtle">
+          <span class="h-px flex-1 bg-divider" />
+          Безопасность
+          <span class="h-px flex-1 bg-divider" />
+        </div>
 
-        <div
-          v-if="abuseStats"
-          class="rounded-box text-xs p-2.5 space-y-1.5"
-          :class="{
-            'bg-error/10 border border-error/20': securityLevel === 'critical',
-            'bg-warning/10 border border-warning/20': securityLevel === 'warning',
-            'bg-success/5 border border-success/10': securityLevel === 'ok',
-          }"
-        >
-          <div
-            class="flex items-center gap-1.5 font-semibold"
-            :class="{
-              'text-error': securityLevel === 'critical',
-              'text-warning': securityLevel === 'warning',
-              'text-success': securityLevel === 'ok',
-            }"
-          >
-            <Icon
-              :name="securityLevel === 'ok'
-                ? 'mingcute:shield-line'
-                : 'mingcute:warning-line'"
-            />
-            <span v-if="securityLevel === 'critical'">Высокий риск злоупотребления</span>
-            <span v-else-if="securityLevel === 'warning'">Подозрительная активность</span>
-            <span v-else>Без угроз</span>
+        <div v-if="abuseStats" class="flex flex-col gap-1.5 rounded-md border p-2.5" :class="securityTone.box">
+          <div class="flex items-center gap-1.5 font-semibold" :class="securityTone.text">
+            <Icon :name="securityLevel === 'ok' ? 'mingcute:shield-line' : 'mingcute:warning-line'" />
+            {{ securityTone.label }}
           </div>
-          <div class="text-[10px] text-base-content/60">
-            24ч: {{ abuseStats.totalCount }} запросов, {{ abuseStats.errorCount }} ошибок
+          <div class="text-micro text-muted">
+            24 ч: {{ abuseStats.totalCount }} запросов, {{ abuseStats.errorCount }} ошибок
           </div>
-          <div v-if="abuseStats.suspiciousIps.length > 0" class="text-[10px] text-base-content/50">
+          <div v-if="abuseStats.suspiciousIps.length > 0" class="text-micro text-muted">
             Подозрительные IP: {{ abuseStats.suspiciousIps.join(', ') }}
           </div>
 
-          <div class="text-[10px] text-base-content/40 space-y-0.5 mt-1">
-            <div class="flex items-center gap-1">
-              <Icon name="mingcute:check-circle-line" class="text-success text-[10px]" />
-              <span>Multi-layer rate limiting (pipeline + IP + global)</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="mingcute:check-circle-line" class="text-success text-[10px]" />
-              <span>HMAC-SHA256 подпись (при настроенном secret)</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="mingcute:check-circle-line" class="text-success text-[10px]" />
-              <span>Replay protection (timestamp + nonce)</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="mingcute:check-circle-line" class="text-success text-[10px]" />
-              <span>Авто-отключение при массовом abuse</span>
+          <div class="mt-1 flex flex-col gap-0.5 text-micro text-subtle">
+            <div v-for="g in GUARANTEES" :key="g" class="flex items-center gap-1">
+              <Icon name="mingcute:check-circle-line" class="shrink-0 text-success" />
+              <span>{{ g }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Webhook logs -->
-        <div class="divider text-xs">Журнал запросов</div>
-
-        <div v-if="isLoadingLogs" class="flex justify-center py-3">
-          <span class="loading loading-spinner loading-sm" />
+        <!-- Журнал запросов -->
+        <div class="flex items-center gap-2 text-micro text-subtle">
+          <span class="h-px flex-1 bg-divider" />
+          Журнал запросов
+          <span class="h-px flex-1 bg-divider" />
         </div>
 
-        <div v-else-if="logs.length === 0" class="text-center py-3 text-xs text-base-content/40">
+        <div v-if="isLoadingLogs" class="flex justify-center py-3 text-muted">
+          <Icon name="mingcute:loading-line" class="animate-spin text-lg" />
+        </div>
+
+        <p v-else-if="logs.length === 0" class="py-3 text-center text-sm text-subtle">
           Запросов пока нет
-        </div>
+        </p>
 
-        <div v-else class="space-y-1 max-h-48 overflow-y-auto">
+        <div v-else class="flex max-h-48 flex-col gap-1 overflow-y-auto">
           <div
             v-for="log in logs"
             :key="log.id"
-            class="flex items-center gap-2 text-xs p-1.5 rounded-box"
-            :class="log.statusCode === 200 ? 'bg-success/5' : 'bg-error/5'"
+            class="flex items-center gap-2 rounded-md border px-1.5 py-1 text-sm"
+            :class="log.statusCode === 200
+              ? 'border-success-border bg-success-bg'
+              : 'border-danger-border bg-danger-bg'"
           >
             <span
-              class="badge badge-xs"
-              :class="log.statusCode === 200 ? 'badge-success' : 'badge-error'"
-            >
-              {{ log.statusCode }}
-            </span>
-            <span class="font-mono text-[10px] text-base-content/40">
-              {{ formatDate(log.createdAt) }}
-            </span>
-            <span v-if="log.runId" class="text-base-content/50">run #{{ log.runId }}</span>
-            <span v-if="log.errorMsg" class="text-error truncate max-w-40">{{ log.errorMsg }}</span>
-            <span class="text-base-content/30 ml-auto text-[10px]">{{ log.sourceIp }}</span>
+              class="tnum inline-flex h-[18px] shrink-0 items-center rounded-sm border px-1.5 text-micro"
+              :class="log.statusCode === 200
+                ? 'border-success-border text-success'
+                : 'border-danger-border text-danger'"
+            >{{ log.statusCode }}</span>
+            <span class="shrink-0 font-mono text-micro text-subtle">{{ formatDate(log.createdAt) }}</span>
+            <span v-if="log.runId" class="shrink-0 text-muted">запуск #{{ log.runId }}</span>
+            <span v-if="log.errorMsg" class="max-w-40 truncate text-danger">{{ log.errorMsg }}</span>
+            <span class="ml-auto shrink-0 text-micro text-subtle">{{ log.sourceIp }}</span>
           </div>
         </div>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-sm" @click="emit('close')">Закрыть</button>
-      </div>
+      </template>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="emit('close')">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton size="md" @click="emit('close')">Закрыть</UiButton>
+    </template>
+  </UiModal>
+
+  <SharedConfirmModal
+    ref="revokeConfirmRef"
+    title="Отозвать токен?"
+    message="Все интеграции, использующие этот URL, перестанут работать. Отменить отзыв нельзя — понадобится новый токен и новый секрет."
+    confirm-label="Отозвать"
+    variant="danger"
+    @confirm="revokeToken"
+  />
 </template>
