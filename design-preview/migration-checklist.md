@@ -25,7 +25,7 @@
 | `+` | `ideas/index.vue` | форма добавления и панель синхронизации переписаны |
 | `+` | `videos/index.vue` | факт стоимости, оценка только пока факта нет |
 | `+` | `uploads/index.vue` | ошибка публикации подсказкой в строке |
-| `+` | `accounts/index.vue` | таблица по макету 06; колонки лимита нет — API его не отдаёт |
+| `+` | `accounts/index.vue` | таблица по макету 06; колонка лимита и прогрев вернулись вместе с полями в API |
 | `+` | `posting-jobs/index.vue` | список и сетка «аккаунт × час»; зона выключается флагом |
 | `+` | `characters/index.vue` | галерея, превью 4:3 |
 | `+` | `scenes/index.vue` | галерея, превью собранного промпта |
@@ -63,11 +63,11 @@
 | | Файл | Макет |
 | --- | --- | --- |
 | `+` | `index.vue` | 01-dashboard · расход за сутки вернулся, у запусков прогресс и стоимость; интеграций, воронки и итогов периода по-прежнему нет |
-| `—` | `pipeline/[id]/index.vue` | 04-pipeline-editor |
+| `~` | `pipeline/[id]/index.vue` | 04-pipeline-editor · шапка, палитра, полотно, блок и правая панель переписаны; формы настроек блоков и четыре модалки шапки остаются на DaisyUI |
 | `+` | `pipeline/[id]/runs/index.vue` | 05-run-monitor · история по дням, отбор упавших считает сервер |
 | `+` | `pipeline/runs.vue` | 05-run-monitor · все конвейеры, фильтры по конвейеру, статусу и дню |
 | `+` | `pipeline/[id]/runs/[runId].vue` | 05-run-monitor · шаги со стоимостью, нормы длительности, пропуск шага, логи, схема |
-| `—` | `analytics/index.vue` | 07-analytics |
+| `+` | `analytics/index.vue` | 07-analytics · воронка атрибуции, KPI с дельтой, рейтинги, динамика и разбор публикации |
 | `+` | `settings.vue` | 08-settings-admin · профиль, тема, состояние MarketingCamp |
 | `+` | `admin/index.vue` | 08-settings-admin · разделы, строка состояния, здоровье системы с планировщиками, очередь и ошибки |
 | `+` | `admin/integrations/index.vue` | 08-settings-admin · состояние сервисов и «Проверить все»; ключей нет — они в окружении |
@@ -119,7 +119,9 @@ bun run scripts/seed-pipeline-runs-demo.ts # конвейер из 9 блоко�
 bun run scripts/seed-cost-ledger-demo.ts # журнал списаний из шагов роликов — расход в админке
 bun run scripts/seed-trend-profiles-demo.ts # профили парсинга и их запуски — вкладки на /trends
 bun run scripts/seed-telegram-demo.ts    # чаты, шаблоны, ключи, доставки и аудит Telegram
+bun run scripts/seed-ab-variants-demo.ts # хуки, вторые варианты сценария и гео трендов — рейтинги
 bun run scripts/seed-post-metrics-demo.ts # замеры просмотров и CTR — аналитика (после uploads)
+bun run scripts/seed-attribution-demo.ts # переходы, заявки и продажи по tracking token — воронка
 ```
 
 `seed-dev-user` запускать первым: без пользователя не работает ни вход, ни
