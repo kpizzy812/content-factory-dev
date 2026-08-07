@@ -1,55 +1,48 @@
 <script setup lang="ts">
 /**
- * Верхняя плашка статистики в /analytics → таб «Аккаунты».
- * Сумма по выборке аккаунтов: всего, со снапшотами, сумма followers,
- * средний engagement. totalFollowers — string из BigInt (serializeSnapshot).
+ * Сумма по выборке аккаунтов на вкладке «Аккаунты».
+ *
+ * `totalFollowers` приходит строкой из BigInt — сериализация снимка не теряет
+ * точность на больших числах.
  */
-import type { AccountsSummaryAggregate } from "~~/shared/types/analytics"
+import type { AccountsSummaryAggregate } from '~~/shared/types/analytics'
 
-defineProps<{
+const props = defineProps<{
   aggregate: AccountsSummaryAggregate
 }>()
+
+const tiles = computed(() => [
+  {
+    key: 'accounts',
+    label: 'Аккаунтов',
+    value: String(props.aggregate.accountsTotal),
+    caption: `со снимками: ${props.aggregate.accountsWithMetrics}`,
+  },
+  {
+    key: 'followers',
+    label: 'Сумма подписчиков',
+    value: formatBigInt(props.aggregate.totalFollowers),
+    caption: 'по последним успешным снимкам',
+  },
+  {
+    key: 'engagement',
+    label: 'Средний engagement',
+    value: formatEngagementRate(props.aggregate.avgEngagement),
+    caption: 'по аккаунтам со снимками',
+  },
+])
 </script>
 
 <template>
-  <div class="stats stats-vertical sm:stats-horizontal shadow-sm w-full bg-base-100">
-    <div class="stat">
-      <div class="stat-figure text-primary">
-        <Icon name="mingcute:group-line" class="text-2xl" />
-      </div>
-      <div class="stat-title">Аккаунтов</div>
-      <div class="stat-value text-primary">
-        {{ aggregate.accountsTotal }}
-      </div>
-      <div class="stat-desc text-xs">
-        со снапшотами: {{ aggregate.accountsWithMetrics }}
-      </div>
+  <section class="grid overflow-hidden rounded-lg border border-border bg-panel sm:grid-cols-3">
+    <div
+      v-for="tile in tiles"
+      :key="tile.key"
+      class="border-b border-divider px-3 py-2.5 last:border-b-0 sm:border-r sm:border-b-0 sm:last:border-r-0"
+    >
+      <div class="text-[11px] text-muted">{{ tile.label }}</div>
+      <div class="tnum my-0.5 font-mono text-lg font-semibold">{{ tile.value }}</div>
+      <div class="text-[11px] text-subtle">{{ tile.caption }}</div>
     </div>
-
-    <div class="stat">
-      <div class="stat-figure text-secondary">
-        <Icon name="mingcute:user-following-line" class="text-2xl" />
-      </div>
-      <div class="stat-title">Сумма подписчиков</div>
-      <div class="stat-value text-secondary">
-        {{ formatBigInt(aggregate.totalFollowers) }}
-      </div>
-      <div class="stat-desc text-xs">
-        по последним 'ok'-снимкам
-      </div>
-    </div>
-
-    <div class="stat">
-      <div class="stat-figure text-accent">
-        <Icon name="mingcute:heart-line" class="text-2xl" />
-      </div>
-      <div class="stat-title">Средний engagement</div>
-      <div class="stat-value text-accent">
-        {{ formatEngagementRate(aggregate.avgEngagement) }}
-      </div>
-      <div class="stat-desc text-xs">
-        по аккаунтам со снимками
-      </div>
-    </div>
-  </div>
+  </section>
 </template>

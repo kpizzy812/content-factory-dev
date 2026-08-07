@@ -1,44 +1,40 @@
 <script setup lang="ts">
+/**
+ * Сбор метрик публикаций.
+ *
+ * Ходит в социальные платформы, поэтому это главное действие раздела и стоит
+ * видимой кнопкой, а не пунктом меню: прятать его глубже, чем удаление,
+ * вредно. Денег сбор не стоит — тарифицируется только Apify-сбор профилей,
+ * а он живёт на вкладке аккаунтов.
+ */
 const { can } = usePermissions()
 
-const emit = defineEmits<{
-  collected: []
-}>()
+const emit = defineEmits<{ collected: [] }>()
 
 const { collectMetrics, isCollecting, collectError, collectResult } = useAnalyticsActions()
 
 async function handleCollect() {
   const result = await collectMetrics()
-  if (result) {
-    emit('collected')
-  }
+  if (result) emit('collected')
 }
 </script>
 
 <template>
-  <div v-if="can('canRunAgent')" class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-    <button
-      class="btn btn-primary btn-sm"
-      :disabled="isCollecting"
-      @click="handleCollect"
-    >
-      <span v-if="isCollecting" class="loading loading-spinner loading-sm" />
-      <Icon v-else name="mingcute:refresh-2-line" />
+  <div v-if="can('canRunAgent')" class="flex flex-wrap items-center gap-2.5">
+    <UiButton :loading="isCollecting" @click="handleCollect">
+      <Icon v-if="!isCollecting" name="mingcute:refresh-2-line" />
       Собрать метрики
-    </button>
+    </UiButton>
 
-    <div v-if="collectResult" class="flex items-center gap-2 text-sm">
-      <span class="badge badge-success badge-sm">
-        Собрано: {{ collectResult.collected }}
-      </span>
-      <span v-if="collectResult.errorsCount > 0" class="badge badge-error badge-sm">
-        Ошибок: {{ collectResult.errorsCount }}
-      </span>
-    </div>
+    <span v-if="collectResult" class="text-sm text-muted">
+      собрано {{ collectResult.collected }}<template v-if="collectResult.errorsCount > 0">
+        · <span class="text-danger">ошибок {{ collectResult.errorsCount }}</span>
+      </template>
+    </span>
 
-    <div v-if="collectError" role="alert" class="alert alert-error alert-sm text-sm py-1 px-3">
-      <Icon name="mingcute:warning-line" class="text-xs" />
-      <span>{{ collectError }}</span>
-    </div>
+    <span v-if="collectError" role="alert" class="flex items-center gap-1.5 text-sm text-danger">
+      <Icon name="mingcute:warning-line" />
+      {{ collectError }}
+    </span>
   </div>
 </template>

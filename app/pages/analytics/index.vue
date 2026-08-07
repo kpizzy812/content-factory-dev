@@ -1,19 +1,83 @@
 <script setup lang="ts">
+/**
+ * Аналитика. Источник: design-preview/catalog/07-analytics.dc.html.
+ *
+ * Экран отвечает на три вопроса подряд: сколько дошло от тренда до продажи,
+ * что именно сработало и как это выглядело во времени. Разбор одной публикации
+ * открывается кликом по ролику в рейтинге — это та же цепочка, только целиком.
+ *
+ * Вкладки «По аккаунту» и «Аккаунты» остались от прежнего экрана: там живут
+ * per-post выборка по одному аккаунту и Apify-метрики профилей, и сквозная
+ * воронка их не заменяет.
+ */
+import type { AttributionModel, TimeseriesMetric } from '#shared/types/analytics-funnel'
+import { periodLabel } from '~/components/analytics/AnalyticsFunnelFormat'
+
 definePageMeta({ layout: 'default', middleware: 'module-access', moduleSlug: 'analytics' })
 useHead({ title: 'Аналитика' })
 
+type Tab = 'summary' | 'account' | 'accounts'
+
+const route = useRoute()
+const router = useRouter()
 const filtersStore = useAnalyticsFiltersStore()
 
-// URL ↔ state sync для runId/pipelineId (из кнопки «К юниту» монитора исполнений)
+// URL ↔ state sync для runId/pipelineId (из кнопки «К юниту» монитора запусков)
 useRunPipelineFilter(filtersStore)
 
-const activeTab = ref<'summary' | 'account' | 'accounts'>('summary')
+const activeTab = computed<Tab>(() => {
+  const value = route.query.tab
+  return value === 'account' || value === 'accounts' ? value : 'summary'
+})
 
-const { data: dashboardData, refresh: refreshDashboard } = useAnalyticsDashboard(computed(() => filtersStore.dashboardQuery))
-const { data: postsData, pending, error, refresh: refreshPosts } = useAnalyticsPosts(computed(() => filtersStore.query))
+const TABS: Array<{ key: Tab, label: string, icon: string }> = [
+  { key: 'summary', label: 'Сводный вид', icon: 'mingcute:chart-bar-line' },
+  { key: 'account', label: 'По аккаунту', icon: 'mingcute:user-star-line' },
+  { key: 'accounts', label: 'Аккаунты', icon: 'mingcute:group-line' },
+]
 
-// Apify-метрики на табе «Аккаунты»: фильтры только platform/appId
-// (date/run/pipeline не применимы к AccountMetricsSnapshot — это per-account snapshot).
+function setTab(tab: Tab) {
+  if (tab !== 'account') filtersStore.socialAccountId = undefined
+  filtersStore.resetPage()
+  router.replace({ query: { ...route.query, tab: tab === 'summary' ? undefined : tab } })
+}
+
+// ── Сквозная аналитика ──────────────────────────────────────────────────────
+const scopeQuery = computed(() => filtersStore.scopeQuery)
+const attributionModel = ref<AttributionModel>('first')
+const chartMetric = ref<TimeseriesMetric>('views')
+
+const { data: funnelData, pending: funnelPending, error: funnelError, refresh: refreshFunnel }
+  = useAnalyticsFunnel(scopeQuery)
+const { data: rankingsData, pending: rankingsPending } = useAnalyticsRankings(scopeQuery, attributionModel)
+const { data: seriesData, pending: seriesPending } = useAnalyticsTimeseries(scopeQuery, chartMetric)
+
+const funnel = computed(() => funnelData.value?.data ?? null)
+const rankings = computed(() => rankingsData.value?.data ?? null)
+const series = computed(() => seriesData.value?.data ?? null)
+
+const headerPeriod = computed(() =>
+  funnel.value ? periodLabel(funnel.value.period.from, funnel.value.period.to) : '',
+)
+
+// ── Разбор одной публикации ────────────────────────────────────────────────
+const selectedUploadId = ref<number | null>(null)
+const { data: chainData, pending: chainPending, execute: loadChain } = useAnalyticsChain(selectedUploadId)
+const chain = computed(() => chainData.value?.data ?? null)
+
+async function selectPublication(uploadId: number) {
+  selectedUploadId.value = uploadId
+  await loadChain()
+}
+
+// ── Таблица публикаций (прежний экран) ──────────────────────────────────────
+const { data: postsData, pending: postsPending, error: postsError, refresh: refreshPosts }
+  = useAnalyticsPosts(computed(() => filtersStore.query))
+
+const posts = computed(() => postsData.value?.data ?? [])
+const meta = computed(() => postsData.value?.meta ?? { total: 0, page: 1, perPage: 20, totalPages: 1 })
+
+// ── Apify-метрики аккаунтов ────────────────────────────────────────────────
 const accountsSummaryQuery = computed(() => ({
   ...(filtersStore.appId ? { appId: filtersStore.appId } : {}),
   ...(filtersStore.platform ? { platform: filtersStore.platform } : {}),
@@ -22,64 +86,27 @@ const {
   data: accountsSummaryData,
   pending: accountsSummaryPending,
   error: accountsSummaryError,
-  refresh: refreshAccountsSummary,
 } = useAnalyticsAccountsSummary(accountsSummaryQuery)
 const accountsSummary = computed(() => accountsSummaryData.value?.data ?? null)
 
-const dashboard = computed(() => dashboardData.value?.data ?? null)
-const posts = computed(() => postsData.value?.data ?? [])
-const meta = computed(() => postsData.value?.meta ?? { total: 0, page: 1, perPage: 20, totalPages: 1 })
-
-const lastCollectedAt = computed(() => {
-  const allMetrics = posts.value
-    .filter(p => p.latestMetrics)
-    .map(p => p.latestMetrics!.collectedAt)
-  if (allMetrics.length === 0) return null
-  const latest = allMetrics.sort().reverse()[0]
-  if (!latest) return null
-  return new Date(latest).toLocaleString('ru-RU')
-})
-
-// Аккаунты для таба "По аккаунту"
-const accountQuery = computed(() => ({}))
-const { data: accountsData } = useAccounts(accountQuery)
+const { data: accountsData } = useAccounts(computed(() => ({})))
 const accountsList = computed(() => accountsData.value?.data ?? [])
+const accountOptions = computed(() => [
+  { value: '', label: 'Выберите аккаунт' },
+  ...accountsList.value.map(account => ({
+    value: account.id,
+    label: `${account.displayName} · ${account.platform}`,
+  })),
+])
 
-function onSelectAccount(id: number) {
-  filtersStore.socialAccountId = id
+function onSelectAccount(value: string | number) {
+  const parsed = Number(value)
+  filtersStore.socialAccountId = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
   filtersStore.resetPage()
-}
-
-type SortField = 'views' | 'likes' | 'comments' | 'shares' | 'watchThrough' | 'ctr' | 'followerGain' | 'createdAt'
-
-function onSortUpdate(field: string) {
-  filtersStore.toggleSort(field as SortField)
-}
-
-function onPageUpdate(p: number) {
-  filtersStore.page = p
 }
 
 async function onCollected() {
-  await Promise.all([refreshDashboard(), refreshPosts()])
-}
-
-function switchToAccount() {
-  activeTab.value = 'account'
-}
-
-function switchToSummary() {
-  activeTab.value = 'summary'
-  filtersStore.socialAccountId = undefined
-  filtersStore.resetPage()
-}
-
-function switchToAccounts() {
-  activeTab.value = 'accounts'
-  // На табе «Аккаунты» socialAccountId не нужен — сбрасываем, чтобы не
-  // влиять на post-level выборки при возврате.
-  filtersStore.socialAccountId = undefined
-  refreshAccountsSummary()
+  await Promise.all([refreshFunnel(), refreshPosts()])
 }
 
 function clearRunFilter() {
@@ -94,58 +121,17 @@ function clearPipelineFilter() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <h1 class="text-2xl font-bold text-base-content">Аналитика</h1>
-
-    <SharedPageGuide
-      guide-key="analytics"
-      :title="pageGuides.analytics.title"
-      :steps="pageGuides.analytics.steps"
-      :tips="pageGuides.analytics.tips"
-    />
-
-    <!-- Табы -->
-    <div role="tablist" class="tabs tabs-box">
-      <button
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'summary' }"
-        @click="switchToSummary"
-      >
-        Сводный вид
-      </button>
-      <button
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'account' }"
-        @click="switchToAccount"
-      >
-        По аккаунту
-      </button>
-      <button
-        role="tab"
-        class="tab"
-        :class="{ 'tab-active': activeTab === 'accounts' }"
-        @click="switchToAccounts"
-        title="Apify-метрики профилей соцсетей. Покрывает и API-track, и browser_automation."
-      >
-        Аккаунты
-      </button>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2.5">
+      <h1 class="text-xl font-semibold tracking-[-.01em]">Аналитика</h1>
+      <span v-if="headerPeriod" class="tnum font-mono text-micro text-subtle">{{ headerPeriod }}</span>
     </div>
 
-    <!-- Источник данных — пояснение разводки треков -->
-    <div
-      v-if="activeTab === 'accounts'"
-      class="text-xs text-base-content/60 px-1"
-    >
-      <Icon name="mingcute:information-line" class="inline-block align-text-bottom" />
-      Метрики аккаунтов через Apify (followers / engagement / posts). Покрывает любой
-      <code class="bg-base-200 px-1 rounded">postingMethod</code> — публичный профиль
-      скрейпится независимо от способа постинга. Per-post метрики (просмотры / CTR
-      опубликованного поста) — на вкладке «Сводный вид».
+    <div class="flex flex-wrap items-center gap-2">
+      <AnalyticsPeriodPicker />
+      <AnalyticsFilters />
     </div>
 
-    <!-- Фильтр по запуску / конвейеру -->
     <SharedRunPipelineFilterBadge
       :run-id="filtersStore.runId"
       :pipeline-id="filtersStore.pipelineId"
@@ -153,72 +139,162 @@ function clearPipelineFilter() {
       @clear-pipeline="clearPipelineFilter"
     />
 
-    <!-- Таб "По аккаунту": выбор аккаунта -->
-    <template v-if="activeTab === 'account'">
-      <fieldset class="fieldset max-w-xs">
-        <legend class="fieldset-legend">Выберите аккаунт</legend>
-        <select
-          :value="filtersStore.socialAccountId ?? ''"
-          class="select w-full"
-          @change="onSelectAccount(Number(($event.target as HTMLSelectElement).value))"
-        >
-          <option value="" disabled>Выберите аккаунт</option>
-          <option
-            v-for="acc in accountsList"
-            :key="acc.id"
-            :value="acc.id"
-          >
-            {{ acc.displayName }} ({{ acc.platform }})
-          </option>
-        </select>
-      </fieldset>
-    </template>
-
-    <!-- Фильтры для сводного -->
-    <AnalyticsFilters v-if="activeTab === 'summary'" />
-
-    <div
-      v-if="activeTab !== 'accounts'"
-      class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-    >
-      <AnalyticsCollectButton @collected="onCollected" />
-      <span v-if="lastCollectedAt" class="text-sm text-base-content/50">
-        Последнее обновление: {{ lastCollectedAt }}
-      </span>
+    <div class="flex gap-0.5 border-b border-divider">
+      <button
+        v-for="tab in TABS"
+        :key="tab.key"
+        type="button"
+        class="flex h-8 cursor-pointer items-center gap-1.5 border-b-2 px-2.5 text-base"
+        :class="activeTab === tab.key
+          ? 'border-accent font-medium text-fg'
+          : 'border-transparent text-muted hover:text-fg'"
+        @click="setTab(tab.key)"
+      >
+        <Icon :name="tab.icon" />
+        {{ tab.label }}
+      </button>
     </div>
 
-    <!-- ========== ТАБ «Аккаунты»: Apify-метрики, summary endpoint ========== -->
-    <template v-if="activeTab === 'accounts'">
-      <div
-        v-if="accountsSummaryPending && !accountsSummary"
-        class="flex justify-center py-12"
-      >
-        <span class="loading loading-spinner loading-lg" />
-      </div>
-
-      <div
-        v-else-if="accountsSummaryError"
-        role="alert"
-        class="alert alert-error alert-soft"
-      >
-        <Icon name="mingcute:warning-line" />
-        <span>Ошибка загрузки сводки: {{ accountsSummaryError.message }}</span>
-      </div>
-
-      <SharedEmptyState
-        v-else-if="accountsSummary && accountsSummary.items.length === 0"
-        icon="mingcute:group-line"
-        title="Аккаунтов нет"
-        description="Создайте аккаунт в /accounts и соберите статистику в табе «Статистика»."
+    <!-- ── Сводный вид ─────────────────────────────────────────────────── -->
+    <template v-if="activeTab === 'summary'">
+      <UiErrorState
+        v-if="funnelError"
+        title="Не удалось посчитать воронку"
+        :message="funnelError.message"
+        @retry="refreshFunnel"
       />
+      <UiSkeleton v-else-if="!funnel && funnelPending" variant="details" :count="4" />
+      <AnalyticsFunnel v-else-if="funnel" :funnel="funnel" />
 
+      <AnalyticsKpiRow v-if="funnel" :kpis="funnel.kpis" />
+
+      <!--
+        На телефоне остаются воронка и KPI: рейтинги, график и разбор — это
+        таблицы в пять колонок, и на 390 они превращаются в кашу. Так же
+        сделано в макете: «Рейтинги и разбор публикации — с компьютера».
+      -->
+      <p class="text-sm text-subtle sm:hidden">
+        Рейтинги, динамика и разбор публикации — с компьютера: на телефоне
+        остаются воронка и показатели периода.
+      </p>
+
+      <div class="hidden gap-3 sm:grid xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <UiSkeleton v-if="!rankings && rankingsPending" variant="details" :count="4" />
+        <AnalyticsTopVideos
+          v-else-if="rankings"
+          :videos="rankings.topVideos"
+          :selected-upload-id="selectedUploadId"
+          @select="selectPublication"
+        />
+        <AnalyticsLeadsByAccount
+          v-if="rankings"
+          :accounts="rankings.byAccount"
+          :geo="rankings.geo"
+          :period-label="headerPeriod"
+        />
+      </div>
+
+      <section v-if="rankings" class="hidden flex-col gap-3 sm:flex">
+        <div class="flex flex-wrap items-baseline gap-2.5">
+          <h2 class="text-base font-semibold">Что сработало</h2>
+          <div class="flex rounded-md border border-border bg-card p-0.5">
+            <button
+              type="button"
+              class="h-5.5 rounded-sm px-2.5 text-micro"
+              :class="attributionModel === 'first' ? 'bg-raised text-fg' : 'text-muted hover:text-fg'"
+              @click="attributionModel = 'first'"
+            >
+              По первому касанию
+            </button>
+            <button
+              type="button"
+              class="h-5.5 rounded-sm px-2.5 text-micro"
+              :class="attributionModel === 'last' ? 'bg-raised text-fg' : 'text-muted hover:text-fg'"
+              @click="attributionModel = 'last'"
+            >
+              По последнему
+            </button>
+          </div>
+          <p class="max-w-[860px] text-[12.5px] text-muted">
+            Рейтинги хуков, трендов и источников — по первому касанию: последнее
+            перекладывает заслугу на пост с лид-магнитом и занижает хук, который
+            человека привёл. Деньги в KPI — по последнему, как в CRM.
+          </p>
+        </div>
+
+        <div class="grid gap-3.5 lg:grid-cols-2 xl:grid-cols-3">
+          <AnalyticsHooksRanking :hooks="rankings.hooks" />
+          <AnalyticsTrendSources :sources="rankings.trendSources" />
+          <AnalyticsAbCompare
+            v-for="comparison in rankings.abTests"
+            :key="comparison.scenarioId"
+            :comparison="comparison"
+          />
+        </div>
+      </section>
+
+      <section class="hidden flex-col gap-3 sm:flex">
+        <div class="flex flex-wrap items-baseline gap-2.5">
+          <h2 class="text-base font-semibold">Динамика во времени</h2>
+          <p class="max-w-[860px] text-[12.5px] text-muted">
+            Один показатель на графике, переключение сверху. Отметки под осью —
+            дни с публикациями: всплеск читается вместе со своей причиной.
+          </p>
+        </div>
+        <UiSkeleton v-if="!series && seriesPending" variant="details" :count="3" />
+        <AnalyticsTrendChart v-else-if="series" v-model:metric="chartMetric" :series="series" />
+      </section>
+
+      <section v-if="selectedUploadId" class="hidden flex-col gap-3 sm:flex">
+        <div class="flex flex-wrap items-baseline gap-2.5">
+          <h2 class="text-base font-semibold">Разбор публикации</h2>
+          <p class="max-w-[860px] text-[12.5px] text-muted">
+            Полная цепочка происхождения от тренда до продажи.
+          </p>
+          <UiButton variant="ghost" size="sm" class="ml-auto" @click="selectedUploadId = null">
+            Свернуть
+          </UiButton>
+        </div>
+        <UiSkeleton v-if="!chain && chainPending" variant="details" :count="3" />
+        <AnalyticsPublicationChain v-else-if="chain" :chain="chain" />
+      </section>
+    </template>
+
+    <!-- ── По аккаунту ─────────────────────────────────────────────────── -->
+    <template v-else-if="activeTab === 'account'">
+      <UiSelect
+        :model-value="filtersStore.socialAccountId ?? ''"
+        :options="accountOptions"
+        class="w-[280px]"
+        @update:model-value="onSelectAccount"
+      />
+    </template>
+
+    <!-- ── Аккаунты: Apify-метрики профилей ────────────────────────────── -->
+    <template v-else>
+      <p class="flex items-start gap-1.5 px-1 text-micro text-muted">
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0" />
+        <span>
+          Метрики профилей собираются через Apify и не зависят от способа
+          постинга: публичный профиль скрейпится и для API-аккаунта, и для
+          автоматизации. Метрики отдельных публикаций — на вкладке «Сводный вид».
+        </span>
+      </p>
+
+      <UiSkeleton v-if="accountsSummaryPending && !accountsSummary" variant="details" :count="4" />
+      <UiErrorState
+        v-else-if="accountsSummaryError"
+        title="Не удалось загрузить сводку"
+        :message="accountsSummaryError.message"
+      />
+      <UiEmptyState
+        v-else-if="accountsSummary && !accountsSummary.items.length"
+        title="Аккаунтов нет"
+        description="Заведите аккаунт в разделе «Аккаунты» и соберите статистику."
+      />
       <template v-else-if="accountsSummary">
         <AnalyticsAccountsSummaryAggregate :aggregate="accountsSummary.aggregate" />
-
-        <!-- 2 колонки даже на xl: каждая карточка содержит AccountMetricsStatCards
-             с 4 horizontal-stat'ами (после sm:). В 3-колонной сетке 4 stat'а не
-             влезают по ширине и обрезаются - проверено на Saturn (Test YT 1). -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="grid gap-3 lg:grid-cols-2">
           <AnalyticsAccountsSummaryCard
             v-for="item in accountsSummary.items"
             :key="item.account.id"
@@ -228,62 +304,41 @@ function clearPipelineFilter() {
       </template>
     </template>
 
-    <!-- ========== ТАБЫ «Сводный» / «По аккаунту»: per-post метрики ========== -->
+    <!-- ── Таблица публикаций: общая для сводного вида и разреза по аккаунту -->
     <template v-if="activeTab !== 'accounts'">
-      <!-- Loading -->
-      <div v-if="pending" class="flex justify-center py-12">
-        <span class="loading loading-spinner loading-lg" />
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-semibold">Публикации</h2>
+        <AnalyticsCollectButton @collected="onCollected" />
       </div>
 
-      <!-- Error -->
-      <div v-else-if="error" role="alert" class="alert alert-error alert-soft">
-        <Icon name="mingcute:warning-line" />
-        <span>Ошибка загрузки: {{ error.message }}</span>
-      </div>
-
-      <!-- Empty -->
-      <SharedEmptyState
-        v-else-if="posts.length === 0 && !dashboard"
-        icon="mingcute:chart-bar-line"
-        title="Данных аналитики пока нет"
-        description="Опубликуйте ролики и соберите метрики для начала работы. Метрики аккаунтов — на вкладке «Аккаунты»."
+      <UiSkeleton v-if="postsPending && !posts.length" variant="table" :count="6" />
+      <UiErrorState
+        v-else-if="postsError"
+        title="Не удалось загрузить публикации"
+        :message="postsError.message"
+        @retry="refreshPosts"
       />
-
-      <!-- Data -->
+      <UiEmptyState
+        v-else-if="!posts.length"
+        title="Публикаций за период нет"
+        description="Опубликуйте ролики и соберите метрики — таблица наполнится сама."
+      />
       <template v-else>
-        <!-- Сводный вид: дашборд + топ -->
-        <template v-if="activeTab === 'summary'">
-          <AnalyticsDashboardStats
-            v-if="dashboard"
-            :data="dashboard"
-            :total-posts="meta.total"
-          />
-
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div class="lg:col-span-3">
-              <AnalyticsTopCtrList
-                v-if="dashboard?.topCtrPosts?.length"
-                :posts="dashboard.topCtrPosts"
-              />
-            </div>
-          </div>
-        </template>
-
-        <!-- Таблица постов (общая для обоих табов) -->
         <AnalyticsPostsTable
           :posts="posts"
-          :meta="meta"
           :sort-by="filtersStore.sortBy ?? 'createdAt'"
           :sort-order="filtersStore.sortOrder ?? 'desc'"
-          @update:sort="onSortUpdate"
+          @update:sort="filtersStore.toggleSort($event as never)"
+          @select="selectPublication"
         />
-
-        <SharedPagination
+        <ListPagination
           v-if="meta.totalPages > 1"
           :page="meta.page"
-          :total-pages="meta.totalPages"
+          :per-page="meta.perPage"
           :total="meta.total"
-          @update:page="onPageUpdate"
+          :total-pages="meta.totalPages"
+          @update:page="filtersStore.page = $event"
+          @update:per-page="filtersStore.perPage = $event"
         />
       </template>
     </template>

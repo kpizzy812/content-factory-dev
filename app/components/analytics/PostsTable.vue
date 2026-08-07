@@ -1,113 +1,99 @@
 <script setup lang="ts">
+/**
+ * Таблица публикаций с метриками.
+ *
+ * Сортировка настоящая — `/api/analytics/posts` принимает `sortBy`/`sortOrder`,
+ * поэтому стрелки в шапке рисуются: кликабельный заголовок, который ничего не
+ * меняет, хуже отсутствующего.
+ *
+ * Клик по строке открывает разбор публикации на этом же экране, стрелка в
+ * последней колонке уводит на историю замеров.
+ */
 import { formatRate } from './AnalyticsFormat'
-import type { UploadWithMetrics, AnalyticsListMeta } from '#shared/types/analytics'
+import type { UploadWithMetrics } from '#shared/types/analytics'
 
-defineProps<{
+const props = defineProps<{
   posts: UploadWithMetrics[]
-  meta: AnalyticsListMeta
   sortBy: string
   sortOrder: string
 }>()
 
 const emit = defineEmits<{
   'update:sort': [field: string]
+  select: [uploadId: number]
 }>()
 
-const router = useRouter()
+const COLUMNS = '180px 110px 150px repeat(7, minmax(64px, 1fr)) 96px 36px'
 
-const platformLabels: Record<string, string> = {
-  youtube: 'YouTube',
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
+const sort = computed(() => `${props.sortOrder === 'desc' ? '-' : ''}${props.sortBy}`)
+
+/** `UiTableHeadCell` отдаёт '-views', стор хранит поле и направление отдельно. */
+function onSort(value: string) {
+  emit('update:sort', value.replace(/^-/, ''))
 }
 
-interface Column {
-  key: string
-  label: string
-  sortable: boolean
-}
-
-const columns: Column[] = [
-  { key: 'title', label: 'Название', sortable: false },
-  { key: 'platform', label: 'Платформа', sortable: false },
-  { key: 'account', label: 'Аккаунт', sortable: false },
-  { key: 'views', label: 'Просмотры', sortable: true },
-  { key: 'watchThrough', label: 'Досмотры%', sortable: true },
-  { key: 'likes', label: 'Лайки', sortable: true },
-  { key: 'comments', label: 'Комменты', sortable: true },
-  { key: 'shares', label: 'Шеры', sortable: true },
-  { key: 'ctr', label: 'CTR', sortable: true },
-  { key: 'followerGain', label: 'Прирост', sortable: true },
-  { key: 'createdAt', label: 'Дата', sortable: true },
-]
-
-function handleSort(col: Column) {
-  if (col.sortable) {
-    emit('update:sort', col.key)
-  }
-}
-
-function goToDetail(id: number) {
-  router.push(`/analytics/${id}`)
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  })
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 </script>
 
 <template>
-  <div class="overflow-x-auto bg-base-100 rounded-box shadow-sm">
-    <table class="table table-sm">
-      <thead>
-        <tr>
-          <th
-            v-for="col in columns"
-            :key="col.key"
-            class="whitespace-nowrap"
-            :class="{ 'cursor-pointer hover:bg-base-200': col.sortable }"
-            @click="handleSort(col)"
-          >
-            <span class="inline-flex items-center gap-1">
-              {{ col.label }}
-              <template v-if="col.sortable && sortBy === col.key">
-                <Icon
-                  :name="sortOrder === 'asc' ? 'mingcute:arrow-up-line' : 'mingcute:arrow-down-line'"
-                  class="text-primary text-xs"
-                />
-              </template>
-            </span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="post in posts"
-          :key="post.id"
-          class="hover:bg-base-200 cursor-pointer transition-colors"
-          @click="goToDetail(post.id)"
-        >
-          <td class="max-w-48 truncate font-medium">{{ post.title || 'Без названия' }}</td>
-          <td>
-            <span class="badge badge-sm badge-ghost">
-              {{ platformLabels[post.socialAccount?.platform ?? ''] ?? '---' }}
-            </span>
-          </td>
-          <td class="text-sm text-base-content/70">{{ post.socialAccount?.displayName ?? '---' }}</td>
-          <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.views) : '---' }}</td>
-          <td>{{ post.latestMetrics ? formatRate(post.latestMetrics.watchThrough) : '—' }}</td>
-          <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.likes) : '---' }}</td>
-          <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.comments) : '---' }}</td>
-          <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.shares) : '---' }}</td>
-          <td>{{ post.latestMetrics ? formatRate(post.latestMetrics.ctr) : '—' }}</td>
-          <td>{{ post.latestMetrics ? formatNumber(post.latestMetrics.followerGain) : '---' }}</td>
-          <td class="text-sm text-base-content/70">{{ formatDate(post.createdAt) }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <UiTable :columns="COLUMNS" min-width="1180px">
+    <UiTableHead>
+      <span>Название</span>
+      <span>Площадка</span>
+      <span>Аккаунт</span>
+      <UiTableHeadCell sort-key="views" :sort="sort" align="right" @sort="onSort">Просмотры</UiTableHeadCell>
+      <UiTableHeadCell sort-key="watchThrough" :sort="sort" align="right" @sort="onSort">Досмотр</UiTableHeadCell>
+      <UiTableHeadCell sort-key="likes" :sort="sort" align="right" @sort="onSort">Лайки</UiTableHeadCell>
+      <UiTableHeadCell sort-key="comments" :sort="sort" align="right" @sort="onSort">Комм.</UiTableHeadCell>
+      <UiTableHeadCell sort-key="shares" :sort="sort" align="right" @sort="onSort">Репосты</UiTableHeadCell>
+      <UiTableHeadCell sort-key="ctr" :sort="sort" align="right" @sort="onSort">CTR</UiTableHeadCell>
+      <UiTableHeadCell sort-key="followerGain" :sort="sort" align="right" @sort="onSort">Прирост</UiTableHeadCell>
+      <UiTableHeadCell sort-key="createdAt" :sort="sort" align="right" @sort="onSort">Дата</UiTableHeadCell>
+      <span />
+    </UiTableHead>
+
+    <UiTableRow
+      v-for="post in posts"
+      :key="post.id"
+      class="cursor-pointer"
+      @click="emit('select', post.id)"
+    >
+      <span class="truncate" :title="post.title">{{ post.title || 'Без названия' }}</span>
+      <span>
+        <UiPlatformBadge v-if="post.socialAccount" :platform="post.socialAccount.platform" />
+        <span v-else class="text-subtle">—</span>
+      </span>
+      <span class="truncate font-mono text-sm text-muted">
+        {{ post.socialAccount?.displayName ?? '—' }}
+      </span>
+      <span class="tnum text-right font-mono text-sm">
+        {{ post.latestMetrics ? formatNumber(post.latestMetrics.views) : '—' }}
+      </span>
+      <span class="tnum text-right font-mono text-sm">{{ formatRate(post.latestMetrics?.watchThrough) }}</span>
+      <span class="tnum text-right font-mono text-sm">
+        {{ post.latestMetrics ? formatNumber(post.latestMetrics.likes) : '—' }}
+      </span>
+      <span class="tnum text-right font-mono text-sm">
+        {{ post.latestMetrics ? formatNumber(post.latestMetrics.comments) : '—' }}
+      </span>
+      <span class="tnum text-right font-mono text-sm">
+        {{ post.latestMetrics ? formatNumber(post.latestMetrics.shares) : '—' }}
+      </span>
+      <span class="tnum text-right font-mono text-sm">{{ formatRate(post.latestMetrics?.ctr) }}</span>
+      <span class="tnum text-right font-mono text-sm">
+        {{ post.latestMetrics ? formatNumber(post.latestMetrics.followerGain) : '—' }}
+      </span>
+      <span class="tnum text-right font-mono text-sm text-muted">{{ formatDate(post.createdAt) }}</span>
+      <NuxtLink
+        :to="`/analytics/${post.id}`"
+        class="flex justify-end text-muted hover:text-fg"
+        :aria-label="`История замеров публикации ${post.id}`"
+        @click.stop
+      >
+        <Icon name="mingcute:right-line" />
+      </NuxtLink>
+    </UiTableRow>
+  </UiTable>
 </template>

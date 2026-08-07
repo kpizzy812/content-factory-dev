@@ -1,7 +1,14 @@
 import type { AnalyticsFilters } from '#shared/types/analytics'
+import type { AnalyticsPeriodPreset } from '#shared/types/analytics-funnel'
 
 export const useAnalyticsFiltersStore = defineStore('analyticsFilters', () => {
   const platform = ref<AnalyticsFilters['platform'] | ''>('')
+  /**
+   * Окно сквозной аналитики. Отдельно от `dateFrom`/`dateTo`: пресет живёт в
+   * запросе как `period`, а произвольный период — как две даты, и сервер
+   * различает их сам.
+   */
+  const period = ref<AnalyticsPeriodPreset>('7d')
   const socialAccountId = ref<number | undefined>(undefined)
   const appId = ref<number | undefined>(undefined)
   const runId = ref<number | undefined>(undefined)
@@ -35,8 +42,27 @@ export const useAnalyticsFiltersStore = defineStore('analyticsFilters', () => {
     ...(dateTo.value ? { dateTo: dateTo.value } : {}),
   }))
 
+  /**
+   * Отбор сквозной аналитики: воронка, рейтинги и динамика обязаны смотреть
+   * на одно и то же окно, поэтому запрос у них общий.
+   */
+  const scopeQuery = computed(() => ({
+    ...(period.value === 'custom'
+      ? {
+          ...(dateFrom.value ? { dateFrom: dateFrom.value } : {}),
+          ...(dateTo.value ? { dateTo: dateTo.value } : {}),
+        }
+      : { period: period.value }),
+    ...(appId.value ? { appId: appId.value } : {}),
+    ...(platform.value ? { platform: platform.value } : {}),
+    ...(socialAccountId.value ? { socialAccountId: socialAccountId.value } : {}),
+    ...(pipelineId.value ? { pipelineId: pipelineId.value } : {}),
+    ...(runId.value ? { runId: runId.value } : {}),
+  }))
+
   function resetFilters() {
     platform.value = ''
+    period.value = '7d'
     socialAccountId.value = undefined
     appId.value = undefined
     runId.value = undefined
@@ -64,6 +90,8 @@ export const useAnalyticsFiltersStore = defineStore('analyticsFilters', () => {
 
   return {
     platform,
+    period,
+    scopeQuery,
     socialAccountId,
     appId,
     runId,
