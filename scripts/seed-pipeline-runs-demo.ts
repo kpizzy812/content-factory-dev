@@ -38,7 +38,9 @@ if (!user) throw new Error('[cf-seed-runs] в базе нет пользоват
 
 // ── Граф конвейера ─────────────────────────────────────────────────────────
 function node(id: string, type: string, label: string, x: number, y: number) {
-  return { id, type: 'custom', position: { x: x * 280, y: y * 160 }, data: { label, type, config: {} } }
+  // Тип ноды пишем настоящий: редактор регистрирует шаблоны по нему, и
+  // «custom» падал на стандартную ноду Vue Flow — белый прямоугольник.
+  return { id, type, position: { x: x * 280, y: y * 160 }, data: { label, type, config: {} } }
 }
 function edge(source: string, target: string, sourceHandle?: string) {
   return {

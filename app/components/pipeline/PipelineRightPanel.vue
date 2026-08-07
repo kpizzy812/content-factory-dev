@@ -1,129 +1,96 @@
 <script setup lang="ts">
+/**
+ * Правая панель редактора: настройки выбранного блока либо руководство.
+ *
+ * Руководство осталось на месте, но переехало на общий `UiDisclosure` —
+ * раскрывающиеся секции в приложении должны выглядеть одинаково, а нативный
+ * `collapse` DaisyUI держался на скрытом чекбоксе и не читался с клавиатуры.
+ */
 const store = usePipelineEditorStore()
 
-const selectedNode = computed(() => {
-  if (!store.selectedNodeId) return null
-  return store.nodes.find((n: any) => n.id === store.selectedNodeId) ?? null
-})
+const selectedNode = computed(() =>
+  store.selectedNodeId
+    ? store.nodes.find((node: { id: string }) => node.id === store.selectedNodeId) ?? null
+    : null,
+)
 
-const hasSelection = computed(() => !!selectedNode.value)
+const hasSelection = computed(() => Boolean(selectedNode.value))
+
+const SHORTCUTS: Array<[string, string]> = [
+  ['Ctrl+S', 'Сохранить'],
+  ['Ctrl+Z', 'Отменить'],
+  ['Ctrl+Shift+Z', 'Повторить'],
+  ['Ctrl+D', 'Дублировать'],
+  ['Ctrl+C / V', 'Копировать и вставить'],
+  ['Ctrl+A', 'Выделить всё'],
+  ['Delete', 'Удалить блок или связь'],
+  ['Escape', 'Снять выделение'],
+  ['Shift+клик', 'Выделить несколько'],
+]
 </script>
 
 <template>
-  <aside class="w-80 bg-base-100 border-l border-base-300 flex flex-col overflow-hidden shrink-0">
-    <!-- Node settings mode -->
+  <aside class="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border bg-panel">
     <PipelineNodeSettings v-if="hasSelection" />
 
-    <!-- Help / Guide mode (no node selected) -->
-    <div v-else class="flex flex-col h-full">
-      <div class="p-3 border-b border-base-300 flex items-center gap-2">
-        <Icon name="mingcute:book-3-line" class="text-primary text-lg" />
-        <h3 class="text-sm font-bold text-base-content">Руководство</h3>
+    <div v-else class="flex h-full flex-col">
+      <header class="flex flex-none items-center gap-2 border-b border-divider px-3 py-2.5">
+        <Icon name="mingcute:book-3-line" class="text-muted" />
+        <h3 class="text-sm font-semibold">Руководство</h3>
+      </header>
+
+      <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+        <UiDisclosure title="Быстрый старт" :default-open="true">
+          <ol class="flex list-inside list-decimal flex-col gap-1.5 text-sm text-muted">
+            <li>Перетащите блок из палитры слева на полотно или кликните по нему.</li>
+            <li>Соедините блоки: потяните от правого порта к левому у соседнего.</li>
+            <li>Кликните по блоку — справа откроются его настройки.</li>
+            <li>Сохраните Ctrl+S и нажмите «Запустить».</li>
+          </ol>
+        </UiDisclosure>
+
+        <UiDisclosure title="Типы блоков">
+          <div class="flex flex-col gap-1.5 text-sm text-muted">
+            <p><span class="text-fg">Источники</span> дают данные: трендвотчер, идея, сканер Drive, HTTP-запрос.</p>
+            <p><span class="text-fg">Производство</span> делает контент: стратегия, сценарий, персонаж, видео, описания.</p>
+            <p><span class="text-fg">Контроль</span> управляет потоком: гейт качества, фильтр, условие, цикл, ожидание.</p>
+            <p><span class="text-fg">Выход</span> отдаёт наружу: публикация, загрузка в Drive, уведомление, аналитика.</p>
+          </div>
+        </UiDisclosure>
+
+        <UiDisclosure title="Связи между блоками">
+          <div class="flex flex-col gap-1.5 text-sm text-muted">
+            <p>Выход предыдущего блока становится входом следующего — данные идут по связям сами.</p>
+            <p>Нижний красный порт — ветка ошибки: на неё вешают уведомление или запасной путь.</p>
+            <p>Удалить связь: клик по линии и Delete, либо правый клик по ней.</p>
+          </div>
+        </UiDisclosure>
+
+        <UiDisclosure title="Горячие клавиши">
+          <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
+            <template v-for="[keys, action] in SHORTCUTS" :key="keys">
+              <dt>
+                <span class="rounded-sm border border-border bg-card px-1.5 py-0.5 font-mono text-[11px] text-muted">
+                  {{ keys }}
+                </span>
+              </dt>
+              <dd class="text-muted">{{ action }}</dd>
+            </template>
+          </dl>
+        </UiDisclosure>
+
+        <UiDisclosure title="Проверка перед запуском">
+          <div class="flex flex-col gap-1.5 text-sm text-muted">
+            <p>«Тест» в панели блока прогоняет его отдельно — без запуска всего конвейера и без лишних трат.</p>
+            <p>Закреплённые данные последнего запуска позволяют повторять тест на тех же входах.</p>
+            <p>«Проверить готовность» в меню шапки показывает ошибки конфигурации до запуска.</p>
+          </div>
+        </UiDisclosure>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-3 space-y-2">
-        <!-- Quick start -->
-        <div class="collapse collapse-arrow bg-base-200/50 rounded-box">
-          <input type="checkbox" checked />
-          <div class="collapse-title text-sm font-semibold min-h-0 py-2.5 px-3">
-            <Icon name="mingcute:rocket-line" class="inline mr-1.5 text-primary" />
-            Быстрый старт
-          </div>
-          <div class="collapse-content text-xs text-base-content/70 leading-relaxed px-3">
-            <ol class="list-decimal list-inside space-y-1.5">
-              <li>Перетащите блоки из левой панели на холст или кликните по ним</li>
-              <li>Соедините блоки, потянув от выходного порта к входному</li>
-              <li>Кликните на блок, чтобы настроить его параметры</li>
-              <li>Нажмите <kbd class="kbd kbd-xs">Ctrl+S</kbd> для сохранения</li>
-              <li>Нажмите <span class="badge badge-success badge-xs">Запустить</span> для запуска</li>
-            </ol>
-          </div>
-        </div>
-
-        <!-- Blocks overview -->
-        <div class="collapse collapse-arrow bg-base-200/50 rounded-box">
-          <input type="checkbox" />
-          <div class="collapse-title text-sm font-semibold min-h-0 py-2.5 px-3">
-            <Icon name="mingcute:grid-line" class="inline mr-1.5 text-info" />
-            Типы блоков
-          </div>
-          <div class="collapse-content text-xs text-base-content/70 leading-relaxed px-3 space-y-1.5">
-            <p><strong>Контент:</strong> Трендвотчер находит тренды, Сценарии генерирует тексты, Видео создаёт контент, Загрузка публикует.</p>
-            <p><strong>Логика:</strong> Условие (if/else), Фильтр, Цикл и Ожидание управляют потоком данных.</p>
-            <p><strong>Интеграции:</strong> HTTP-запрос для внешних API, Код для трансформаций, Уведомление для алертов.</p>
-          </div>
-        </div>
-
-        <!-- Connections -->
-        <div class="collapse collapse-arrow bg-base-200/50 rounded-box">
-          <input type="checkbox" />
-          <div class="collapse-title text-sm font-semibold min-h-0 py-2.5 px-3">
-            <Icon name="mingcute:route-line" class="inline mr-1.5 text-accent" />
-            Связи между блоками
-          </div>
-          <div class="collapse-content text-xs text-base-content/70 leading-relaxed px-3 space-y-1.5">
-            <p>Потяните от правого порта блока к левому порту другого. Анимированная линия = основной поток.</p>
-            <p>Нижний красный порт — выход ошибки. Используйте его для обработки сбоев.</p>
-            <p>Данные передаются по связям автоматически: выход предыдущего блока становится входом следующего.</p>
-            <p><strong>Удаление связи:</strong> кликните на линию, чтобы выделить, затем <kbd class="kbd kbd-xs">Delete</kbd>. Или правый клик — мгновенное удаление.</p>
-          </div>
-        </div>
-
-        <!-- Keyboard shortcuts -->
-        <div class="collapse collapse-arrow bg-base-200/50 rounded-box">
-          <input type="checkbox" />
-          <div class="collapse-title text-sm font-semibold min-h-0 py-2.5 px-3">
-            <Icon name="mingcute:keyboard-line" class="inline mr-1.5 text-warning" />
-            Горячие клавиши
-          </div>
-          <div class="collapse-content text-xs text-base-content/70 px-3">
-            <div class="grid grid-cols-2 gap-y-1.5 gap-x-3">
-              <span><kbd class="kbd kbd-xs">Ctrl+S</kbd></span><span>Сохранить</span>
-              <span><kbd class="kbd kbd-xs">Ctrl+Z</kbd></span><span>Отменить</span>
-              <span><kbd class="kbd kbd-xs">Ctrl+Shift+Z</kbd></span><span>Повторить</span>
-              <span><kbd class="kbd kbd-xs">Ctrl+D</kbd></span><span>Дублировать</span>
-              <span><kbd class="kbd kbd-xs">Ctrl+C / V</kbd></span><span>Копировать / Вставить</span>
-              <span><kbd class="kbd kbd-xs">Ctrl+A</kbd></span><span>Выделить всё</span>
-              <span><kbd class="kbd kbd-xs">Delete</kbd></span><span>Удалить блок(и) / связь</span>
-              <span><kbd class="kbd kbd-xs">Escape</kbd></span><span>Снять выделение</span>
-              <span><kbd class="kbd kbd-xs">Shift+клик</kbd></span><span>Мульти-выделение</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Testing -->
-        <div class="collapse collapse-arrow bg-base-200/50 rounded-box">
-          <input type="checkbox" />
-          <div class="collapse-title text-sm font-semibold min-h-0 py-2.5 px-3">
-            <Icon name="mingcute:bug-line" class="inline mr-1.5 text-error" />
-            Тестирование
-          </div>
-          <div class="collapse-content text-xs text-base-content/70 leading-relaxed px-3 space-y-1.5">
-            <p>Кликните на блок и нажмите <strong>Тест</strong> в панели настроек, чтобы проверить его работу изолированно.</p>
-            <p>Вы можете закрепить реальные данные последнего запуска через <strong>Pin</strong>, чтобы блок использовал их при повторном тестировании.</p>
-            <p>Перед запуском всего конвейера нажмите <strong>Проверить</strong> в тулбаре — это покажет ошибки конфигурации.</p>
-          </div>
-        </div>
-
-        <!-- Best practices -->
-        <div class="collapse collapse-arrow bg-base-200/50 rounded-box">
-          <input type="checkbox" />
-          <div class="collapse-title text-sm font-semibold min-h-0 py-2.5 px-3">
-            <Icon name="mingcute:bulb-line" class="inline mr-1.5 text-success" />
-            Лучшие практики
-          </div>
-          <div class="collapse-content text-xs text-base-content/70 leading-relaxed px-3 space-y-1.5">
-            <p>Начинайте с простой цепочки: Тренд -> Сценарий -> Видео -> Загрузка.</p>
-            <p>Добавляйте блок Уведомление на ошибочные выходы, чтобы получать алерты о сбоях.</p>
-            <p>Используйте блок Условие для ветвления логики по содержимому данных.</p>
-            <p>Сохраняйте часто — <kbd class="kbd kbd-xs">Ctrl+S</kbd>.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="p-3 border-t border-base-300 text-[10px] text-base-content/40 text-center">
-        Кликните на блок для настройки
-      </div>
+      <footer class="flex-none border-t border-divider px-3 py-2 text-center text-[11px] text-subtle">
+        Кликните по блоку, чтобы настроить его
+      </footer>
     </div>
   </aside>
 </template>

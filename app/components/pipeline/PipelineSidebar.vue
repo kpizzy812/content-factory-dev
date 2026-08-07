@@ -1,88 +1,97 @@
 <script setup lang="ts">
+/**
+ * Палитра блоков. Источник: 04-pipeline-editor.dc.html.
+ *
+ * Группы — те же категории, что красят полоску блока на канвасе
+ * (`PipelineNodeMeta`): палитра и граф обязаны называть одно и то же одинаково,
+ * иначе «Производство» в палитре и фиолетовая полоска на канвасе перестают
+ * читаться как одно и то же.
+ *
+ * Описание блока показывается по наведению, а не второй строкой: двадцать
+ * четыре типа с подписями в два ряда не помещаются на экран, и палитру
+ * приходится листать вместо того, чтобы читать.
+ */
+import { PIPELINE_NODE_META, type NodeCategory } from './PipelineNodeMeta'
+
 const store = usePipelineEditorStore()
 
-const categories = [
-  {
-    name: 'Источники',
-    blocks: [
-      { type: 'google_drive_scanner', label: 'Drive Scanner', icon: 'mingcute:cloud-line', color: 'badge-info', description: 'Сканирует Google Drive folder' },
-    ],
-  },
-  {
-    name: 'Контент',
-    blocks: [
-      { type: 'trendwatcher', label: 'Трендвотчер', icon: 'mingcute:eye-line', color: 'badge-info', description: 'Поиск трендов' },
-      { type: 'content_strategy', label: 'Контент-стратегия', icon: 'mingcute:target-line', color: 'badge-primary', description: 'Гипотеза, лид-магнит и CTA' },
-      { type: 'character', label: 'Персонаж', icon: 'mingcute:user-3-line', color: 'badge-primary', description: 'Герой из библиотеки в pipeline' },
-      { type: 'scene_composer', label: 'Сцена-блок', icon: 'mingcute:layers-line', color: 'badge-secondary', description: 'Готовая сцена из композитора' },
-      { type: 'scenario', label: 'Сценарии', icon: 'mingcute:document-line', color: 'badge-warning', description: 'Генерация сценариев' },
-      { type: 'quality_gate', label: 'Контроль качества', icon: 'mingcute:shield-check-line', color: 'badge-success', description: 'Проверка сценария или видео' },
-      { type: 'video', label: 'Видео', icon: 'mingcute:video-line', color: 'badge-accent', description: 'Генерация видео' },
-      { type: 'video_analyzer', label: 'Анализ видео', icon: 'mingcute:scan-2-line', color: 'badge-primary', description: 'Marketing-разбор кадров' },
-      { type: 'caption_generator', label: 'Описания', icon: 'mingcute:hashtag-line', color: 'badge-secondary', description: 'AI captions для соцсетей' },
-      { type: 'upload', label: 'Загрузка', icon: 'mingcute:upload-3-line', color: 'badge-success', description: 'Загрузка в соцсети' },
-      { type: 'idea', label: 'Идея', icon: 'mingcute:bulb-line', color: 'badge-primary', description: 'AI-анализ видео' },
-      { type: 'analytics', label: 'Аналитика', icon: 'mingcute:chart-bar-line', color: 'badge-secondary', description: 'Сбор метрик' },
-    ],
-  },
-  {
-    name: 'Логика',
-    blocks: [
-      { type: 'filter', label: 'Фильтр', icon: 'mingcute:filter-line', color: 'badge-neutral', description: 'Условное ветвление' },
-      { type: 'if_switch', label: 'Условие', icon: 'mingcute:git-branch-line', color: 'badge-warning', description: 'If / else' },
-      { type: 'loop', label: 'Цикл', icon: 'mingcute:refresh-2-line', color: 'badge-accent', description: 'Обработка массива' },
-      { type: 'wait', label: 'Ожидание', icon: 'mingcute:time-line', color: 'badge-ghost', description: 'Пауза' },
-      { type: 'set', label: 'Установить', icon: 'mingcute:edit-2-line', color: 'badge-neutral', description: 'Присвоить значения' },
-    ],
-  },
-  {
-    name: 'Интеграции',
-    blocks: [
-      { type: 'http_request', label: 'HTTP запрос', icon: 'mingcute:globe-line', color: 'badge-primary', description: 'Внешний API вызов' },
-      { type: 'code', label: 'Трансформация', icon: 'mingcute:code-line', color: 'badge-neutral', description: 'Изолированный JS-код' },
-      { type: 'notification', label: 'Уведомление', icon: 'mingcute:notification-line', color: 'badge-error', description: 'Telegram алерт' },
-      { type: 'sub_pipeline', label: 'Подконвейер', icon: 'mingcute:route-line', color: 'badge-primary', description: 'Вызов другого конвейера' },
-      { type: 'google_drive_uploader', label: 'Загрузка в Drive', icon: 'mingcute:cloud-upload-line', color: 'badge-info', description: 'Заливка видео в Drive folder' },
-    ],
-  },
-  {
-    name: 'Аннотации',
-    blocks: [
-      { type: 'note', label: 'Заметка', icon: 'mingcute:notebook-line', color: 'badge-warning', description: 'Текстовая заметка на полотне' },
-    ],
-  },
+const CATEGORY_TITLES: Array<{ key: NodeCategory, title: string }> = [
+  { key: 'src', title: 'Источники' },
+  { key: 'prod', title: 'Производство' },
+  { key: 'ctrl', title: 'Контроль' },
+  { key: 'out', title: 'Выход' },
+  { key: 'util', title: 'Служебные' },
 ]
 
+const CATEGORY_COLOR: Record<NodeCategory, string> = {
+  src: 'var(--color-cat-src)',
+  prod: 'var(--color-cat-prod)',
+  ctrl: 'var(--color-cat-ctrl)',
+  out: 'var(--color-cat-out)',
+  util: 'var(--color-cat-util)',
+}
+
+/** Что делает блок — короткой фразой, для подсказки при наведении. */
+const DESCRIPTIONS: Record<string, string> = {
+  google_drive_scanner: 'Забирает файлы из папки Google Drive и отдаёт их дальше.',
+  trendwatcher: 'Собирает тренды с площадок по профилю парсинга.',
+  content_strategy: 'Гипотеза, лид-магнит и CTA под собранные тренды.',
+  character: 'Подставляет героя из библиотеки персонажей.',
+  scene_composer: 'Готовая сцена из композитора вместо генерации с нуля.',
+  scenario: 'Пишет сценарии и варианты по брифу.',
+  video: 'Собирает ролик: кадры, клипы, озвучка, сборка.',
+  video_analyzer: 'Маркетинговый разбор готового ролика по кадрам.',
+  caption_generator: 'Заголовок, описание и теги под площадку.',
+  idea: 'Разбирает идею или референс в бриф.',
+  quality_gate: 'Пропускает дальше только то, что прошло проверку.',
+  filter: 'Отсеивает элементы по условию.',
+  if_switch: 'Разводит поток по двум именованным выходам.',
+  loop: 'Прогоняет ветку по каждому элементу списка.',
+  wait: 'Пауза перед следующим блоком.',
+  set: 'Кладёт в поток вычисленные значения.',
+  upload: 'Публикует ролик в социальную сеть.',
+  analytics: 'Собирает метрики опубликованного.',
+  notification: 'Пишет в Telegram о результате.',
+  google_drive_uploader: 'Кладёт готовый файл в папку Google Drive.',
+  http_request: 'Запрос во внешний API: метод, заголовки, тело.',
+  code: 'Изолированный JS над данными потока.',
+  sub_pipeline: 'Вызывает другой конвейер как один блок.',
+  note: 'Заметка на полотне: без портов и без категории.',
+}
+
 const searchQuery = ref('')
+const collapsed = ref(false)
 
-const filteredCategories = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return categories
+const groups = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
 
-  return categories
-    .map(cat => ({
-      ...cat,
-      blocks: cat.blocks.filter(
-        b => b.label.toLowerCase().includes(q) || b.description.toLowerCase().includes(q) || b.type.includes(q),
-      ),
-    }))
-    .filter(cat => cat.blocks.length > 0)
+  return CATEGORY_TITLES.map(category => ({
+    ...category,
+    blocks: Object.entries(PIPELINE_NODE_META)
+      .filter(([, meta]) => meta.category === category.key)
+      .map(([type, meta]) => ({ type, ...meta, description: DESCRIPTIONS[type] ?? '' }))
+      .filter(block => !query
+        || block.label.toLowerCase().includes(query)
+        || block.type.includes(query)
+        || block.description.toLowerCase().includes(query)),
+  })).filter(category => category.blocks.length > 0)
 })
+
+const totalTypes = Object.keys(PIPELINE_NODE_META).length
 
 let nodeCounter = 0
 
-function onDragStart(event: DragEvent, block: { type: string; label: string }) {
+function onDragStart(event: DragEvent, block: { type: string, label: string }) {
   if (!event.dataTransfer) return
   event.dataTransfer.setData('block-type', block.type)
   event.dataTransfer.setData('block-label', block.label)
   event.dataTransfer.effectAllowed = 'move'
 }
 
-function addNodeToCanvas(block: { type: string; label: string }) {
-  nodeCounter++
-  const id = `${block.type}-${Date.now()}-${nodeCounter}`
+function addNodeToCanvas(block: { type: string, label: string }) {
+  nodeCounter += 1
   store.addNode({
-    id,
+    id: `${block.type}-${Date.now()}-${nodeCounter}`,
     type: block.type,
     position: { x: 200 + nodeCounter * 20, y: 100 + nodeCounter * 20 },
     data: { label: block.label, type: block.type, config: {} },
@@ -91,56 +100,70 @@ function addNodeToCanvas(block: { type: string; label: string }) {
 </script>
 
 <template>
-  <aside class="w-56 bg-base-100 border-r border-base-300 flex flex-col overflow-hidden shrink-0">
-    <div class="p-3 border-b border-base-300">
-      <h3 class="text-sm font-bold text-base-content flex items-center gap-2 mb-2">
-        <Icon name="mingcute:grid-line" class="text-primary" />
-        Блоки
-      </h3>
-      <input
+  <aside
+    class="flex shrink-0 flex-col overflow-hidden border-r border-border bg-panel transition-[width]"
+    :class="collapsed ? 'w-11' : 'w-60'"
+  >
+    <div class="flex flex-none items-center gap-2 border-b border-divider p-2.5">
+      <UiInput
+        v-if="!collapsed"
         v-model="searchQuery"
-        type="text"
-        class="input input-xs w-full"
-        placeholder="Поиск блока..."
+        placeholder="Поиск ноды"
+        class="flex-1"
       />
+      <button
+        type="button"
+        class="flex h-7 w-6.5 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted hover:text-fg"
+        :title="collapsed ? 'Развернуть палитру' : 'Свернуть палитру'"
+        @click="collapsed = !collapsed"
+      >
+        <Icon :name="collapsed ? 'mingcute:right-line' : 'mingcute:left-line'" />
+      </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-2 space-y-3">
-      <div v-for="cat in filteredCategories" :key="cat.name">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-base-content/40 px-1 mb-1">
-          {{ cat.name }}
+    <div v-if="!collapsed" class="min-h-0 flex-1 overflow-y-auto p-2">
+      <template v-for="group in groups" :key="group.key">
+        <div
+          class="flex h-5.5 items-center gap-1.5 px-1.5 text-[10.5px] tracking-[.07em] text-subtle uppercase first:mt-0 [&:not(:first-child)]:mt-1.5"
+        >
+          <span class="size-2 rounded-[2px]" :style="{ background: CATEGORY_COLOR[group.key] }" />
+          {{ group.title }}
         </div>
-        <div class="space-y-0.5">
+
+        <UiTooltip
+          v-for="block in group.blocks"
+          :key="block.type"
+          :text="block.description"
+          placement="right"
+          class="w-full"
+        >
           <div
-            v-for="block in cat.blocks"
-            :key="block.type"
-            class="flex items-center gap-2 p-1.5 rounded-lg cursor-grab hover:bg-base-200 transition-colors"
+            class="flex h-[30px] cursor-grab items-center gap-2.5 rounded-sm px-1.5 hover:bg-card"
             draggable="true"
             @dragstart="onDragStart($event, block)"
             @click="addNodeToCanvas(block)"
           >
-            <span class="badge badge-sm size-6 p-0 shrink-0" :class="block.color">
-              <Icon :name="block.icon" class="size-3.5" />
-            </span>
-            <div class="flex-1 min-w-0">
-              <div class="text-xs font-medium text-base-content truncate">
-                {{ block.label }}
-              </div>
-              <div class="text-[10px] text-base-content/50 truncate">
-                {{ block.description }}
-              </div>
-            </div>
+            <Icon
+              :name="block.icon"
+              class="shrink-0"
+              :style="{ color: block.type === 'note' ? 'var(--color-text-subtle)' : CATEGORY_COLOR[group.key] }"
+            />
+            <span class="min-w-0 flex-1 truncate text-[12.5px]">{{ block.label }}</span>
+            <span v-if="block.type === 'note'" class="text-[10.5px] text-subtle">без цвета</span>
           </div>
-        </div>
-      </div>
+        </UiTooltip>
+      </template>
 
-      <div v-if="filteredCategories.length === 0" class="text-center py-4 text-xs text-base-content/40">
-        Ничего не найдено
-      </div>
-    </div>
+      <UiEmptyState
+        v-if="!groups.length"
+        title="Ничего не найдено"
+        description="Попробуйте другое слово — поиск идёт по названию и описанию блока."
+      />
 
-    <div class="p-2 border-t border-base-300 text-[10px] text-base-content/40 leading-tight">
-      Перетащите блок на холст или кликните
+      <p v-else class="px-1.5 pt-2 pb-1 text-[11px] leading-relaxed text-subtle">
+        Всего {{ totalTypes }} типа нод. Тон иконки — категория, наведение
+        показывает описание. Блок ставится перетаскиванием или кликом.
+      </p>
     </div>
   </aside>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PIPELINE_NODE_META } from './PipelineNodeMeta'
 import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
 import { MiniMap } from '@vue-flow/minimap'
 import '@vue-flow/core/dist/style.css'
@@ -78,32 +79,14 @@ onUnmounted(() => {
   window.removeEventListener('keyup', onKeyUp)
 })
 
-const nodeColorMap: Record<string, { icon: string; color: string }> = {
-  trendwatcher: { icon: 'mingcute:eye-line', color: 'bg-info/20 border-info' },
-  content_strategy: { icon: 'mingcute:target-line', color: 'bg-primary/20 border-primary' },
-  scenario: { icon: 'mingcute:document-line', color: 'bg-warning/20 border-warning' },
-  quality_gate: { icon: 'mingcute:shield-check-line', color: 'bg-success/20 border-success' },
-  video: { icon: 'mingcute:video-line', color: 'bg-accent/20 border-accent' },
-  upload: { icon: 'mingcute:upload-3-line', color: 'bg-success/20 border-success' },
-  analytics: { icon: 'mingcute:chart-bar-line', color: 'bg-secondary/20 border-secondary' },
-  filter: { icon: 'mingcute:filter-line', color: 'bg-neutral/20 border-neutral' },
-  notification: { icon: 'mingcute:notification-line', color: 'bg-error/20 border-error' },
-  http_request: { icon: 'mingcute:globe-line', color: 'bg-primary/20 border-primary' },
-  code: { icon: 'mingcute:code-line', color: 'bg-neutral/20 border-neutral' },
-  set: { icon: 'mingcute:edit-2-line', color: 'bg-neutral/20 border-neutral' },
-  if_switch: { icon: 'mingcute:git-branch-line', color: 'bg-warning/20 border-warning' },
-  loop: { icon: 'mingcute:refresh-2-line', color: 'bg-accent/20 border-accent' },
-  wait: { icon: 'mingcute:time-line', color: 'bg-base-200 border-base-300' },
-  sub_pipeline: { icon: 'mingcute:route-line', color: 'bg-primary/20 border-primary' },
-  idea: { icon: 'mingcute:bulb-line', color: 'bg-primary/20 border-primary' },
-  character: { icon: 'mingcute:user-3-line', color: 'bg-primary/20 border-primary' },
-  scene_composer: { icon: 'mingcute:layers-line', color: 'bg-secondary/20 border-secondary' },
-  caption_generator: { icon: 'mingcute:hashtag-line', color: 'bg-secondary/20 border-secondary' },
-  google_drive_scanner: { icon: 'mingcute:cloud-line', color: 'bg-info/20 border-info' },
-  google_drive_uploader: { icon: 'mingcute:cloud-upload-line', color: 'bg-info/20 border-info' },
-  video_analyzer: { icon: 'mingcute:scan-2-line', color: 'bg-primary/20 border-primary' },
-  note: { icon: 'mingcute:notebook-line', color: 'bg-warning/15 border-warning/40' },
-}
+/**
+ * Типы блоков, для которых регистрируется свой шаблон ноды.
+ *
+ * `custom` в списке намеренно: старые графы писали в `node.type` именно его,
+ * а настоящий тип клали в `data.type`. Без регистрации такие ноды падали на
+ * стандартную ноду Vue Flow — белый прямоугольник без подписи.
+ */
+const nodeTypes = [...Object.keys(PIPELINE_NODE_META), 'custom']
 
 let dropCounter = 0
 
@@ -191,13 +174,6 @@ function onPaneClick() {
   for (const e of store.edges) e.selected = false
 }
 
-function getNodeConfig(type: string) {
-  return nodeColorMap[type] ?? { icon: 'mingcute:box-line', color: 'bg-base-200 border-base-300' }
-}
-
-// All node types for template registration
-const nodeTypes = Object.keys(nodeColorMap)
-
 // Fit view button
 function handleFitView() {
   fitView({ padding: 0.2 })
@@ -244,31 +220,32 @@ defineExpose({ fitView: handleFitView })
       >
         <template v-for="nodeType in nodeTypes" :key="nodeType" #[`node-${nodeType}`]="{ id: nodeId, data, selected }">
           <PipelineNoteNode v-if="nodeType === 'note'" :data="data" :selected="selected" />
-          <PipelineNode v-else :id="nodeId" :data="data" v-bind="getNodeConfig(nodeType)" :selected="selected" />
+          <PipelineNode v-else :id="nodeId" :data="data" :selected="selected" />
         </template>
 
         <MiniMap
           position="bottom-right"
           :pannable="true"
           :zoomable="true"
-          class="!bg-base-200/80 !border-base-300 !rounded-box !shadow-sm"
+          class="!rounded-md !border !border-border !bg-panel !shadow-sm"
         />
       </VueFlow>
 
       <!-- Fit view button + space hint -->
       <div class="absolute bottom-4 left-4 z-10 flex items-center gap-1.5">
-        <div class="tooltip tooltip-right" data-tip="Вписать граф в экран">
+        <UiTooltip text="Вписать граф в экран" placement="right">
           <button
-            class="btn btn-sm btn-ghost bg-base-100/80 shadow-sm"
+            type="button"
+            class="flex size-7 cursor-pointer items-center justify-center rounded-md border border-border bg-panel text-muted shadow-sm hover:text-fg"
             @click="handleFitView"
           >
             <Icon name="mingcute:fullscreen-line" />
           </button>
-        </div>
+        </UiTooltip>
         <Transition name="fade">
           <div
             v-if="isSpaceHeld"
-            class="px-2 py-1 rounded bg-primary/90 text-primary-content text-[10px] font-medium shadow"
+            class="rounded-sm border border-accent-border bg-accent-bg px-2 py-1 text-[10px] font-medium shadow"
           >
             Панорамирование
           </div>
@@ -276,7 +253,7 @@ defineExpose({ fitView: handleFitView })
       </div>
 
       <!-- Node count indicator -->
-      <div class="absolute top-3 left-3 text-[10px] text-base-content/40 bg-base-100/60 rounded px-1.5 py-0.5 z-10">
+      <div class="tnum absolute top-3 left-3 z-10 rounded-sm bg-panel/70 px-1.5 py-0.5 font-mono text-[10px] text-subtle">
         {{ store.nodeCount }} блоков &middot; {{ store.edgeCount }} связей
       </div>
 
@@ -285,15 +262,15 @@ defineExpose({ fitView: handleFitView })
         v-if="store.nodeCount === 0"
         class="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
       >
-        <div class="text-center space-y-2">
-          <Icon name="mingcute:drag-drop-line" class="text-4xl text-base-content/20" />
-          <p class="text-sm text-base-content/30">Перетащите блоки из левой панели сюда</p>
+        <div class="flex flex-col items-center gap-2 text-center">
+          <Icon name="mingcute:drag-drop-line" class="text-4xl text-subtle opacity-60" />
+          <p class="text-sm text-subtle">Перетащите блок из палитры слева или кликните по нему</p>
         </div>
       </div>
 
       <template #fallback>
-        <div class="flex items-center justify-center h-full">
-          <span class="loading loading-spinner loading-lg" />
+        <div class="flex h-full items-center justify-center p-4">
+          <UiSkeleton variant="details" :count="3" />
         </div>
       </template>
     </ClientOnly>
@@ -310,24 +287,24 @@ defineExpose({ fitView: handleFitView })
   opacity: 0;
 }
 
+/* Точечная сетка полотна из макета 04: своего токена у неё нет, поэтому
+   берётся цвет границы — он одинаково читается в обеих темах. */
 .pipeline-canvas.vue-flow {
-  background-image:
-    linear-gradient(to right, oklch(70% 0 0 / 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(70% 0 0 / 0.06) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
 /* Marquee selection box styling */
 .pipeline-canvas .vue-flow__selection {
-  background: oklch(0.65 0.15 250 / 0.08);
-  border: 1.5px dashed oklch(0.65 0.15 250 / 0.4);
-  border-radius: 4px;
+  background: color-mix(in oklab, var(--color-accent) 10%, transparent);
+  border: 1.5px dashed var(--color-accent-border);
+  border-radius: var(--radius-sm);
 }
 
 /* Connection line while dragging */
 .pipeline-canvas .vue-flow__connection-path {
-  stroke: oklch(0.65 0.15 250 / 0.6);
-  stroke-width: 2.5;
+  stroke: var(--color-accent);
+  stroke-width: 2;
 }
 
 /* Edge hover state */
@@ -338,8 +315,15 @@ defineExpose({ fitView: handleFitView })
 
 /* Selected edge */
 .pipeline-canvas .vue-flow__edge.selected .vue-flow__edge-path {
-  stroke-width: 3.5;
-  stroke: oklch(0.65 0.15 250);
+  stroke-width: 2.6;
+  stroke: var(--color-accent);
+}
+
+/* Связь по умолчанию: тонкая и приглушённая — граф читается блоками, а не
+   проводами. */
+.pipeline-canvas .vue-flow__edge-path {
+  stroke: var(--color-text-subtle);
+  stroke-width: 1.6;
 }
 
 /* Edge interaction zone — wider invisible hit area */
@@ -356,6 +340,23 @@ defineExpose({ fitView: handleFitView })
 /* Handle connection zone — larger invisible hit area */
 .pipeline-canvas .vue-flow__handle {
   cursor: crosshair;
+}
+
+/* Мини-карта: маска затемняет то, что вне видимой области, а сама карта
+   должна лежать на панели, а не на белом прямоугольнике по умолчанию. */
+.pipeline-canvas + .vue-flow__minimap,
+.pipeline-canvas .vue-flow__minimap {
+  background: var(--color-panel);
+}
+
+.pipeline-canvas .vue-flow__minimap-mask {
+  fill: color-mix(in oklab, var(--color-surface) 70%, transparent);
+  stroke: none;
+}
+
+.pipeline-canvas .vue-flow__minimap-node {
+  fill: var(--color-text-subtle);
+  stroke: none;
 }
 
 /* Selection box via mouse drag */

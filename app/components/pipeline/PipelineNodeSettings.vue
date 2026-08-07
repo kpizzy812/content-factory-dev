@@ -120,150 +120,128 @@ watch(() => store.selectedNodeId, () => {
 </script>
 
 <template>
-  <div v-if="selectedNode" class="flex flex-col h-full overflow-hidden">
-      <!-- Header -->
-      <div class="p-3 border-b border-base-300 flex items-center gap-2">
-        <Icon :name="typeIcons[nodeType] || 'mingcute:box-line'" class="text-primary text-lg shrink-0" />
-        <div v-if="!isRenaming" class="flex-1 min-w-0">
-          <h3
-            class="text-sm font-bold text-base-content truncate cursor-pointer hover:text-primary"
-            @dblclick="startRename"
+  <div v-if="selectedNode" class="flex h-full flex-col overflow-hidden">
+    <header class="flex flex-none items-center gap-2 border-b border-divider px-3 py-2.5">
+      <Icon :name="typeIcons[nodeType] || 'mingcute:box-line'" class="shrink-0 text-muted" />
+
+      <div v-if="!isRenaming" class="min-w-0 flex-1">
+        <h3
+          class="cursor-pointer truncate text-sm font-semibold hover:text-accent-text"
+          title="Двойной клик — переименовать блок"
+          @dblclick="startRename"
+        >
+          {{ selectedNode.data?.label || typeLabels[nodeType] || 'Настройки' }}
+        </h3>
+        <div class="truncate font-mono text-[10.5px] text-subtle">{{ nodeType }}</div>
+      </div>
+
+      <UiInput
+        v-else
+        v-model="renameValue"
+        class="flex-1"
+        autofocus
+        @keyup.enter="finishRename"
+        @keyup.escape="isRenaming = false"
+        @blur="finishRename"
+      />
+
+      <UiButton variant="ghost" icon-only title="Закрыть настройки блока" @click="store.selectNode(null)">
+        <Icon name="mingcute:close-line" />
+      </UiButton>
+    </header>
+
+    <p
+      v-if="typeDescriptions[nodeType] && !isNoteNode"
+      class="mx-3 mt-3 flex items-start gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-sm text-muted"
+    >
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+      {{ typeDescriptions[nodeType] }}
+    </p>
+
+    <div :key="store.selectedNodeId ?? undefined" class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+      <div
+        v-if="isNoteNode"
+        class="flex flex-col gap-1 rounded-md border border-border bg-card px-2.5 py-2 text-sm text-muted"
+      >
+        <p>Заметка на полотне — в выполнении конвейера она не участвует.</p>
+        <p class="text-subtle">Двойной клик по заметке открывает текст, цвет и размер.</p>
+      </div>
+
+      <PipelineAiAutofill
+        v-if="!isNoteNode && !hasCustomAiAutofill"
+        :node-type="nodeType"
+        :config="config"
+        @apply="onAiAutofillApply"
+      />
+
+      <PipelineAiAuditLog v-if="!isNoteNode && !hasCustomAiAutofill" :node-type="nodeType" />
+
+      <PipelineNodeConfigForm
+        v-if="!isNoteNode"
+        :node-type="nodeType"
+        :config="config"
+        :node-id="store.selectedNodeId ?? undefined"
+        :pipeline-id="store.pipelineId ?? undefined"
+        @update="onConfigUpdate"
+      />
+    </div>
+
+    <!-- Проверка блока отдельно от конвейера: свёрнута, потому что нужна
+         далеко не каждый раз, но и прятать её в меню незачем. -->
+    <div v-if="!isNoteNode" class="flex-none border-t border-divider p-3">
+      <UiDisclosure title="Проверить блок отдельно" icon="mingcute:flask-line">
+        <div class="flex flex-col gap-2">
+          <p class="text-[11px] text-subtle">
+            Блок отработает изолированно на текущих настройках — весь конвейер при
+            этом не запускается.
+          </p>
+
+          <PipelineNodeTestPanel :node-type="nodeType" :config="config" />
+
+          <div class="flex gap-1.5">
+            <UiButton v-if="!hasPinnedOutput" class="flex-1" @click="pinOutput">
+              <Icon name="mingcute:pin-line" />
+              Закрепить данные последнего запуска
+            </UiButton>
+            <UiButton v-else variant="primary" class="flex-1" @click="unpinOutput">
+              <Icon name="mingcute:pin-fill" />
+              Открепить данные
+            </UiButton>
+
+            <UiButton icon-only title="Дублировать блок · Ctrl+D" @click="duplicateSelectedNode">
+              <Icon name="mingcute:copy-2-line" />
+            </UiButton>
+          </div>
+
+          <div
+            v-if="hasPinnedOutput"
+            class="rounded-md border border-warning-border bg-warning-bg p-2 text-sm"
           >
-            {{ selectedNode.data?.label || typeLabels[nodeType] || 'Настройки' }}
-          </h3>
-          <div class="text-[10px] text-base-content/40">{{ nodeType }}</div>
-        </div>
-        <div v-else class="flex-1 flex gap-1">
-          <input
-            v-model="renameValue"
-            type="text"
-            class="input input-xs flex-1"
-            autofocus
-            @keyup.enter="finishRename"
-            @keyup.escape="isRenaming = false"
-            @blur="finishRename"
-          />
-        </div>
-        <div class="tooltip tooltip-left" data-tip="Закрыть настройки блока">
-          <button class="btn btn-ghost btn-xs btn-square" @click="store.selectNode(null)">
-            <Icon name="mingcute:close-line" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Info block (not for notes — they have their own) -->
-      <div v-if="typeDescriptions[nodeType] && !isNoteNode" class="mx-3 mt-3 p-2 rounded-box bg-info/10 border border-info/20 text-xs text-base-content/70">
-        <Icon name="mingcute:information-line" class="inline mr-1 text-info" />
-        {{ typeDescriptions[nodeType] }}
-      </div>
-
-      <!-- Scrollable content -->
-      <div :key="store.selectedNodeId ?? undefined" class="p-3 space-y-3 flex-1 overflow-y-auto">
-        <!-- Note node info -->
-        <div v-if="isNoteNode" class="rounded-box bg-info/10 border border-info/20 p-3 text-xs text-base-content/70 space-y-1">
-          <p>Заметка на полотне — не участвует в выполнении конвейера.</p>
-          <p class="text-base-content/50">Дважды кликните по заметке на холсте для редактирования текста, смены цвета или размера.</p>
-        </div>
-
-        <!-- AI Autofill panel (not for notes; скрыт для нод со своим specialized autofill) -->
-        <PipelineAiAutofill
-          v-if="!isNoteNode && !hasCustomAiAutofill"
-          :node-type="nodeType"
-          :config="config"
-          @apply="onAiAutofillApply"
-        />
-
-        <!-- AI Audit Trail — сразу под промтом autofill. Для нод со specialized
-             autofill audit log живёт внутри config-формы, тут не рендерим. -->
-        <PipelineAiAuditLog v-if="!isNoteNode && !hasCustomAiAutofill" :node-type="nodeType" />
-
-        <!-- Config form (not for notes) -->
-        <PipelineNodeConfigForm
-          v-if="!isNoteNode"
-          :node-type="nodeType"
-          :config="config"
-          :node-id="store.selectedNodeId ?? undefined"
-          :pipeline-id="store.pipelineId ?? undefined"
-          @update="onConfigUpdate"
-        />
-      </div>
-
-      <!-- Test section (not for notes) — collapsed by default -->
-      <div v-if="!isNoteNode" class="border-t border-base-300">
-        <div class="collapse collapse-arrow bg-base-100">
-          <input type="checkbox" />
-          <div class="collapse-title text-xs font-medium text-base-content/60 min-h-0 py-2.5 px-3 flex items-center gap-1.5">
-            <Icon name="mingcute:flask-line" class="text-sm" />
-            Тестирование блока
-          </div>
-          <div class="collapse-content px-3 pb-2 space-y-2">
-            <p class="text-[10px] text-base-content/40 mb-1">Запустите этот блок изолированно, чтобы проверить настройки</p>
-
-            <PipelineNodeTestPanel
-              :node-type="nodeType"
-              :config="config"
-            />
-
-            <div class="flex gap-1.5">
-              <button
-                v-if="!hasPinnedOutput"
-                class="btn btn-outline btn-xs flex-1"
-                @click="pinOutput"
-              >
-                <Icon name="mingcute:pin-line" class="text-[10px]" />
-                Закрепить данные последнего запуска
-              </button>
-              <button
-                v-else
-                class="btn btn-primary btn-xs flex-1"
-                @click="unpinOutput"
-              >
-                <Icon name="mingcute:pin-fill" class="text-[10px]" />
-                Открепить данные
-              </button>
-
-              <div class="tooltip tooltip-top" data-tip="Дублировать блок (Ctrl+D)">
-                <button
-                  class="btn btn-outline btn-xs btn-square"
-                  @click="duplicateSelectedNode"
-                >
-                  <Icon name="mingcute:copy-2-line" />
-                </button>
-              </div>
+            <div class="mb-1 flex items-center gap-1.5 font-medium text-warning">
+              <Icon name="mingcute:pin-fill" />
+              Данные закреплены
             </div>
-
-            <!-- Pinned output indicator -->
-            <div
-              v-if="hasPinnedOutput"
-              class="rounded-box border border-warning/30 bg-warning/5 p-2 text-xs"
-            >
-              <div class="flex items-center gap-1 text-warning font-semibold mb-1">
-                <Icon name="mingcute:pin-fill" class="text-xs" />
-                Данные закреплены
-              </div>
-              <details>
-                <summary class="text-[10px] text-base-content/40 cursor-pointer">Показать данные</summary>
-                <pre class="whitespace-pre-wrap break-all text-[10px] max-h-24 overflow-auto mt-1">{{ JSON.stringify(selectedNode?.data?.pinnedOutput, null, 2) }}</pre>
-              </details>
-            </div>
+            <details>
+              <summary class="cursor-pointer text-[11px] text-subtle">Показать данные</summary>
+              <pre class="mt-1 max-h-24 overflow-auto text-[10px] break-all whitespace-pre-wrap">{{ JSON.stringify(selectedNode?.data?.pinnedOutput, null, 2) }}</pre>
+            </details>
           </div>
         </div>
-      </div>
+      </UiDisclosure>
+    </div>
 
-      <!-- Last run info (not for notes) -->
-      <div v-if="!isNoteNode && store.pipelineId && store.selectedNodeId" class="px-3 pb-3 border-t border-base-300 pt-3">
-        <PipelineNodeLastRun
-          :pipeline-id="store.pipelineId"
-          :node-id="store.selectedNodeId"
-        />
-      </div>
+    <div
+      v-if="!isNoteNode && store.pipelineId && store.selectedNodeId"
+      class="flex-none border-t border-divider px-3 py-3"
+    >
+      <PipelineNodeLastRun :pipeline-id="store.pipelineId" :node-id="store.selectedNodeId" />
+    </div>
 
-      <!-- Footer -->
-      <div class="p-3 border-t border-base-300">
-        <button class="btn btn-error btn-sm btn-block btn-outline" @click="removeSelectedNode">
-          <Icon name="mingcute:delete-2-line" />
-          Удалить блок
-        </button>
-      </div>
+    <div class="flex-none border-t border-divider p-3">
+      <UiButton variant="danger" class="w-full" @click="removeSelectedNode">
+        <Icon name="mingcute:delete-2-line" />
+        Удалить блок
+      </UiButton>
+    </div>
   </div>
 </template>

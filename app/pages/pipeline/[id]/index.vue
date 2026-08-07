@@ -207,24 +207,25 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- Loading -->
-  <div v-if="pending" class="flex items-center justify-center h-[calc(100vh-5rem)]">
-    <span class="loading loading-spinner loading-lg" />
+  <!-- Загрузка -->
+  <div v-if="pending" class="p-4">
+    <UiSkeleton variant="details" :count="6" />
   </div>
 
-  <!-- Error -->
-  <div v-else-if="error" class="flex items-center justify-center h-[calc(100vh-5rem)]">
-    <div role="alert" class="alert alert-error max-w-md">
-      <Icon name="mingcute:warning-line" />
-      <span>{{ error.message }}</span>
-      <button class="btn btn-sm" @click="navigateTo('/pipeline')">
-        Назад к списку
-      </button>
-    </div>
-  </div>
+  <!-- Ошибка -->
+  <UiErrorState
+    v-else-if="error"
+    title="Не удалось открыть конвейер"
+    :message="error.message"
+    @retry="navigateTo('/pipeline')"
+  />
 
-  <!-- Editor -->
-  <div v-else class="flex flex-col h-[calc(100vh-5rem)] -m-4 overflow-hidden">
+  <!--
+    Отступы у редактора снимает сама оболочка (isFullBleed в layouts/default),
+    поэтому здесь ни отрицательных полей, ни ручной ширины: они добавляли
+    лишние 32 пикселя и страница ездила по горизонтали.
+  -->
+  <div v-else class="flex h-[calc(100vh-5rem)] flex-col overflow-hidden">
     <PipelineToolbar />
 
     <div class="flex flex-1 min-h-0 overflow-hidden">
