@@ -27,7 +27,6 @@ const isRunning = ref(false)
 const showScheduleModal = ref(false)
 const showVersionsModal = ref(false)
 const showWebhookModal = ref(false)
-const showRunsModal = ref(false)
 
 const deleteModalRef = ref<{ open: (name: string) => void } | null>(null)
 const showReadiness = ref(false)
@@ -212,7 +211,11 @@ function onMenu(key: string) {
         </button>
       </div>
 
-      <UiButton v-if="store.pipelineId" class="shrink-0" @click="showRunsModal = true">
+      <UiButton
+        v-if="store.pipelineId"
+        class="shrink-0"
+        @click="navigateTo(`/pipeline/${store.pipelineId}/runs`)"
+      >
         Запуски
       </UiButton>
       <UiButton v-if="store.pipelineId" class="shrink-0" @click="showScheduleModal = true">
@@ -319,12 +322,6 @@ function onMenu(key: string) {
         :current-token="store.webhookToken"
         @close="showWebhookModal = false"
         @token-updated="(token: string | null) => { store.webhookToken = token }"
-      />
-      <PipelineRunsModal
-        v-if="store.pipelineId"
-        :pipeline-id="store.pipelineId"
-        :visible="showRunsModal"
-        @close="showRunsModal = false"
       />
     </div>
 
