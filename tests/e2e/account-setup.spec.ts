@@ -1,12 +1,12 @@
 /**
- * E2E account setup flow: empty state → connect dropdown → render seeded accounts.
+ * E2E account setup flow: empty state → модалка подключения → карточки из сида.
  *
  * UI создания аккаунта в проде идёт через OAuth — поэтому E2E использует
  * setupTestData, который дёргает POST /api/accounts (manual fallback) с
  * mock accessToken. Это покрывает основной UX страницы /accounts:
- * рендер карточек, открытие edit-модалки с табами Доступы/Прокси/Indigo/Прогрев.
+ * пустое состояние, список платформ в модалке и таблицу аккаунтов.
  */
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 import { cleanupDatabase, disableAnimations, login, waitForNetworkIdle } from "../helpers/playwright"
 import { setupTestData } from "../helpers/e2e-setup"
 
@@ -17,27 +17,29 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe("Account setup", () => {
-  test("empty state показывает кнопку Подключить", async ({ page }) => {
+  test("empty state показывает кнопку подключения", async ({ page }) => {
     await page.goto("/accounts")
     await waitForNetworkIdle(page)
 
-    await expect(page.getByRole("heading", { name: /Аккаунты соцсетей/i })).toBeVisible()
-    await expect(page.getByText(/Нет подключённых аккаунтов/i)).toBeVisible()
-    await expect(page.locator('button:has-text("Подключить аккаунт")')).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Аккаунты", exact: true })).toBeVisible()
+    await expect(page.getByText("Ни один аккаунт не подключён")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Подключить аккаунт" })).toBeVisible()
   })
 
-  test("dropdown платформ открывается и содержит все 3 опции", async ({ page }) => {
+  test("модалка подключения показывает три платформы", async ({ page }) => {
     await page.goto("/accounts")
     await waitForNetworkIdle(page)
 
-    await page.locator('button:has-text("Подключить аккаунт")').click()
-    // Внутри dropdown ищем платформу через role=button + name
-    await expect(page.getByRole("button", { name: "YouTube" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "TikTok" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "Instagram" })).toBeVisible()
+    await page.getByRole("button", { name: "Подключить аккаунт" }).click()
+
+    const modal = page.locator('[role="dialog"]')
+    await expect(modal.getByText("Подключить аккаунт")).toBeVisible()
+    await expect(modal.getByText("Instagram", { exact: true })).toBeVisible()
+    await expect(modal.getByText("TikTok", { exact: true })).toBeVisible()
+    await expect(modal.getByText("YouTube", { exact: true })).toBeVisible()
   })
 
-  test("карточки аккаунтов рендерятся из seed-данных", async ({ page }) => {
+  test("аккаунты из сида видны в списке", async ({ page }) => {
     const { appIds } = await setupTestData(page, { apps: 1 })
     expect(appIds.length).toBe(1)
 
@@ -52,11 +54,11 @@ test.describe("Account setup", () => {
     await page.goto("/accounts")
     await waitForNetworkIdle(page)
 
-    await expect(page.locator("h3", { hasText: "E2E youtube #1" })).toBeVisible()
-    await expect(page.locator("h3", { hasText: "E2E tiktok #1" })).toBeVisible()
+    await expect(page.getByText("E2E youtube #1").first()).toBeVisible()
+    await expect(page.getByText("E2E tiktok #1").first()).toBeVisible()
   })
 
-  test("открытие edit-модалки аккаунта показывает 4 таба", async ({ page }) => {
+  test("клик по строке открывает панель аккаунта", async ({ page }) => {
     const { appIds } = await setupTestData(page, { apps: 1 })
     const seeded = await setupTestData(page, {
       accounts: [{ appId: appIds[0]!, platform: "youtube" }],
@@ -66,13 +68,9 @@ test.describe("Account setup", () => {
     await page.goto("/accounts")
     await waitForNetworkIdle(page)
 
-    const editButton = page.locator('button:has-text("Редактировать")').first()
-    await editButton.click()
+    await page.getByText("E2E youtube #1").first().click()
 
-    await expect(page.locator('h3:has-text("Редактирование аккаунта")')).toBeVisible()
-    await expect(page.locator('button[role="tab"]:has-text("Доступы")')).toBeVisible()
-    await expect(page.locator('button[role="tab"]:has-text("Прокси")')).toBeVisible()
-    await expect(page.locator('button[role="tab"]:has-text("Indigo")')).toBeVisible()
-    await expect(page.locator('button[role="tab"]:has-text("Прогрев")')).toBeVisible()
+    // Панель детали — drawer с идентификатором аккаунта в подзаголовке.
+    await expect(page.getByText(/account_\d+/).first()).toBeVisible({ timeout: 10000 })
   })
 })

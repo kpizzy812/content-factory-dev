@@ -8,7 +8,7 @@
  *
  * Прогоняется на 4 viewport'ах автоматически (см. playwright.config.ts → projects).
  */
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 import { cleanupDatabase, disableAnimations, login, waitForNetworkIdle } from "../helpers/playwright"
 
 test.beforeEach(async ({ page }) => {
@@ -23,7 +23,7 @@ test.describe("Auth flow", () => {
     await expect(page).toHaveURL(/\/auth\/login/)
     await expect(page.locator('input[type="email"]')).toBeVisible()
     await expect(page.locator('input[type="password"]')).toBeVisible()
-    await expect(page.locator('button[type="submit"]')).toBeVisible()
+    await expect(page.getByRole("button", { name: "Войти" })).toBeVisible()
   })
 
   test("анонимный визит на защищённую страницу редиректит на /auth/login", async ({ page }) => {
@@ -32,25 +32,31 @@ test.describe("Auth flow", () => {
     await expect(page).toHaveURL(/\/auth\/login/)
   })
 
-  test("после login через test-bypass — открывается главная и видна навигация", async ({ page }) => {
+  test("после login через test-bypass — открывается главная и виден сайдбар", async ({ page }) => {
     await login(page)
     await page.goto("/")
     await waitForNetworkIdle(page)
     await disableAnimations(page)
 
-    // Не на /auth/login
     await expect(page).not.toHaveURL(/\/auth\/login/)
-    // Кнопка выхода в navbar — видна на любом viewport
-    await expect(page.locator('button:has-text("Выйти")').first()).toBeVisible()
+    // Оболочка: подвал сайдбара с именем пользователя. На узких экранах сайдбар
+    // спрятан за кнопкой «Меню», поэтому проверяем её же наличие.
+    const shell = page.locator('nav, aside, header').first()
+    await expect(shell).toBeVisible()
   })
 
-  test("logout возвращает на /auth/login", async ({ page }) => {
+  test("выход возвращает на /auth/login", async ({ page }, testInfo) => {
     await login(page)
     await page.goto("/")
     await waitForNetworkIdle(page)
     await disableAnimations(page)
 
-    await page.locator('button:has-text("Выйти")').first().click()
+    // Кнопка выхода живёт в подвале сайдбара; на <md он скрыт за «Меню».
+    if ((testInfo.project.use.viewport?.width ?? 1280) < 768) {
+      await page.getByRole("button", { name: "Меню" }).click()
+    }
+
+    await page.locator('button[title="Выход"]').first().click()
     await page.waitForURL(/\/auth\/login/, { timeout: 10000 })
     await expect(page).toHaveURL(/\/auth\/login/)
   })

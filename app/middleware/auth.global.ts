@@ -10,12 +10,6 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  // Витрины дизайн-системы (/_ui, /_shell): только в dev, данных не показывают.
-  // Удаляются вместе со страницами в этапе 7 перед мержем.
-  if (import.meta.dev && to.path.startsWith("/_")) {
-    return
-  }
-
   const { loggedIn } = useUserSession()
 
   if (!loggedIn.value) {

@@ -225,15 +225,38 @@ onUnmounted(() => {
     поэтому здесь ни отрицательных полей, ни ручной ширины: они добавляли
     лишние 32 пикселя и страница ездила по горизонтали.
   -->
-  <div v-else class="flex h-[calc(100vh-5rem)] flex-col overflow-hidden">
-    <PipelineToolbar />
-
-    <div class="flex flex-1 min-h-0 overflow-hidden">
-      <PipelineSidebar />
-      <PipelineCanvas class="flex-1 min-w-0" />
-      <PipelineRightPanel />
+  <template v-else>
+    <!--
+      Редактор — экран для компьютера: палитра, полотно и панель настроек стоят
+      в три колонки, а блоки ставятся перетаскиванием. На 390 три колонки
+      наезжают друг на друга, поэтому вместо каши — прямой текст, как на
+      аналитике («Рейтинги и разбор — с компьютера»).
+    -->
+    <div class="flex flex-col items-center gap-2 p-6 text-center lg:hidden">
+      <Icon name="mingcute:computer-line" class="text-3xl text-subtle" />
+      <p class="font-medium">Редактор конвейера — с компьютера</p>
+      <p class="max-w-xs text-sm text-muted">
+        Блоки ставятся перетаскиванием, а настройки открываются панелью справа —
+        на телефоне это не помещается. Запуски и историю конвейера видно и здесь.
+      </p>
+      <NuxtLink :to="`/pipeline/${pipelineId}/runs`">
+        <UiButton size="md">
+          <Icon name="mingcute:history-line" />
+          История запусков
+        </UiButton>
+      </NuxtLink>
     </div>
-  </div>
+
+    <div class="hidden h-[calc(100vh-5rem)] flex-col overflow-hidden lg:flex">
+      <PipelineToolbar />
+
+      <div class="flex min-h-0 flex-1 overflow-hidden">
+        <PipelineSidebar />
+        <PipelineCanvas class="min-w-0 flex-1" />
+        <PipelineRightPanel />
+      </div>
+    </div>
+  </template>
 
   <!-- Unsaved changes modal -->
   <PipelineUnsavedModal

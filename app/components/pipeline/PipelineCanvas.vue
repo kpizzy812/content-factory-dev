@@ -8,7 +8,7 @@ import '@vue-flow/minimap/dist/style.css'
 
 const store = usePipelineEditorStore()
 
-const { screenToFlowCoordinate, fitView } = useVueFlow()
+const { screenToFlowCoordinate, fitView, onNodesInitialized } = useVueFlow()
 
 // Этап 3: подсветка несовместимых рёбер по PortSpec.
 // edgeIssues — Map<edgeId, EdgeIssue>; не блокирует, только визуальный сигнал.
@@ -188,6 +188,20 @@ function handleFitView() {
  */
 const route = useRoute()
 const focusApplied = ref(false)
+const pendingFocusId = ref<string | null>(null)
+
+function focusNode(nodeId: string) {
+  fitView({ nodes: [nodeId], padding: 0.8, duration: 200, maxZoom: 1.2 })
+}
+
+// Наводим камеру ещё раз после измерения нод: `fitViewOnInit` срабатывает
+// позже нашего вызова и иначе перебивает его общим видом графа.
+onNodesInitialized(() => {
+  if (!pendingFocusId.value) return
+  const id = pendingFocusId.value
+  pendingFocusId.value = null
+  focusNode(id)
+})
 
 watch(
   () => [route.query.node, store.nodes.length] as const,
@@ -196,9 +210,10 @@ watch(
     if (!store.nodes.some((n: any) => n.id === nodeId)) return
 
     focusApplied.value = true
+    pendingFocusId.value = nodeId
     store.selectNode(nodeId)
     await nextTick()
-    fitView({ nodes: [nodeId], padding: 0.8, duration: 200, maxZoom: 1.2 })
+    focusNode(nodeId)
   },
   { immediate: true },
 )
