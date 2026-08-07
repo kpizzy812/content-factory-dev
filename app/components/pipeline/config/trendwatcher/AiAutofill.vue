@@ -87,8 +87,8 @@ async function run() {
   }
 }
 
-function diffLines(sug: Suggestion): Array<{ field: string; label: string; before: string; after: string }> {
-  const out: Array<{ field: string; label: string; before: string; after: string }> = []
+function diffLines(sug: Suggestion): Array<{ field: string, label: string, before: string, after: string }> {
+  const out: Array<{ field: string, label: string, before: string, after: string }> = []
   const fmt = (v: unknown): string => {
     if (v == null || v === '') return '—'
     if (Array.isArray(v)) return v.join(', ')
@@ -98,7 +98,7 @@ function diffLines(sug: Suggestion): Array<{ field: string; label: string; befor
     ['appId', 'Приложение (id)'],
     ['actorId', 'Актор'],
     ['platforms', 'Платформы'],
-    ['keywords', 'Keywords'],
+    ['keywords', 'Ключевые слова'],
     ['geo', 'Гео'],
     ['language', 'Язык'],
     ['viewCountMin', 'Мин. просмотров'],
@@ -145,88 +145,71 @@ function dismissPreview() {
 </script>
 
 <template>
-  <div class="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
-    <div class="flex items-center gap-1.5 text-xs font-medium text-primary">
+  <div class="flex flex-col gap-2 rounded-lg border border-accent-border bg-accent-bg p-3">
+    <div class="flex items-center gap-1.5 font-medium text-accent-text">
       <Icon name="mingcute:ai-line" />
       AI-автозаполнение всего блока
     </div>
 
-    <textarea
+    <UiTextarea
       v-model="prompt"
-      rows="2"
-      class="textarea textarea-sm w-full"
-      placeholder="Опиши цель парсинга — например: «собирать TikTok-тренды про домашний фитнес в США с 500K+ просмотров»"
+      :rows="2"
       :disabled="loading"
+      placeholder="Опиши цель парсинга — например: «собирать TikTok-тренды про домашний фитнес в США с 500K+ просмотров»"
     />
 
     <div class="flex items-center justify-between gap-2">
-      <div class="text-xs text-base-content/60">
+      <p class="text-micro text-muted">
         <template v-if="!appId">Приложение не выбрано — укажите его в промте словами, AI справится без подгруженного контекста.</template>
-        <template v-else>AI подберёт актор, keywords, гео, пороги по контексту приложения.</template>
-      </div>
-      <button
-        type="button"
-        class="btn btn-sm btn-primary"
-        :disabled="!canRun || loading"
-        @click="run"
-      >
-        <span v-if="loading" class="loading loading-spinner loading-xs" />
-        <Icon v-else name="mingcute:send-plane-line" />
+        <template v-else>AI подберёт актор, ключевые слова, гео и пороги по контексту приложения.</template>
+      </p>
+      <UiButton variant="primary" :disabled="!canRun" :loading="loading" @click="run">
+        <Icon v-if="!loading" name="mingcute:send-plane-line" />
         Сгенерировать
-      </button>
+      </UiButton>
     </div>
 
-    <div v-if="errorText" class="alert alert-error py-1.5 px-2 text-xs">
+    <p
+      v-if="errorText"
+      class="rounded-md border border-danger-border bg-danger-bg px-2 py-1.5 text-sm text-danger"
+    >
       {{ errorText }}
-    </div>
+    </p>
 
-    <div v-if="preview" class="rounded-md bg-base-100 border border-base-300 p-2 space-y-2">
-      <div v-if="preview.reasoning" class="text-xs text-base-content/70 italic">
+    <div v-if="preview" class="flex flex-col gap-2 rounded-md border border-border bg-card p-2">
+      <p v-if="preview.reasoning" class="text-sm text-muted italic">
         {{ preview.reasoning }}
-      </div>
+      </p>
 
-      <div v-if="previewDiff.length" class="space-y-1">
-        <div class="text-[11px] font-medium text-base-content/60 uppercase tracking-wide">
+      <div v-if="previewDiff.length" class="flex flex-col gap-1">
+        <div class="text-micro font-medium tracking-wide text-subtle uppercase">
           Изменения
         </div>
         <div
           v-for="row in previewDiff"
           :key="row.field"
-          class="text-xs grid grid-cols-[1fr_auto_1fr] gap-2 items-start"
+          class="grid grid-cols-[1fr_auto_1fr] items-start gap-2 text-sm"
         >
           <div>
-            <div class="text-base-content/50">
-              {{ row.label }}
-            </div>
-            <div class="text-base-content/70 line-through decoration-error/50">
-              {{ row.before }}
-            </div>
+            <div class="text-subtle">{{ row.label }}</div>
+            <div class="text-muted line-through decoration-danger">{{ row.before }}</div>
           </div>
-          <Icon name="mingcute:arrow-right-line" class="mt-4 text-base-content/40" />
+          <Icon name="mingcute:arrow-right-line" class="mt-4 text-subtle" />
           <div>
-            <div class="text-base-content/50">&nbsp;</div>
-            <div class="text-success font-medium">
-              {{ row.after }}
-            </div>
+            <div class="text-subtle">&nbsp;</div>
+            <div class="font-medium text-success">{{ row.after }}</div>
           </div>
         </div>
       </div>
-      <div v-else class="text-xs text-base-content/60">
+      <p v-else class="text-sm text-muted">
         AI не предложил изменений к текущему конфигу.
-      </div>
+      </p>
 
       <div class="flex justify-end gap-1.5 pt-1">
-        <button type="button" class="btn btn-xs btn-ghost" @click="dismissPreview">
-          Отклонить
-        </button>
-        <button
-          type="button"
-          class="btn btn-xs btn-primary"
-          :disabled="!previewDiff.length"
-          @click="applyPreview"
-        >
+        <UiButton variant="ghost" @click="dismissPreview">Отклонить</UiButton>
+        <UiButton variant="primary" :disabled="!previewDiff.length" @click="applyPreview">
           Применить
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>

@@ -8,9 +8,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:selectedProfileId': [value: number | null]
-  new: []
-  edit: [profile: TrendwatcherProfile]
-  duplicate: [profile: TrendwatcherProfile]
+  'new': []
+  'edit': [profile: TrendwatcherProfile]
+  'duplicate': [profile: TrendwatcherProfile]
 }>()
 
 const appIdRef = computed(() => (typeof props.appId === 'number' ? props.appId : undefined))
@@ -27,14 +27,20 @@ const filtered = computed(() => {
   )
 })
 
+const profileOptions = computed(() => filtered.value.map(p => ({
+  value: p.id,
+  label: p.enabled ? p.name : `${p.name} (отключён)`,
+})))
+
+const profilePlaceholder = computed(() => {
+  if (pending.value) return 'Загрузка…'
+  if (!filtered.value.length) return 'Нет профилей — создайте новый'
+  return 'Выберите профиль'
+})
+
 const selected = computed<TrendwatcherProfile | null>(() =>
   profiles.value.find(p => p.id === props.selectedProfileId) ?? null,
 )
-
-function onSelect(e: Event) {
-  const v = (e.target as HTMLSelectElement).value
-  emit('update:selectedProfileId', v ? Number(v) : null)
-}
 
 async function onDuplicate() {
   if (!selected.value) return
@@ -49,77 +55,48 @@ async function onDuplicate() {
 </script>
 
 <template>
-  <div class="space-y-2">
-    <div v-if="!appId" class="alert alert-info py-2 text-xs">
-      <Icon name="mingcute:information-line" />
+  <div class="flex flex-col gap-2">
+    <p
+      v-if="!appId"
+      class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-muted"
+    >
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       Сначала выберите приложение, чтобы увидеть доступные профили.
-    </div>
+    </p>
 
-    <div v-else>
+    <template v-else>
       <div class="flex items-center gap-2">
-        <input
+        <UiInput
           v-model="filter"
-          type="text"
-          class="input input-sm flex-1 min-w-0"
-          placeholder="Фильтр по имени или keyword…"
-        >
-        <button
-          type="button"
-          class="btn btn-ghost btn-sm"
-          :disabled="pending"
-          @click="() => refresh()"
-        >
+          class="min-w-0 flex-1"
+          placeholder="Фильтр по имени или ключевому слову…"
+        />
+        <UiButton variant="ghost" icon-only :loading="pending" title="Обновить список" @click="() => refresh()">
           <Icon name="mingcute:refresh-2-line" />
-        </button>
+        </UiButton>
       </div>
 
-      <select
-        class="select select-sm w-full mt-2"
-        :value="selectedProfileId ?? ''"
-        @change="onSelect"
-      >
-        <option value="">
-          <template v-if="pending">Загрузка…</template>
-          <template v-else-if="!filtered.length">Нет профилей — создайте новый</template>
-          <template v-else>Выберите профиль</template>
-        </option>
-        <option
-          v-for="p in filtered"
-          :key="p.id"
-          :value="p.id"
-        >
-          {{ p.name }}{{ !p.enabled ? ' (отключён)' : '' }}
-        </option>
-      </select>
+      <UiSelect
+        :model-value="selectedProfileId ?? ''"
+        :options="profileOptions"
+        :placeholder="profilePlaceholder"
+        @update:model-value="(v) => emit('update:selectedProfileId', v ? Number(v) : null)"
+      />
 
-      <div class="flex flex-wrap gap-1.5 mt-2">
-        <button
-          type="button"
-          class="btn btn-xs btn-primary"
-          @click="emit('new')"
-        >
+      <div class="flex flex-wrap gap-1.5">
+        <UiButton variant="primary" @click="emit('new')">
           <Icon name="mingcute:add-line" />
           Новый профиль
-        </button>
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost"
-          :disabled="!selected"
-          @click="selected && emit('edit', selected)"
-        >
+        </UiButton>
+        <UiButton variant="ghost" :disabled="!selected" @click="selected && emit('edit', selected)">
           <Icon name="mingcute:edit-2-line" />
           Редактировать
-        </button>
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost"
-          :disabled="!selected"
-          @click="onDuplicate"
-        >
+        </UiButton>
+        <UiButton variant="ghost" :disabled="!selected" @click="onDuplicate">
           <Icon name="mingcute:copy-2-line" />
           Дублировать
-        </button>
+        </UiButton>
       </div>
-    </div>
+    </template>
   </div>
 </template>

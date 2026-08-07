@@ -17,43 +17,35 @@ const operators = [
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Поле для проверки</legend>
-    <input
-      :value="config.field || ''"
-      class="input input-sm w-full"
+  <UiField label="Поле для проверки">
+    <UiInput
+      :model-value="config.field || ''"
       placeholder="status"
-      @input="emit('update', 'field', ($event.target as HTMLInputElement).value)"
+      @update:model-value="(v) => emit('update', 'field', v)"
     />
     <SharedFieldHint text="Имя поля из входных данных для проверки условия. Например: status, count, type." example="status" />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Оператор</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.operator || '=='"
-      @change="emit('update', 'operator', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="op in operators" :key="op.value" :value="op.value">
-        {{ op.label }}
-      </option>
-    </select>
+  <UiField label="Оператор">
+    <UiSelect
+      :model-value="config.operator || '=='"
+      :options="operators"
+      @update:model-value="(v) => emit('update', 'operator', v)"
+    />
     <SharedFieldHint text="Тип сравнения. «Содержит» — для текстового поиска внутри строки." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Значение</legend>
-    <input
-      :value="config.value || ''"
-      class="input input-sm w-full"
+  <UiField label="Значение">
+    <UiInput
+      :model-value="config.value || ''"
       placeholder="expected_value"
-      @input="emit('update', 'value', ($event.target as HTMLInputElement).value)"
+      @update:model-value="(v) => emit('update', 'value', v)"
     />
     <SharedFieldHint text="С чем сравнивать. Для чисел — числовое значение. Для строк — текст." example="success" />
-  </fieldset>
+  </UiField>
 
-  <div class="p-2 rounded-box bg-base-200 text-[10px] text-base-content/60">
-    <p>Результат определяет путь: <code class="text-success">main</code> (true) или <code class="text-error">error</code> (false).</p>
-  </div>
+  <p class="rounded-md border border-border bg-card px-2.5 py-2 text-micro text-muted">
+    Результат определяет путь: <code class="font-mono text-success">main</code> (true) или
+    <code class="font-mono text-danger">error</code> (false).
+  </p>
 </template>

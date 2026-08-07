@@ -22,10 +22,15 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | string[] | null]
 }>()
 
-const { items, filtered, categories, loading, searchQuery, selectedCategory, load } = useTaxonomy(() => props.type)
+const { filtered, categories, loading, searchQuery, selectedCategory, load } = useTaxonomy(() => props.type)
 
 const showManager = ref(false)
 const expandedSlug = ref<string | null>(null)
+
+const categoryOptions = computed(() => [
+  { value: '', label: 'Все' },
+  ...categories.value.map(cat => ({ value: cat, label: cat })),
+])
 
 const selectedSlugs = computed<string[]>(() => {
   if (!props.modelValue) return []
@@ -60,124 +65,113 @@ function onManagerClose() {
 </script>
 
 <template>
-  <div class="space-y-2 min-w-0 w-full">
-    <!-- Search + filter bar -->
-    <div class="flex gap-1.5 items-center">
-      <input
-        v-model="searchQuery"
-        type="text"
-        class="input input-xs flex-1"
-        placeholder="Поиск..."
-      />
-      <select
+  <div class="flex w-full min-w-0 flex-col gap-2">
+    <!-- Поиск и фильтр -->
+    <div class="flex items-center gap-1.5">
+      <UiInput v-model="searchQuery" class="min-w-0 flex-1" placeholder="Поиск…" />
+      <UiSelect
         v-if="categories.length > 0"
-        class="select select-xs"
-        :value="selectedCategory ?? ''"
-        @change="selectedCategory = ($event.target as HTMLSelectElement).value || null"
-      >
-        <option value="">Все</option>
-        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-      </select>
-      <button
-        class="btn btn-ghost btn-xs btn-square"
-        title="Управление"
-        @click="showManager = true"
-      >
+        :model-value="selectedCategory ?? ''"
+        :options="categoryOptions"
+        class="w-28 shrink-0"
+        @update:model-value="(v) => selectedCategory = (v as string) || null"
+      />
+      <UiButton variant="ghost" icon-only title="Управление" @click="showManager = true">
         <Icon name="mingcute:settings-3-line" />
-      </button>
+      </UiButton>
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-2">
-      <span class="loading loading-spinner loading-xs" />
+    <div v-if="loading" class="flex justify-center py-2 text-muted">
+      <Icon name="mingcute:loading-line" class="animate-spin" />
     </div>
 
-    <!-- Items list -->
-    <div v-else-if="filtered.length" class="space-y-1 max-h-48 overflow-y-auto">
+    <!-- Список -->
+    <div v-else-if="filtered.length" class="flex max-h-48 min-w-0 flex-col gap-1 overflow-y-auto">
       <div
         v-for="item in filtered"
         :key="item.slug"
-        class="rounded-box border transition-all overflow-hidden min-w-0"
+        class="min-w-0 overflow-hidden rounded-md border transition-colors duration-(--duration-fast) ease-out"
         :class="isSelected(item.slug)
-          ? 'border-primary/40 bg-primary/5'
-          : 'border-base-300 bg-base-100 hover:border-base-content/20'"
+          ? 'border-accent-border bg-accent-bg'
+          : 'border-border bg-card hover:border-subtle'"
       >
-        <!-- Item header (clickable) -->
-        <div class="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer min-w-0" @click="toggle(item.slug)">
-          <div class="flex-1 min-w-0 overflow-hidden">
-            <div class="flex items-center gap-1 flex-wrap">
-              <span class="text-xs font-medium truncate" :class="isSelected(item.slug) ? 'text-primary' : 'text-base-content'">
-                {{ item.name }}
-              </span>
-              <span v-if="item.isSystem" class="badge badge-ghost badge-xs shrink-0">системный</span>
-              <span v-if="item.category" class="badge badge-outline badge-xs shrink-0">{{ item.category }}</span>
+        <div class="flex min-w-0 cursor-pointer items-center gap-2 px-2.5 py-1.5" @click="toggle(item.slug)">
+          <div class="min-w-0 flex-1 overflow-hidden">
+            <div class="flex flex-wrap items-center gap-1">
+              <span
+                class="truncate font-medium"
+                :class="isSelected(item.slug) ? 'text-accent-text' : 'text-fg'"
+              >{{ item.name }}</span>
+              <span
+                v-if="item.isSystem"
+                class="shrink-0 rounded-sm border border-neutral-border bg-neutral-bg px-1 text-micro text-neutral"
+              >системный</span>
+              <span
+                v-if="item.category"
+                class="shrink-0 rounded-sm border border-border px-1 text-micro text-subtle"
+              >{{ item.category }}</span>
             </div>
-            <div class="text-[10px] text-base-content/50 truncate">{{ item.shortDescription }}</div>
+            <div class="truncate text-micro text-subtle">{{ item.shortDescription }}</div>
           </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <button
-              class="btn btn-ghost btn-xs btn-square"
-              title="Подробнее"
-              @click.stop="toggleExpand(item.slug)"
+
+          <div class="flex shrink-0 items-center gap-1">
+            <UiButton variant="ghost" icon-only title="Подробнее" @click.stop="toggleExpand(item.slug)">
+              <Icon :name="expandedSlug === item.slug ? 'mingcute:up-line' : 'mingcute:down-line'" />
+            </UiButton>
+            <span
+              class="flex size-4 shrink-0 items-center justify-center rounded-full border-2"
+              :class="isSelected(item.slug) ? 'border-accent bg-accent' : 'border-border'"
             >
-              <Icon
-                :name="expandedSlug === item.slug ? 'mingcute:up-line' : 'mingcute:down-line'"
-                class="text-xs"
-              />
-            </button>
-            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
-              :class="isSelected(item.slug) ? 'border-primary bg-primary' : 'border-base-300'"
-            >
-              <Icon v-if="isSelected(item.slug)" name="mingcute:check-line" class="text-[8px] text-primary-content" />
-            </div>
+              <Icon v-if="isSelected(item.slug)" name="mingcute:check-line" class="text-[8px] text-on-accent" />
+            </span>
           </div>
         </div>
 
-        <!-- Expanded details -->
-        <div v-if="expandedSlug === item.slug" class="px-2.5 pb-2.5 border-t border-base-200 pt-2 space-y-1.5 overflow-hidden">
-          <p v-if="item.fullExplanation" class="text-[11px] text-base-content/70 break-words">
+        <!-- Подробности -->
+        <div
+          v-if="expandedSlug === item.slug"
+          class="flex flex-col gap-1.5 overflow-hidden border-t border-divider px-2.5 pt-2 pb-2.5"
+        >
+          <p v-if="item.fullExplanation" class="text-micro break-words text-muted">
             {{ item.fullExplanation }}
           </p>
 
-          <div v-if="item.examples.length" class="space-y-0.5">
-            <div class="text-[10px] font-semibold text-base-content/50">Примеры:</div>
-            <ul class="text-[10px] text-base-content/60 space-y-0.5 pl-3 list-disc">
+          <div v-if="item.examples.length" class="flex flex-col gap-0.5">
+            <div class="text-micro font-semibold text-subtle">Примеры:</div>
+            <ul class="list-disc space-y-0.5 pl-3 text-micro text-muted">
               <li v-for="(ex, i) in item.examples" :key="i">{{ ex }}</li>
             </ul>
           </div>
 
           <div v-if="item.useCases.length">
-            <div class="text-[10px] font-semibold text-base-content/50 mb-0.5">Подходит для:</div>
+            <div class="mb-0.5 text-micro font-semibold text-subtle">Подходит для:</div>
             <div class="flex flex-wrap gap-1">
-              <span v-for="uc in item.useCases" :key="uc" class="badge badge-ghost badge-xs whitespace-normal h-auto text-left">{{ uc }}</span>
+              <span
+                v-for="uc in item.useCases"
+                :key="uc"
+                class="rounded-sm border border-neutral-border bg-neutral-bg px-1 text-left text-micro text-neutral"
+              >{{ uc }}</span>
             </div>
           </div>
 
-          <div v-if="item.tags.length">
-            <div class="flex flex-wrap gap-0.5">
-              <span v-for="tag in item.tags" :key="tag" class="text-[9px] text-base-content/40">#{{ tag }}</span>
-            </div>
+          <div v-if="item.tags.length" class="flex flex-wrap gap-0.5">
+            <span v-for="tag in item.tags" :key="tag" class="text-micro text-subtle">#{{ tag }}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Empty state -->
-    <div v-else class="text-center py-3">
-      <div class="text-xs text-base-content/40">
+    <!-- Пусто -->
+    <div v-else class="flex flex-col items-center gap-1 py-3">
+      <div class="text-sm text-subtle">
         {{ searchQuery || selectedCategory ? 'Ничего не найдено' : 'Нет доступных элементов' }}
       </div>
-      <button class="btn btn-ghost btn-xs mt-1" @click="showManager = true">
-        <Icon name="mingcute:add-line" class="text-xs" />
+      <UiButton variant="ghost" @click="showManager = true">
+        <Icon name="mingcute:add-line" />
         Создать
-      </button>
+      </UiButton>
     </div>
 
-    <!-- Manager modal -->
-    <SharedTaxonomyManager
-      v-if="showManager"
-      :type="type"
-      @close="onManagerClose"
-    />
+    <SharedTaxonomyManager v-if="showManager" :type="type" @close="onManagerClose" />
   </div>
 </template>

@@ -7,88 +7,77 @@ const emit = defineEmits<{
   update: [key: string, value: any]
 }>()
 
-function numberValue(event: Event, fallback: number): number {
-  const value = Number((event.target as HTMLInputElement).value)
+const stageOptions = [
+  { value: 'script', label: 'Сценарий перед монтажом' },
+  { value: 'final', label: 'Готовое видео перед публикацией' },
+]
+
+function numberValue(raw: string | number, fallback: number): number {
+  const value = Number(raw)
   return Number.isFinite(value) ? value : fallback
 }
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Этап проверки</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.stage || 'script'"
-      @change="emit('update', 'stage', ($event.target as HTMLSelectElement).value)"
-    >
-      <option value="script">Сценарий перед монтажом</option>
-      <option value="final">Готовое видео перед публикацией</option>
-    </select>
+  <UiField label="Этап проверки">
+    <UiSelect
+      :model-value="config.stage || 'script'"
+      :options="stageOptions"
+      @update:model-value="(v) => emit('update', 'stage', v)"
+    />
     <SharedFieldHint text="Для полного контроля поставьте две ноды: после сценария и после генерации видео." />
-  </fieldset>
+  </UiField>
 
   <div class="grid grid-cols-2 gap-2">
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Мин. секунд</legend>
-      <input
+    <UiField label="Мин. секунд">
+      <UiInput
         type="number"
         min="10"
-        class="input input-sm w-full"
-        :value="config.minDurationSec ?? 70"
-        @input="emit('update', 'minDurationSec', numberValue($event, 70))"
+        :model-value="config.minDurationSec ?? 70"
+        @update:model-value="(v) => emit('update', 'minDurationSec', numberValue(v, 70))"
       />
-    </fieldset>
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Макс. секунд</legend>
-      <input
+    </UiField>
+    <UiField label="Макс. секунд">
+      <UiInput
         type="number"
         min="10"
-        class="input input-sm w-full"
-        :value="config.maxDurationSec ?? 90"
-        @input="emit('update', 'maxDurationSec', numberValue($event, 90))"
+        :model-value="config.maxDurationSec ?? 90"
+        @update:model-value="(v) => emit('update', 'maxDurationSec', numberValue(v, 90))"
       />
-    </fieldset>
+    </UiField>
   </div>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Минимальная оценка AI-критика</legend>
-    <input
+  <UiField label="Минимальная оценка AI-критика">
+    <UiInput
       type="number"
       min="0"
       max="100"
-      class="input input-sm w-full"
-      :value="config.minCriticScore ?? 70"
-      @input="emit('update', 'minCriticScore', numberValue($event, 70))"
+      :model-value="config.minCriticScore ?? 70"
+      @update:model-value="(v) => emit('update', 'minCriticScore', numberValue(v, 70))"
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset space-y-2">
-    <label class="flex items-center justify-between gap-3 cursor-pointer">
-      <span class="text-xs">Требовать активную воронку</span>
-      <input
-        type="checkbox"
-        class="toggle toggle-sm"
-        :checked="config.requireFunnel !== false"
-        @change="emit('update', 'requireFunnel', ($event.target as HTMLInputElement).checked)"
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center justify-between gap-3">
+      <span>Требовать активную воронку</span>
+      <UiToggle
+        :model-value="config.requireFunnel !== false"
+        @update:model-value="(v) => emit('update', 'requireFunnel', v)"
       />
-    </label>
-    <label class="flex items-center justify-between gap-3 cursor-pointer">
-      <span class="text-xs">Требовать утверждённый лид-магнит</span>
-      <input
-        type="checkbox"
-        class="toggle toggle-sm"
-        :checked="config.requireApprovedLeadMagnet !== false"
-        @change="emit('update', 'requireApprovedLeadMagnet', ($event.target as HTMLInputElement).checked)"
+    </div>
+    <div class="flex items-center justify-between gap-3">
+      <span>Требовать утверждённый лид-магнит</span>
+      <UiToggle
+        :model-value="config.requireApprovedLeadMagnet !== false"
+        @update:model-value="(v) => emit('update', 'requireApprovedLeadMagnet', v)"
       />
-    </label>
-    <label class="flex items-center justify-between gap-3 cursor-pointer">
-      <span class="text-xs">Блокировать следующий этап при ошибке</span>
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-error"
-        :checked="config.blockOnFailure !== false"
-        @change="emit('update', 'blockOnFailure', ($event.target as HTMLInputElement).checked)"
+    </div>
+    <div class="flex items-center justify-between gap-3">
+      <span>Блокировать следующий этап при ошибке</span>
+      <UiToggle
+        :model-value="config.blockOnFailure !== false"
+        @update:model-value="(v) => emit('update', 'blockOnFailure', v)"
       />
-    </label>
-  </fieldset>
+    </div>
+  </div>
 </template>

@@ -27,35 +27,26 @@ function toggleMetric(metric: string, checked: boolean) {
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Метрики</legend>
-    <div class="space-y-1">
-      <label
+  <UiField label="Метрики">
+    <div class="flex flex-col gap-1.5">
+      <UiCheckbox
         v-for="metric in metricOptions"
         :key="metric"
-        class="flex items-center gap-2 cursor-pointer"
-      >
-        <input
-          type="checkbox"
-          class="checkbox checkbox-sm"
-          :checked="(config.metrics || []).includes(metric)"
-          @change="toggleMetric(metric, ($event.target as HTMLInputElement).checked)"
-        />
-        <span class="text-xs">{{ metricLabels[metric] }}</span>
-      </label>
+        :model-value="(config.metrics || []).includes(metric)"
+        :label="metricLabels[metric]"
+        @update:model-value="(v) => toggleMetric(metric, v)"
+      />
     </div>
     <SharedFieldHint text="Какие показатели собирать. Просмотры и лайки — базовые. CTR и время просмотра — продвинутые." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Порог для Reference</legend>
-    <input
-      :value="config.referenceThreshold || ''"
+  <UiField label="Порог для Reference">
+    <UiInput
+      :model-value="config.referenceThreshold || ''"
       type="number"
-      class="input input-sm w-full"
       placeholder="10000 просмотров"
-      @input="emit('update', 'referenceThreshold', Number(($event.target as HTMLInputElement).value))"
+      @update:model-value="(v) => emit('update', 'referenceThreshold', Number(v))"
     />
     <SharedFieldHint text="Минимальное значение метрики, при котором ролик считается успешным." example="10000" />
-  </fieldset>
+  </UiField>
 </template>

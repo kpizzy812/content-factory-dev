@@ -27,6 +27,11 @@ const { data: appsData } = await useFetch<{ data: AppItem[] }>('/api/apps', {
 
 const apps = computed(() => appsData.value?.data ?? [])
 
+const appOptions = computed(() => apps.value.map(a => ({
+  value: a.id,
+  label: a.enrichmentStatus === 'completed' ? `${a.name} ✓` : a.name,
+})))
+
 const selectedApp = computed(() =>
   props.modelValue ? apps.value.find(a => a.id === props.modelValue) ?? null : null,
 )
@@ -37,61 +42,61 @@ function select(id: number | null) {
 </script>
 
 <template>
-  <div class="space-y-2">
-    <!-- Disabled notice -->
-    <div v-if="contextMode === 'off'" class="alert alert-info alert-soft text-xs py-2">
-      <Icon name="mingcute:information-line" class="text-sm" />
+  <div class="flex flex-col gap-2">
+    <!-- Контекст выключен -->
+    <p
+      v-if="contextMode === 'off'"
+      class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-micro text-muted"
+    >
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       <span>Контекст приложения отключён. Сценарии будут генерироваться без привязки к приложению.</span>
-    </div>
+    </p>
 
-    <!-- Selected app card -->
-    <div v-else-if="selectedApp" class="flex items-start gap-2 p-2 rounded-box border border-base-300 bg-base-200/30">
-      <div v-if="selectedApp.iconUrl" class="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-base-300">
-        <img :src="selectedApp.iconUrl" :alt="selectedApp.name" class="w-full h-full object-cover" />
+    <!-- Выбранное приложение -->
+    <div
+      v-else-if="selectedApp"
+      class="flex items-start gap-2 rounded-md border border-border bg-card p-2"
+    >
+      <div v-if="selectedApp.iconUrl" class="size-8 shrink-0 overflow-hidden rounded-md bg-raised">
+        <img :src="selectedApp.iconUrl" :alt="selectedApp.name" class="size-full object-cover">
       </div>
-      <div v-else class="w-8 h-8 rounded-lg bg-base-300 flex items-center justify-center shrink-0">
-        <Icon name="mingcute:apps-line" class="text-base-content/40" />
+      <div v-else class="flex size-8 shrink-0 items-center justify-center rounded-md bg-raised">
+        <Icon name="mingcute:apps-line" class="text-subtle" />
       </div>
 
-      <div class="flex-1 min-w-0">
+      <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1">
-          <span class="text-xs font-semibold truncate">{{ selectedApp.name }}</span>
-          <span v-if="selectedApp.enrichmentStatus === 'completed'" class="badge badge-xs badge-success gap-0.5">
-            <Icon name="mingcute:check-circle-line" class="text-[9px]" />
+          <span class="truncate font-semibold">{{ selectedApp.name }}</span>
+          <span
+            v-if="selectedApp.enrichmentStatus === 'completed'"
+            class="inline-flex h-[18px] shrink-0 items-center gap-0.5 rounded-sm border border-success-border bg-success-bg px-1.5 text-micro text-success"
+          >
+            <Icon name="mingcute:check-circle-line" />
             Обогащено
           </span>
         </div>
-        <div v-if="selectedApp.subtitle" class="text-[10px] text-base-content/50 truncate">{{ selectedApp.subtitle }}</div>
-        <div v-if="selectedApp.corePain" class="text-[10px] text-base-content/40 mt-0.5 line-clamp-2">
+        <div v-if="selectedApp.subtitle" class="truncate text-micro text-subtle">{{ selectedApp.subtitle }}</div>
+        <div v-if="selectedApp.corePain" class="mt-0.5 line-clamp-2 text-micro text-subtle">
           {{ selectedApp.corePain }}
         </div>
       </div>
 
-      <button
-        type="button"
-        class="btn btn-ghost btn-xs btn-square shrink-0"
-        title="Сбросить выбор"
-        @click="select(null)"
-      >
+      <UiButton variant="ghost" icon-only title="Сбросить выбор" @click="select(null)">
         <Icon name="mingcute:close-line" />
-      </button>
+      </UiButton>
     </div>
 
-    <!-- Empty state / selector -->
+    <!-- Пустое состояние -->
     <template v-if="contextMode !== 'off' && !selectedApp">
-      <select
-        class="select select-sm w-full"
-        :value="modelValue ?? ''"
-        @change="select(Number(($event.target as HTMLSelectElement).value) || null)"
-      >
-        <option value="" disabled>Выберите приложение...</option>
-        <option v-for="app in apps" :key="app.id" :value="app.id">
-          {{ app.name }}{{ app.enrichmentStatus === 'completed' ? ' ✓' : '' }}
-        </option>
-      </select>
-      <div class="text-[10px] text-base-content/40">
+      <UiSelect
+        :model-value="modelValue ?? ''"
+        :options="appOptions"
+        placeholder="Выберите приложение…"
+        @update:model-value="(v) => select(Number(v) || null)"
+      />
+      <p class="text-micro text-subtle">
         AI получит контекст выбранного приложения для генерации сценариев.
-      </div>
+      </p>
     </template>
   </div>
 </template>

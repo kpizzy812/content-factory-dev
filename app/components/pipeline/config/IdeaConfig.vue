@@ -17,7 +17,15 @@ const statusOptions = [
   { value: 'ready', label: 'Готовые к использованию' },
   { value: 'pending', label: 'Ожидающие обработки' },
   { value: 'completed', label: 'Завершённые' },
-] as const
+]
+
+const languageOptions = [
+  { value: 'EN', label: 'EN — English' },
+  { value: 'RU', label: 'RU — Русский' },
+  { value: 'ES', label: 'ES — Español' },
+  { value: 'DE', label: 'DE — Deutsch' },
+  { value: 'FR', label: 'FR — Français' },
+]
 
 const currentMode = computed(() => {
   const m = modes.find(m => m.value === props.config.mode)
@@ -26,146 +34,116 @@ const currentMode = computed(() => {
 </script>
 
 <template>
-  <!-- Mode selector -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Режим работы</legend>
-    <div class="flex gap-1">
-      <button
+  <!-- Режим работы -->
+  <UiField label="Режим работы">
+    <div class="flex flex-wrap gap-1.5">
+      <UiButton
         v-for="m in modes"
         :key="m.value"
-        type="button"
-        class="btn btn-xs gap-1"
-        :class="(config.mode || 'input') === m.value ? 'btn-primary' : 'btn-ghost'"
+        :variant="(config.mode || 'input') === m.value ? 'primary' : 'secondary'"
         @click="emit('update', 'mode', m.value)"
       >
-        <Icon :name="m.icon" class="text-xs" />
+        <Icon :name="m.icon" />
         {{ m.label }}
-      </button>
+      </UiButton>
     </div>
-    <div class="rounded-box bg-info/10 border border-info/20 p-2 text-[10px] text-base-content/60 mt-1.5">
-      <Icon name="mingcute:information-line" class="inline mr-0.5 text-info" />
+    <p class="mt-1.5 flex items-start gap-1.5 rounded-md border border-info-border bg-info-bg px-2 py-1.5 text-micro text-muted">
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       {{ currentMode.description }}
-    </div>
-  </fieldset>
+    </p>
+  </UiField>
 
-  <!-- INPUT mode settings -->
+  <!-- Режим «Из потока» -->
   <template v-if="(config.mode || 'input') === 'input'">
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Поле с URL (необязательно)</legend>
-      <input
-        :value="config.urlField || ''"
-        type="text"
-        class="input input-sm w-full"
+    <UiField label="Поле с URL (необязательно)">
+      <UiInput
+        :model-value="config.urlField || ''"
         placeholder="Авто: sourceUrl, videoUrl, url"
-        @input="emit('update', 'urlField', ($event.target as HTMLInputElement).value)"
+        @update:model-value="(v) => emit('update', 'urlField', v)"
       />
       <SharedFieldHint text="Имя поля во входных данных, содержащего URL. Если пусто — блок ищет автоматически в trends[].sourceUrl, videoUrl, url." />
-    </fieldset>
+    </UiField>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Лимит</legend>
-      <input
-        :value="config.limit || 5"
+    <UiField label="Лимит">
+      <UiInput
         type="number"
-        class="input input-sm w-full"
         min="1"
         max="20"
-        @input="emit('update', 'limit', Number(($event.target as HTMLInputElement).value))"
+        :model-value="config.limit || 5"
+        @update:model-value="(v) => emit('update', 'limit', Number(v))"
       />
-      <SharedFieldHint text="Максимум URL для обработки за один запуск (1-20). Каждый URL = один вызов AI-анализа." />
-    </fieldset>
+      <SharedFieldHint text="Максимум URL для обработки за один запуск (1–20). Каждый URL — один вызов AI-анализа." />
+    </UiField>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Язык анализа</legend>
-      <select
-        class="select select-sm w-full"
-        :value="config.language || 'EN'"
-        @change="emit('update', 'language', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="EN">EN — English</option>
-        <option value="RU">RU — Русский</option>
-        <option value="ES">ES — Español</option>
-        <option value="DE">DE — Deutsch</option>
-        <option value="FR">FR — Français</option>
-      </select>
-    </fieldset>
+    <UiField label="Язык анализа">
+      <UiSelect
+        :model-value="config.language || 'EN'"
+        :options="languageOptions"
+        @update:model-value="(v) => emit('update', 'language', v)"
+      />
+    </UiField>
 
-    <!-- Data flow hint -->
-    <div class="rounded-box bg-base-200/50 p-2.5 text-[10px] text-base-content/50 space-y-1">
-      <div class="font-semibold text-base-content/70">Пример цепочки:</div>
-      <div class="flex items-center gap-1 flex-wrap">
-        <span class="badge badge-info badge-xs">Трендвотчер</span>
-        <Icon name="mingcute:arrow-right-line" class="text-[10px]" />
-        <span class="badge badge-primary badge-xs">Идея (из потока)</span>
-        <Icon name="mingcute:arrow-right-line" class="text-[10px]" />
-        <span class="badge badge-warning badge-xs">Сценарии</span>
+    <div class="flex flex-col gap-1 rounded-md border border-border bg-card p-2.5 text-micro text-muted">
+      <div class="font-semibold text-fg">Пример цепочки:</div>
+      <div class="flex flex-wrap items-center gap-1">
+        <span class="rounded-sm border border-info-border bg-info-bg px-1.5 text-info">Трендвотчер</span>
+        <Icon name="mingcute:arrow-right-line" class="text-subtle" />
+        <span class="rounded-sm border border-accent-border bg-accent-bg px-1.5 text-accent-text">Идея (из потока)</span>
+        <Icon name="mingcute:arrow-right-line" class="text-subtle" />
+        <span class="rounded-sm border border-warning-border bg-warning-bg px-1.5 text-warning">Сценарии</span>
       </div>
       <div>Трендвотчер находит тренды с URL → Идея анализирует каждый → CreativeBrief передаётся в Сценарии</div>
     </div>
   </template>
 
-  <!-- URL mode settings -->
+  <!-- Режим «По URL» -->
   <template v-else-if="(config.mode || 'input') === 'url'">
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">URL видео</legend>
-      <input
-        :value="config.sourceUrl || ''"
+    <UiField label="URL видео">
+      <UiInput
+        :model-value="config.sourceUrl || ''"
         type="url"
-        class="input input-sm w-full"
         placeholder="https://tiktok.com/@user/video/123"
-        @input="emit('update', 'sourceUrl', ($event.target as HTMLInputElement).value)"
+        @update:model-value="(v) => emit('update', 'sourceUrl', v)"
       />
       <SharedFieldHint text="Ссылка на видео для анализа. TikTok, Instagram, YouTube." />
-    </fieldset>
+    </UiField>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Язык анализа</legend>
-      <select
-        class="select select-sm w-full"
-        :value="config.language || 'EN'"
-        @change="emit('update', 'language', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="EN">EN — English</option>
-        <option value="RU">RU — Русский</option>
-        <option value="ES">ES — Español</option>
-        <option value="DE">DE — Deutsch</option>
-        <option value="FR">FR — Français</option>
-      </select>
-    </fieldset>
+    <UiField label="Язык анализа">
+      <UiSelect
+        :model-value="config.language || 'EN'"
+        :options="languageOptions"
+        @update:model-value="(v) => emit('update', 'language', v)"
+      />
+    </UiField>
   </template>
 
-  <!-- FETCH mode settings -->
+  <!-- Режим «Из базы» -->
   <template v-else>
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Статус идей</legend>
-      <select
-        class="select select-sm w-full"
-        :value="config.ideaStatus || 'ready'"
-        @change="emit('update', 'ideaStatus', ($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
-      </select>
+    <UiField label="Статус идей">
+      <UiSelect
+        :model-value="config.ideaStatus || 'ready'"
+        :options="statusOptions"
+        @update:model-value="(v) => emit('update', 'ideaStatus', v)"
+      />
       <SharedFieldHint text="Какие идеи загружать из базы. «Готовые» — прошли анализ и готовы к генерации сценариев." />
-    </fieldset>
+    </UiField>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Лимит</legend>
-      <input
-        :value="config.limit || 5"
+    <UiField label="Лимит">
+      <UiInput
         type="number"
-        class="input input-sm w-full"
         min="1"
         max="20"
-        @input="emit('update', 'limit', Number(($event.target as HTMLInputElement).value))"
+        :model-value="config.limit || 5"
+        @update:model-value="(v) => emit('update', 'limit', Number(v))"
       />
-      <SharedFieldHint text="Максимальное количество идей для загрузки (1-20)." />
-    </fieldset>
+      <SharedFieldHint text="Максимальное количество идей для загрузки (1–20)." />
+    </UiField>
   </template>
 
-  <!-- Output format hint -->
-  <div class="rounded-box border border-base-300 p-2 text-[10px] text-base-content/40 space-y-0.5">
-    <div class="font-medium text-base-content/60">Выходные данные:</div>
-    <div><code class="text-[9px]">ideas[]</code> — массив проанализированных идей с CreativeBrief</div>
-    <div><code class="text-[9px]">count</code> — количество идей</div>
+  <!-- Формат выхода -->
+  <div class="flex flex-col gap-0.5 rounded-md border border-border p-2 text-micro text-subtle">
+    <div class="font-medium text-muted">Выходные данные:</div>
+    <div><code class="font-mono text-fg">ideas[]</code> — массив проанализированных идей с CreativeBrief</div>
+    <div><code class="font-mono text-fg">count</code> — количество идей</div>
   </div>
 </template>

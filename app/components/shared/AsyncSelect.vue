@@ -19,30 +19,24 @@ const { data, status } = useFetch<{ data: Record<string, any>[] }>(props.url, {
 const items = computed(() => data.value?.data ?? [])
 const isLoading = computed(() => status.value === 'pending')
 
-function onChange(e: Event) {
-  const val = (e.target as HTMLSelectElement).value
-  emit('update:modelValue', val || null)
-}
+const options = computed(() => items.value.map(item => ({
+  value: item[props.valueField],
+  label: String(item[props.labelField]),
+})))
+
+const emptyLabel = computed(() => {
+  if (isLoading.value) return 'Загрузка…'
+  if (!items.value.length) return 'Нет данных'
+  return props.placeholder || 'Выберите'
+})
 </script>
 
 <template>
-  <select
-    class="select select-sm w-full"
-    :value="modelValue ?? ''"
+  <UiSelect
+    :model-value="modelValue ?? ''"
+    :options="options"
+    :placeholder="emptyLabel"
     :disabled="disabled || isLoading"
-    @change="onChange"
-  >
-    <option value="" disabled>
-      <template v-if="isLoading">Загрузка...</template>
-      <template v-else-if="!items.length">Нет данных</template>
-      <template v-else>{{ placeholder || 'Выберите' }}</template>
-    </option>
-    <option
-      v-for="item in items"
-      :key="item[valueField]"
-      :value="item[valueField]"
-    >
-      {{ item[labelField] }}
-    </option>
-  </select>
+    @update:model-value="(v) => emit('update:modelValue', v || null)"
+  />
 </template>

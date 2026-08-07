@@ -14,13 +14,20 @@ const emit = defineEmits<{
   update: [key: string, value: any]
 }>()
 
-const { data: appsData } = useFetch<{ data: { id: number; name: string }[] }>('/api/apps', {
+const { data: appsData } = useFetch<{ data: { id: number, name: string }[] }>('/api/apps', {
   default: () => ({ data: [] }) as any,
 })
 const apps = computed(() => appsData.value?.data ?? [])
+const appOptions = computed(() => apps.value.map(a => ({ value: a.id, label: a.name })))
 
 const appId = computed(() => Number(props.config.appId) || null)
 const mode = computed(() => (props.config.mode as 'fixed' | 'latest' | 'random') ?? 'fixed')
+
+const MODES = [
+  { value: 'fixed', label: 'Конкретная', needsApp: false },
+  { value: 'latest', label: 'Последняя', needsApp: true },
+  { value: 'random', label: 'Случайная', needsApp: true },
+] as const
 
 const scenesQuery = computed(() => (appId.value ? { appId: appId.value } : {}))
 const { data: scenesData, pending: scenesPending } = useFetch<{ data: Scene[] }>(
@@ -34,102 +41,90 @@ const { data: scenesData, pending: scenesPending } = useFetch<{ data: Scene[] }>
 )
 const scenes = computed<Scene[]>(() => scenesData.value?.data ?? [])
 
+const sceneOptions = computed(() => scenes.value.map(s => ({
+  value: s.id,
+  label: `${s.name} — ${SCENE_STATUS_LABELS[s.status] ?? s.status}`,
+})))
+
+const scenePlaceholder = computed(() => {
+  if (!appId.value) return 'Сначала выберите приложение'
+  return scenesPending.value ? 'Загрузка…' : 'Выберите сцену'
+})
+
 const selectedScene = computed<Scene | null>(() => {
   if (!props.config.sceneId) return null
   return scenes.value.find(s => s.id === props.config.sceneId) ?? null
 })
 
-function onAppChange(v: number) {
-  emit('update', 'appId', v || null)
+function onAppChange(v: string | number) {
+  emit('update', 'appId', Number(v) || null)
   if (props.config.sceneId) emit('update', 'sceneId', null)
 }
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Приложение *</legend>
-    <select
-      class="select select-sm w-full"
-      :value="appId ?? ''"
-      @change="onAppChange(Number(($event.target as HTMLSelectElement).value))"
-    >
-      <option value="" disabled>Выберите приложение</option>
-      <option v-for="app in apps" :key="app.id" :value="app.id">{{ app.name }}</option>
-    </select>
-  </fieldset>
+  <UiField label="Приложение *">
+    <UiSelect
+      :model-value="appId ?? ''"
+      :options="appOptions"
+      placeholder="Выберите приложение"
+      @update:model-value="onAppChange"
+    />
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Стратегия выбора</legend>
-    <div class="join w-full">
+  <UiField label="Стратегия выбора">
+    <div class="flex rounded-md border border-border bg-card p-0.5">
       <button
+        v-for="m in MODES"
+        :key="m.value"
         type="button"
-        class="join-item btn btn-sm flex-1"
-        :class="{ 'btn-primary': mode === 'fixed' }"
-        @click="emit('update', 'mode', 'fixed')"
-      >Конкретная</button>
-      <button
-        type="button"
-        class="join-item btn btn-sm flex-1"
-        :class="{ 'btn-primary': mode === 'latest' }"
-        :disabled="!appId"
-        @click="emit('update', 'mode', 'latest')"
-      >Последняя</button>
-      <button
-        type="button"
-        class="join-item btn btn-sm flex-1"
-        :class="{ 'btn-primary': mode === 'random' }"
-        :disabled="!appId"
-        @click="emit('update', 'mode', 'random')"
-      >Случайная</button>
+        :disabled="m.needsApp && !appId"
+        class="h-6 flex-1 rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="[
+          mode === m.value ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg',
+          m.needsApp && !appId ? 'cursor-not-allowed text-subtle' : 'cursor-pointer',
+        ]"
+        @click="emit('update', 'mode', m.value)"
+      >{{ m.label }}</button>
     </div>
-  </fieldset>
+  </UiField>
 
-  <fieldset v-if="mode === 'fixed'" class="fieldset">
-    <legend class="fieldset-legend">Сцена *</legend>
-    <select
-      class="select select-sm w-full"
+  <UiField v-if="mode === 'fixed'" label="Сцена *">
+    <UiSelect
+      :model-value="config.sceneId ?? ''"
+      :options="sceneOptions"
+      :placeholder="scenePlaceholder"
       :disabled="!appId || scenesPending"
-      :value="config.sceneId ?? ''"
-      @change="emit('update', 'sceneId', ($event.target as HTMLSelectElement).value || null)"
-    >
-      <option value="" disabled>
-        {{ !appId ? 'Сначала выберите приложение' : scenesPending ? 'Загрузка…' : 'Выберите сцену' }}
-      </option>
-      <option v-for="s in scenes" :key="s.id" :value="s.id">
-        {{ s.name }} — {{ SCENE_STATUS_LABELS[s.status] ?? s.status }}
-      </option>
-    </select>
-    <p v-if="appId && !scenesPending && scenes.length === 0" class="text-[10px] text-warning mt-0.5">
+      @update:model-value="(v) => emit('update', 'sceneId', v || null)"
+    />
+    <p v-if="appId && !scenesPending && scenes.length === 0" class="mt-1 text-micro text-warning">
       Нет сцен. Создайте в разделе «Композитор сцен».
     </p>
-  </fieldset>
+  </UiField>
 
   <div
     v-if="selectedScene?.promptCompiled"
-    class="card bg-base-200/40 border border-base-300"
+    class="flex flex-col gap-1 rounded-md border border-border bg-card p-2.5"
   >
-    <div class="card-body p-3 space-y-1">
-      <div class="text-[10px] uppercase tracking-wider text-base-content/50 font-semibold">
-        Превью промпта сцены
-      </div>
-      <p class="text-xs font-mono leading-relaxed line-clamp-4">
-        {{ selectedScene.promptCompiled }}
-      </p>
-      <NuxtLink
-        :to="`/scenes/${selectedScene.id}`"
-        target="_blank"
-        class="text-[11px] link link-primary"
-      >
-        Открыть композитор →
-      </NuxtLink>
+    <div class="text-micro font-semibold tracking-wider text-subtle uppercase">
+      Превью промпта сцены
     </div>
+    <p class="line-clamp-4 font-mono text-sm leading-relaxed">
+      {{ selectedScene.promptCompiled }}
+    </p>
+    <NuxtLink :to="`/scenes/${selectedScene.id}`" target="_blank" class="text-micro text-accent-text">
+      Открыть композитор →
+    </NuxtLink>
   </div>
 
-  <div role="alert" class="alert alert-info alert-soft text-xs">
-    <Icon name="mingcute:information-line" />
+  <p class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-micro text-muted">
+    <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
     <span>
-      Output: <code>scene</code>, <code>sceneId</code>, <code>compiledPrompt</code>,
-      <code>referenceImageUrls</code>, <code>characterIds</code>. Подаётся на Сценарий или Видео.
+      Output: <code class="font-mono text-fg">scene</code>,
+      <code class="font-mono text-fg">sceneId</code>,
+      <code class="font-mono text-fg">compiledPrompt</code>,
+      <code class="font-mono text-fg">referenceImageUrls</code>,
+      <code class="font-mono text-fg">characterIds</code>. Подаётся на Сценарий или Видео.
     </span>
-  </div>
+  </p>
 </template>

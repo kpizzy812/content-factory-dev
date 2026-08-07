@@ -14,6 +14,10 @@ interface FieldPair {
 
 const fields = computed<FieldPair[]>(() => props.config.fields || [])
 
+// Фигурные скобки шаблона держим константой: в разметке Vue они читаются
+// как интерполяция, и строка ломает компиляцию при переносе в текстовый узел.
+const templateHint = 'Пары «имя поля → значение». Можно использовать шаблоны {{ }} для динамических значений из потока данных.'
+
 function updateField(index: number, key: 'name' | 'value', val: string) {
   const updated = [...fields.value]
   updated[index] = { name: updated[index]!.name, value: updated[index]!.value, [key]: val }
@@ -31,45 +35,38 @@ function removeField(index: number) {
 </script>
 
 <template>
-  <div class="space-y-2">
+  <div class="flex flex-col gap-2">
     <div
       v-for="(field, idx) in fields"
       :key="idx"
-      class="flex items-start gap-2"
+      class="flex items-end gap-2"
     >
-      <fieldset class="fieldset flex-1">
-        <legend class="fieldset-legend">Имя поля</legend>
-        <input
-          :value="field.name"
-          class="input input-sm w-full"
+      <UiField label="Имя поля" class="flex-1">
+        <UiInput
+          :model-value="field.name"
           placeholder="fieldName"
-          @input="updateField(idx, 'name', ($event.target as HTMLInputElement).value)"
+          @update:model-value="(v) => updateField(idx, 'name', v)"
         />
-      </fieldset>
+      </UiField>
 
-      <fieldset class="fieldset flex-1">
-        <legend class="fieldset-legend">Значение</legend>
-        <input
-          :value="field.value"
-          class="input input-sm w-full"
+      <UiField label="Значение" class="flex-1">
+        <UiInput
+          :model-value="field.value"
           placeholder="value"
-          @input="updateField(idx, 'value', ($event.target as HTMLInputElement).value)"
+          @update:model-value="(v) => updateField(idx, 'value', v)"
         />
-      </fieldset>
+      </UiField>
 
-      <button
-        class="btn btn-ghost btn-xs btn-square mt-8"
-        @click="removeField(idx)"
-      >
-        <Icon name="mingcute:close-line" class="text-error" />
-      </button>
+      <UiButton variant="ghost" icon-only title="Убрать поле" @click="removeField(idx)">
+        <Icon name="mingcute:close-line" class="text-danger" />
+      </UiButton>
     </div>
 
-    <SharedFieldHint text="Пары «имя поля → значение». Можно использовать шаблоны {{ }} для динамических значений из потока данных." example="status → processed" />
+    <SharedFieldHint :text="templateHint" example="status → processed" />
 
-    <button class="btn btn-outline btn-sm btn-block" @click="addField">
+    <UiButton class="w-full justify-center" @click="addField">
       <Icon name="mingcute:add-line" />
       Добавить поле
-    </button>
+    </UiButton>
   </div>
 </template>

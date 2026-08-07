@@ -16,13 +16,13 @@ const emit = defineEmits<{
 
 const { createProfile, updateProfile } = useTrendwatcherProfiles()
 
-const apps = ref<Array<{ id: number; name: string }>>([])
+const apps = ref<Array<{ id: number, name: string }>>([])
 const loadingApps = ref(false)
 const saving = ref(false)
 const errorText = ref('')
 // Any-cast: exposed refs через defineExpose в ProfileForm проксируются parent'ом
 // с auto-unwrap, точные типы через InstanceType генерировать неудобно.
-const formRef = ref<{ testStatus: string; testMessage: string } | null>(null)
+const formRef = ref<{ testStatus: string, testMessage: string } | null>(null)
 
 function setTestStatus(status: 'idle' | 'testing' | 'success' | 'error', message = '') {
   if (formRef.value) {
@@ -34,7 +34,7 @@ function setTestStatus(status: 'idle' | 'testing' | 'success' | 'error', message
 async function fetchApps() {
   loadingApps.value = true
   try {
-    const res = await $fetch<{ data: Array<{ id: number; name: string }> }>('/api/admin/apps')
+    const res = await $fetch<{ data: Array<{ id: number, name: string }> }>('/api/admin/apps')
     apps.value = res.data ?? []
   } catch {
     apps.value = []
@@ -80,6 +80,10 @@ const filteredApps = computed(() => {
   return apps.value
 })
 
+const title = computed(() =>
+  props.profile?.id ? `Редактирование профиля «${props.profile.name}»` : 'Новый профиль парсинга',
+)
+
 async function handleSubmit(data: {
   appId: number
   name: string
@@ -118,7 +122,7 @@ async function handleTestConnection(actorId: string) {
       setTestStatus('error', 'Сначала создайте профиль, затем проверяйте актор')
       return
     }
-    const res = await $fetch<{ data: { valid: boolean; errorSummary?: string } }>(
+    const res = await $fetch<{ data: { valid: boolean, errorSummary?: string } }>(
       `/api/trendwatcher/profiles/${props.profile.id}/validate`,
       { method: 'POST' },
     )
@@ -134,18 +138,15 @@ async function handleTestConnection(actorId: string) {
 </script>
 
 <template>
-  <dialog class="modal" :class="open ? 'modal-open' : ''">
-    <div class="modal-box max-w-2xl">
-      <h3 class="font-bold text-lg mb-1">
-        {{ profile?.id ? `Редактирование профиля «${profile.name}»` : 'Новый профиль парсинга' }}
-      </h3>
-      <p class="text-xs text-base-content/60 mb-4">
+  <UiModal :open="open" :title="title" size="lg" @close="emit('close')">
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-muted">
         Профили переиспользуются между нодой в конвейере и модулем Трендвотчер.
       </p>
 
-      <div v-if="loadingApps" class="flex items-center gap-2 text-sm">
-        <span class="loading loading-spinner loading-sm" />
-        Загрузка приложений...
+      <div v-if="loadingApps" class="flex items-center gap-2 text-muted">
+        <Icon name="mingcute:loading-line" class="animate-spin" />
+        Загрузка приложений…
       </div>
 
       <TrendProfileForm
@@ -158,17 +159,17 @@ async function handleTestConnection(actorId: string) {
         @test-connection="handleTestConnection"
       />
 
-      <div v-if="errorText" class="alert alert-error mt-3 text-sm">
+      <p
+        v-if="errorText"
+        class="rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
         {{ errorText }}
-      </div>
+      </p>
 
-      <div v-if="saving" class="flex items-center gap-2 mt-3 text-sm text-base-content/60">
-        <span class="loading loading-spinner loading-xs" />
-        Сохранение...
+      <div v-if="saving" class="flex items-center gap-2 text-muted">
+        <Icon name="mingcute:loading-line" class="animate-spin" />
+        Сохранение…
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="emit('close')">close</button>
-    </form>
-  </dialog>
+  </UiModal>
 </template>

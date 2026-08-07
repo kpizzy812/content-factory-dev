@@ -181,40 +181,36 @@ function onUpdate(key: string, value: any) {
 
   <!-- Common retry config (not for note nodes) -->
   <template v-if="nodeType !== 'note'">
-    <div class="divider text-xs text-base-content/50">Повторы при ошибке</div>
+    <div class="flex items-center gap-2 text-micro text-subtle">
+      <span class="h-px flex-1 bg-divider" />
+      Повторы при ошибке
+      <span class="h-px flex-1 bg-divider" />
+    </div>
 
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">
+    <div>
+      <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
         Количество повторов
-        <span v-if="defaultRetryForNode > 0 && config.retryCount == null" class="badge badge-info badge-xs ml-1">
-          по умолчанию {{ defaultRetryForNode }}
-        </span>
-      </legend>
-      <select
-        class="select select-sm w-full"
-        :value="config.retryCount ?? defaultRetryForNode"
-        @change="onUpdate('retryCount', Number(($event.target as HTMLSelectElement).value))"
-      >
-        <option v-for="opt in retryOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <p v-if="defaultRetryForNode > 0" class="text-[10px] text-base-content/50 mt-0.5">
-        AI-ноды получают авто-retry на случай timeout/rate-limit/empty response
+        <span
+          v-if="defaultRetryForNode > 0 && config.retryCount == null"
+          class="inline-flex h-[18px] items-center rounded-sm border border-info-border bg-info-bg px-1.5 text-micro text-info"
+        >по умолчанию {{ defaultRetryForNode }}</span>
+      </div>
+      <UiSelect
+        :model-value="config.retryCount ?? defaultRetryForNode"
+        :options="retryOptions"
+        @update:model-value="(v) => onUpdate('retryCount', Number(v))"
+      />
+      <p v-if="defaultRetryForNode > 0" class="mt-0.5 text-micro text-subtle">
+        AI-ноды получают авто-повтор на случай таймаута, rate-limit или пустого ответа
       </p>
-    </fieldset>
+    </div>
 
-    <fieldset v-if="(config.retryCount ?? defaultRetryForNode) > 0" class="fieldset">
-      <legend class="fieldset-legend">Задержка между повторами</legend>
-      <select
-        class="select select-sm w-full"
-        :value="config.retryDelay ?? 5000"
-        @change="onUpdate('retryDelay', Number(($event.target as HTMLSelectElement).value))"
-      >
-        <option v-for="opt in delayOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-    </fieldset>
+    <UiField v-if="(config.retryCount ?? defaultRetryForNode) > 0" label="Задержка между повторами">
+      <UiSelect
+        :model-value="config.retryDelay ?? 5000"
+        :options="delayOptions"
+        @update:model-value="(v) => onUpdate('retryDelay', Number(v))"
+      />
+    </UiField>
   </template>
 </template>

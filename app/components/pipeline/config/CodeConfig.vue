@@ -9,37 +9,39 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">JavaScript код</legend>
-    <textarea
-      :value="config.code || ''"
-      class="textarea textarea-sm w-full font-mono text-xs"
-      rows="8"
+  <UiField label="JavaScript код">
+    <UiTextarea
+      :model-value="config.code || ''"
+      :rows="8"
       placeholder="return input"
-      @input="emit('update', 'code', ($event.target as HTMLTextAreaElement).value)"
+      class="font-mono text-sm"
+      @update:model-value="(v) => emit('update', 'code', v)"
     />
     <SharedFieldHint text="Код для трансформации данных. Доступны: input (входные данные), config (конфигурация), стандартные JS объекты. Запрещены: сеть, файлы, async." />
-  </fieldset>
+  </UiField>
 
-  <div class="p-2 rounded-box bg-info/10 border border-info/20 text-[10px] text-base-content/60 space-y-1.5">
+  <div class="flex flex-col gap-1.5 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-micro text-muted">
     <p class="font-semibold text-info">Режим: изолированная трансформация данных</p>
-    <p>Только чистые операции без побочных эффектов. Код выполняется в отдельном потоке с жёстким лимитом по времени (5с) и памяти (64МБ).</p>
-    <p class="font-semibold mt-1">Доступно:</p>
-    <ul class="list-disc list-inside space-y-0.5">
-      <li><code class="text-primary">input</code> — данные от предыдущей ноды (только чтение)</li>
-      <li><code class="text-primary">config</code> — конфигурация ноды (только чтение)</li>
-      <li><code class="text-base-content/80">Math, JSON, Date, Array, Object, String, Number, RegExp</code></li>
+    <p>Только чистые операции без побочных эффектов. Код выполняется в отдельном потоке с жёстким лимитом по времени (5 с) и памяти (64 МБ).</p>
+
+    <p class="mt-1 font-semibold text-fg">Доступно:</p>
+    <ul class="list-inside list-disc space-y-0.5">
+      <li><code class="font-mono text-accent-text">input</code> — данные от предыдущей ноды (только чтение)</li>
+      <li><code class="font-mono text-accent-text">config</code> — конфигурация ноды (только чтение)</li>
+      <li><code class="font-mono text-fg">Math, JSON, Date, Array, Object, String, Number, RegExp</code></li>
     </ul>
-    <p class="font-semibold mt-1">Запрещено:</p>
-    <ul class="list-disc list-inside space-y-0.5 text-error/70">
+
+    <p class="mt-1 font-semibold text-fg">Запрещено:</p>
+    <ul class="list-inside list-disc space-y-0.5 text-danger">
       <li>Сеть, файлы, БД, таймеры, async/await</li>
       <li>process, require, import, eval, fetch</li>
       <li>Любые побочные эффекты</li>
     </ul>
-    <p class="font-semibold mt-1">Защита:</p>
-    <ul class="list-disc list-inside space-y-0.5 text-success/70">
+
+    <p class="mt-1 font-semibold text-fg">Защита:</p>
+    <ul class="list-inside list-disc space-y-0.5 text-success">
       <li>Изолированный поток (worker_threads) — зависание не повлияет на сервер</li>
-      <li>Принудительное завершение при бесконечном цикле (5 сек)</li>
+      <li>Принудительное завершение при бесконечном цикле (5 с)</li>
       <li>Лимит памяти 64 МБ</li>
     </ul>
   </div>

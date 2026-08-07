@@ -9,6 +9,13 @@ const emit = defineEmits<{
 
 const mode = computed(() => props.config.mode || 'message')
 
+const channelOptions = [{ value: 'telegram', label: 'Telegram' }]
+
+const modeOptions = [
+  { value: 'message', label: 'Текст сообщения' },
+  { value: 'template', label: 'Шаблон из библиотеки' },
+]
+
 const alertTypes = [
   { value: 'custom', label: 'Пользовательское' },
   { value: 'cycle_started', label: 'Цикл запущен' },
@@ -22,8 +29,13 @@ const { data: variablesData } = useAdminTelegramVariables('pipeline')
 const registryVariables = computed(() => (variablesData.value as any)?.data ?? variablesData.value ?? [])
 const templates = computed(() => {
   const raw = (templatesData.value as any)?.data ?? templatesData.value ?? []
-  return (raw as Array<{ id: number; key: string; title: string; category: string; isActive: boolean }>).filter(t => t.isActive)
+  return (raw as Array<{ id: number, key: string, title: string, category: string, isActive: boolean }>).filter(t => t.isActive)
 })
+
+const templateOptions = computed(() => templates.value.map(t => ({
+  value: t.key,
+  label: `${t.title} (${t.key})`,
+})))
 
 interface RegistryVar {
   key: string
@@ -34,30 +46,54 @@ interface RegistryVar {
   sourceNode?: string
 }
 
-const AVAILABILITY_LABELS: Record<string, string> = {
-  guaranteed: 'Всегда доступна',
-  summary: 'Из pipeline summary',
-  conditional: 'Условно доступна',
+// Группы доступности переменных: подпись, тон бейджа и иконка.
+const AVAILABILITY_GROUPS = [
+  {
+    key: 'guaranteed' as const,
+    label: 'Всегда',
+    title: 'Всегда доступна',
+    icon: 'mingcute:check-circle-line',
+    tone: 'bg-success-bg border-success-border text-success',
+  },
+  {
+    key: 'summary' as const,
+    label: 'Summary',
+    title: 'Из pipeline summary',
+    icon: 'mingcute:list-check-line',
+    tone: 'bg-info-bg border-info-border text-info',
+  },
+  {
+    key: 'conditional' as const,
+    label: 'Условно',
+    title: 'Условно доступна',
+    icon: 'mingcute:alert-line',
+    tone: 'bg-warning-bg border-warning-border text-warning',
+  },
+]
+
+function varsOf(availability: RegistryVar['availability']) {
+  return (registryVariables.value as RegistryVar[]).filter(v => v.availability === availability)
 }
 
-const guaranteedVars = computed(() =>
-  (registryVariables.value as RegistryVar[]).filter(v => v.availability === 'guaranteed'),
-)
-const summaryVars = computed(() =>
-  (registryVariables.value as RegistryVar[]).filter(v => v.availability === 'summary'),
-)
-const conditionalVars = computed(() =>
-  (registryVariables.value as RegistryVar[]).filter(v => v.availability === 'conditional'),
-)
+function varTitle(rv: RegistryVar) {
+  const source = rv.sourceNode ? ` [из: ${rv.sourceNode}]` : ''
+  const conditional = rv.availability === 'conditional' ? ' — доступна только при ошибках' : ''
+  return `${rv.description} (${rv.example})${source}${conditional}`
+}
+
+// Фигурные скобки шаблона — константами: в тексте разметки Vue читает их как
+// интерполяцию.
+const messageHint = 'Можно использовать переменные {{ }} для вставки данных из предыдущих блоков конвейера.'
+const messageExample = 'Конвейер завершён! Обработано {{videosCount}} видео.'
 
 const aiLoading = ref(false)
-const aiPreview = ref<{ text?: string; reasoning?: string } | null>(null)
+const aiPreview = ref<{ text?: string, reasoning?: string } | null>(null)
 
 async function onAiSuggest(prompt: string) {
   aiLoading.value = true
   aiPreview.value = null
   try {
-    const { data } = await $fetch<{ data: { text: string; reasoning?: string } }>('/api/ai/suggest/field', {
+    const { data } = await $fetch<{ data: { text: string, reasoning?: string } }>('/api/ai/suggest/field', {
       method: 'POST',
       body: {
         prompt,
@@ -88,176 +124,143 @@ function dismissAiMessage() {
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Канал</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.channel || 'telegram'"
-      @change="emit('update', 'channel', ($event.target as HTMLSelectElement).value)"
-    >
-      <option value="telegram">Telegram</option>
-    </select>
+  <UiField label="Канал">
+    <UiSelect
+      :model-value="config.channel || 'telegram'"
+      :options="channelOptions"
+      @update:model-value="(v) => emit('update', 'channel', v)"
+    />
     <SharedFieldHint text="Куда отправлять уведомление. Сейчас поддерживается Telegram." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Режим</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.mode || 'message'"
-      @change="emit('update', 'mode', ($event.target as HTMLSelectElement).value)"
-    >
-      <option value="message">Текст сообщения</option>
-      <option value="template">Шаблон из библиотеки</option>
-    </select>
+  <UiField label="Режим">
+    <UiSelect
+      :model-value="config.mode || 'message'"
+      :options="modeOptions"
+      @update:model-value="(v) => emit('update', 'mode', v)"
+    />
     <SharedFieldHint text="«Текст» — свободный ввод, «Шаблон» — использует сохранённый шаблон из Telegram → Шаблоны." />
-  </fieldset>
+  </UiField>
 
-  <!-- Raw message mode -->
-  <template v-if="mode === 'message'">
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend flex items-center gap-1">
-        Сообщение
-        <SharedAiSuggestButton
-          :loading="aiLoading"
-          with-prompt
-          with-preview
-          :preview-data="aiPreview"
-          placeholder="Какое уведомление нужно..."
-          @suggest="onAiSuggest"
-          @apply="applyAiMessage"
-          @dismiss="dismissAiMessage"
-        />
-      </legend>
-      <textarea
-        :value="config.message || ''"
-        class="textarea textarea-sm w-full"
-        rows="3"
-        placeholder="Текст уведомления"
-        @input="emit('update', 'message', ($event.target as HTMLTextAreaElement).value)"
+  <!-- Свободный текст -->
+  <div v-if="mode === 'message'">
+    <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
+      Сообщение
+      <SharedAiSuggestButton
+        :loading="aiLoading"
+        with-prompt
+        with-preview
+        :preview-data="aiPreview"
+        placeholder="Какое уведомление нужно..."
+        @suggest="onAiSuggest"
+        @apply="applyAiMessage"
+        @dismiss="dismissAiMessage"
       />
-      <SharedFieldHint
-        text="Можно использовать переменные {{ }} для вставки данных из предыдущих блоков конвейера."
-        example="Конвейер завершён! Обработано {{videosCount}} видео."
-      />
-      <div v-if="registryVariables.length" class="mt-2 space-y-1.5">
-        <div v-if="guaranteedVars.length" class="flex flex-wrap items-center gap-1">
-          <span class="badge badge-xs badge-success gap-0.5" :title="AVAILABILITY_LABELS.guaranteed">
-            <Icon name="mingcute:check-circle-line" class="size-3" />
-            Всегда
-          </span>
-          <kbd
-            v-for="rv in guaranteedVars" :key="rv.key"
-            class="kbd kbd-xs cursor-help"
-            :title="`${rv.description} (${rv.example})`"
-          >{{ rv.key }}</kbd>
-        </div>
-        <div v-if="summaryVars.length" class="flex flex-wrap items-center gap-1">
-          <span class="badge badge-xs badge-info gap-0.5" :title="AVAILABILITY_LABELS.summary">
-            <Icon name="mingcute:list-check-line" class="size-3" />
-            Summary
-          </span>
-          <kbd
-            v-for="rv in summaryVars" :key="rv.key"
-            class="kbd kbd-xs cursor-help"
-            :title="`${rv.description} (${rv.example})${rv.sourceNode ? ` [из: ${rv.sourceNode}]` : ''}`"
-          >{{ rv.key }}</kbd>
-        </div>
-        <div v-if="conditionalVars.length" class="flex flex-wrap items-center gap-1">
-          <span class="badge badge-xs badge-warning gap-0.5" :title="AVAILABILITY_LABELS.conditional">
-            <Icon name="mingcute:alert-line" class="size-3" />
-            Условно
-          </span>
-          <kbd
-            v-for="rv in conditionalVars" :key="rv.key"
-            class="kbd kbd-xs cursor-help opacity-70"
-            :title="`${rv.description} (${rv.example}) — доступна только при ошибках`"
-          >{{ rv.key }}</kbd>
-        </div>
-      </div>
-    </fieldset>
-  </template>
+    </div>
 
-  <!-- Template mode -->
-  <template v-else>
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Шаблон</legend>
-      <select
-        class="select select-sm w-full"
-        :value="config.templateKey || ''"
-        @change="emit('update', 'templateKey', ($event.target as HTMLSelectElement).value)"
+    <UiTextarea
+      :model-value="config.message || ''"
+      :rows="3"
+      placeholder="Текст уведомления"
+      @update:model-value="(v) => emit('update', 'message', v)"
+    />
+    <SharedFieldHint :text="messageHint" :example="messageExample" />
+
+    <div v-if="registryVariables.length" class="mt-2 flex flex-col gap-1.5">
+      <div
+        v-for="group in AVAILABILITY_GROUPS"
+        :key="group.key"
+        class="flex flex-wrap items-center gap-1"
       >
-        <option value="" disabled>Выберите шаблон...</option>
-        <option v-for="t in templates" :key="t.key" :value="t.key">
-          {{ t.title }} ({{ t.key }})
-        </option>
-      </select>
-      <SharedFieldHint text="Шаблон из раздела Админ → Telegram → Шаблоны. Переменные заполнятся из данных конвейера." />
-      <div v-if="!templates.length" class="text-xs text-warning mt-1">
-        Нет активных шаблонов. Создайте шаблон в Админ → Telegram → Шаблоны.
+        <template v-if="varsOf(group.key).length">
+          <span
+            class="inline-flex h-[18px] items-center gap-0.5 rounded-sm border px-1.5 text-micro"
+            :class="group.tone"
+            :title="group.title"
+          >
+            <Icon :name="group.icon" class="shrink-0" />
+            {{ group.label }}
+          </span>
+          <span
+            v-for="rv in varsOf(group.key)"
+            :key="rv.key"
+            class="cursor-help rounded-sm border border-border bg-card px-1 py-px font-mono text-micro text-muted"
+            :class="group.key === 'conditional' && 'opacity-70'"
+            :title="varTitle(rv)"
+          >{{ rv.key }}</span>
+        </template>
       </div>
-    </fieldset>
-  </template>
+    </div>
+  </div>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Тип оповещения</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.alertType || 'custom'"
-      @change="emit('update', 'alertType', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="at in alertTypes" :key="at.value" :value="at.value">{{ at.label }}</option>
-    </select>
+  <!-- Шаблон из библиотеки -->
+  <UiField v-else label="Шаблон">
+    <UiSelect
+      :model-value="config.templateKey || ''"
+      :options="templateOptions"
+      placeholder="Выберите шаблон…"
+      @update:model-value="(v) => emit('update', 'templateKey', v)"
+    />
+    <SharedFieldHint text="Шаблон из раздела Админ → Telegram → Шаблоны. Переменные заполнятся из данных конвейера." />
+    <p v-if="!templates.length" class="mt-1 text-micro text-warning">
+      Нет активных шаблонов. Создайте шаблон в Админ → Telegram → Шаблоны.
+    </p>
+  </UiField>
+
+  <UiField label="Тип оповещения">
+    <UiSelect
+      :model-value="config.alertType || 'custom'"
+      :options="alertTypes"
+      @update:model-value="(v) => emit('update', 'alertType', v)"
+    />
     <SharedFieldHint text="Определяет маршрутизацию — в какие чаты попадёт уведомление (по routing tags чатов)." />
-  </fieldset>
+  </UiField>
 
-  <!-- No-data handling policy -->
-  <div class="divider text-xs text-base-content/40 my-1">Поведение при отсутствии данных</div>
+  <div class="flex items-center gap-2 text-micro text-subtle">
+    <span class="h-px flex-1 bg-divider" />
+    Поведение при отсутствии данных
+    <span class="h-px flex-1 bg-divider" />
+  </div>
 
-  <fieldset class="fieldset">
-    <label class="label cursor-pointer justify-start gap-2 py-0.5">
-      <input
-        type="checkbox"
-        class="checkbox checkbox-sm"
-        :checked="config.skipOnNoData !== false"
-        @change="emit('update', 'skipOnNoData', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="label-text text-sm">Пропускать отправку, если нет данных</span>
-    </label>
-    <SharedFieldHint
-      text="Если включено — уведомление не отправится, когда upstream-ноды вернули _noData (например, нет активного профиля Трендвотчера). Предотвращает ложные «✅ успешно» при пустом результате."
+  <UiField>
+    <UiCheckbox
+      :model-value="config.skipOnNoData !== false"
+      label="Пропускать отправку, если нет данных"
+      @update:model-value="(v) => emit('update', 'skipOnNoData', v)"
     />
-  </fieldset>
-
-  <fieldset class="fieldset">
-    <label class="label cursor-pointer justify-start gap-2 py-0.5">
-      <input
-        type="checkbox"
-        class="checkbox checkbox-sm"
-        :checked="config.treatNoDataAsWarning !== false"
-        :disabled="config.skipOnNoData !== false"
-        @change="emit('update', 'treatNoDataAsWarning', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="label-text text-sm" :class="{ 'opacity-50': config.skipOnNoData !== false }">
-        Помечать уведомление как предупреждение
-      </span>
-    </label>
     <SharedFieldHint
-      text="Если пропуск отключён и есть no-data — уведомление уйдёт с типом «Критическая ошибка» (попадёт в warning-чаты, будет визуально отличаться). Текст будет префиксирован «⚠️ Запуск без данных»."
+      text="Если включено — уведомление не отправится, когда upstream-ноды вернули _noData (например, нет активного профиля Трендвотчера). Предотвращает ложные «успешно» при пустом результате."
     />
-  </fieldset>
+  </UiField>
 
-  <!-- Preview -->
-  <div v-if="mode === 'message' && config.message" class="mt-2">
-    <div class="text-xs text-base-content/50 mb-1">Предпросмотр:</div>
-    <div class="p-2 rounded-box bg-base-200 text-xs whitespace-pre-wrap break-words">
+  <UiField>
+    <UiCheckbox
+      :model-value="config.treatNoDataAsWarning !== false"
+      :disabled="config.skipOnNoData !== false"
+      label="Помечать уведомление как предупреждение"
+      @update:model-value="(v) => emit('update', 'treatNoDataAsWarning', v)"
+    />
+    <SharedFieldHint
+      text="Если пропуск отключён и есть no-data — уведомление уйдёт с типом «Критическая ошибка» (попадёт в warning-чаты, будет визуально отличаться). Текст будет префиксирован «Запуск без данных»."
+    />
+  </UiField>
+
+  <!-- Предпросмотр -->
+  <div v-if="mode === 'message' && config.message">
+    <div class="mb-1 text-micro text-subtle">Предпросмотр:</div>
+    <div class="rounded-md border border-border bg-card px-2.5 py-2 text-sm break-words whitespace-pre-wrap">
       {{ config.message }}
     </div>
   </div>
-  <div v-else-if="mode === 'template' && config.templateKey" class="mt-2">
-    <div class="alert alert-info alert-sm">
-      <Icon name="mingcute:information-line" />
-      <span class="text-xs">Будет использован шаблон <kbd class="kbd kbd-xs">{{ config.templateKey }}</kbd>. Переменные заполнятся из данных конвейера.</span>
-    </div>
-  </div>
+  <p
+    v-else-if="mode === 'template' && config.templateKey"
+    class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-micro text-muted"
+  >
+    <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+    <span>
+      Будет использован шаблон
+      <code class="font-mono text-fg">{{ config.templateKey }}</code>.
+      Переменные заполнятся из данных конвейера.
+    </span>
+  </p>
 </template>

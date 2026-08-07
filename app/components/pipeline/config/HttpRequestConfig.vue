@@ -7,125 +7,109 @@ const emit = defineEmits<{
   update: [key: string, value: any]
 }>()
 
-const methods = ['GET', 'POST', 'PUT', 'DELETE']
+const methodOptions = ['GET', 'POST', 'PUT', 'DELETE'].map(m => ({ value: m, label: m }))
 
 const { data: credentialsData } = useFetch<{ data: any[] }>('/api/pipelines/credentials')
 const credentials = computed(() => credentialsData.value?.data ?? [])
+
+const credentialOptions = computed(() => [
+  { value: '', label: 'Без авторизации' },
+  ...credentials.value.map((c: any) => ({ value: c.id, label: `${c.name} (${c.type})` })),
+])
 
 const selectedCredential = computed(() => {
   if (!props.config.authCredentialId) return null
   return credentials.value.find((c: any) => c.id === props.config.authCredentialId)
 })
 
-const credentialHealth = computed(() => {
-  const cred = selectedCredential.value
-  if (!cred) return null
-  return cred.healthStatus as string | undefined
+// Здоровье учётных данных — доменная подпись при системном тоне: «Отозваны» и
+// «Истекают скоро» точнее, чем «Ошибка» и «Предупреждение» из общего словаря.
+const HEALTH_META: Record<string, { label: string, tone: string }> = {
+  revoked: { label: 'Отозваны', tone: 'bg-danger-bg border-danger-border text-danger' },
+  expired: { label: 'Истекли', tone: 'bg-danger-bg border-danger-border text-danger' },
+  expiring_soon: { label: 'Истекают скоро', tone: 'bg-warning-bg border-warning-border text-warning' },
+  failed_test: { label: 'Ошибка теста', tone: 'bg-warning-bg border-warning-border text-warning' },
+  untested: { label: 'Не проверены', tone: 'bg-neutral-bg border-neutral-border text-neutral' },
+  healthy: { label: 'OK', tone: 'bg-success-bg border-success-border text-success' },
+}
+
+const health = computed(() => {
+  const status = selectedCredential.value?.healthStatus as string | undefined
+  return status ? HEALTH_META[status] ?? null : null
 })
 
-const healthBadgeClass = computed(() => {
-  switch (credentialHealth.value) {
-    case 'revoked': return 'badge-error'
-    case 'expired': return 'badge-error'
-    case 'expiring_soon': return 'badge-warning'
-    case 'failed_test': return 'badge-warning'
-    case 'untested': return 'badge-ghost'
-    case 'healthy': return 'badge-success'
-    default: return ''
-  }
-})
+// Шаблонные фигурные скобки держим константой: в текстовом узле Vue читает их
+// как интерполяцию.
+const urlHint = 'Адрес внешнего API. Поддерживаются шаблоны {{ }} для динамических значений.'
 
-const healthLabel = computed(() => {
-  switch (credentialHealth.value) {
-    case 'revoked': return 'Отозваны'
-    case 'expired': return 'Истекли'
-    case 'expiring_soon': return 'Истекают скоро'
-    case 'failed_test': return 'Ошибка теста'
-    case 'untested': return 'Не проверены'
-    case 'healthy': return 'OK'
-    default: return ''
-  }
-})
+function ruDate(value: string) {
+  return new Date(value).toLocaleDateString('ru-RU')
+}
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Метод</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.method || 'GET'"
-      @change="emit('update', 'method', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="m in methods" :key="m" :value="m">{{ m }}</option>
-    </select>
-    <SharedFieldHint text="HTTP метод запроса. GET — получить данные. POST — отправить данные. PUT — обновить. DELETE — удалить." />
-  </fieldset>
-
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">URL</legend>
-    <input
-      :value="config.url || ''"
-      type="url"
-      class="input input-sm w-full"
-      placeholder="https://api.example.com/data"
-      @input="emit('update', 'url', ($event.target as HTMLInputElement).value)"
+  <UiField label="Метод">
+    <UiSelect
+      :model-value="config.method || 'GET'"
+      :options="methodOptions"
+      @update:model-value="(v) => emit('update', 'method', v)"
     />
-    <SharedFieldHint text="Адрес внешнего API. Поддерживаются шаблоны {{ }} для динамических значений." example="https://api.example.com/data" />
-  </fieldset>
+    <SharedFieldHint text="HTTP метод запроса. GET — получить данные. POST — отправить данные. PUT — обновить. DELETE — удалить." />
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Авторизация</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.authCredentialId ?? ''"
-      @change="emit('update', 'authCredentialId', Number(($event.target as HTMLSelectElement).value) || null)"
-    >
-      <option value="">Без авторизации</option>
-      <option v-for="c in credentials" :key="c.id" :value="c.id">
-        {{ c.name }} ({{ c.type }})
-      </option>
-    </select>
+  <UiField label="URL">
+    <UiInput
+      :model-value="config.url || ''"
+      type="url"
+      placeholder="https://api.example.com/data"
+      @update:model-value="(v) => emit('update', 'url', v)"
+    />
+    <SharedFieldHint :text="urlHint" example="https://api.example.com/data" />
+  </UiField>
 
-    <!-- Credential health indicator -->
-    <div v-if="selectedCredential" class="flex items-center gap-1.5 mt-1">
-      <span v-if="healthLabel" class="badge badge-xs" :class="healthBadgeClass">
-        {{ healthLabel }}
+  <UiField label="Авторизация">
+    <UiSelect
+      :model-value="config.authCredentialId ?? ''"
+      :options="credentialOptions"
+      @update:model-value="(v) => emit('update', 'authCredentialId', Number(v) || null)"
+    />
+
+    <div v-if="selectedCredential" class="mt-1 flex flex-wrap items-center gap-1.5">
+      <span
+        v-if="health"
+        class="inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro"
+        :class="health.tone"
+      >{{ health.label }}</span>
+      <span v-if="selectedCredential.lastUsedAt" class="text-micro text-subtle">
+        Исп.: {{ ruDate(selectedCredential.lastUsedAt) }}
       </span>
-      <span v-if="selectedCredential.lastUsedAt" class="text-[10px] text-base-content/40">
-        Исп.: {{ new Date(selectedCredential.lastUsedAt).toLocaleDateString('ru-RU') }}
-      </span>
-      <span v-if="selectedCredential.expiresAt" class="text-[10px] text-base-content/40">
-        Истекает: {{ new Date(selectedCredential.expiresAt).toLocaleDateString('ru-RU') }}
+      <span v-if="selectedCredential.expiresAt" class="text-micro text-subtle">
+        Истекает: {{ ruDate(selectedCredential.expiresAt) }}
       </span>
     </div>
 
     <SharedFieldHint text="Учётные данные для запроса. Секреты хранятся зашифрованными и не попадают в граф конвейера." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Заголовки (JSON)</legend>
-    <textarea
-      :value="config.headers || ''"
-      class="textarea textarea-sm w-full font-mono text-xs"
-      rows="3"
+  <UiField label="Заголовки (JSON)">
+    <UiTextarea
+      :model-value="config.headers || ''"
+      :rows="3"
       placeholder='{"Content-Type": "application/json"}'
-      @input="emit('update', 'headers', ($event.target as HTMLTextAreaElement).value)"
+      class="font-mono text-sm"
+      @update:model-value="(v) => emit('update', 'headers', v)"
     />
-    <SharedFieldHint text="HTTP заголовки в формате JSON. НЕ вставляйте сюда токены и пароли — используйте поле Авторизация." />
-  </fieldset>
+    <SharedFieldHint text="HTTP заголовки в формате JSON. Не вставляйте сюда токены и пароли — для них есть поле «Авторизация»." />
+  </UiField>
 
-  <fieldset
-    v-if="config.method === 'POST' || config.method === 'PUT'"
-    class="fieldset"
-  >
-    <legend class="fieldset-legend">Тело запроса (JSON)</legend>
-    <textarea
-      :value="config.body || ''"
-      class="textarea textarea-sm w-full font-mono text-xs"
-      rows="4"
+  <UiField v-if="config.method === 'POST' || config.method === 'PUT'" label="Тело запроса (JSON)">
+    <UiTextarea
+      :model-value="config.body || ''"
+      :rows="4"
       placeholder='{"key": "value"}'
-      @input="emit('update', 'body', ($event.target as HTMLTextAreaElement).value)"
+      class="font-mono text-sm"
+      @update:model-value="(v) => emit('update', 'body', v)"
     />
     <SharedFieldHint text="Данные запроса в формате JSON. Отправляется только для POST и PUT методов." example='{"key": "value"}' />
-  </fieldset>
+  </UiField>
 </template>

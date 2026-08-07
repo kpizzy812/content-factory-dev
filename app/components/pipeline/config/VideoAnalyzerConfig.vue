@@ -10,12 +10,8 @@ const emit = defineEmits<{
 const force = computed(() => Boolean(props.config.force ?? false))
 const concurrency = computed(() => Number(props.config.concurrency ?? 2))
 
-function onForceChange(event: Event) {
-  emit('update', 'force', (event.target as HTMLInputElement).checked)
-}
-
-function onConcurrencyChange(event: Event) {
-  const v = Number((event.target as HTMLInputElement).value)
+function onConcurrencyChange(value: string | number) {
+  const v = Number(value)
   if (Number.isFinite(v) && v >= 1 && v <= 3) {
     emit('update', 'concurrency', v)
   }
@@ -23,43 +19,35 @@ function onConcurrencyChange(event: Event) {
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Принудительный пере-анализ</legend>
-    <label class="label cursor-pointer justify-start gap-2 p-0">
-      <input
-        type="checkbox"
-        class="checkbox checkbox-sm"
-        :checked="force"
-        @change="onForceChange"
-      />
-      <span class="text-xs">Игнорировать TTL и переанализировать заново</span>
-    </label>
+  <UiField label="Принудительный пере-анализ">
+    <UiCheckbox
+      :model-value="force"
+      label="Игнорировать TTL и переанализировать заново"
+      @update:model-value="(v) => emit('update', 'force', v)"
+    />
     <SharedFieldHint
       text="По умолчанию анализ свежий 30 дней — повторный запуск пропускает видео. Включите чтобы перезапустить даже если TTL не истёк."
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Параллелизм (concurrency)</legend>
-    <input
+  <UiField label="Параллелизм (concurrency)">
+    <UiInput
+      :model-value="concurrency"
       type="number"
-      class="input input-sm w-full"
       min="1"
       max="3"
-      :value="concurrency"
-      @change="onConcurrencyChange"
+      @update:model-value="onConcurrencyChange"
     />
     <SharedFieldHint
       text="Сколько видео анализировать одновременно. Больше — быстрее, но выше нагрузка на Anthropic API. Range 1..3, default 2."
     />
-  </fieldset>
+  </UiField>
 
-  <div class="p-2 rounded-box bg-base-200 text-[10px] text-base-content/60 leading-relaxed">
-    <p>
-      Принимает upstream <code>driveFileIds</code> (от Drive Scanner) или <code>videoIds</code>.
-      Импортирует Drive-файлы в Video и запускает marketing-разбор кадров.
-      Результат — <code>VideoAnalysisFramePass</code> в <code>Video.analysisData</code>,
-      используется downstream нодой Caption Generator.
-    </p>
-  </div>
+  <p class="rounded-md border border-border bg-card px-2.5 py-2 text-micro leading-relaxed text-muted">
+    Принимает upstream <code class="font-mono text-fg">driveFileIds</code> (от Drive Scanner) или
+    <code class="font-mono text-fg">videoIds</code>. Импортирует Drive-файлы в Video и запускает
+    marketing-разбор кадров. Результат — <code class="font-mono text-fg">VideoAnalysisFramePass</code>
+    в <code class="font-mono text-fg">Video.analysisData</code>, используется downstream нодой
+    Caption Generator.
+  </p>
 </template>

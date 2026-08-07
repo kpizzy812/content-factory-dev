@@ -59,108 +59,115 @@ function previewText(p: FavoritePrompt) {
 }
 
 const selectedCount = computed(() => props.selectedIds.length)
+
+const tabClass = (active: boolean) => active
+  ? 'bg-accent text-on-accent'
+  : 'text-muted hover:text-fg'
 </script>
 
 <template>
-  <div class="space-y-2">
-    <div role="tablist" class="tabs tabs-box tabs-sm">
+  <div class="flex flex-col gap-2">
+    <div role="tablist" class="flex rounded-md border border-border bg-card p-0.5">
       <button
         type="button"
         role="tab"
-        class="tab gap-1"
-        :class="autoSelect ? 'tab-active' : ''"
+        class="flex h-6 flex-1 cursor-pointer items-center justify-center gap-1 rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="tabClass(autoSelect)"
         @click="emit('update:autoSelect', true)"
       >
-        <Icon name="mingcute:ai-line" class="text-sm" />
+        <Icon name="mingcute:ai-line" />
         AI подберёт сам
       </button>
       <button
         type="button"
         role="tab"
-        class="tab gap-1"
-        :class="!autoSelect ? 'tab-active' : ''"
+        class="flex h-6 flex-1 cursor-pointer items-center justify-center gap-1 rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="tabClass(!autoSelect)"
         @click="emit('update:autoSelect', false)"
       >
-        <Icon name="mingcute:hand-line" class="text-sm" />
+        <Icon name="mingcute:hand-line" />
         Выберу сам
-        <span v-if="!autoSelect && selectedCount > 0" class="badge badge-primary badge-xs">
-          {{ selectedCount }}
-        </span>
+        <span
+          v-if="!autoSelect && selectedCount > 0"
+          class="tnum rounded-sm bg-on-accent/15 px-1 text-micro"
+        >{{ selectedCount }}</span>
       </button>
     </div>
 
-    <p v-if="autoSelect" class="text-xs text-base-content/60 px-1">
+    <p v-if="autoSelect" class="text-sm text-muted">
       AI выберет до 5 наиболее релевантных промтов из библиотеки по пересечению тегов и популярности.
     </p>
 
-    <div v-else class="space-y-2">
-      <div class="flex items-center justify-between text-xs px-1">
-        <span class="text-base-content/60">
-          Выбрано {{ selectedCount }} из 5
-        </span>
-        <button
+    <div v-else class="flex flex-col gap-2">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm text-muted">Выбрано {{ selectedCount }} из 5</span>
+        <UiButton
           v-if="selectedCount > 0"
-          type="button"
-          class="btn btn-ghost btn-xs"
+          variant="ghost"
           @click="emit('update:selectedIds', [])"
         >
           Сбросить
-        </button>
+        </UiButton>
       </div>
 
-      <div class="space-y-1 max-h-64 overflow-y-auto border border-base-300 rounded-box p-2">
-        <div v-if="pending" class="flex justify-center py-4">
-          <span class="loading loading-spinner loading-sm" />
+      <div class="max-h-64 overflow-y-auto rounded-md border border-border p-2">
+        <div v-if="pending" class="flex justify-center py-4 text-muted">
+          <Icon name="mingcute:loading-line" class="animate-spin text-lg" />
         </div>
-        <div v-else-if="error" class="alert alert-error alert-soft text-xs py-1">
-          <span>Ошибка: {{ error.message }}</span>
-          <button type="button" class="btn btn-ghost btn-xs" @click="() => refresh()">Повторить</button>
-        </div>
-        <div v-else-if="filteredItems.length === 0" class="text-xs text-base-content/50 text-center py-3">
-          Нет подходящих промтов. Добавьте избранные на странице видео.
-        </div>
-        <label
-          v-for="p in filteredItems"
-          v-else
-          :key="p.id"
-          class="flex items-start gap-2 cursor-pointer p-1.5 rounded-field hover:bg-base-200/60"
-          :class="isSelected(p.id) ? 'bg-primary/5 ring-1 ring-primary/30' : ''"
+
+        <div
+          v-else-if="error"
+          class="flex items-center justify-between gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-1.5 text-sm text-danger"
         >
-          <input
-            type="checkbox"
-            class="checkbox checkbox-xs mt-0.5"
-            :checked="isSelected(p.id)"
-            :disabled="!isSelected(p.id) && selectedCount >= 5"
-            @change="toggleId(p.id)"
-          />
-          <div class="flex-1 min-w-0 text-xs">
-            <div class="flex items-center gap-1 mb-0.5">
-              <span
-                class="badge badge-xs"
-                :class="p.app ? 'badge-primary' : 'badge-ghost'"
-              >
-                {{ p.app?.name ?? 'Универсальный' }}
-              </span>
-              <span
-                v-if="p.usageCount > 0"
-                class="text-[10px] text-base-content/50"
-                :title="`Использовано ${p.usageCount} раз`"
-              >
-                <Icon name="mingcute:fire-line" class="text-[10px]" /> {{ p.usageCount }}
-              </span>
+          <span>Ошибка: {{ error.message }}</span>
+          <UiButton variant="ghost" @click="() => refresh()">Повторить</UiButton>
+        </div>
+
+        <p v-else-if="filteredItems.length === 0" class="py-3 text-center text-sm text-subtle">
+          Нет подходящих промтов. Добавьте избранные на странице видео.
+        </p>
+
+        <div v-else class="flex flex-col gap-1">
+          <label
+            v-for="p in filteredItems"
+            :key="p.id"
+            class="flex cursor-pointer items-start gap-2 rounded-md border p-1.5"
+            :class="isSelected(p.id) ? 'border-accent-border bg-accent-bg' : 'border-transparent hover:bg-raised'"
+          >
+            <input
+              type="checkbox"
+              class="mt-0.5 size-3.5 shrink-0 rounded-sm accent-(--color-accent)"
+              :checked="isSelected(p.id)"
+              :disabled="!isSelected(p.id) && selectedCount >= 5"
+              @change="toggleId(p.id)"
+            >
+            <div class="min-w-0 flex-1">
+              <div class="mb-0.5 flex items-center gap-1">
+                <span
+                  class="inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro"
+                  :class="p.app
+                    ? 'border-accent-border bg-accent-bg text-accent-text'
+                    : 'border-neutral-border bg-neutral-bg text-neutral'"
+                >{{ p.app?.name ?? 'Универсальный' }}</span>
+                <span
+                  v-if="p.usageCount > 0"
+                  class="inline-flex items-center gap-0.5 text-micro text-subtle"
+                  :title="`Использовано ${p.usageCount} раз`"
+                >
+                  <Icon name="mingcute:fire-line" /> {{ p.usageCount }}
+                </span>
+              </div>
+              <p class="text-micro whitespace-pre-line text-muted">{{ previewText(p) }}</p>
+              <div v-if="p.tags.length > 0" class="mt-0.5 flex flex-wrap gap-0.5">
+                <span
+                  v-for="t in p.tags"
+                  :key="t"
+                  class="rounded-sm border border-border px-1 text-micro text-subtle"
+                >{{ t }}</span>
+              </div>
             </div>
-            <p class="text-[11px] text-base-content/80 whitespace-pre-line">{{ previewText(p) }}</p>
-            <div v-if="p.tags.length > 0" class="flex flex-wrap gap-0.5 mt-0.5">
-              <span
-                v-for="t in p.tags"
-                :key="t"
-                class="badge badge-outline badge-xs text-[9px]"
-              >
-                {{ t }}
-              </span>
-            </div>
-          </div>
-        </label>
+          </label>
+        </div>
       </div>
     </div>
   </div>

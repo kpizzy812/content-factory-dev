@@ -9,11 +9,19 @@ const emit = defineEmits<{
   update: [key: string, value: any]
 }>()
 
-const countOptions = [1, 3, 5]
+const countOptions = [1, 3, 5].map(n => ({ value: n, label: String(n) }))
 const modeOptions = [
   { value: 'auto', label: 'Авто' },
   { value: 'story_driven', label: 'Сторителлинг' },
   { value: 'simple', label: 'Быстрая' },
+]
+
+const budgetOptions = [
+  { value: 'minimal', label: 'Минимум — 3 сцены по 3–4 с (≈ $1 за видео)' },
+  { value: 'auto', label: 'Авто — 3–5 сцен по 3–6 с (≈ $2 за видео)' },
+  { value: 'detailed', label: 'Проработанный — 4–5 сцен по 4–7 с (≈ $2.5–3.5)' },
+  { value: 'cinematic', label: 'Кинематографичный — 5–6 сцен по 6–9 с (≈ $4–5)' },
+  { value: 'longform', label: 'Длинный — 9 сцен по 8–10 с (72–90 секунд)' },
 ]
 
 const editorOpen = ref(false)
@@ -21,6 +29,8 @@ const editorOpen = ref(false)
 const selectedStyles = computed<string[]>(() => {
   return Array.isArray(props.config.hookStyles) ? props.config.hookStyles : []
 })
+
+const maxTrends = computed(() => Math.max(1, Number(props.config.maxTrends) || 1))
 
 // ─── Section status badges ────────────────────────────
 
@@ -54,16 +64,10 @@ function sectionStatus(section: string): ScenarioConfigSectionStatus {
   return 'empty'
 }
 
-function statusBadgeClass(status: ScenarioConfigSectionStatus): string {
-  if (status === 'ready') return 'badge-success'
-  if (status === 'partial') return 'badge-warning'
-  return 'badge-ghost'
-}
-
-function statusLabel(status: ScenarioConfigSectionStatus): string {
-  if (status === 'ready') return 'Готово'
-  if (status === 'partial') return 'Частично'
-  return 'Не настроено'
+const STATUS_META: Record<ScenarioConfigSectionStatus, { label: string, tone: string }> = {
+  ready: { label: 'Готово', tone: 'border-success-border bg-success-bg text-success' },
+  partial: { label: 'Частично', tone: 'border-warning-border bg-warning-bg text-warning' },
+  empty: { label: 'Не настроено', tone: 'border-neutral-border bg-neutral-bg text-neutral' },
 }
 
 const sections = [
@@ -85,33 +89,25 @@ function onEditorSave(newConfig: Record<string, any>) {
 </script>
 
 <template>
-  <!-- Base fields (always visible) -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Количество вариантов</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.variantsCount || 3"
-      @change="emit('update', 'variantsCount', Number(($event.target as HTMLSelectElement).value))"
-    >
-      <option v-for="n in countOptions" :key="n" :value="n">{{ n }}</option>
-    </select>
-    <SharedFieldHint text="Сколько вариантов сценария сгенерировать. Больше вариантов = больше выбор, но дольше генерация." />
-  </fieldset>
+  <UiField label="Количество вариантов">
+    <UiSelect
+      :model-value="config.variantsCount || 3"
+      :options="countOptions"
+      @update:model-value="(v) => emit('update', 'variantsCount', Number(v))"
+    />
+    <SharedFieldHint text="Сколько вариантов сценария сгенерировать. Больше вариантов — больше выбор, но дольше генерация." />
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Режим генерации</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.generationMode || 'auto'"
-      @change="emit('update', 'generationMode', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="opt in modeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-    </select>
+  <UiField label="Режим генерации">
+    <UiSelect
+      :model-value="config.generationMode || 'auto'"
+      :options="modeOptions"
+      @update:model-value="(v) => emit('update', 'generationMode', v)"
+    />
     <SharedFieldHint text="Авто — система выбирает режим. Сторителлинг — полноценная история. Быстрая — без StoryPlan." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Стили хуков</legend>
+  <UiField label="Стили хуков">
     <SharedTaxonomyPicker
       type="hook_style"
       :model-value="selectedStyles"
@@ -119,50 +115,44 @@ function onEditorSave(newConfig: Record<string, any>) {
       @update:model-value="(v) => emit('update', 'hookStyles', v)"
     />
     <SharedFieldHint text="Как захватить внимание зрителя в первые секунды. Выберите один или несколько стилей." />
-  </fieldset>
+  </UiField>
 
-  <!-- Budget / scene count strategy — главный рычаг расхода -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Бюджет сценария</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.storytelling?.sceneCountStrategy || 'auto'"
-      @change="emit('update', 'storytelling', { ...(config.storytelling ?? {}), sceneCountStrategy: ($event.target as HTMLSelectElement).value })"
-    >
-      <option value="minimal">Минимум — 3 сцены по 3-4с (≈ $1 за видео)</option>
-      <option value="auto">Авто — 3-5 сцен по 3-6с (≈ $2 за видео)</option>
-      <option value="detailed">Проработанный — 4-5 сцен по 4-7с (≈ $2.5-3.5)</option>
-      <option value="cinematic">Кинематографичный — 5-6 сцен по 6-9с (≈ $4-5)</option>
-      <option value="longform">Длинный — 9 сцен по 8-10с (72-90 секунд)</option>
-    </select>
-    <SharedFieldHint text="Жёсткий лимит на количество сцен и их длительность. Scene planner обрежет хвост если превысит, duration каждой сцены clamp'ится в диапазон. Единственный способ гарантированно ограничить стоимость видео на этапе сценария." />
-  </fieldset>
+  <!-- Бюджет сценария — главный рычаг расхода -->
+  <UiField label="Бюджет сценария">
+    <UiSelect
+      :model-value="config.storytelling?.sceneCountStrategy || 'auto'"
+      :options="budgetOptions"
+      @update:model-value="(v) => emit('update', 'storytelling', { ...(config.storytelling ?? {}), sceneCountStrategy: v })"
+    />
+    <SharedFieldHint text="Жёсткий лимит на количество сцен и их длительность. Планировщик сцен обрежет хвост при превышении, длительность каждой сцены зажимается в диапазон. Единственный способ гарантированно ограничить стоимость видео на этапе сценария." />
+  </UiField>
 
-  <!-- Max trends limiter -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Лимит трендов</legend>
+  <!-- Лимит трендов -->
+  <UiField label="Лимит трендов">
     <div class="flex items-center gap-2">
-      <input
+      <UiInput
         type="number"
-        class="input input-sm w-20"
         min="1"
         max="50"
         placeholder="1"
-        :value="Math.max(1, Number(config.maxTrends) || 1)"
-        @input="emit('update', 'maxTrends', Math.max(1, Math.min(50, Number(($event.target as HTMLInputElement).value) || 1)))"
+        class="w-20"
+        :model-value="maxTrends"
+        @update:model-value="(v) => emit('update', 'maxTrends', Math.max(1, Math.min(50, Number(v) || 1)))"
       />
-      <span class="text-xs text-base-content/60">сколько трендов в один запуск</span>
+      <span class="text-sm text-muted">сколько трендов в один запуск</span>
     </div>
-    <SharedFieldHint text="Дефолт 1: сценарий генерируется по первому подходящему тренду из потока. Каждый дополнительный тренд = +N вариантов сценария = линейный рост AI-расхода." />
-    <div v-if="Math.max(1, Number(config.maxTrends) || 1) > 1" class="alert alert-info alert-soft text-[10px] py-1 mt-1">
-      <Icon name="mingcute:information-line" class="text-xs" />
-      <span>Будет обработано до {{ Math.max(1, Number(config.maxTrends) || 1) }} трендов = до {{ Math.max(1, Number(config.maxTrends) || 1) * (config.variantsCount || 3) }} вариантов сценария.</span>
-    </div>
-  </fieldset>
+    <SharedFieldHint text="По умолчанию 1: сценарий генерируется по первому подходящему тренду из потока. Каждый дополнительный тренд — плюс N вариантов сценария и линейный рост AI-расхода." />
+    <p
+      v-if="maxTrends > 1"
+      class="mt-1 flex items-start gap-1.5 rounded-md border border-info-border bg-info-bg px-2 py-1 text-micro text-muted"
+    >
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+      <span>Будет обработано до {{ maxTrends }} трендов — до {{ maxTrends * (config.variantsCount || 3) }} вариантов сценария.</span>
+    </p>
+  </UiField>
 
   <!-- Лучшие практики: избранные промты как ориентир для AI -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Лучшие практики</legend>
+  <UiField label="Лучшие практики">
     <PipelineConfigFavoritePromptsPicker
       :app-id="config.app?.appId ?? null"
       :auto-select="config.favoritePrompts?.autoSelect ?? false"
@@ -170,43 +160,41 @@ function onEditorSave(newConfig: Record<string, any>) {
       @update:auto-select="(v) => emit('update', 'favoritePrompts', { ...(config.favoritePrompts ?? {}), autoSelect: v })"
       @update:selected-ids="(v) => emit('update', 'favoritePrompts', { ...(config.favoritePrompts ?? {}), manualIds: v })"
     />
-    <SharedFieldHint text="AI будет использовать выбранные промты как вдохновение (не копируя их). Отфильтровано по приложению ноды." />
-  </fieldset>
+    <SharedFieldHint text="AI будет использовать выбранные промты как вдохновение, не копируя их. Отфильтровано по приложению ноды." />
+  </UiField>
 
-  <!-- Summary card + open editor -->
-  <div class="border border-base-300 rounded-box p-2.5 mt-1 space-y-2">
-    <div class="flex items-center justify-between">
-      <span class="text-xs font-semibold text-base-content/70 flex items-center gap-1">
-        <Icon name="mingcute:settings-3-line" class="text-sm" />
+  <!-- Сводка и переход в расширенную настройку -->
+  <div class="flex flex-col gap-2 rounded-md border border-border p-2.5">
+    <div class="flex items-center justify-between gap-2">
+      <span class="flex items-center gap-1 font-semibold text-muted">
+        <Icon name="mingcute:settings-3-line" />
         Расширенная настройка
       </span>
-      <button
-        type="button"
-        class="btn btn-primary btn-xs"
-        @click="editorOpen = true"
-      >
-        <Icon name="mingcute:edit-2-line" class="text-[10px]" />
+      <UiButton variant="primary" @click="editorOpen = true">
+        <Icon name="mingcute:edit-2-line" />
         Настроить
-      </button>
+      </UiButton>
     </div>
 
-    <!-- Section status badges -->
-    <div class="flex flex-wrap gap-1.5">
+    <div class="flex flex-wrap gap-x-3 gap-y-1.5">
       <div
         v-for="sec in sections"
         :key="sec.key"
-        class="flex items-center gap-1 text-[10px] text-base-content/60"
+        class="flex items-center gap-1 text-micro text-muted"
       >
-        <Icon :name="sec.icon" class="text-xs" />
+        <Icon :name="sec.icon" />
         <span>{{ sec.label }}</span>
-        <span class="badge badge-xs" :class="statusBadgeClass(sectionStatus(sec.key))">
-          {{ statusLabel(sectionStatus(sec.key)) }}
-        </span>
+        <span
+          class="inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro"
+          :class="STATUS_META[sectionStatus(sec.key)].tone"
+        >{{ STATUS_META[sectionStatus(sec.key)].label }}</span>
       </div>
     </div>
 
-    <!-- Quick summary of key choices -->
-    <div v-if="config.app?.appId || config.storytelling?.enabled" class="text-[10px] text-base-content/40 space-y-0.5">
+    <div
+      v-if="config.app?.appId || config.storytelling?.enabled"
+      class="flex flex-col gap-0.5 text-micro text-subtle"
+    >
       <div v-if="config.storytelling?.enabled">
         Сторителлинг: {{ config.storytelling.protagonistMode || 'auto' }} /
         {{ config.storytelling.sceneCountStrategy || 'auto' }}
@@ -220,7 +208,6 @@ function onEditorSave(newConfig: Record<string, any>) {
     </div>
   </div>
 
-  <!-- Editor modal -->
   <PipelineConfigScenarioConfigEditor
     :open="editorOpen"
     :config="config"

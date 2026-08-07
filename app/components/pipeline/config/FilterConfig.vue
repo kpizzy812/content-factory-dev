@@ -26,43 +26,31 @@ const operatorOptions = [
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Метрика</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.filterMetric || 'views'"
-      @change="emit('update', 'filterMetric', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="m in metricOptions" :key="m.value" :value="m.value">
-        {{ m.label }}
-      </option>
-    </select>
+  <UiField label="Метрика">
+    <UiSelect
+      :model-value="config.filterMetric || 'views'"
+      :options="metricOptions"
+      @update:model-value="(v) => emit('update', 'filterMetric', v)"
+    />
     <SharedFieldHint text="По какому показателю фильтровать данные. Выберите одну метрику для проверки условия." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Оператор</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.filterOperator || '>'"
-      @change="emit('update', 'filterOperator', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="op in operatorOptions" :key="op.value" :value="op.value">
-        {{ op.label }}
-      </option>
-    </select>
+  <UiField label="Оператор">
+    <UiSelect
+      :model-value="config.filterOperator || '>'"
+      :options="operatorOptions"
+      @update:model-value="(v) => emit('update', 'filterOperator', v)"
+    />
     <SharedFieldHint text="Как сравнивать метрику с пороговым значением." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Значение</legend>
-    <input
-      :value="config.filterValue || ''"
+  <UiField label="Значение">
+    <UiInput
+      :model-value="config.filterValue || ''"
       type="number"
-      class="input input-sm w-full"
       placeholder="10000"
-      @input="emit('update', 'filterValue', Number(($event.target as HTMLInputElement).value))"
+      @update:model-value="(v) => emit('update', 'filterValue', Number(v))"
     />
     <SharedFieldHint text="Пороговое значение для сравнения. Например: 10000 для фильтра «просмотры > 10000»." example="10000" />
-  </fieldset>
+  </UiField>
 </template>

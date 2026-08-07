@@ -17,17 +17,12 @@ const delayOptions = [
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Задержка</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.delaySeconds || 5"
-      @change="emit('update', 'delaySeconds', Number(($event.target as HTMLSelectElement).value))"
-    >
-      <option v-for="opt in delayOptions" :key="opt.value" :value="opt.value">
-        {{ opt.label }}
-      </option>
-    </select>
+  <UiField label="Задержка">
+    <UiSelect
+      :model-value="config.delaySeconds || 5"
+      :options="delayOptions"
+      @update:model-value="(v) => emit('update', 'delaySeconds', Number(v))"
+    />
     <SharedFieldHint text="Время паузы перед продолжением конвейера. Полезно для rate limiting внешних API." />
-  </fieldset>
+  </UiField>
 </template>

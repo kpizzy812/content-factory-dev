@@ -9,58 +9,45 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Приложение</legend>
-    <input
-      :value="config.appId || ''"
+  <UiField label="Приложение">
+    <UiInput
+      :model-value="config.appId || ''"
       type="number"
       min="1"
-      class="input input-sm w-full"
       placeholder="Берётся из фабричного запуска"
-      @input="emit('update', 'appId', Number(($event.target as HTMLInputElement).value) || undefined)"
+      @update:model-value="(v) => emit('update', 'appId', Number(v) || undefined)"
     />
     <SharedFieldHint text="Можно не указывать для запуска из контент-завода. Тогда приложение берётся из производственного цикла." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Готовая воронка</legend>
-    <input
-      :value="config.funnelId || ''"
-      type="text"
-      class="input input-sm w-full"
+  <UiField label="Готовая воронка">
+    <UiInput
+      :model-value="config.funnelId || ''"
       placeholder="ID активной воронки"
-      @input="emit('update', 'funnelId', ($event.target as HTMLInputElement).value.trim() || undefined)"
+      @update:model-value="(v) => emit('update', 'funnelId', v.trim() || undefined)"
     />
     <SharedFieldHint text="Если указана активная воронка, её кодовое слово обязательно попадёт в CTA. Без неё система создаст лид-магнит в черновике." />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <label class="flex items-center justify-between gap-3 cursor-pointer">
-      <span>
-        <span class="block text-xs font-medium">Учитывать свою статистику</span>
-        <span class="block text-[10px] text-base-content/50">Просмотры, удержание, CTR и реакции последних роликов</span>
-      </span>
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="config.useInternalMetrics !== false"
-        @change="emit('update', 'useInternalMetrics', ($event.target as HTMLInputElement).checked)"
-      />
-    </label>
-  </fieldset>
+  <div class="flex items-start justify-between gap-3">
+    <span class="min-w-0">
+      <span class="block font-medium">Учитывать свою статистику</span>
+      <span class="block text-micro text-subtle">Просмотры, удержание, CTR и реакции последних роликов</span>
+    </span>
+    <UiToggle
+      :model-value="config.useInternalMetrics !== false"
+      @update:model-value="(v) => emit('update', 'useInternalMetrics', v)"
+    />
+  </div>
 
-  <fieldset class="fieldset">
-    <label class="flex items-center justify-between gap-3 cursor-pointer">
-      <span>
-        <span class="block text-xs font-medium">Использовать банк трендов</span>
-        <span class="block text-[10px] text-base-content/50">Берёт свежие тренды и готовые идеи приложения без отдельного поиска на каждый ролик</span>
-      </span>
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="config.useTrendBank !== false"
-        @change="emit('update', 'useTrendBank', ($event.target as HTMLInputElement).checked)"
-      />
-    </label>
-  </fieldset>
+  <div class="flex items-start justify-between gap-3">
+    <span class="min-w-0">
+      <span class="block font-medium">Использовать банк трендов</span>
+      <span class="block text-micro text-subtle">Берёт свежие тренды и готовые идеи приложения без отдельного поиска на каждый ролик</span>
+    </span>
+    <UiToggle
+      :model-value="config.useTrendBank !== false"
+      @update:model-value="(v) => emit('update', 'useTrendBank', v)"
+    />
+  </div>
 </template>

@@ -13,13 +13,24 @@ const emit = defineEmits<{
   update: [key: string, value: any]
 }>()
 
-const { data: appsData } = useFetch<{ data: { id: number; name: string }[] }>('/api/apps', {
+const { data: appsData } = useFetch<{ data: { id: number, name: string }[] }>('/api/apps', {
   default: () => ({ data: [] }) as any,
 })
 const apps = computed(() => appsData.value?.data ?? [])
 
+const appOptions = computed(() => [
+  { value: '', label: 'Из контекста фабрики' },
+  ...apps.value.map(a => ({ value: a.id, label: a.name })),
+])
+
 const appId = computed(() => Number(props.config.appId) || null)
 const mode = computed(() => (props.config.mode as 'fixed' | 'random' | 'first') ?? 'fixed')
+
+const MODES = [
+  { value: 'fixed', label: 'Конкретный' },
+  { value: 'first', label: 'Первый' },
+  { value: 'random', label: 'Случайный' },
+] as const
 
 const charactersQuery = computed(() => (appId.value ? { appId: appId.value } : {}))
 const { data: charactersData, pending: charactersPending } = useFetch<{ data: Character[] }>(
@@ -33,125 +44,111 @@ const { data: charactersData, pending: charactersPending } = useFetch<{ data: Ch
 )
 const characters = computed<Character[]>(() => charactersData.value?.data ?? [])
 
+const characterOptions = computed(() => characters.value.map(c => ({
+  value: c.id,
+  label: c.name + (c.role === 'support' ? ' (второстеп.)' : c.role === 'extra' ? ' (массовка)' : ''),
+})))
+
+const characterPlaceholder = computed(() => {
+  if (!appId.value) return 'Сначала выберите приложение'
+  return charactersPending.value ? 'Загрузка…' : 'Выберите персонажа'
+})
+
 const allTags = computed(() => {
   const set = new Set<string>()
   for (const c of characters.value) for (const t of c.tags ?? []) set.add(t)
   return Array.from(set).sort()
 })
 
-function onAppChange(v: number) {
-  emit('update', 'appId', v || null)
-  // сбрасываем характер если меняем app
+const tagOptions = computed(() => [
+  { value: '', label: '— любой —' },
+  ...allTags.value.map(t => ({ value: t, label: t })),
+])
+
+const roleOptions = [
+  { value: '', label: 'Любая' },
+  { value: 'protagonist', label: 'Главный герой' },
+  { value: 'support', label: 'Второстепенный' },
+  { value: 'extra', label: 'Массовка' },
+]
+
+function onAppChange(v: string | number) {
+  emit('update', 'appId', Number(v) || null)
+  // сбрасываем персонажа если меняем app
   if (props.config.characterId) emit('update', 'characterId', null)
 }
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Приложение</legend>
-    <select
-      class="select select-sm w-full"
-      :value="appId ?? ''"
-      @change="onAppChange(Number(($event.target as HTMLSelectElement).value))"
-    >
-      <option value="">Из контекста фабрики</option>
-      <option v-for="app in apps" :key="app.id" :value="app.id">{{ app.name }}</option>
-    </select>
-    <p class="text-[10px] text-base-content/50 mt-0.5">
-      Для обычного запуска выберите приложение. Фабрика передаст его автоматически.
-    </p>
-  </fieldset>
+  <UiField label="Приложение" hint="Для обычного запуска выберите приложение. Фабрика передаст его автоматически.">
+    <UiSelect
+      :model-value="appId ?? ''"
+      :options="appOptions"
+      @update:model-value="onAppChange"
+    />
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Стратегия выбора</legend>
-    <div class="join w-full">
+  <UiField label="Стратегия выбора">
+    <div class="flex rounded-md border border-border bg-card p-0.5">
       <button
+        v-for="m in MODES"
+        :key="m.value"
         type="button"
-        class="join-item btn btn-sm flex-1"
-        :class="{ 'btn-primary': mode === 'fixed' }"
-        @click="emit('update', 'mode', 'fixed')"
-      >Конкретный</button>
-      <button
-        type="button"
-        class="join-item btn btn-sm flex-1"
-        :class="{ 'btn-primary': mode === 'first' }"
-        @click="emit('update', 'mode', 'first')"
-      >Первый</button>
-      <button
-        type="button"
-        class="join-item btn btn-sm flex-1"
-        :class="{ 'btn-primary': mode === 'random' }"
-        @click="emit('update', 'mode', 'random')"
-      >Случайный</button>
+        class="h-6 flex-1 cursor-pointer rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="mode === m.value ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
+        @click="emit('update', 'mode', m.value)"
+      >{{ m.label }}</button>
     </div>
-  </fieldset>
+  </UiField>
 
-  <fieldset v-if="mode === 'fixed'" class="fieldset">
-    <legend class="fieldset-legend">Персонаж *</legend>
-    <select
-      class="select select-sm w-full"
+  <UiField v-if="mode === 'fixed'" label="Персонаж *">
+    <UiSelect
+      :model-value="config.characterId ?? ''"
+      :options="characterOptions"
+      :placeholder="characterPlaceholder"
       :disabled="!appId || charactersPending"
-      :value="config.characterId ?? ''"
-      @change="emit('update', 'characterId', ($event.target as HTMLSelectElement).value || null)"
-    >
-      <option value="" disabled>
-        {{ !appId ? 'Сначала выберите приложение' : charactersPending ? 'Загрузка…' : 'Выберите персонажа' }}
-      </option>
-      <option v-for="c in characters" :key="c.id" :value="c.id">
-        {{ c.name }}{{ c.role === 'support' ? ' (второстеп.)' : c.role === 'extra' ? ' (массовка)' : '' }}
-      </option>
-    </select>
-    <p v-if="appId && !charactersPending && characters.length === 0" class="text-[10px] text-warning mt-0.5">
+      @update:model-value="(v) => emit('update', 'characterId', v || null)"
+    />
+    <p v-if="appId && !charactersPending && characters.length === 0" class="mt-1 text-micro text-warning">
       У этого приложения нет персонажей. Создайте в разделе «Персонажи».
     </p>
-  </fieldset>
+  </UiField>
 
-  <fieldset v-if="mode !== 'fixed' && allTags.length" class="fieldset">
-    <legend class="fieldset-legend">Фильтр по тегу (опц.)</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.tag ?? ''"
-      @change="emit('update', 'tag', ($event.target as HTMLSelectElement).value || null)"
-    >
-      <option value="">— любой —</option>
-      <option v-for="t in allTags" :key="t" :value="t">{{ t }}</option>
-    </select>
-  </fieldset>
+  <UiField v-if="mode !== 'fixed' && allTags.length" label="Фильтр по тегу (опц.)">
+    <UiSelect
+      :model-value="config.tag ?? ''"
+      :options="tagOptions"
+      @update:model-value="(v) => emit('update', 'tag', v || null)"
+    />
+  </UiField>
 
-  <fieldset v-if="mode !== 'fixed'" class="fieldset">
-    <legend class="fieldset-legend">Роль персонажа</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.role ?? ''"
-      @change="emit('update', 'role', ($event.target as HTMLSelectElement).value || null)"
-    >
-      <option value="">Любая</option>
-      <option value="protagonist">Главный герой</option>
-      <option value="support">Второстепенный</option>
-      <option value="extra">Массовка</option>
-    </select>
-  </fieldset>
+  <UiField v-if="mode !== 'fixed'" label="Роль персонажа">
+    <UiSelect
+      :model-value="config.role ?? ''"
+      :options="roleOptions"
+      @update:model-value="(v) => emit('update', 'role', v || null)"
+    />
+  </UiField>
 
-  <fieldset class="fieldset">
-    <label class="flex items-center justify-between gap-3 cursor-pointer">
-      <span>
-        <span class="block text-xs font-medium">Только с исходниками lip-sync</span>
-        <span class="block text-[10px] text-base-content/50">Не выберет персонажа без активных видео</span>
-      </span>
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="config.requireSourceClips === true"
-        @change="emit('update', 'requireSourceClips', ($event.target as HTMLInputElement).checked)"
-      />
-    </label>
-  </fieldset>
-
-  <div role="alert" class="alert alert-info alert-soft text-xs">
-    <Icon name="mingcute:information-line" />
-    <span>
-      Output: <code>character</code>, <code>characterId</code>, <code>characterVisualPrompt</code>,
-      <code>characterReferenceImageUrls</code>. Подключайте к Сценарию или Видео.
+  <div class="flex items-start justify-between gap-3">
+    <span class="min-w-0">
+      <span class="block font-medium">Только с исходниками lip-sync</span>
+      <span class="block text-micro text-subtle">Не выберет персонажа без активных видео</span>
     </span>
+    <UiToggle
+      :model-value="config.requireSourceClips === true"
+      @update:model-value="(v) => emit('update', 'requireSourceClips', v)"
+    />
   </div>
+
+  <p class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-micro text-muted">
+    <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+    <span>
+      Output: <code class="font-mono text-fg">character</code>,
+      <code class="font-mono text-fg">characterId</code>,
+      <code class="font-mono text-fg">characterVisualPrompt</code>,
+      <code class="font-mono text-fg">characterReferenceImageUrls</code>.
+      Подключайте к Сценарию или Видео.
+    </span>
+  </p>
 </template>

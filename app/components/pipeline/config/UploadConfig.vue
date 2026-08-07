@@ -14,6 +14,12 @@ const platformLabels: Record<string, string> = {
   youtube: 'YouTube',
 }
 
+const instagramModeOptions = [
+  { value: 'reel', label: 'Обычный Reel' },
+  { value: 'trial_auto', label: 'Trial Reel, авто-публикация при хорошем результате' },
+  { value: 'trial_manual', label: 'Trial Reel, решение вручную' },
+]
+
 const selectedPlatforms = computed<string[]>(() =>
   Array.isArray(props.config.uploadPlatforms) ? props.config.uploadPlatforms : [],
 )
@@ -81,13 +87,13 @@ function onDispatchUpdate(mode: 'round_robin' | 'all' | 'first_active') {
 
 // Description AI
 const aiDescLoading = ref(false)
-const aiDescPreview = ref<{ text?: string; reasoning?: string } | null>(null)
+const aiDescPreview = ref<{ text?: string, reasoning?: string } | null>(null)
 
 async function onDescSuggest(prompt: string) {
   aiDescLoading.value = true
   aiDescPreview.value = null
   try {
-    const { data } = await $fetch<{ data: { text: string; reasoning?: string } }>('/api/ai/suggest/field', {
+    const { data } = await $fetch<{ data: { text: string, reasoning?: string } }>('/api/ai/suggest/field', {
       method: 'POST',
       body: {
         prompt,
@@ -119,13 +125,13 @@ function dismissDesc() {
 
 // Tags AI
 const aiTagsLoading = ref(false)
-const aiTagsPreview = ref<{ items?: string[]; reasoning?: string } | null>(null)
+const aiTagsPreview = ref<{ items?: string[], reasoning?: string } | null>(null)
 
 async function onTagsSuggest(prompt: string) {
   aiTagsLoading.value = true
   aiTagsPreview.value = null
   try {
-    const { data } = await $fetch<{ data: { items: string[]; reasoning?: string } }>('/api/ai/suggest/field', {
+    const { data } = await $fetch<{ data: { items: string[], reasoning?: string } }>('/api/ai/suggest/field', {
       method: 'POST',
       body: {
         prompt,
@@ -162,90 +168,80 @@ const targetPlatform = computed<string | null>(() =>
 </script>
 
 <template>
-  <div v-if="config.factoryAssignments === true" role="alert" class="alert alert-info alert-soft text-xs">
-    <Icon name="mingcute:information-line" />
-    <span>Accounts are assigned by the factory from active official API connections.</span>
-  </div>
+  <p
+    v-if="config.factoryAssignments === true"
+    class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-muted"
+  >
+    <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+    <span>Аккаунты назначает фабрика из активных подключений официальных API.</span>
+  </p>
 
   <template v-if="config.factoryAssignments !== true">
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Приложение</legend>
-    <SharedAsyncSelect
-      url="/api/admin/apps"
-      label-field="name"
-      value-field="id"
-      :model-value="config.appId ?? null"
-      placeholder="Выберите приложение (опционально — для фильтрации пикера)"
-      @update:model-value="(v) => emit('update', 'appId', v)"
-    />
-    <SharedFieldHint text="Опционально — фильтрует пикер аккаунтов и групп. Если не выбрано, пикер покажет все доступные." />
-  </fieldset>
+    <UiField label="Приложение">
+      <SharedAsyncSelect
+        url="/api/admin/apps"
+        label-field="name"
+        value-field="id"
+        :model-value="config.appId ?? null"
+        placeholder="Выберите приложение (опционально)"
+        @update:model-value="(v) => emit('update', 'appId', v)"
+      />
+      <SharedFieldHint text="Опционально — фильтрует пикер аккаунтов и групп. Если не выбрано, пикер покажет все доступные." />
+    </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Адресат публикации</legend>
-    <AccountPicker
-      :mode="accountMode"
-      :social-account-id="socialAccountId"
-      :account-group-id="accountGroupId"
-      :dispatch-mode="dispatchMode"
-      :app-id="config.appId ?? null"
-      :target-platform="targetPlatform"
-      @update:mode="onModeUpdate"
-      @update:social-account-id="onAccountUpdate"
-      @update:account-group-id="onGroupUpdate"
-      @update:dispatch-mode="onDispatchUpdate"
-    />
-    <SharedFieldHint text="Один аккаунт или группа с распределением. Группы создаются на странице приложения или в /accounts." />
-  </fieldset>
+    <UiField label="Адресат публикации">
+      <AccountPicker
+        :mode="accountMode"
+        :social-account-id="socialAccountId"
+        :account-group-id="accountGroupId"
+        :dispatch-mode="dispatchMode"
+        :app-id="config.appId ?? null"
+        :target-platform="targetPlatform"
+        @update:mode="onModeUpdate"
+        @update:social-account-id="onAccountUpdate"
+        @update:account-group-id="onGroupUpdate"
+        @update:dispatch-mode="onDispatchUpdate"
+      />
+      <SharedFieldHint text="Один аккаунт или группа с распределением. Группы создаются на странице приложения или в /accounts." />
+    </UiField>
   </template>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Платформы</legend>
-    <div class="flex flex-wrap gap-1">
-      <button
+  <UiField label="Платформы">
+    <div class="flex flex-wrap gap-1.5">
+      <UiButton
         v-for="p in platforms"
         :key="p"
-        type="button"
-        class="btn btn-xs"
-        :class="selectedPlatforms.includes(p) ? 'btn-primary' : 'btn-ghost'"
+        :variant="selectedPlatforms.includes(p) ? 'primary' : 'secondary'"
         @click="togglePlatform(p)"
       >
         {{ platformLabels[p] }}
-      </button>
+      </UiButton>
     </div>
     <SharedFieldHint text="Куда публиковать видео. Можно выбрать несколько платформ одновременно." />
-  </fieldset>
+  </UiField>
 
-  <fieldset v-if="selectedPlatforms.includes('instagram')" class="fieldset">
-    <legend class="fieldset-legend">Режим Instagram Reel</legend>
-    <select
-      :value="config.instagramPublishMode || 'reel'"
-      class="select select-sm w-full"
-      @change="emit('update', 'instagramPublishMode', ($event.target as HTMLSelectElement).value)"
-    >
-      <option value="reel">Обычный Reel</option>
-      <option value="trial_auto">Trial Reel, авто-публикация при хорошем результате</option>
-      <option value="trial_manual">Trial Reel, решение вручную</option>
-    </select>
+  <UiField v-if="selectedPlatforms.includes('instagram')" label="Режим Instagram Reel">
+    <UiSelect
+      :model-value="config.instagramPublishMode || 'reel'"
+      :options="instagramModeOptions"
+      @update:model-value="(v) => emit('update', 'instagramPublishMode', v)"
+    />
     <SharedFieldHint
       text="Trial Reel сначала показывается не подписчикам. Режим доступен только для аккаунтов, которым Instagram открыл Trial Reels."
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Заголовок</legend>
-    <input
-      :value="config.title || ''"
-      type="text"
-      class="input input-sm w-full"
+  <UiField label="Заголовок">
+    <UiInput
+      :model-value="config.title || ''"
       placeholder="Заголовок видео"
-      @input="emit('update', 'title', ($event.target as HTMLInputElement).value)"
+      @update:model-value="(v) => emit('update', 'title', v)"
     />
-    <SharedFieldHint text="Название видео. Важно для YouTube, для TikTok/Instagram используется меньше. Будьте кратки и ёмки." example="Как похудеть за 30 дней без диет" />
-  </fieldset>
+    <SharedFieldHint text="Название видео. Важно для YouTube, для TikTok и Instagram используется меньше. Будьте кратки и ёмки." example="Как похудеть за 30 дней без диет" />
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend flex items-center gap-1">
+  <div>
+    <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
       Описание
       <SharedAiSuggestButton
         :loading="aiDescLoading"
@@ -257,19 +253,18 @@ const targetPlatform = computed<string | null>(() =>
         @apply="applyDesc"
         @dismiss="dismissDesc"
       />
-    </legend>
-    <textarea
-      :value="config.description || ''"
-      class="textarea textarea-sm w-full"
-      rows="3"
+    </div>
+    <UiTextarea
+      :model-value="config.description || ''"
+      :rows="3"
       placeholder="Описание видео"
-      @input="emit('update', 'description', ($event.target as HTMLTextAreaElement).value)"
+      @update:model-value="(v) => emit('update', 'description', v)"
     />
-    <SharedFieldHint text="Текст под видео. Важен для YouTube SEO. В TikTok/Instagram — первые строки видны в ленте." />
-  </fieldset>
+    <SharedFieldHint text="Текст под видео. Важен для YouTube SEO. В TikTok и Instagram первые строки видны в ленте." />
+  </div>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend flex items-center gap-1">
+  <div>
+    <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
       Хештеги
       <SharedAiSuggestButton
         :loading="aiTagsLoading"
@@ -281,13 +276,12 @@ const targetPlatform = computed<string | null>(() =>
         @apply="applyTags"
         @dismiss="dismissTags"
       />
-    </legend>
+    </div>
     <SharedTagInput
       :model-value="hashtags"
       placeholder="Добавить хештег"
       @update:model-value="(v) => emit('update', 'hashtags', v)"
     />
-    <SharedFieldHint text="Теги для поиска и рекомендаций. 5-15 штук оптимально. Без символа #, система добавит сама." example="фитнес, зож, тренировка" />
-  </fieldset>
+    <SharedFieldHint text="Теги для поиска и рекомендаций. 5–15 штук оптимально. Без символа #, система добавит сама." example="фитнес, зож, тренировка" />
+  </div>
 </template>
-

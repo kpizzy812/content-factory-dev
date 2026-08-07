@@ -17,18 +17,18 @@ const STYLE_OPTIONS = [
   { value: 'viral', label: 'Viral — максимум engagement' },
   { value: 'informative', label: 'Informative — фактологично' },
   { value: 'storytelling', label: 'Storytelling — повествовательно' },
-] as const
+]
 
 const LANGUAGE_OPTIONS = [
   { value: 'auto', label: 'Авто (по контексту)' },
   { value: 'en', label: 'English' },
   { value: 'ru', label: 'Русский' },
   { value: 'es', label: 'Español' },
-] as const
+]
 
 const selectedPlatforms = computed<string[]>(() => {
   const arr = props.config.platforms
-  return Array.isArray(arr) ? arr.filter((p) => typeof p === 'string') : ['tiktok']
+  return Array.isArray(arr) ? arr.filter(p => typeof p === 'string') : ['tiktok']
 })
 
 function togglePlatform(platform: string) {
@@ -43,110 +43,82 @@ function togglePlatform(platform: string) {
 </script>
 
 <template>
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Платформы</legend>
-    <div class="flex flex-wrap gap-2">
-      <button
+  <UiField label="Платформы">
+    <div class="flex flex-wrap gap-1.5">
+      <UiButton
         v-for="p in PLATFORMS"
         :key="p.value"
-        type="button"
-        class="btn btn-sm"
-        :class="selectedPlatforms.includes(p.value) ? 'btn-primary' : 'btn-ghost'"
+        :variant="selectedPlatforms.includes(p.value) ? 'primary' : 'secondary'"
         @click="togglePlatform(p.value)"
       >
-        <span class="text-xs">{{ p.label }}</span>
-      </button>
+        {{ p.label }}
+      </UiButton>
     </div>
     <SharedFieldHint
       text="Для каких соцсетей сгенерировать captions. TikTok: 5 тегов, бюджет 100 символов. YouTube: до 15 тегов, 500 символов. Instagram: до 30 тегов, 100 символов preview."
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Стиль captions</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.styleVariant || 'viral'"
-      @change="emit('update', 'styleVariant', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="opt in STYLE_OPTIONS" :key="opt.value" :value="opt.value">
-        {{ opt.label }}
-      </option>
-    </select>
+  <UiField label="Стиль captions">
+    <UiSelect
+      :model-value="config.styleVariant || 'viral'"
+      :options="STYLE_OPTIONS"
+      @update:model-value="(v) => emit('update', 'styleVariant', v)"
+    />
     <SharedFieldHint
       text="viral — pattern-interrupt и hook. informative — упор на факты и пользу. storytelling — повествование с микро-аркой."
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Подсказки стиля (опционально)</legend>
-    <textarea
-      class="textarea textarea-sm w-full"
-      rows="3"
-      placeholder="Например: используй простой язык, без эмодзи, упоминай ZavodApp как 'твой второй мозг'."
-      :value="config.styleHints || ''"
-      @input="emit('update', 'styleHints', ($event.target as HTMLTextAreaElement).value)"
-    ></textarea>
+  <UiField label="Подсказки стиля (опционально)">
+    <UiTextarea
+      :model-value="config.styleHints || ''"
+      :rows="3"
+      placeholder="Например: используй простой язык, без эмодзи, упоминай приложение как «твой второй мозг»."
+      @update:model-value="(v) => emit('update', 'styleHints', v)"
+    />
     <SharedFieldHint
       text="Короткие подсказки для AI: тон бренда, запреты, форматы. До 500 символов."
       :max-length="500"
       :current-length="(config.styleHints || '').length"
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Язык captions</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.language || 'auto'"
-      @change="emit('update', 'language', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="opt in LANGUAGE_OPTIONS" :key="opt.value" :value="opt.value">
-        {{ opt.label }}
-      </option>
-    </select>
+  <UiField label="Язык captions">
+    <UiSelect
+      :model-value="config.language || 'auto'"
+      :options="LANGUAGE_OPTIONS"
+      @update:model-value="(v) => emit('update', 'language', v)"
+    />
     <SharedFieldHint
       text="auto — AI определит сам по контексту приложения и сценария. Иначе AI напишет title/description на выбранном языке (хэштеги остаются по конвенции платформы)."
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Поведение при перезапуске</legend>
-    <label class="label cursor-pointer justify-start gap-3 py-1">
-      <input
-        type="checkbox"
-        class="checkbox checkbox-sm"
-        :checked="config.forceRegenerate === true"
-        @change="emit('update', 'forceRegenerate', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="label-text text-sm">Перегенерировать если captions уже есть</span>
-    </label>
+  <UiField label="Поведение при перезапуске">
+    <UiCheckbox
+      :model-value="config.forceRegenerate === true"
+      label="Перегенерировать если captions уже есть"
+      @update:model-value="(v) => emit('update', 'forceRegenerate', v)"
+    />
     <SharedFieldHint
       text="Без галки: при повторном запуске pipeline captions для уже сгенерированных платформ (в этом же run scope) переиспользуются без AI-вызова. С галкой: AI вызывается заново независимо."
     />
-  </fieldset>
+  </UiField>
 
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Реакция на превышение лимитов</legend>
-    <label class="label cursor-pointer justify-start gap-3 py-1">
-      <input
-        type="checkbox"
-        class="checkbox checkbox-sm"
-        :checked="config.failOnNotFitsLimits === true"
-        @change="emit('update', 'failOnNotFitsLimits', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="label-text text-sm">Fail если AI не уложился в лимиты платформы</span>
-    </label>
+  <UiField label="Реакция на превышение лимитов">
+    <UiCheckbox
+      :model-value="config.failOnNotFitsLimits === true"
+      label="Останавливать шаг, если AI не уложился в лимиты платформы"
+      @update:model-value="(v) => emit('update', 'failOnNotFitsLimits', v)"
+    />
     <SharedFieldHint
       text="Без галки: captions сохраняются с fitsLimits=false, оператор правит вручную (approve blocked). С галкой: step становится failed → даунстрим прерывается, можно retry."
     />
-  </fieldset>
+  </UiField>
 
-  <div class="p-2 rounded-box bg-base-200 text-[10px] text-base-content/60 leading-relaxed">
-    <p>
-      Нода сохраняет captions в БД (одна запись на видео+платформу). Чтобы Upload использовал
-      их вместо placeholder — оператор должен подтвердить «Утвердить для постинга»
-      на странице видео.
-    </p>
-  </div>
+  <p class="rounded-md border border-border bg-card px-2.5 py-2 text-micro leading-relaxed text-muted">
+    Нода сохраняет captions в БД (одна запись на видео и платформу). Чтобы Upload использовал
+    их вместо заглушки, оператор должен подтвердить «Утвердить для постинга» на странице видео.
+  </p>
 </template>

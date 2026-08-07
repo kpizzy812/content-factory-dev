@@ -162,8 +162,7 @@ const appIdNum = computed(() =>
     <PipelineAiAuditLog node-type="trendwatcher" />
 
     <!-- Приложение (общее для обоих режимов) -->
-    <fieldset class="fieldset">
-      <legend class="fieldset-legend">Приложение</legend>
+    <UiField label="Приложение">
       <SharedAsyncSelect
         url="/api/admin/apps"
         label-field="name"
@@ -173,26 +172,26 @@ const appIdNum = computed(() =>
         @update:model-value="(v) => emit('update', 'appId', v ? Number(v) : null)"
       />
       <SharedFieldHint text="Контекст приложения используется AI-автозаполнением и является ключом для фильтра профилей." />
-    </fieldset>
+    </UiField>
 
-    <!-- Mode toggle -->
-    <div class="tabs tabs-boxed tabs-sm bg-base-200">
+    <!-- Режим настройки -->
+    <div class="flex rounded-md border border-border bg-card p-0.5">
       <button
         type="button"
-        class="tab"
-        :class="mode === 'linked' ? 'tab-active' : ''"
+        class="flex h-6 flex-1 cursor-pointer items-center justify-center gap-1 rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="mode === 'linked' ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
         @click="setMode('linked')"
       >
-        <Icon name="mingcute:bookmark-line" class="text-sm mr-1" />
+        <Icon name="mingcute:bookmark-line" />
         Профиль
       </button>
       <button
         type="button"
-        class="tab"
-        :class="mode === 'inline' ? 'tab-active' : ''"
+        class="flex h-6 flex-1 cursor-pointer items-center justify-center gap-1 rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="mode === 'inline' ? 'bg-accent text-on-accent' : 'text-muted hover:text-fg'"
         @click="setMode('inline')"
       >
-        <Icon name="mingcute:edit-line" class="text-sm mr-1" />
+        <Icon name="mingcute:edit-line" />
         Встроенная настройка
       </button>
     </div>
@@ -211,8 +210,8 @@ const appIdNum = computed(() =>
         v-if="!loadingSelected"
         :profile="selectedProfile"
       />
-      <div v-else class="text-xs text-base-content/60 flex items-center gap-1">
-        <span class="loading loading-spinner loading-xs" />
+      <div v-else class="flex items-center gap-1.5 text-sm text-muted">
+        <Icon name="mingcute:loading-line" class="animate-spin" />
         Загрузка профиля…
       </div>
     </template>
@@ -224,19 +223,17 @@ const appIdNum = computed(() =>
         @update="(key, value) => emit('update', key, value)"
       />
 
-      <button
-        type="button"
-        class="btn btn-sm btn-outline btn-primary w-full"
-        :disabled="savingAsProfile"
+      <UiButton
+        class="w-full justify-center"
+        :loading="savingAsProfile"
         @click="saveInlineAsProfile"
       >
-        <span v-if="savingAsProfile" class="loading loading-spinner loading-xs" />
-        <Icon v-else name="mingcute:save-line" />
+        <Icon v-if="!savingAsProfile" name="mingcute:save-line" />
         Сохранить inline-конфиг как переиспользуемый профиль
-      </button>
-      <div v-if="saveAsProfileError" class="text-xs text-error">
+      </UiButton>
+      <p v-if="saveAsProfileError" class="text-sm text-danger">
         {{ saveAsProfileError }}
-      </div>
+      </p>
     </template>
 
     <!-- Profile editor modal -->

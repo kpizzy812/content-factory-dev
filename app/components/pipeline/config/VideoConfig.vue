@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { VideoCostEstimateResponse, VideoModelInfo } from '~~/shared/types/video'
+import { getExpectedScenePlan, normalizeSceneCountStrategy } from '~~/shared/utils/scene-budget'
+import type { SceneCountStrategy } from '~~/shared/types/scenario'
 
 const props = defineProps<{
   config: Record<string, any>
@@ -27,9 +29,6 @@ const ttsModels = computed<VideoModelInfo[]>(() => (modelsData.value as { tts?: 
 // шла через `/api/pipelines/.../upstream-context` и кешировалась useFetch'ем,
 // из-за чего пользователь видел устаревшую стоимость).
 
-import { getExpectedScenePlan, normalizeSceneCountStrategy } from '~~/shared/utils/scene-budget'
-import type { SceneCountStrategy } from '~~/shared/types/scenario'
-
 interface UpstreamContext {
   hasUpstreamScenario: boolean
   scenarioNodeId?: string
@@ -46,9 +45,9 @@ const editorStore = usePipelineEditorStore()
  * BFS назад по edges от текущего nodeId, ищем ближайший scenario-узел.
  * Возвращает scenario node или null.
  */
-function findUpstreamScenarioNode(nodeId: string): { id: string; data?: { type?: string; config?: Record<string, any> } } | null {
-  const edges = editorStore.edges as Array<{ source: string; target: string }>
-  const nodes = editorStore.nodes as Array<{ id: string; data?: { type?: string; config?: Record<string, any> } }>
+function findUpstreamScenarioNode(nodeId: string): { id: string, data?: { type?: string, config?: Record<string, any> } } | null {
+  const edges = editorStore.edges as Array<{ source: string, target: string }>
+  const nodes = editorStore.nodes as Array<{ id: string, data?: { type?: string, config?: Record<string, any> } }>
   if (!nodeId || nodes.length === 0) return null
 
   const upstreamIds = new Set<string>()
@@ -150,24 +149,24 @@ const pacingOptions = [
   { value: 'fast', label: 'Быстро', hint: '~3.5 слов/сек' },
 ] as const
 const reconciliationOptions = [
-  { value: 'compress_audio', label: 'Ускорить (до 1.2x)', hint: 'Естественный звук, если озвучка длиннее сцены' },
-  { value: 'trim_audio', label: 'Обрезать по сцене', hint: 'Честно обрезать vo до длины клипа' },
-] as const
+  { value: 'compress_audio', label: 'Ускорить (до 1.2x) — естественный звук, если озвучка длиннее сцены' },
+  { value: 'trim_audio', label: 'Обрезать по сцене — честно обрезать озвучку до длины клипа' },
+].map(r => ({ value: r.value, label: r.label }))
 const languageOptions = [
   { value: 'en', label: 'English' },
   { value: 'ru', label: 'Русский' },
 ] as const
 const strategyOptions = [
-  { value: 'auto', label: 'Авто', hint: 'Определяется по story plan и scene count' },
-  { value: 'fast_draft', label: 'Черновик', hint: 'Быстро и дёшево, budget tier' },
-  { value: 'balanced', label: 'Баланс', hint: 'Standard качество, разумная цена' },
-  { value: 'story_continuity', label: 'Story continuity', hint: 'Для multi-scene видео с озвучкой' },
-  { value: 'high_realism', label: 'Premium', hint: 'Максимальное качество, дороже' },
-] as const
+  { value: 'auto', label: 'Авто — определяется по story plan и scene count' },
+  { value: 'fast_draft', label: 'Черновик — быстро и дёшево, budget tier' },
+  { value: 'balanced', label: 'Баланс — standard качество, разумная цена' },
+  { value: 'story_continuity', label: 'Story continuity — для multi-scene видео с озвучкой' },
+  { value: 'high_realism', label: 'Premium — максимальное качество, дороже' },
+]
 
 // ─── Динамический расчёт стоимости ─────────────────
 
-const { data: costData, refresh: refreshCost } = await useFetch<VideoCostEstimateResponse>(
+const { data: costData } = await useFetch<VideoCostEstimateResponse>(
   '/api/videos/estimate-cost',
   {
     method: 'POST',
@@ -179,7 +178,6 @@ const { data: costData, refresh: refreshCost } = await useFetch<VideoCostEstimat
 // ─── UI state ──────────────────────────────────────
 
 const showCostDetails = ref(false)
-const showTips = ref(false)
 const expandedModelInfo = ref<string | null>(null)
 
 // ─── Helpers ───────────────────────────────────────
@@ -200,10 +198,6 @@ function applyPreset(preset: { config: Record<string, unknown> }) {
   }
 }
 
-function applyTip(field: string, value: unknown) {
-  emit('update', field, value)
-}
-
 function formatCost(value: number): string {
   if (value === 0) return 'бесплатно'
   if (value < 0.01) return '<$0.01'
@@ -215,13 +209,16 @@ function tierLabel(tier: string): string {
   return map[tier] || tier
 }
 
-function tierClass(tier: string): string {
+// Тон бейджа берём из общего словаря состояний, подписи — доменные.
+const NEUTRAL_TONE = 'border-neutral-border bg-neutral-bg text-neutral'
+
+function tierTone(tier: string): string {
   const map: Record<string, string> = {
-    budget: 'badge-success',
-    standard: 'badge-info',
-    premium: 'badge-warning',
+    budget: 'border-success-border bg-success-bg text-success',
+    standard: 'border-info-border bg-info-bg text-info',
+    premium: 'border-warning-border bg-warning-bg text-warning',
   }
-  return map[tier] || 'badge-ghost'
+  return map[tier] || NEUTRAL_TONE
 }
 
 // ─── Форматы и опции ───────────────────────────────
@@ -243,7 +240,7 @@ const musicMoods = [
   { value: 'happy positive', label: 'Весёлая' },
   { value: 'dark moody', label: 'Тёмная / атмосферная' },
   { value: 'corporate professional', label: 'Корпоративная' },
-] as const
+]
 
 const selectedImageModel = computed(() =>
   imageModels.value.find(m => m.id === (props.config.imageModelId || 'fal-ai/flux/dev')),
@@ -271,197 +268,222 @@ function accessStatusLabel(status?: string): string {
   return map[status ?? ''] || 'Неизвестно'
 }
 
-function accessStatusClass(status?: string): string {
+function accessStatusTone(status?: string): string {
   const map: Record<string, string> = {
-    available: 'badge-success',
-    blocked_by_access: 'badge-error',
-    no_api_key: 'badge-error',
-    unsupported_by_runtime: 'badge-ghost',
-    probe_error: 'badge-warning',
+    available: 'border-success-border bg-success-bg text-success',
+    blocked_by_access: 'border-danger-border bg-danger-bg text-danger',
+    no_api_key: 'border-danger-border bg-danger-bg text-danger',
+    unsupported_by_runtime: NEUTRAL_TONE,
+    probe_error: 'border-warning-border bg-warning-bg text-warning',
   }
-  return map[status ?? ''] || 'badge-ghost'
+  return map[status ?? ''] || NEUTRAL_TONE
 }
 
-function isModelBlocked(model?: { accessStatus?: string; integrated?: boolean }): boolean {
+function isModelBlocked(model?: { accessStatus?: string, integrated?: boolean }): boolean {
   if (!model) return false
   if (!model.integrated) return true
   return model.accessStatus !== 'available' && model.accessStatus !== undefined
 }
+
+// Списки моделей для UiSelect: подпись собирается один раз.
+const imageModelOptions = computed(() => imageModels.value.map(m => ({
+  value: m.id,
+  label: `${m.name} — ${tierLabel(m.tier)} (${formatCost(m.pricing.base)}/MP)`
+    + (isModelBlocked(m) ? ` [${accessStatusLabel(m.accessStatus)}]` : ''),
+})))
+
+const videoModelOptions = computed(() => videoModels.value.map(m => ({
+  value: m.id,
+  label: `${m.name} — ${tierLabel(m.tier)} (${formatCost(m.pricing.withAudio ?? m.pricing.base)}/сек)`
+    + (isModelBlocked(m) ? ` [${accessStatusLabel(m.accessStatus)}]` : ''),
+})))
+
+const ttsModelOptions = computed(() => ttsModels.value.map((m) => {
+  const price = m.pricing?.unit === 'character'
+    ? `${formatCost(m.pricing.base * 1000)}/1K симв`
+    : `${formatCost(m.pricing.base * 60)}/мин`
+  return {
+    value: m.id,
+    label: `${m.name} — ${tierLabel(m.tier)} (${price})`
+      + (isModelBlocked(m) ? ` [${accessStatusLabel(m.accessStatus)}]` : ''),
+  }
+}))
+
+const BADGE = 'inline-flex h-[18px] shrink-0 items-center gap-0.5 rounded-sm border px-1.5 text-micro'
+const RANGE = 'h-1 w-full cursor-pointer appearance-none rounded-full bg-neutral-bg accent-(--color-accent)'
 </script>
 
 <template>
-  <!-- ═══ Upstream Scenario Source-of-Truth Banner ═══ -->
-  <div v-if="isDrivenByScenario" class="alert alert-info alert-soft py-2 mb-3">
-    <Icon name="mingcute:link-line" class="text-lg" />
-    <div class="flex-1 text-xs">
-      <div class="font-semibold">
+  <!-- ═══ Параметры пришли из сценария ═══ -->
+  <div
+    v-if="isDrivenByScenario"
+    class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2"
+  >
+    <Icon name="mingcute:link-line" class="mt-0.5 shrink-0 text-info" />
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-1 font-semibold">
         Параметры синхронизированы со сценарием
-        <span v-if="upstream.sceneCountStrategy" class="badge badge-xs badge-primary ml-1">
+        <span v-if="upstream.sceneCountStrategy" :class="[BADGE, 'border-accent-border bg-accent-bg text-accent-text']">
           {{ strategyLabels[upstream.sceneCountStrategy] ?? upstream.sceneCountStrategy }}
         </span>
       </div>
-      <div class="text-[10px] opacity-80 mt-0.5">
-        Блок Сценарий (входящий) задал {{ upstream.expectedSceneCount }} сцен × ~{{ upstream.expectedAvgDurationSec }}с
+      <div class="mt-0.5 text-micro text-muted">
+        Блок «Сценарий» задал {{ upstream.expectedSceneCount }} сцен × ~{{ upstream.expectedAvgDurationSec }} с
         <span v-if="upstream.expectedTotalSec"> · {{ upstream.expectedTotalSec }}</span>.
-        Слайдеры количества сцен и длительности клипа заблокированы - реальная генерация идёт по плану сценария.
+        Ползунки количества сцен и длительности клипа заблокированы — реальная генерация идёт по плану сценария.
       </div>
     </div>
   </div>
 
-  <!-- ═══ Cost Summary Banner ═══ -->
-  <div v-if="costData" class="alert py-2 mb-3" :class="(costData.maxTotal ?? costData.total ?? 0) > 3 ? 'alert-warning' : 'alert-info'">
-    <Icon :name="(costData.maxTotal ?? costData.total ?? 0) > 3 ? 'mingcute:warning-line' : 'mingcute:wallet-4-line'" class="text-lg" />
-    <div class="flex-1">
-      <div class="flex items-baseline gap-2 flex-wrap">
+  <!-- ═══ Оценка стоимости ═══ -->
+  <div
+    v-if="costData"
+    class="flex items-start gap-2 rounded-md border px-2.5 py-2"
+    :class="(costData.maxTotal ?? costData.total ?? 0) > 3
+      ? 'border-warning-border bg-warning-bg'
+      : 'border-info-border bg-info-bg'"
+  >
+    <Icon
+      :name="(costData.maxTotal ?? costData.total ?? 0) > 3 ? 'mingcute:warning-line' : 'mingcute:wallet-4-line'"
+      class="mt-0.5 shrink-0"
+      :class="(costData.maxTotal ?? costData.total ?? 0) > 3 ? 'text-warning' : 'text-info'"
+    />
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-baseline gap-2">
         <template v-if="!isDrivenByScenario && costData.minTotal != null && costData.maxTotal != null && costData.maxTotal - costData.minTotal > 0.5">
-          <span class="font-bold text-sm">{{ formatCost(costData.minTotal) }} — {{ formatCost(costData.maxTotal) }}</span>
-          <span class="text-xs opacity-70">за 1 видео</span>
-          <span class="text-[10px] opacity-50">≈ {{ formatCost(costData.total) }} ожидаемо</span>
+          <span class="tnum font-bold">{{ formatCost(costData.minTotal) }} — {{ formatCost(costData.maxTotal) }}</span>
+          <span class="text-sm text-muted">за 1 видео</span>
+          <span class="text-micro text-subtle">≈ {{ formatCost(costData.total) }} ожидаемо</span>
         </template>
         <template v-else>
-          <span class="font-bold text-sm">≈ {{ formatCost(costData.total) }}</span>
-          <span class="text-xs opacity-70">за 1 видео</span>
-          <span v-if="isDrivenByScenario" class="badge badge-xs badge-primary">по плану сценария</span>
+          <span class="tnum font-bold">≈ {{ formatCost(costData.total) }}</span>
+          <span class="text-sm text-muted">за 1 видео</span>
+          <span v-if="isDrivenByScenario" :class="[BADGE, 'border-accent-border bg-accent-bg text-accent-text']">
+            по плану сценария
+          </span>
         </template>
       </div>
-      <div class="text-[10px] opacity-60">
+      <div class="text-micro text-muted">
         {{ costData.models.image?.name }} + {{ costData.models.video?.name }}
         <template v-if="costData.models.music"> + {{ costData.models.music.name }}</template>
         <template v-if="costData.models.tts"> + {{ costData.models.tts.name }}</template>
         <template v-if="isDrivenByScenario">
           · {{ upstream.expectedSceneCount }} сцен
-          ({{ upstream.expectedPerSceneDurations?.join('с, ') }}с)
+          ({{ upstream.expectedPerSceneDurations?.join(' с, ') }} с)
         </template>
-        <template v-else-if="costData.storyDriven"> · план-сценарий (3-6 сцен по 3-9с)</template>
+        <template v-else-if="costData.storyDriven"> · план-сценарий (3–6 сцен по 3–9 с)</template>
       </div>
     </div>
-    <button
-      type="button"
-      class="btn btn-xs btn-ghost"
-      @click="showCostDetails = !showCostDetails"
-    >
+    <UiButton variant="ghost" @click="showCostDetails = !showCostDetails">
       {{ showCostDetails ? 'Скрыть' : 'Детали' }}
-    </button>
+    </UiButton>
   </div>
 
-  <!-- Cost Breakdown Table -->
-  <div v-if="showCostDetails && costData" class="mb-3">
-    <!-- Source-of-truth header. Flex-wrap чтобы длинный badge не выходил за рамки:
-         если не влезает - переносится на следующую строку под надпись. -->
-    <div class="flex items-center gap-1.5 mb-1 text-[10px] flex-wrap">
-      <span class="text-base-content/60 shrink-0">Источник данных:</span>
-      <span v-if="isDrivenByScenario" class="badge badge-xs badge-primary gap-1 max-w-full whitespace-normal text-left leading-tight py-0.5 h-auto">
-        <Icon name="mingcute:link-line" class="size-2.5 shrink-0" />
-        <span>
-          план сценария
-          ({{ upstream.sceneCountStrategy && strategyLabels[upstream.sceneCountStrategy] }})
-        </span>
+  <!-- Разбивка стоимости -->
+  <div v-if="showCostDetails && costData" class="flex flex-col gap-1">
+    <div class="flex flex-wrap items-center gap-1.5 text-micro">
+      <span class="shrink-0 text-muted">Источник данных:</span>
+      <span v-if="isDrivenByScenario" :class="[BADGE, 'border-accent-border bg-accent-bg text-accent-text h-auto py-0.5 text-left leading-tight whitespace-normal']">
+        <Icon name="mingcute:link-line" class="shrink-0" />
+        <span>план сценария ({{ upstream.sceneCountStrategy && strategyLabels[upstream.sceneCountStrategy] }})</span>
       </span>
-      <span v-else class="badge badge-xs badge-ghost">параметры видео-блока</span>
+      <span v-else :class="[BADGE, NEUTRAL_TONE]">параметры видео-блока</span>
     </div>
 
-    <table class="table table-xs">
-      <thead>
-        <tr>
-          <th>Этап</th>
-          <th class="text-right">Кол-во</th>
-          <th class="text-right">За ед.</th>
-          <th class="text-right">Итого</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in costData.breakdown" :key="item.stage">
-          <td>
-            <div class="text-xs">{{ item.label }}</div>
-            <div class="text-[10px] text-base-content/40">{{ item.modelName }}</div>
-          </td>
-          <td class="text-right text-xs">{{ item.units }} {{ item.unitLabel }}</td>
-          <td class="text-right text-xs font-mono">{{ formatCost(item.unitPrice) }}</td>
-          <td class="text-right text-xs font-mono font-semibold">{{ formatCost(item.subtotal) }}</td>
-        </tr>
-      </tbody>
-      <tfoot>
-        <tr v-if="isDrivenByScenario && costData.minTotal != null && costData.maxTotal != null">
-          <td colspan="3" class="text-right text-[10px] text-base-content/60">Диапазон (min / max):</td>
-          <td class="text-right text-[10px] font-mono text-base-content/60">
-            {{ formatCost(costData.minTotal) }} / {{ formatCost(costData.maxTotal) }}
-          </td>
-        </tr>
-        <tr>
-          <td colspan="3" class="text-right font-semibold text-xs">Итого:</td>
-          <td class="text-right font-bold text-sm font-mono">{{ formatCost(costData.total) }}</td>
-        </tr>
-      </tfoot>
-    </table>
+    <div class="overflow-x-auto rounded-md border border-border">
+      <table class="w-full text-sm">
+        <thead class="border-b border-divider text-micro text-subtle">
+          <tr>
+            <th class="px-2 py-1 text-left font-medium">Этап</th>
+            <th class="px-2 py-1 text-right font-medium">Кол-во</th>
+            <th class="px-2 py-1 text-right font-medium">За ед.</th>
+            <th class="px-2 py-1 text-right font-medium">Итого</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in costData.breakdown" :key="item.stage" class="border-b border-divider last:border-0">
+            <td class="px-2 py-1">
+              <div>{{ item.label }}</div>
+              <div class="text-micro text-subtle">{{ item.modelName }}</div>
+            </td>
+            <td class="px-2 py-1 text-right tnum">{{ item.units }} {{ item.unitLabel }}</td>
+            <td class="px-2 py-1 text-right font-mono">{{ formatCost(item.unitPrice) }}</td>
+            <td class="px-2 py-1 text-right font-mono font-semibold">{{ formatCost(item.subtotal) }}</td>
+          </tr>
+        </tbody>
+        <tfoot class="border-t border-divider">
+          <tr v-if="isDrivenByScenario && costData.minTotal != null && costData.maxTotal != null">
+            <td colspan="3" class="px-2 py-1 text-right text-micro text-muted">Диапазон (min / max):</td>
+            <td class="px-2 py-1 text-right font-mono text-micro text-muted">
+              {{ formatCost(costData.minTotal) }} / {{ formatCost(costData.maxTotal) }}
+            </td>
+          </tr>
+          <tr>
+            <td colspan="3" class="px-2 py-1 text-right font-semibold">Итого:</td>
+            <td class="px-2 py-1 text-right font-mono font-bold">{{ formatCost(costData.total) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
 
-    <!-- Warnings -->
-    <div v-for="(w, i) in costData.warnings" :key="i" class="alert alert-warning alert-soft text-[10px] py-1 mt-1">
-      <Icon name="mingcute:alert-line" class="text-xs" />
+    <p
+      v-for="(w, i) in costData.warnings"
+      :key="i"
+      class="flex items-start gap-1.5 rounded-md border border-warning-border bg-warning-bg px-2 py-1 text-micro text-muted"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
       <span>{{ w }}</span>
-    </div>
+    </p>
   </div>
 
-  <!-- ═══ Cost Presets ═══ -->
-  <fieldset class="fieldset mb-1">
-    <legend class="fieldset-legend">Быстрые пресеты</legend>
-    <div class="flex flex-wrap gap-1">
-      <button
+  <!-- ═══ Быстрые пресеты ═══ -->
+  <UiField label="Быстрые пресеты">
+    <div class="flex flex-wrap gap-1.5">
+      <UiButton
         v-for="preset in costData?.presets ?? []"
         :key="preset.key"
-        type="button"
-        class="btn btn-xs btn-outline"
-        :class="{
-          'btn-success': preset.key === 'budget',
-          'btn-info': preset.key === 'balanced',
-          'btn-warning': preset.key === 'quality',
-        }"
         @click="applyPreset(preset)"
       >
         {{ preset.label }}
-      </button>
+      </UiButton>
     </div>
     <SharedFieldHint text="Пресеты устанавливают все настройки сразу. Можно подкорректировать отдельные поля после." />
-  </fieldset>
+  </UiField>
 
   <!-- ═══ Формат видео ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Формат видео</legend>
-    <div class="flex flex-wrap gap-1">
-      <button
+  <UiField label="Формат видео">
+    <div class="flex flex-wrap gap-1.5">
+      <UiButton
         v-for="f in formats"
         :key="f.value"
-        type="button"
-        class="btn btn-xs"
-        :class="(config.format || 'vertical') === f.value ? 'btn-primary' : 'btn-ghost'"
+        :variant="(config.format || 'vertical') === f.value ? 'primary' : 'secondary'"
         @click="updateField('format', f.value)"
       >
         {{ f.label }}
-        <span class="text-[9px] opacity-60">{{ f.hint }}</span>
-      </button>
+        <span class="text-micro opacity-70">{{ f.hint }}</span>
+      </UiButton>
     </div>
-  </fieldset>
+  </UiField>
 
-  <!-- ═══ Model Strategy ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Стратегия моделей</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.modelStrategy || 'auto'"
-      @change="updateField('modelStrategy', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="s in strategyOptions" :key="s.value" :value="s.value">
-        {{ s.label }} — {{ s.hint }}
-      </option>
-    </select>
-    <SharedFieldHint text="Авто-режим анализирует план сценария и сам подбирает модели изображения/видео/TTS. Иначе - применяется профиль качества." />
-  </fieldset>
+  <!-- ═══ Стратегия моделей ═══ -->
+  <UiField label="Стратегия моделей">
+    <UiSelect
+      :model-value="config.modelStrategy || 'auto'"
+      :options="strategyOptions"
+      @update:model-value="(v) => updateField('modelStrategy', v)"
+    />
+    <SharedFieldHint text="Авто-режим анализирует план сценария и сам подбирает модели изображения, видео и TTS. Иначе применяется профиль качества." />
+  </UiField>
 
-  <!-- ═══ Access Warning Banner ═══ -->
-  <div v-if="hasAccessIssue" class="alert alert-error alert-soft py-2 mb-3">
-    <Icon name="mingcute:forbid-circle-line" class="text-lg" />
-    <div class="flex-1">
-      <div class="font-bold text-xs">Проблема доступа к моделям</div>
-      <div class="text-[10px] opacity-80">
+  <!-- ═══ Проблема доступа ═══ -->
+  <div
+    v-if="hasAccessIssue"
+    class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2"
+  >
+    <Icon name="mingcute:forbid-circle-line" class="mt-0.5 shrink-0 text-danger" />
+    <div class="min-w-0 flex-1">
+      <div class="font-semibold">Проблема доступа к моделям</div>
+      <div class="text-micro text-muted">
         Одна или несколько выбранных моделей недоступны для текущего API-ключа fal.ai.
         Генерация будет заблокирована до выбора доступной модели.
       </div>
@@ -469,557 +491,416 @@ function isModelBlocked(model?: { accessStatus?: string; integrated?: boolean })
   </div>
 
   <!-- ═══ Модель изображений ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Модель изображений</legend>
-    <select
-      class="select select-sm w-full"
-      :class="{ 'select-error': isModelBlocked(selectedImageModel) }"
-      :value="config.imageModelId || 'fal-ai/flux/dev'"
-      @change="updateField('imageModelId', ($event.target as HTMLSelectElement).value)"
-    >
-      <option
-        v-for="m in imageModels"
-        :key="m.id"
-        :value="m.id"
-        :disabled="isModelBlocked(m)"
-      >
-        {{ m.name }} — {{ tierLabel(m.tier) }} ({{ formatCost(m.pricing.base) }}/MP)
-        {{ isModelBlocked(m) ? ` [${accessStatusLabel(m.accessStatus)}]` : '' }}
-      </option>
-    </select>
-    <!-- Selected model info -->
-    <div v-if="selectedImageModel" class="mt-1 text-[10px]">
-      <div class="flex items-center gap-1 flex-wrap">
-        <span class="badge badge-xs" :class="tierClass(selectedImageModel.tier)">{{ tierLabel(selectedImageModel.tier) }}</span>
+  <UiField label="Модель изображений">
+    <UiSelect
+      :model-value="config.imageModelId || 'fal-ai/flux/dev'"
+      :options="imageModelOptions"
+      :invalid="isModelBlocked(selectedImageModel)"
+      @update:model-value="(v) => updateField('imageModelId', v)"
+    />
+
+    <div v-if="selectedImageModel" class="mt-1 flex flex-col gap-1">
+      <div class="flex flex-wrap items-center gap-1">
+        <span :class="[BADGE, tierTone(selectedImageModel.tier)]">{{ tierLabel(selectedImageModel.tier) }}</span>
         <span
           v-if="selectedImageModel.accessStatus"
-          class="badge badge-xs"
-          :class="accessStatusClass(selectedImageModel.accessStatus)"
+          :class="[BADGE, accessStatusTone(selectedImageModel.accessStatus)]"
           :title="selectedImageModel.accessReason"
-        >
-          {{ accessStatusLabel(selectedImageModel.accessStatus) }}
+        >{{ accessStatusLabel(selectedImageModel.accessStatus) }}</span>
+        <span v-if="selectedImageModel.avgGenerationTime" class="text-micro text-subtle">
+          {{ selectedImageModel.avgGenerationTime }}
         </span>
-        <span v-if="selectedImageModel.avgGenerationTime" class="text-base-content/40">{{ selectedImageModel.avgGenerationTime }}</span>
       </div>
-      <!-- Access error detail -->
-      <div
+
+      <p
         v-if="isModelBlocked(selectedImageModel)"
-        class="mt-1 p-1.5 bg-error/10 rounded text-error text-[10px]"
+        class="rounded-md border border-danger-border bg-danger-bg px-1.5 py-1 text-micro text-danger"
       >
         {{ selectedImageModel.accessReason || 'Модель недоступна для текущего ключа' }}
-      </div>
+      </p>
+
       <button
         type="button"
-        class="text-[9px] text-base-content/40 hover:text-base-content/60 mt-0.5"
+        class="cursor-pointer self-start text-micro text-subtle hover:text-muted"
         @click="expandedModelInfo = expandedModelInfo === 'image' ? null : 'image'"
       >
         {{ expandedModelInfo === 'image' ? 'Скрыть детали' : 'Подробнее о модели' }}
       </button>
-      <div v-if="expandedModelInfo === 'image'" class="mt-1 p-1.5 bg-base-200/60 rounded-box space-y-1">
+
+      <div
+        v-if="expandedModelInfo === 'image'"
+        class="flex flex-col gap-1 rounded-md border border-border bg-card px-1.5 py-1 text-micro text-muted"
+      >
         <div>
-          <span class="font-semibold text-success/80">+</span>
+          <span class="font-semibold text-success">+</span>
           <span v-for="(s, i) in selectedImageModel.strengths" :key="i">
             {{ s }}{{ i < selectedImageModel.strengths.length - 1 ? ' · ' : '' }}
           </span>
         </div>
         <div>
-          <span class="font-semibold text-warning/80">−</span>
+          <span class="font-semibold text-warning">−</span>
           <span v-for="(t, i) in selectedImageModel.tradeoffs" :key="i">
             {{ t }}{{ i < selectedImageModel.tradeoffs.length - 1 ? ' · ' : '' }}
           </span>
         </div>
       </div>
     </div>
-  </fieldset>
+  </UiField>
 
   <!-- ═══ Модель видео ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Модель видео</legend>
-    <select
-      class="select select-sm w-full"
-      :class="{ 'select-error': isModelBlocked(selectedVideoModel) }"
-      :value="config.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video'"
-      @change="updateField('videoModelId', ($event.target as HTMLSelectElement).value)"
-    >
-      <option
-        v-for="m in videoModels"
-        :key="m.id"
-        :value="m.id"
-        :disabled="isModelBlocked(m)"
-      >
-        {{ m.name }} — {{ tierLabel(m.tier) }}
-        ({{ formatCost(m.pricing.withAudio ?? m.pricing.base) }}/сек)
-        {{ isModelBlocked(m) ? ` [${accessStatusLabel(m.accessStatus)}]` : '' }}
-      </option>
-    </select>
-    <div v-if="selectedVideoModel" class="mt-1 text-[10px]">
-      <div class="flex items-center gap-1 flex-wrap">
-        <span class="badge badge-xs" :class="tierClass(selectedVideoModel.tier)">{{ tierLabel(selectedVideoModel.tier) }}</span>
+  <UiField label="Модель видео">
+    <UiSelect
+      :model-value="config.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video'"
+      :options="videoModelOptions"
+      :invalid="isModelBlocked(selectedVideoModel)"
+      @update:model-value="(v) => updateField('videoModelId', v)"
+    />
+
+    <div v-if="selectedVideoModel" class="mt-1 flex flex-col gap-1">
+      <div class="flex flex-wrap items-center gap-1">
+        <span :class="[BADGE, tierTone(selectedVideoModel.tier)]">{{ tierLabel(selectedVideoModel.tier) }}</span>
         <span
           v-if="selectedVideoModel.accessStatus"
-          class="badge badge-xs"
-          :class="accessStatusClass(selectedVideoModel.accessStatus)"
+          :class="[BADGE, accessStatusTone(selectedVideoModel.accessStatus)]"
           :title="selectedVideoModel.accessReason"
-        >
-          {{ accessStatusLabel(selectedVideoModel.accessStatus) }}
+        >{{ accessStatusLabel(selectedVideoModel.accessStatus) }}</span>
+        <span v-if="selectedVideoModel.avgGenerationTime" class="text-micro text-subtle">
+          {{ selectedVideoModel.avgGenerationTime }}
         </span>
-        <span v-if="selectedVideoModel.avgGenerationTime" class="text-base-content/40">{{ selectedVideoModel.avgGenerationTime }}</span>
       </div>
-      <!-- Access error detail -->
-      <div
+
+      <p
         v-if="isModelBlocked(selectedVideoModel)"
-        class="mt-1 p-1.5 bg-error/10 rounded text-error text-[10px]"
+        class="rounded-md border border-danger-border bg-danger-bg px-1.5 py-1 text-micro text-danger"
       >
         {{ selectedVideoModel.accessReason || 'Модель недоступна для текущего ключа' }}
-      </div>
+      </p>
+
       <button
         type="button"
-        class="text-[9px] text-base-content/40 hover:text-base-content/60 mt-0.5"
+        class="cursor-pointer self-start text-micro text-subtle hover:text-muted"
         @click="expandedModelInfo = expandedModelInfo === 'video' ? null : 'video'"
       >
         {{ expandedModelInfo === 'video' ? 'Скрыть детали' : 'Подробнее о модели' }}
       </button>
-      <div v-if="expandedModelInfo === 'video'" class="mt-1 p-1.5 bg-base-200/60 rounded-box space-y-1">
+
+      <div
+        v-if="expandedModelInfo === 'video'"
+        class="flex flex-col gap-1 rounded-md border border-border bg-card px-1.5 py-1 text-micro text-muted"
+      >
         <div>
-          <span class="font-semibold text-success/80">+</span>
+          <span class="font-semibold text-success">+</span>
           <span v-for="(s, i) in selectedVideoModel.strengths" :key="i">
             {{ s }}{{ i < selectedVideoModel.strengths.length - 1 ? ' · ' : '' }}
           </span>
         </div>
         <div>
-          <span class="font-semibold text-warning/80">−</span>
+          <span class="font-semibold text-warning">−</span>
           <span v-for="(t, i) in selectedVideoModel.tradeoffs" :key="i">
             {{ t }}{{ i < selectedVideoModel.tradeoffs.length - 1 ? ' · ' : '' }}
           </span>
         </div>
       </div>
     </div>
-  </fieldset>
+  </UiField>
 
-  <!-- ═══ Качество / Разрешение ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Качество</legend>
-    <div class="flex flex-wrap gap-1">
-      <button
+  <!-- ═══ Качество ═══ -->
+  <UiField label="Качество">
+    <div class="flex flex-wrap gap-1.5">
+      <UiButton
         v-for="q in qualityOptions"
         :key="q.value"
-        type="button"
-        class="btn btn-xs"
-        :class="(config.quality || '1080p') === q.value ? 'btn-primary' : 'btn-ghost'"
+        :variant="(config.quality || '1080p') === q.value ? 'primary' : 'secondary'"
         @click="updateField('quality', q.value)"
       >
         {{ q.label }}
-        <span class="text-[9px] opacity-60">{{ q.hint }}</span>
-      </button>
+        <span class="text-micro opacity-70">{{ q.hint }}</span>
+      </UiButton>
     </div>
-  </fieldset>
+  </UiField>
 
   <!-- ═══ Количество сцен ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">
+  <div>
+    <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
       Количество сцен
-      <span v-if="isDrivenByScenario" class="badge badge-xs badge-info ml-1" title="Значение взято из upstream scenario">
-        <Icon name="mingcute:link-line" class="size-2.5" /> из сценария
+      <span
+        v-if="isDrivenByScenario"
+        :class="[BADGE, 'border-info-border bg-info-bg text-info']"
+        title="Значение взято из блока «Сценарий»"
+      >
+        <Icon name="mingcute:link-line" /> из сценария
       </span>
-    </legend>
+    </div>
     <div class="flex items-center gap-2">
       <input
         type="range"
-        class="range range-xs range-primary flex-1"
-        :class="{ 'opacity-50 cursor-not-allowed': isDrivenByScenario }"
+        :class="[RANGE, isDrivenByScenario && 'cursor-not-allowed opacity-50']"
         min="2"
         max="8"
         step="1"
         :value="effectiveSceneCount"
         :disabled="isDrivenByScenario"
         @input="updateField('sceneCount', Number(($event.target as HTMLInputElement).value))"
-      />
-      <span class="badge badge-sm font-mono w-6 text-center">{{ effectiveSceneCount }}</span>
+      >
+      <span class="tnum w-8 rounded-sm border border-border bg-card text-center font-mono text-sm">
+        {{ effectiveSceneCount }}
+      </span>
     </div>
     <SharedFieldHint
       :text="isDrivenByScenario
-        ? 'Количество сцен зафиксировано блоком Сценарий (sceneCountStrategy). Чтобы изменить - настрой стратегию в блоке Сценарий.'
-        : 'Сколько сцен/кадров будет в видео. Hook (начало) + Body (середина) + CTA (конец). Больше сцен = больше изображений и клипов = дороже.'"
+        ? 'Количество сцен зафиксировано блоком «Сценарий» (стратегия бюджета). Чтобы изменить — настройте стратегию в блоке «Сценарий».'
+        : 'Сколько сцен и кадров будет в видео: начало, середина и призыв к действию. Больше сцен — больше изображений и клипов, то есть дороже.'"
     />
-  </fieldset>
+  </div>
 
   <!-- ═══ Длительность клипа ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">
+  <div>
+    <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
       Длительность клипа
-      <span v-if="isDrivenByScenario" class="badge badge-xs badge-info ml-1" title="Значение взято из upstream scenario">
-        <Icon name="mingcute:link-line" class="size-2.5" /> из сценария
+      <span
+        v-if="isDrivenByScenario"
+        :class="[BADGE, 'border-info-border bg-info-bg text-info']"
+        title="Значение взято из блока «Сценарий»"
+      >
+        <Icon name="mingcute:link-line" /> из сценария
       </span>
-    </legend>
+    </div>
     <div class="flex items-center gap-2">
       <input
         type="range"
-        class="range range-xs range-primary flex-1"
-        :class="{ 'opacity-50 cursor-not-allowed': isDrivenByScenario }"
+        :class="[RANGE, isDrivenByScenario && 'cursor-not-allowed opacity-50']"
         min="3"
         max="15"
         step="1"
         :value="effectiveClipDuration"
         :disabled="isDrivenByScenario"
         @input="updateField('clipDuration', Number(($event.target as HTMLInputElement).value))"
-      />
-      <span class="badge badge-sm font-mono w-10 text-center">{{ effectiveClipDuration }} сек</span>
+      >
+      <span class="tnum w-14 rounded-sm border border-border bg-card text-center font-mono text-sm">
+        {{ effectiveClipDuration }} сек
+      </span>
     </div>
-    <div class="text-[10px] text-base-content/40 mt-0.5">
+    <div class="mt-0.5 text-micro text-subtle">
       Общая длительность ≈ {{ effectiveClipDuration * effectiveSceneCount }} сек
     </div>
     <SharedFieldHint
       :text="isDrivenByScenario
-        ? 'Длительность определяется отдельно для каждой сцены из плана сценария. В оценке ниже - точные значения каждой сцены.'
-        : 'Длительность каждого отдельного клипа. Итого видео = кол-во сцен × длительность клипа.'"
+        ? 'Длительность определяется отдельно для каждой сцены из плана сценария. В оценке выше — точные значения каждой сцены.'
+        : 'Длительность каждого отдельного клипа. Итого видео — количество сцен × длительность клипа.'"
     />
-  </fieldset>
+  </div>
 
   <!-- ═══ Аудио в видеоклипах ═══
        Toggle актуален только для моделей с встроенным аудио (Kling).
        Wan/Hailuo не имеют native audio — скрываем чекбокс, чтобы не путать. -->
-  <fieldset v-if="selectedVideoModel?.pricing?.withAudio" class="fieldset">
-    <legend class="fieldset-legend">Аудио в клипах</legend>
-    <label class="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="config.generateAudio !== false"
-        @change="updateField('generateAudio', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="text-xs">Генерировать звук в клипах</span>
-    </label>
-    <SharedFieldHint :text="`${selectedVideoModel.name} генерирует видео со встроенным звуком. Отключение экономит ~50% стоимости клипов, но видео будет без нативного звука.`" />
-  </fieldset>
-  <fieldset v-else class="fieldset">
-    <legend class="fieldset-legend">Аудио в клипах</legend>
-    <div class="alert alert-info alert-soft text-[10px] py-1">
-      <Icon name="mingcute:information-line" class="text-xs" />
+  <UiField v-if="selectedVideoModel?.pricing?.withAudio" label="Аудио в клипах">
+    <UiToggle
+      :model-value="config.generateAudio !== false"
+      label="Генерировать звук в клипах"
+      @update:model-value="(v) => updateField('generateAudio', v)"
+    />
+    <SharedFieldHint :text="`${selectedVideoModel.name} генерирует видео со встроенным звуком. Отключение экономит около половины стоимости клипов, но видео будет без нативного звука.`" />
+  </UiField>
+  <UiField v-else label="Аудио в клипах">
+    <p class="flex items-start gap-1.5 rounded-md border border-info-border bg-info-bg px-2 py-1 text-micro text-muted">
+      <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       <span>
-        {{ selectedVideoModel?.name || 'Выбранная модель' }} не поддерживает встроенное аудио в клипах — используйте TTS-озвучку или фоновую музыку ниже.
+        {{ selectedVideoModel?.name || 'Выбранная модель' }} не поддерживает встроенное аудио в клипах —
+        используйте TTS-озвучку или фоновую музыку ниже.
       </span>
-    </div>
-  </fieldset>
+    </p>
+  </UiField>
 
   <!-- ═══ Субтитры ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Субтитры</legend>
-    <label class="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="config.subtitlesEnabled !== false"
-        @change="updateField('subtitlesEnabled', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="text-xs">Добавить субтитры (hook + CTA)</span>
-    </label>
+  <UiField label="Субтитры">
+    <UiToggle
+      :model-value="config.subtitlesEnabled !== false"
+      label="Добавить субтитры (начало и призыв к действию)"
+      @update:model-value="(v) => updateField('subtitlesEnabled', v)"
+    />
     <SharedFieldHint text="Текст hook отображается в начале, CTA — в конце видео. Субтитры накладываются при сборке (FFmpeg), стоимость не увеличивается." />
-  </fieldset>
+  </UiField>
 
-  <fieldset v-if="config.subtitlesEnabled !== false" class="fieldset">
-    <legend class="fieldset-legend">Стиль субтитров (preset)</legend>
+  <UiField v-if="config.subtitlesEnabled !== false" label="Стиль субтитров (пресет)">
     <VideoSubtitlePresetPicker
       :model-value="config.subtitlePreset || 'classic'"
       compact
       @update:model-value="(v) => updateField('subtitlePreset', v)"
     />
-    <SharedFieldHint text="Дефолтный пресет применяется ко всем видео контейнера. Per-video можно перебить в редакторе субтитров после сборки." />
-  </fieldset>
+    <SharedFieldHint text="Пресет по умолчанию применяется ко всем видео контейнера. Для отдельного видео его можно перебить в редакторе субтитров после сборки." />
+  </UiField>
 
-  <!-- ═══ Voiceover / Озвучка ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Озвучка (TTS)</legend>
-    <label class="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="voiceoverEnabled"
-        @change="updateField('voiceoverEnabled', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="text-xs">Озвучивать сценарий через TTS</span>
-    </label>
-    <SharedFieldHint text="Генерирует реальную озвучку через fal.ai TTS по voiceoverPlan.lines из story plan. Каждая сцена синтезируется отдельно, miксуется в единый трек с ducking музыки." />
+  <!-- ═══ Озвучка ═══ -->
+  <UiField label="Озвучка (TTS)">
+    <UiToggle
+      :model-value="voiceoverEnabled"
+      label="Озвучивать сценарий через TTS"
+      @update:model-value="(v) => updateField('voiceoverEnabled', v)"
+    />
+    <SharedFieldHint text="Генерирует реальную озвучку через fal.ai TTS по voiceoverPlan.lines из плана истории. Каждая сцена синтезируется отдельно и микшуется в единый трек с приглушением музыки." />
 
-    <div v-if="voiceoverEnabled" class="mt-2 space-y-2">
-      <!-- TTS provider select -->
-      <div>
-        <label class="label label-text text-xs mb-0.5">TTS провайдер</label>
-        <select
-          class="select select-xs w-full"
-          :value="config.voiceoverModelId || (ttsModels.find(m => m.integrated)?.id ?? '')"
-          @change="updateField('voiceoverModelId', ($event.target as HTMLSelectElement).value || null)"
-        >
-          <option
-            v-for="m in ttsModels"
-            :key="m.id"
-            :value="m.id"
-            :disabled="isModelBlocked(m)"
-          >
-            {{ m.name }} — {{ tierLabel(m.tier) }}
-            ({{ m.pricing?.unit === 'character' ? `${formatCost(m.pricing.base * 1000)}/1K симв` : `${formatCost(m.pricing.base * 60)}/мин` }})
-            {{ isModelBlocked(m) ? ` [${accessStatusLabel(m.accessStatus)}]` : '' }}
-          </option>
-        </select>
-        <div v-if="selectedTtsModel" class="mt-1 text-[10px]">
-          <div class="flex items-center gap-1 flex-wrap">
-            <span class="badge badge-xs" :class="tierClass(selectedTtsModel.tier)">{{ tierLabel(selectedTtsModel.tier) }}</span>
+    <div v-if="voiceoverEnabled" class="mt-2 flex flex-col gap-2">
+      <UiField label="TTS-провайдер">
+        <UiSelect
+          :model-value="config.voiceoverModelId || (ttsModels.find(m => m.integrated)?.id ?? '')"
+          :options="ttsModelOptions"
+          @update:model-value="(v) => updateField('voiceoverModelId', v || null)"
+        />
+        <div v-if="selectedTtsModel" class="mt-1 flex flex-col gap-1">
+          <div class="flex flex-wrap items-center gap-1">
+            <span :class="[BADGE, tierTone(selectedTtsModel.tier)]">{{ tierLabel(selectedTtsModel.tier) }}</span>
             <span
               v-if="selectedTtsModel.accessStatus"
-              class="badge badge-xs"
-              :class="accessStatusClass(selectedTtsModel.accessStatus)"
-            >
-              {{ accessStatusLabel(selectedTtsModel.accessStatus) }}
-            </span>
+              :class="[BADGE, accessStatusTone(selectedTtsModel.accessStatus)]"
+            >{{ accessStatusLabel(selectedTtsModel.accessStatus) }}</span>
           </div>
-          <div
+          <p
             v-if="isModelBlocked(selectedTtsModel)"
-            class="mt-1 p-1.5 bg-error/10 rounded text-error text-[10px]"
+            class="rounded-md border border-danger-border bg-danger-bg px-1.5 py-1 text-micro text-danger"
           >
-            {{ selectedTtsModel.accessReason || 'TTS модель недоступна' }}
-          </div>
+            {{ selectedTtsModel.accessReason || 'TTS-модель недоступна' }}
+          </p>
         </div>
-      </div>
+      </UiField>
 
-      <!-- Language -->
-      <div>
-        <label class="label label-text text-xs mb-0.5">Язык озвучки</label>
-        <div class="flex gap-1">
-          <button
+      <UiField label="Язык озвучки">
+        <div class="flex gap-1.5">
+          <UiButton
             v-for="l in languageOptions"
             :key="l.value"
-            type="button"
-            class="btn btn-xs"
-            :class="(config.voiceoverLanguage || 'en') === l.value ? 'btn-primary' : 'btn-ghost'"
+            :variant="(config.voiceoverLanguage || 'en') === l.value ? 'primary' : 'secondary'"
             @click="updateField('voiceoverLanguage', l.value)"
           >
             {{ l.label }}
-          </button>
+          </UiButton>
         </div>
-      </div>
+      </UiField>
 
-      <!-- Voice id override (opt-in) -->
-      <div>
-        <label class="label label-text text-xs mb-0.5">Voice ID (опционально)</label>
-        <input
-          type="text"
-          class="input input-xs w-full font-mono"
+      <UiField
+        label="Voice ID (опционально)"
+        hint="Kokoro: af_heart, af_bella, am_adam. PlayAI и ElevenLabs — свой идентификатор голоса."
+      >
+        <UiInput
+          mono
           placeholder="Оставьте пустым для голоса по умолчанию"
-          :value="config.voiceoverVoiceId || ''"
-          @input="updateField('voiceoverVoiceId', ($event.target as HTMLInputElement).value || null)"
+          :model-value="config.voiceoverVoiceId || ''"
+          @update:model-value="(v) => updateField('voiceoverVoiceId', v || null)"
         />
-        <div class="text-[10px] text-base-content/40 mt-0.5">
-          Kokoro: af_heart, af_bella, am_adam. PlayAI/ElevenLabs: provider-specific voice id.
-        </div>
-      </div>
+      </UiField>
 
-      <!-- Pacing -->
-      <div>
-        <label class="label label-text text-xs mb-0.5">Темп речи</label>
-        <div class="flex gap-1">
-          <button
+      <UiField label="Темп речи">
+        <div class="flex flex-wrap gap-1.5">
+          <UiButton
             v-for="p in pacingOptions"
             :key="p.value"
-            type="button"
-            class="btn btn-xs"
-            :class="(config.voiceoverPacing || 'moderate') === p.value ? 'btn-primary' : 'btn-ghost'"
+            :variant="(config.voiceoverPacing || 'moderate') === p.value ? 'primary' : 'secondary'"
             @click="updateField('voiceoverPacing', p.value)"
           >
             {{ p.label }}
-            <span class="text-[9px] opacity-60">{{ p.hint }}</span>
-          </button>
+            <span class="text-micro opacity-70">{{ p.hint }}</span>
+          </UiButton>
         </div>
-      </div>
+      </UiField>
 
-      <!-- Reconciliation strategy -->
-      <div>
-        <label class="label label-text text-xs mb-0.5">Если озвучка длиннее сцены</label>
-        <select
-          class="select select-xs w-full"
-          :value="config.voiceoverReconciliation || 'compress_audio'"
-          @change="updateField('voiceoverReconciliation', ($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="r in reconciliationOptions" :key="r.value" :value="r.value">
-            {{ r.label }} — {{ r.hint }}
-          </option>
-        </select>
-      </div>
+      <UiField label="Если озвучка длиннее сцены">
+        <UiSelect
+          :model-value="config.voiceoverReconciliation || 'compress_audio'"
+          :options="reconciliationOptions"
+          @update:model-value="(v) => updateField('voiceoverReconciliation', v)"
+        />
+      </UiField>
 
-      <!-- Music ducking slider -->
       <div v-if="config.enableMusic !== false">
-        <label class="label label-text text-xs mb-0.5">
+        <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
           Громкость музыки во время озвучки
-          <span class="font-mono ml-1">{{ Math.round((config.musicVolumeWithVoiceover ?? 0.12) * 100) }}%</span>
-        </label>
+          <span class="tnum font-mono">{{ Math.round((config.musicVolumeWithVoiceover ?? 0.12) * 100) }}%</span>
+        </div>
         <input
           type="range"
-          class="range range-xs range-primary w-full"
+          :class="RANGE"
           min="0"
           max="0.5"
           step="0.02"
           :value="config.musicVolumeWithVoiceover ?? 0.12"
           @input="updateField('musicVolumeWithVoiceover', Number(($event.target as HTMLInputElement).value))"
-        />
-        <div class="text-[10px] text-base-content/40">
-          Ducking: насколько приглушить фоновую музыку когда говорит voiceover. 0% = полная тишина музыки под голосом.
+        >
+        <div class="mt-0.5 text-micro text-subtle">
+          Насколько приглушить фоновую музыку, когда говорит озвучка. 0 % — полная тишина музыки под голосом.
         </div>
       </div>
 
-      <div class="alert alert-info alert-soft text-[10px] py-1">
-        <Icon name="mingcute:information-line" class="text-xs" />
+      <p class="flex items-start gap-1.5 rounded-md border border-info-border bg-info-bg px-2 py-1 text-micro text-muted">
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
         <span>
           Озвучка работает только если план сценария содержит строки озвучки (voiceoverPlan).
           Без сценарного режима озвучка будет пропущена с предупреждением.
         </span>
-      </div>
+      </p>
     </div>
-  </fieldset>
+  </UiField>
 
-  <!-- ═══ AI Lip-sync (premium) ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">
+  <!-- ═══ Lip-sync ═══ -->
+  <div>
+    <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
       AI Lip-sync персонажа
-      <span class="badge badge-warning badge-xs ml-1">Premium</span>
-    </legend>
-    <label class="flex items-center gap-2" :class="lipSyncGated ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'">
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-warning"
-        :checked="config.lipSyncEnabled === true"
-        :disabled="lipSyncGated"
-        @change="updateField('lipSyncEnabled', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="text-xs">Синхронизировать губы со spokenLine персонажа</span>
-    </label>
+      <span :class="[BADGE, 'border-warning-border bg-warning-bg text-warning']">Premium</span>
+    </div>
+    <UiToggle
+      :model-value="config.lipSyncEnabled === true"
+      :disabled="lipSyncGated"
+      label="Синхронизировать губы с репликой персонажа"
+      @update:model-value="(v) => updateField('lipSyncEnabled', v)"
+    />
     <SharedFieldHint
       :text="lipSyncGated
-        ? 'Заблокировано на стратегии Черновик. Переключи стратегию или применяй пресет Максимальное качество, чтобы активировать lip-sync.'
-        : 'Берёт каждую сцену со spokenLine, синтезирует TTS, прогоняет через fal.ai sync-lipsync. На выходе клип, в котором персонаж реально произносит свою реплику. Биллинг ~$0.07/сек на каждую sync-нутую сцену + TTS.'"
+        ? 'Заблокировано на стратегии «Черновик». Переключите стратегию или примените пресет максимального качества, чтобы активировать lip-sync.'
+        : 'Берёт каждую сцену с репликой, синтезирует TTS и прогоняет через fal.ai sync-lipsync. На выходе клип, в котором персонаж реально произносит свою реплику. Биллинг ~$0.07 за секунду каждой синхронизированной сцены плюс TTS.'"
     />
 
-    <div v-if="config.lipSyncEnabled === true && !lipSyncGated" class="alert alert-warning alert-soft text-[10px] py-1 mt-2">
-      <Icon name="mingcute:alert-line" class="text-xs" />
+    <p
+      v-if="config.lipSyncEnabled === true && !lipSyncGated"
+      class="mt-2 flex items-start gap-1.5 rounded-md border border-warning-border bg-warning-bg px-2 py-1 text-micro text-muted"
+    >
+      <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
       <span>
-        Lip-sync обрабатывает только сцены с person-протагонистом и заполненным spokenLine.
+        Lip-sync обрабатывает только сцены с человеком-протагонистом и заполненной репликой.
         Если в сценарии нет таких сцен, шаг автоматически пропустится.
       </span>
-    </div>
-  </fieldset>
+    </p>
+  </div>
 
   <!-- ═══ Музыка ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Фоновая музыка</legend>
-    <label class="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        class="toggle toggle-sm toggle-primary"
-        :checked="config.enableMusic !== false"
-        @change="updateField('enableMusic', ($event.target as HTMLInputElement).checked)"
-      />
-      <span class="text-xs">Включить музыку</span>
-    </label>
+  <UiField label="Фоновая музыка">
+    <UiToggle
+      :model-value="config.enableMusic !== false"
+      label="Включить музыку"
+      @update:model-value="(v) => updateField('enableMusic', v)"
+    />
 
-    <div v-if="config.enableMusic !== false" class="mt-2 space-y-2">
-      <select
-        class="select select-xs w-full"
-        :value="config.musicMood || 'energetic upbeat'"
-        @change="updateField('musicMood', ($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="m in musicMoods" :key="m.value" :value="m.value">{{ m.label }}</option>
-      </select>
+    <div v-if="config.enableMusic !== false" class="mt-2 flex flex-col gap-2">
+      <UiSelect
+        :model-value="config.musicMood || 'energetic upbeat'"
+        :options="musicMoods"
+        @update:model-value="(v) => updateField('musicMood', v)"
+      />
       <div>
-        <label class="label label-text text-xs mb-0.5">
+        <div class="mb-[5px] flex items-center gap-1 text-micro text-muted">
           Громкость музыки
-          <span class="font-mono ml-1">{{ Math.round((config.musicVolume ?? 0.3) * 100) }}%</span>
-        </label>
+          <span class="tnum font-mono">{{ Math.round((config.musicVolume ?? 0.3) * 100) }}%</span>
+        </div>
         <input
           type="range"
-          class="range range-xs range-primary w-full"
+          :class="RANGE"
           min="0"
           max="1"
           step="0.05"
           :value="config.musicVolume ?? 0.3"
           @input="updateField('musicVolume', Number(($event.target as HTMLInputElement).value))"
-        />
-        <div class="text-[10px] text-base-content/40">
-          Базовая громкость музыки. Если voiceover включён, во время речи применяется ducking (отдельная настройка выше).
-        </div>
-      </div>
-    </div>
-  </fieldset>
-
-  <!-- ═══ Лимит видео ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Лимит видео</legend>
-    <div class="flex items-center gap-2">
-      <input
-        type="number"
-        class="input input-sm w-20"
-        min="0"
-        max="50"
-        placeholder="0"
-        :value="config.maxVideos || 0"
-        @input="updateField('maxVideos', Number(($event.target as HTMLInputElement).value) || 0)"
-      />
-      <span class="text-xs text-base-content/60">0 = без ограничений</span>
-    </div>
-    <SharedFieldHint text="Максимум видео за один запуск. Если upstream генерирует 10 сценариев, но лимит = 3, будут созданы только 3 видео." />
-    <div v-if="(config.maxVideos ?? 0) > 0" class="alert alert-info alert-soft text-[10px] py-1 mt-1">
-      <Icon name="mingcute:information-line" class="text-xs" />
-      <div>
-        <span>Будет создано не более {{ config.maxVideos }} видео.</span>
-        <span v-if="costData" class="font-semibold ml-1">
-          Макс. стоимость: ≈ {{ formatCost((costData.maxTotal ?? costData.total ?? 0) * (config.maxVideos ?? 1)) }}
-        </span>
-      </div>
-    </div>
-  </fieldset>
-
-  <!-- ═══ Целевая платформа ═══ -->
-  <fieldset class="fieldset">
-    <legend class="fieldset-legend">Целевая платформа</legend>
-    <select
-      class="select select-sm w-full"
-      :value="config.targetPlatform || ''"
-      @change="updateField('targetPlatform', ($event.target as HTMLSelectElement).value)"
-    >
-      <option value="">Без привязки</option>
-      <option value="tiktok">TikTok</option>
-      <option value="instagram">Instagram Reels</option>
-      <option value="youtube">YouTube / Shorts</option>
-    </select>
-    <SharedFieldHint text="Влияет на рекомендуемый формат и параметры. При выгрузке через Upload блок платформа определяет, куда отправить видео." />
-  </fieldset>
-
-  <!-- ═══ Cost Optimization Tips ═══ -->
-  <div v-if="costData?.tips?.length" class="mt-2">
-    <button
-      type="button"
-      class="btn btn-xs btn-ghost text-success gap-1"
-      @click="showTips = !showTips"
-    >
-      <Icon name="mingcute:sparkles-2-line" class="text-xs" />
-      {{ showTips ? 'Скрыть советы' : `Как сэкономить (${costData.tips.length})` }}
-    </button>
-
-    <div v-if="showTips" class="mt-1 space-y-1">
-      <div
-        v-for="(tip, i) in costData.tips"
-        :key="i"
-        class="flex items-center gap-2 p-1.5 bg-base-200/60 rounded-box text-[10px]"
-      >
-        <span class="badge badge-xs badge-success">−{{ tip.savingsPercent }}%</span>
-        <div class="flex-1">
-          <div class="font-medium">{{ tip.tip }}</div>
-          <div class="text-base-content/40">{{ tip.action }}</div>
-        </div>
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost btn-success"
-          @click="applyTip(tip.field, tip.newValue)"
         >
-          Применить
-        </button>
+        <div class="mt-0.5 text-micro text-subtle">
+          Базовая громкость музыки. Если озвучка включена, во время речи применяется приглушение — отдельная настройка выше.
+        </div>
       </div>
     </div>
-  </div>
+  </UiField>
 </template>
