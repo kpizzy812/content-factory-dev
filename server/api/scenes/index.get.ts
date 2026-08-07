@@ -40,10 +40,27 @@ export default defineEventHandler(async (event) => {
       : {}),
   }
 
+  // Пагинация — только по явной просьбе: тот же список читает композитор,
+  // и обрезать его двадцатью строками значит спрятать сцены от оператора.
+  const wantsPages = query.page !== undefined || query.perPage !== undefined
+  const page = Math.max(1, Number(query.page) || 1)
+  const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 24))
+
+  const total = await prisma.scene.count({ where })
+
   const scenes = await prisma.scene.findMany({
     where,
+    ...(wantsPages ? { skip: (page - 1) * perPage, take: perPage } : {}),
     orderBy: [{ archived: "asc" }, { updatedAt: "desc" }],
   })
 
-  return { data: scenes }
+  return {
+    data: scenes,
+    meta: {
+      total,
+      page: wantsPages ? page : 1,
+      perPage: wantsPages ? perPage : total,
+      totalPages: wantsPages ? Math.max(1, Math.ceil(total / perPage)) : 1,
+    },
+  }
 })

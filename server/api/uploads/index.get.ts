@@ -1,6 +1,7 @@
 import type { UploadListMeta } from "../../../shared/types/upload"
 
 const VALID_STATUSES = ["pending", "uploading", "published", "failed", "scheduled", "canceled", "blocked_by_env"] as const
+const SORT_FIELDS = ["createdAt", "updatedAt", "status", "scheduledAt", "lastAttemptAt"] as const
 
 /**
  * GET /api/uploads
@@ -15,6 +16,12 @@ export default defineEventHandler(async (event) => {
   const page = Math.max(1, Number(query.page) || 1)
   const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 20))
   const skip = (page - 1) * perPage
+
+  // Сортировка
+  const orderBy = toOrderBy(
+    parseSort(query, { allowed: SORT_FIELDS, defaultField: 'createdAt' }),
+    ['scheduledAt', 'lastAttemptAt'],
+  )
 
   // Фильтры
   const where: Record<string, unknown> = {}
@@ -50,7 +57,7 @@ export default defineEventHandler(async (event) => {
   const [uploads, total] = await Promise.all([
     prisma.upload.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: perPage,
       include: {

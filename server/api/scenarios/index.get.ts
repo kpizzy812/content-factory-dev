@@ -1,6 +1,7 @@
 import type { ScenarioListMeta } from '../../../shared/types/scenario'
 
 const VALID_STATUSES = ['draft', 'generating', 'generated', 'selected', 'rejected', 'needs_rework', 'archived'] as const
+const SORT_FIELDS = ['createdAt', 'updatedAt', 'status'] as const
 
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canRead'], moduleSlug: 'script-generator' })
@@ -10,6 +11,7 @@ export default defineEventHandler(async (event) => {
   const page = Math.max(1, Number(query.page) || 1)
   const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 20))
   const skip = (page - 1) * perPage
+  const orderBy = toOrderBy(parseSort(query, { allowed: SORT_FIELDS, defaultField: 'createdAt' }))
 
   const where: Record<string, unknown> = {
     isDeleted: false,
@@ -43,7 +45,7 @@ export default defineEventHandler(async (event) => {
   const [scenarios, total] = await Promise.all([
     prisma.scenario.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip,
       take: perPage,
       include: {

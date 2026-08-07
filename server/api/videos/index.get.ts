@@ -6,6 +6,7 @@ const VALID_STATUSES = [
   "generating_music", "assembling",
   "completed", "failed", "canceled",
 ] as const
+const SORT_FIELDS = ['createdAt', 'updatedAt', 'status', 'duration', 'totalCostActual', 'finishedAt'] as const
 
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canRead'], moduleSlug: 'video-generator' })
@@ -16,6 +17,12 @@ export default defineEventHandler(async (event) => {
   const page = Math.max(1, Number(query.page) || 1)
   const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 12))
   const skip = (page - 1) * perPage
+
+  // Sort
+  const orderBy = toOrderBy(
+    parseSort(query, { allowed: SORT_FIELDS, defaultField: 'createdAt' }),
+    ['totalCostActual', 'duration', 'finishedAt'],
+  )
 
   // Filters
   const where: Record<string, unknown> = {}
@@ -44,7 +51,7 @@ export default defineEventHandler(async (event) => {
   const [videos, total] = await Promise.all([
     prisma.video.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: perPage,
       include: {

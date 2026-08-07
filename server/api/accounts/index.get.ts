@@ -2,7 +2,18 @@
  * GET /api/accounts
  * Список социальных аккаунтов с фильтром по appId/platform/status.
  * Возвращает компактный shape для пикеров: lastPostedAt, profileCompleteness, app.name.
+ *
+ * Пагинация включается только тем, кто её попросил (`page` или `perPage`):
+ * список аккаунтов читают ещё и пикеры модалок, и молча обрезать им выборку
+ * двадцатью строками значит спрятать половину аккаунтов от оператора.
+ *
+ * Прогрев и лимит публикаций отдаются здесь же: прогрев до сих пор жил только
+ * в `/api/admin/accounts-health`, а лимит площадки не выходил за пределы
+ * адаптера публикации — из-за этого в списке аккаунтов не было ни колонки
+ * «34 / 50», ни отметки «прогрет».
  */
+const SORT_FIELDS = ['createdAt', 'displayName', 'lastPostedAt', 'status', 'totalPostsPublished'] as const
+
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canRead'], moduleSlug: 'social-upload' })
 
@@ -30,9 +41,20 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const wantsPages = query.page !== undefined || query.perPage !== undefined
+  const page = Math.max(1, Number(query.page) || 1)
+  const perPage = Math.min(200, Math.max(1, Number(query.perPage) || 25))
+  const orderBy = toOrderBy(
+    parseSort(query, { allowed: SORT_FIELDS, defaultField: "createdAt" }),
+    ["lastPostedAt"],
+  )
+
+  const total = await prisma.socialAccount.count({ where })
+
   const accounts = await prisma.socialAccount.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy,
+    ...(wantsPages ? { skip: (page - 1) * perPage, take: perPage } : {}),
     select: {
       id: true,
       appId: true,
@@ -55,6 +77,15 @@ export default defineEventHandler(async (event) => {
       loginCheckedUsername: true,
       // прокси
       proxyId: true,
+      // Прогрев: до сих пор был виден только на странице здоровья аккаунтов,
+      // хотя решение «можно ли лить в этот аккаунт» принимают в списке.
+      warmupStatus: true,
+      lastWarmupAt: true,
+      totalPostsPublished: true,
+      // Лимит публикаций площадки — снимок в момент последней отправки.
+      publishingQuotaUsage: true,
+      publishingQuotaTotal: true,
+      publishingQuotaAt: true,
       // Indigo browser profile — нужен в DTO чтобы UI 1:1:1 pre-check
       // в PostingJobCreateModal мог проверять и показывать бейдж.
       deviceProfileId: true,
@@ -86,8 +117,19 @@ export default defineEventHandler(async (event) => {
       ...safe,
       profileCompleteness,
       hasLoginCredentials,
+      // Замер лимита старше суток описывает уже другой день: квота площадки
+      // катится 24 часа, и показывать вчерашнюю цифру как текущую нельзя.
+      publishingQuotaStale: isLimitStale(acc.publishingQuotaAt),
     }
   })
 
-  return { data }
+  return {
+    data,
+    meta: {
+      total,
+      page: wantsPages ? page : 1,
+      perPage: wantsPages ? perPage : total,
+      totalPages: wantsPages ? Math.max(1, Math.ceil(total / perPage)) : 1,
+    },
+  }
 })

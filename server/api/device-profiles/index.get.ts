@@ -69,8 +69,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Пагинация — только по явной просьбе: этот же список читают пикеры
+  // профиля в карточке аккаунта, и обрезать им выборку нельзя.
+  const wantsPages = query.page !== undefined || query.perPage !== undefined
+  const page = Math.max(1, Number(query.page) || 1)
+  const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 24))
+
+  const total = await prisma.deviceProfile.count({ where })
+
   const rows = await prisma.deviceProfile.findMany({
     where,
+    ...(wantsPages ? { skip: (page - 1) * perPage, take: perPage } : {}),
     orderBy: { createdAt: "desc" },
     include: {
       socialAccount: { include: { app: { select: { id: true, name: true } } } },
@@ -82,5 +91,13 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  return { data: rows.map(toDeviceProfileDto) }
+  return {
+    data: rows.map(toDeviceProfileDto),
+    meta: {
+      total,
+      page: wantsPages ? page : 1,
+      perPage: wantsPages ? perPage : total,
+      totalPages: wantsPages ? Math.max(1, Math.ceil(total / perPage)) : 1,
+    },
+  }
 })

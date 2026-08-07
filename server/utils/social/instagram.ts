@@ -6,6 +6,7 @@ import {
   type InstagramTrialStrategy,
 } from "./instagram-api"
 import { resolvePublicMediaUrl } from "./public-media"
+import { recordPublishingLimit } from "./publishing-limit"
 import type {
   DecryptedAccount,
   MetricsResult,
@@ -145,6 +146,9 @@ export function createInstagramAdapter({
       }
 
       const limit = await client.getPublishingLimit(account.platformUserId)
+      // Замер сохраняется независимо от того, разрешена публикация или нет:
+      // «квота исчерпана» — это тоже состояние, которое нужно видеть в списке.
+      await recordPublishingLimit(account.id, limit)
       if (
         limit.quotaUsage !== null
         && limit.quotaTotal !== null

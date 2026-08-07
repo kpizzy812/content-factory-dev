@@ -14,14 +14,14 @@ export default defineEventHandler(async (event) => {
   const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 20))
   const skip = (page - 1) * perPage
 
-  // Sort
-  const sortBy = VALID_SORT_FIELDS.includes(query.sort as typeof VALID_SORT_FIELDS[number])
-    ? (query.sort as string)
-    : "importedAt"
+  // Sort. Шапка таблицы отдаёт «-importedAt» со знаком направления — раньше
+  // знак отбрасывался вместе с полем, и сортировка по возрастанию молча
+  // возвращала список к дефолту.
   // У старых трендов виральности нет — они уходят в конец списка, а не в начало.
-  const orderBy = sortBy === "viralityScore"
-    ? { viralityScore: { sort: "desc" as const, nulls: "last" as const } }
-    : { [sortBy]: "desc" as const }
+  const orderBy = toOrderBy(
+    parseSort(query, { allowed: VALID_SORT_FIELDS, defaultField: "importedAt" }),
+    ["viralityScore"],
+  )
 
   // Filters
   const where: Record<string, unknown> = {

@@ -32,8 +32,18 @@ export default defineEventHandler(async (event) => {
       : {}),
   }
 
+  // Пагинация включается только тем, кто её попросил: список персонажей
+  // читают ещё и пикеры сцен, и молча обрезать им выборку значит спрятать
+  // половину персонажей от оператора.
+  const wantsPages = query.page !== undefined || query.perPage !== undefined
+  const page = Math.max(1, Number(query.page) || 1)
+  const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 24))
+
+  const total = await prisma.character.count({ where })
+
   const characters = await prisma.character.findMany({
     where,
+    ...(wantsPages ? { skip: (page - 1) * perPage, take: perPage } : {}),
     orderBy: [{ archived: "asc" }, { updatedAt: "desc" }],
     include: {
       referenceImages: {
@@ -43,5 +53,13 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  return { data: characters }
+  return {
+    data: characters,
+    meta: {
+      total,
+      page: wantsPages ? page : 1,
+      perPage: wantsPages ? perPage : total,
+      totalPages: wantsPages ? Math.max(1, Math.ceil(total / perPage)) : 1,
+    },
+  }
 })

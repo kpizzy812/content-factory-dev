@@ -1050,6 +1050,13 @@ model SocialAccount {
   warmupStatus        WarmupStatus         @default(new)
   lastWarmupAt        DateTime?
   totalPostsPublished Int                  @default(0)
+  /// Лимит публикаций площадки на момент последней отправки.
+  /// Величину отдаёт только Instagram (content_publishing_limit) и только в
+  /// момент публикации — снимок, а не текущее состояние, поэтому рядом лежит
+  /// время замера, и интерфейс показывает его возраст.
+  publishingQuotaUsage Int?
+  publishingQuotaTotal Int?
+  publishingQuotaAt    DateTime?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   uploads             Upload[]

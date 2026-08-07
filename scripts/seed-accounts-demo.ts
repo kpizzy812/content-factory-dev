@@ -180,6 +180,28 @@ for (const name of ['@zavod.mebel.ru', 'Завод мебели', '@kuhni.optom'
   })
 }
 
+// Лимит публикаций площадки. Величину отдаёт только Instagram и только в
+// момент отправки, поэтому в базе это снимок со временем замера. Два разных
+// состояния: свежий замер у одного аккаунта и протухший (старше суток) у
+// другого — иначе в списке не видно, чем они отличаются.
+const QUOTA_SNAPSHOTS: Array<{ name: string, usage: number, total: number, agoHours: number }> = [
+  { name: '@kuhni.optom', usage: 34, total: 50, agoHours: 3 },
+  { name: '@zavod.mebel', usage: 48, total: 50, agoHours: 31 },
+]
+
+for (const snapshot of QUOTA_SNAPSHOTS) {
+  const socialAccountId = created[snapshot.name]
+  if (!socialAccountId) continue
+  await prisma.socialAccount.update({
+    where: { id: socialAccountId },
+    data: {
+      publishingQuotaUsage: snapshot.usage,
+      publishingQuotaTotal: snapshot.total,
+      publishingQuotaAt: new Date(now - snapshot.agoHours * 60 * 60 * 1000),
+    },
+  })
+}
+
 const total = await prisma.socialAccount.count()
 console.log(JSON.stringify({ appId: app.id, accounts: total, groupId: group.id }))
 await prisma.$disconnect()
