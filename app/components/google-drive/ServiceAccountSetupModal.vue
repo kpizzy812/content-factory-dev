@@ -21,27 +21,20 @@ const showGuide = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref<string | null>(null)
 
-const dialogRef = ref<HTMLDialogElement | null>(null)
-
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) {
-      name.value = ''
-      description.value = ''
-      clientEmail.value = ''
-      privateKey.value = ''
-      projectId.value = ''
-      privateKeyId.value = ''
-      rawJson.value = ''
-      advancedMode.value = false
-      showGuide.value = false
-      errorMessage.value = null
-      nextTick(() => dialogRef.value?.showModal())
-    }
-    else {
-      dialogRef.value?.close()
-    }
+    if (!open) return
+    name.value = ''
+    description.value = ''
+    clientEmail.value = ''
+    privateKey.value = ''
+    projectId.value = ''
+    privateKeyId.value = ''
+    rawJson.value = ''
+    advancedMode.value = false
+    showGuide.value = false
+    errorMessage.value = null
   },
 )
 
@@ -65,8 +58,7 @@ const rawJsonValidation = computed(() => {
       return { valid: false, hint: 'Отсутствует client_email' }
     }
     return { valid: true, hint: `OK: ${parsed.client_email as string}` }
-  }
-  catch {
+  } catch {
     return { valid: false, hint: 'Невалидный JSON' }
   }
 })
@@ -103,12 +95,10 @@ async function handleSubmit() {
     })
     emit('created', cred.id)
     emit('update:modelValue', false)
-  }
-  catch (err: unknown) {
+  } catch (err: unknown) {
     const data = (err as { data?: { message?: string }, message?: string })
     errorMessage.value = data?.data?.message || data?.message || 'Не удалось подключить аккаунт'
-  }
-  finally {
+  } finally {
     isSubmitting.value = false
   }
 }
@@ -127,246 +117,190 @@ function handlePastedJson(value: string) {
     if (typeof parsed.private_key === 'string') privateKey.value = parsed.private_key
     if (typeof parsed.project_id === 'string') projectId.value = parsed.project_id
     if (typeof parsed.private_key_id === 'string') privateKeyId.value = parsed.private_key_id
-  }
-  catch {
+  } catch {
     // ignore — пользователь вводит email вручную
   }
+}
+
+const CODE = 'rounded-sm border border-divider bg-card px-1 font-mono text-micro text-fg'
+
+// Подсказка под полем меняет тон: нейтральная — пока пусто, зелёная — когда
+// значение похоже на правильное, тревожная — когда точно нет.
+function hintTone(empty: boolean, valid: boolean) {
+  if (empty) return 'text-subtle'
+  return valid ? 'text-success' : 'text-warning'
 }
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal" @close="handleClose">
-    <div class="modal-box max-w-2xl my-8 max-h-[calc(100vh-4rem)]">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-bold">Подключить Google Drive</h3>
-        <button
-          class="btn btn-ghost btn-sm"
-          :title="showGuide ? 'Скрыть инструкцию' : 'Показать инструкцию'"
-          @click="showGuide = !showGuide"
-        >
-          <Icon name="mingcute:question-line" class="h-4 w-4 text-primary" />
+  <UiModal :open="modelValue" size="lg" :persistent="isSubmitting" @close="handleClose">
+    <template #header>
+      <span class="flex items-center gap-2">
+        Подключить Google Drive
+        <UiButton variant="ghost" @click="showGuide = !showGuide">
+          <Icon name="mingcute:question-line" class="text-accent-text" />
           <span class="hidden sm:inline">{{ showGuide ? 'Скрыть' : 'Как получить ключ' }}</span>
-        </button>
-      </div>
+        </UiButton>
+      </span>
+    </template>
 
-      <p class="text-sm text-base-content/70 mb-4">
+    <div class="flex flex-col gap-3">
+      <p class="text-muted">
         Подключите сервисный аккаунт Google Cloud с правом
-        <code class="text-xs bg-base-200 px-1 rounded">drive.readonly</code>.
-        Все секреты шифруются (AES-256-GCM) и не возвращаются на клиент после сохранения.
+        <code :class="CODE">drive.readonly</code>. Все секреты шифруются (AES-256-GCM)
+        и не возвращаются на клиент после сохранения.
       </p>
 
-      <!-- Setup guide accordion -->
-      <div v-if="showGuide" class="alert mb-4 flex-col items-start">
-        <div class="flex items-start gap-2 w-full">
-          <Icon name="mingcute:information-line" class="h-5 w-5 shrink-0 text-info" />
-          <div class="flex-1 text-xs space-y-1.5">
-            <p class="font-medium text-sm">Шаги получения Service Account JSON</p>
-            <ol class="list-decimal list-inside space-y-1 text-base-content/70">
-              <li>Откройте <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener" class="link link-primary">Google Cloud Console — IAM &rarr; Service Accounts</a>.</li>
-              <li>Создайте сервис-аккаунт (или выберите существующий).</li>
-              <li>Откройте вкладку <b>Keys</b> &rarr; Add Key &rarr; Create new key &rarr; <b>JSON</b>.</li>
-              <li>Скачается файл — откройте и скопируйте его содержимое или возьмите оттуда два поля.</li>
-              <li>В Google Drive расшарьте нужную папку (<b>Доступ</b>) на <code class="bg-base-200 px-1 rounded">client_email</code> сервис-аккаунта.</li>
-              <li>Включите <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener" class="link link-primary">Google Drive API</a> в проекте.</li>
-            </ol>
-          </div>
+      <!-- Инструкция -->
+      <div
+        v-if="showGuide"
+        class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2"
+      >
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+        <div class="flex min-w-0 flex-1 flex-col gap-1.5 text-sm">
+          <p class="font-medium">Шаги получения Service Account JSON</p>
+          <ol class="list-inside list-decimal space-y-1 text-muted">
+            <li>Откройте <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener">Google Cloud Console — IAM → Service Accounts</a>.</li>
+            <li>Создайте сервис-аккаунт или выберите существующий.</li>
+            <li>Откройте вкладку <b class="text-fg">Keys</b> → Add Key → Create new key → <b class="text-fg">JSON</b>.</li>
+            <li>Скачается файл — откройте и скопируйте его содержимое или возьмите оттуда два поля.</li>
+            <li>В Google Drive расшарьте нужную папку на <code :class="CODE">client_email</code> сервис-аккаунта.</li>
+            <li>Включите <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">Google Drive API</a> в проекте.</li>
+          </ol>
         </div>
       </div>
 
-      <!-- Name -->
-      <fieldset class="fieldset mb-2">
-        <legend class="fieldset-legend">
-          Название <span class="text-error">*</span>
-        </legend>
-        <input
-          v-model="name"
-          type="text"
-          placeholder="Например, Drive — Marketing"
-          class="input w-full"
-          :disabled="isSubmitting"
-        >
-        <p class="text-xs text-base-content/50 mt-1">
-          Произвольное имя для отображения в списке подключений.
-        </p>
-      </fieldset>
+      <UiField label="Название *" hint="Произвольное имя для отображения в списке подключений.">
+        <UiInput v-model="name" placeholder="Например, Drive — Marketing" :disabled="isSubmitting" />
+      </UiField>
 
-      <!-- Description -->
-      <fieldset class="fieldset mb-3">
-        <legend class="fieldset-legend">Описание (опционально)</legend>
-        <input
+      <UiField label="Описание (опционально)">
+        <UiInput
           v-model="description"
-          type="text"
-          placeholder="Например, основная папка с креативами для tiktok"
-          class="input w-full"
+          placeholder="Например, основная папка с креативами для TikTok"
           :disabled="isSubmitting"
-        >
-      </fieldset>
+        />
+      </UiField>
 
-      <!-- Mode toggle -->
-      <div class="divider text-xs text-base-content/40 my-2">
+      <div class="flex items-center gap-2 text-micro text-subtle">
+        <span class="h-px flex-1 bg-divider" />
         {{ advancedMode ? 'Вставка JSON целиком' : 'Поля сервис-аккаунта' }}
+        <span class="h-px flex-1 bg-divider" />
       </div>
 
-      <!-- Typed fields mode -->
+      <!-- Поля по отдельности -->
       <template v-if="!advancedMode">
-        <fieldset class="fieldset mb-2">
-          <legend class="fieldset-legend">
-            Email сервис-аккаунта (client_email) <span class="text-error">*</span>
-          </legend>
-          <input
+        <UiField label="Email сервис-аккаунта (client_email) *">
+          <UiInput
             v-model="clientEmail"
             type="email"
+            mono
             placeholder="my-bot@my-project.iam.gserviceaccount.com"
-            class="input w-full font-mono text-sm"
             :disabled="isSubmitting"
-            @paste="(e) => handlePastedJson((e.clipboardData?.getData('text') ?? ''))"
-          >
-          <p
-            class="text-xs mt-1"
-            :class="emailLooksValid ? 'text-success' : 'text-base-content/50'"
-          >
+            @paste="(e: ClipboardEvent) => handlePastedJson(e.clipboardData?.getData('text') ?? '')"
+          />
+          <p class="mt-1 text-micro" :class="hintTone(clientEmail.trim().length === 0, emailLooksValid)">
             <template v-if="clientEmail.trim().length === 0">
-              Адрес из поля client_email в JSON-файле сервис-аккаунта. Заканчивается на <code class="bg-base-200 px-1 rounded">.iam.gserviceaccount.com</code>.
+              Адрес из поля client_email в JSON-файле сервис-аккаунта. Заканчивается на
+              <code :class="CODE">.iam.gserviceaccount.com</code>.
             </template>
-            <template v-else-if="emailLooksValid">
-              ✓ Похоже на корректный email сервис-аккаунта
-            </template>
+            <template v-else-if="emailLooksValid">Похоже на корректный email сервис-аккаунта</template>
             <template v-else>
-              ⚠ Email должен заканчиваться на <code class="bg-base-200 px-1 rounded">.iam.gserviceaccount.com</code>
+              Email должен заканчиваться на <code :class="CODE">.iam.gserviceaccount.com</code>
             </template>
           </p>
-        </fieldset>
+        </UiField>
 
-        <fieldset class="fieldset mb-2">
-          <legend class="fieldset-legend">
-            Приватный ключ (private_key) <span class="text-error">*</span>
-          </legend>
-          <textarea
+        <UiField label="Приватный ключ (private_key) *">
+          <UiTextarea
             v-model="privateKey"
-            class="textarea w-full font-mono text-xs"
-            rows="6"
+            :rows="6"
+            class="font-mono text-sm"
             placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...&#10;-----END PRIVATE KEY-----"
             :disabled="isSubmitting"
           />
-          <p
-            class="text-xs mt-1"
-            :class="privateKeyLooksValid ? 'text-success' : 'text-base-content/50'"
-          >
+          <p class="mt-1 text-micro" :class="hintTone(privateKey.length === 0, privateKeyLooksValid)">
             <template v-if="privateKey.length === 0">
-              Поле private_key из JSON. Включает строки <code class="bg-base-200 px-1 rounded">BEGIN PRIVATE KEY</code> и <code class="bg-base-200 px-1 rounded">END PRIVATE KEY</code>. Сохраняйте символы переноса строк.
+              Поле private_key из JSON. Включает строки <code :class="CODE">BEGIN PRIVATE KEY</code> и
+              <code :class="CODE">END PRIVATE KEY</code>. Сохраняйте символы переноса строк.
             </template>
-            <template v-else-if="privateKeyLooksValid">
-              ✓ PEM-блок выглядит корректно
-            </template>
+            <template v-else-if="privateKeyLooksValid">PEM-блок выглядит корректно</template>
             <template v-else>
-              ⚠ Не найдены строки BEGIN/END PRIVATE KEY — проверьте что вставили блок целиком
+              Не найдены строки BEGIN/END PRIVATE KEY — проверьте, что вставили блок целиком
             </template>
           </p>
-        </fieldset>
+        </UiField>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">ID проекта (опционально)</legend>
-            <input
-              v-model="projectId"
-              type="text"
-              placeholder="my-gcp-project-12345"
-              class="input input-sm w-full font-mono text-xs"
-              :disabled="isSubmitting"
-            >
-            <p class="text-xs text-base-content/50 mt-1">
-              project_id из JSON. Используется для отображения, не для авторизации.
-            </p>
-          </fieldset>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <UiField
+            label="ID проекта (опционально)"
+            hint="project_id из JSON. Используется для отображения, не для авторизации."
+          >
+            <UiInput v-model="projectId" mono placeholder="my-gcp-project-12345" :disabled="isSubmitting" />
+          </UiField>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">ID ключа (опционально)</legend>
-            <input
-              v-model="privateKeyId"
-              type="text"
-              placeholder="abc123def456..."
-              class="input input-sm w-full font-mono text-xs"
-              :disabled="isSubmitting"
-            >
-            <p class="text-xs text-base-content/50 mt-1">
-              private_key_id из JSON. Помогает идентифицировать ротацию ключа.
-            </p>
-          </fieldset>
+          <UiField
+            label="ID ключа (опционально)"
+            hint="private_key_id из JSON. Помогает идентифицировать ротацию ключа."
+          >
+            <UiInput v-model="privateKeyId" mono placeholder="abc123def456…" :disabled="isSubmitting" />
+          </UiField>
         </div>
       </template>
 
-      <!-- Advanced JSON mode -->
-      <template v-else>
-        <fieldset class="fieldset mb-3">
-          <legend class="fieldset-legend">
-            JSON service account целиком <span class="text-error">*</span>
-          </legend>
-          <textarea
-            v-model="rawJson"
-            class="textarea w-full font-mono text-xs"
-            rows="10"
-            placeholder='{ "type": "service_account", "project_id": "...", "private_key": "...", "client_email": "...", ... }'
-            :disabled="isSubmitting"
-          />
-          <p
-            class="text-xs mt-1"
-            :class="{
-              'text-success': rawJsonValidation.valid,
-              'text-error': !rawJsonValidation.valid && rawJsonValidation.hint.length > 0,
-              'text-base-content/50': rawJsonValidation.hint.length === 0,
-            }"
-          >
-            {{ rawJsonValidation.hint || 'Вставьте содержимое JSON-файла Service Account целиком.' }}
-          </p>
-        </fieldset>
-      </template>
-
-      <!-- Critical hint about folder sharing -->
-      <div class="alert alert-warning text-xs mb-3">
-        <Icon name="mingcute:alert-line" class="h-4 w-4 shrink-0" />
-        <span>
-          После подключения <b>обязательно</b> расшарьте нужную папку в Google Drive на email сервис-аккаунта — без этого папка не будет видна.
-        </span>
-      </div>
-
-      <!-- Mode toggle button -->
-      <div class="flex items-center justify-between mb-3">
-        <button
-          class="btn btn-ghost btn-xs text-base-content/60"
-          type="button"
-          @click="advancedMode = !advancedMode"
+      <!-- JSON целиком -->
+      <UiField v-else label="JSON service account целиком *">
+        <UiTextarea
+          v-model="rawJson"
+          :rows="10"
+          class="font-mono text-sm"
+          placeholder='{ "type": "service_account", "project_id": "...", "private_key": "...", "client_email": "...", ... }'
+          :disabled="isSubmitting"
+        />
+        <p
+          class="mt-1 text-micro"
+          :class="rawJsonValidation.hint.length === 0
+            ? 'text-subtle'
+            : rawJsonValidation.valid ? 'text-success' : 'text-danger'"
         >
-          <Icon :name="advancedMode ? 'mingcute:textbox-line' : 'mingcute:code-line'" class="h-3.5 w-3.5" />
+          {{ rawJsonValidation.hint || 'Вставьте содержимое JSON-файла Service Account целиком.' }}
+        </p>
+      </UiField>
+
+      <p class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-muted">
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+        <span>
+          После подключения <b class="text-fg">обязательно</b> расшарьте нужную папку в Google Drive
+          на email сервис-аккаунта — без этого папка не будет видна.
+        </span>
+      </p>
+
+      <div class="flex items-center justify-between gap-2">
+        <UiButton variant="ghost" @click="advancedMode = !advancedMode">
+          <Icon :name="advancedMode ? 'mingcute:textbox-line' : 'mingcute:code-line'" />
           {{ advancedMode ? 'Простая форма (поля)' : 'Расширенный режим (JSON)' }}
-        </button>
-        <p class="text-xs text-base-content/40">
-          <Icon name="mingcute:lock-line" class="h-3 w-3 inline" />
+        </UiButton>
+        <p class="flex items-center gap-1 text-micro text-subtle">
+          <Icon name="mingcute:lock-line" />
           Шифрование AES-256-GCM
         </p>
       </div>
 
-      <div v-if="errorMessage" class="alert alert-error mb-3 text-sm">
-        <Icon name="mingcute:warning-line" class="h-5 w-5" />
+      <p
+        v-if="errorMessage"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0" />
         <span>{{ errorMessage }}</span>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-ghost" :disabled="isSubmitting" @click="handleClose">
-          Отмена
-        </button>
-        <button
-          class="btn btn-primary"
-          :disabled="!canSubmit"
-          @click="handleSubmit"
-        >
-          <span v-if="isSubmitting" class="loading loading-spinner loading-sm" />
-          <Icon v-else name="mingcute:link-line" class="h-4 w-4" />
-          Подключить
-        </button>
-      </div>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="handleClose">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" size="md" :disabled="isSubmitting" @click="handleClose">Отмена</UiButton>
+      <UiButton variant="primary" size="md" :disabled="!canSubmit" :loading="isSubmitting" @click="handleSubmit">
+        <Icon v-if="!isSubmitting" name="mingcute:link-line" />
+        Подключить
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

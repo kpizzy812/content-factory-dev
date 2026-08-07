@@ -3,7 +3,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const modalRef = ref<HTMLDialogElement>()
+// Открывается императивно из строки списка прокси.
+const isOpen = ref(false)
 
 interface RevealedData {
   host: string | null
@@ -15,10 +16,10 @@ interface RevealedData {
 }
 
 const proxyId = ref<string | null>(null)
-const proxyLabel = ref("")
-const reason = ref("")
+const proxyLabel = ref('')
+const reason = ref('')
 const revealed = ref<RevealedData | null>(null)
-const error = ref("")
+const error = ref('')
 const copiedField = ref<string | null>(null)
 
 const { revealProxy, isBusy } = useProxyActions()
@@ -30,30 +31,30 @@ function open(id: string, label: string) {
   reset()
   proxyId.value = id
   proxyLabel.value = label
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function reset() {
   proxyId.value = null
-  proxyLabel.value = ""
-  reason.value = ""
+  proxyLabel.value = ''
+  reason.value = ''
   revealed.value = null
-  error.value = ""
+  error.value = ''
   copiedField.value = null
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
   reset()
-  emit("close")
+  emit('close')
 }
 
 async function submit() {
   if (!proxyId.value || !reasonValid.value) return
-  error.value = ""
+  error.value = ''
   const data = await revealProxy(proxyId.value, reason.value.trim())
   if (!data) {
-    error.value = "Не удалось получить креды"
+    error.value = 'Не удалось получить креды'
     return
   }
   revealed.value = data
@@ -68,169 +69,125 @@ async function copyTo(field: string, value: string | null) {
       if (copiedField.value === field) copiedField.value = null
     }, 1500)
   } catch {
-    error.value = "Не удалось скопировать"
+    error.value = 'Не удалось скопировать'
   }
 }
 
 defineExpose({ open, close })
+
+const CODE = 'min-w-0 flex-1 rounded-sm border border-divider bg-card px-2 py-1 font-mono text-sm break-all'
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-xl max-h-[90vh] overflow-y-auto">
-      <h3 class="text-lg font-bold">Расшифровка кредов</h3>
-      <p class="text-sm text-base-content/60 mt-1">
-        Прокси: <strong>{{ proxyLabel }}</strong>
+  <UiModal :open="isOpen" title="Расшифровка кредов" @close="close">
+    <div class="flex flex-col gap-3">
+      <p class="text-muted">
+        Прокси: <strong class="text-fg">{{ proxyLabel }}</strong>
       </p>
 
-      <!-- Step 1: причина -->
-      <div v-if="!isStep2" class="space-y-3 mt-4">
-        <div role="alert" class="alert alert-warning alert-soft">
-          <Icon name="mingcute:alert-line" />
-          <span class="text-sm">
-            Действие будет записано в audit-лог. Укажите причину доступа.
-          </span>
-        </div>
+      <!-- Шаг 1: причина -->
+      <template v-if="!isStep2">
+        <p class="flex items-start gap-2 rounded-md border border-warning-border bg-warning-bg px-2.5 py-2 text-muted">
+          <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0 text-warning" />
+          <span>Действие будет записано в журнал доступа. Укажите причину доступа.</span>
+        </p>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Причина (минимум 10 символов)</legend>
-          <textarea
+        <UiField label="Причина (минимум 10 символов)">
+          <UiTextarea
             v-model="reason"
-            class="textarea textarea-sm w-full"
-            rows="3"
-            placeholder="Например: подключение к профилю устройства DuoPlus"
+            :rows="3"
+            placeholder="Например: подключение к профилю устройства"
           />
-          <p class="label text-xs text-base-content/50">
-            {{ reason.trim().length }}/500
-          </p>
-        </fieldset>
+          <SharedFieldHint
+            text="Причина попадает в журнал доступа к секретам рядом с вашим именем и временем."
+            :max-length="500"
+            :current-length="reason.trim().length"
+          />
+        </UiField>
 
-        <div v-if="error" role="alert" class="alert alert-error alert-soft">
-          <Icon name="mingcute:warning-line" />
+        <p
+          v-if="error"
+          class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+        >
+          <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0" />
           <span>{{ error }}</span>
-        </div>
-      </div>
+        </p>
+      </template>
 
-      <!-- Step 2: показанные креды -->
-      <div v-else class="space-y-3 mt-4">
-        <div role="alert" class="alert alert-info alert-soft">
-          <Icon name="mingcute:information-line" />
-          <span class="text-sm">
-            Креды показаны временно. После закрытия окна они исчезнут из памяти.
-          </span>
-        </div>
+      <!-- Шаг 2: показанные креды -->
+      <template v-else>
+        <p class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-muted">
+          <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
+          <span>Креды показаны временно. После закрытия окна они исчезнут из памяти.</span>
+        </p>
 
-        <div class="space-y-2">
+        <div class="flex flex-col gap-2">
           <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/60 w-24 shrink-0">Host</span>
-            <code class="bg-base-200 px-2 py-1 rounded text-xs flex-1 break-all">
-              {{ revealed?.host ?? "—" }}
-            </code>
-            <button
-              v-if="revealed?.host"
-              class="btn btn-xs btn-ghost"
-              @click="copyTo('host', revealed.host)"
-            >
-              <Icon
-                :name="copiedField === 'host' ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-                class="text-sm"
-              />
-            </button>
+            <span class="w-24 shrink-0 text-sm text-muted">Host</span>
+            <code :class="CODE">{{ revealed?.host ?? '—' }}</code>
+            <UiButton v-if="revealed?.host" variant="ghost" icon-only @click="copyTo('host', revealed.host)">
+              <Icon :name="copiedField === 'host' ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
+            </UiButton>
           </div>
 
           <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/60 w-24 shrink-0">Port</span>
-            <code class="bg-base-200 px-2 py-1 rounded text-xs flex-1">
-              {{ revealed?.port }}
-            </code>
+            <span class="w-24 shrink-0 text-sm text-muted">Port</span>
+            <code :class="CODE">{{ revealed?.port }}</code>
           </div>
 
           <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/60 w-24 shrink-0">Username</span>
-            <code class="bg-base-200 px-2 py-1 rounded text-xs flex-1 break-all">
-              {{ revealed?.username ?? "—" }}
-            </code>
-            <button
-              v-if="revealed?.username"
-              class="btn btn-xs btn-ghost"
-              @click="copyTo('username', revealed.username)"
-            >
-              <Icon
-                :name="copiedField === 'username' ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-                class="text-sm"
-              />
-            </button>
+            <span class="w-24 shrink-0 text-sm text-muted">Username</span>
+            <code :class="CODE">{{ revealed?.username ?? '—' }}</code>
+            <UiButton v-if="revealed?.username" variant="ghost" icon-only @click="copyTo('username', revealed.username)">
+              <Icon :name="copiedField === 'username' ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
+            </UiButton>
           </div>
 
           <div class="flex items-center gap-2">
-            <span class="text-xs text-base-content/60 w-24 shrink-0">Password</span>
-            <code class="bg-base-200 px-2 py-1 rounded text-xs flex-1 break-all">
-              {{ revealed?.password ?? "—" }}
-            </code>
-            <button
-              v-if="revealed?.password"
-              class="btn btn-xs btn-ghost"
-              @click="copyTo('password', revealed.password)"
-            >
-              <Icon
-                :name="copiedField === 'password' ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-                class="text-sm"
-              />
-            </button>
+            <span class="w-24 shrink-0 text-sm text-muted">Password</span>
+            <code :class="CODE">{{ revealed?.password ?? '—' }}</code>
+            <UiButton v-if="revealed?.password" variant="ghost" icon-only @click="copyTo('password', revealed.password)">
+              <Icon :name="copiedField === 'password' ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
+            </UiButton>
           </div>
 
           <div v-if="revealed?.rotationUrl" class="flex items-center gap-2">
-            <span class="text-xs text-base-content/60 w-24 shrink-0">Rotation URL</span>
-            <code class="bg-base-200 px-2 py-1 rounded text-xs flex-1 break-all">
-              {{ revealed.rotationUrl }}
-            </code>
-            <button
-              class="btn btn-xs btn-ghost"
-              @click="copyTo('rotationUrl', revealed.rotationUrl)"
-            >
-              <Icon
-                :name="copiedField === 'rotationUrl' ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-                class="text-sm"
-              />
-            </button>
+            <span class="w-24 shrink-0 text-sm text-muted">Rotation URL</span>
+            <code :class="CODE">{{ revealed.rotationUrl }}</code>
+            <UiButton variant="ghost" icon-only @click="copyTo('rotationUrl', revealed.rotationUrl)">
+              <Icon :name="copiedField === 'rotationUrl' ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
+            </UiButton>
           </div>
 
-          <div class="divider my-2 text-xs">Готовая строка</div>
+          <div class="flex items-center gap-2 text-micro text-subtle">
+            <span class="h-px flex-1 bg-divider" />
+            Готовая строка
+            <span class="h-px flex-1 bg-divider" />
+          </div>
 
           <div class="flex items-center gap-2">
-            <code class="bg-base-200 px-2 py-1 rounded text-xs flex-1 break-all">
-              {{ revealed?.formatted }}
-            </code>
-            <button
-              v-if="revealed?.formatted"
-              class="btn btn-xs btn-primary"
-              @click="copyTo('formatted', revealed.formatted)"
-            >
-              <Icon
-                :name="copiedField === 'formatted' ? 'mingcute:check-line' : 'mingcute:copy-2-line'"
-                class="text-sm"
-              />
+            <code :class="CODE">{{ revealed?.formatted }}</code>
+            <UiButton v-if="revealed?.formatted" variant="primary" @click="copyTo('formatted', revealed.formatted)">
+              <Icon :name="copiedField === 'formatted' ? 'mingcute:check-line' : 'mingcute:copy-2-line'" />
               Скопировать
-            </button>
+            </UiButton>
           </div>
         </div>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-ghost btn-sm" @click="close">Закрыть</button>
-        <button
-          v-if="!isStep2"
-          class="btn btn-primary btn-sm"
-          :disabled="!reasonValid || isBusy"
-          @click="submit"
-        >
-          <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-          Показать креды
-        </button>
-      </div>
+      </template>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" size="md" @click="close">Закрыть</UiButton>
+      <UiButton
+        v-if="!isStep2"
+        variant="primary"
+        size="md"
+        :disabled="!reasonValid"
+        :loading="isBusy"
+        @click="submit"
+      >
+        Показать креды
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

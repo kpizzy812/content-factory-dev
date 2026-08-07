@@ -17,22 +17,34 @@ defineEmits<{
   clearRun: []
   clearPipeline: []
 }>()
+
+const CHIP = 'inline-flex h-[22px] items-center gap-1 rounded-sm border border-border bg-card pr-1 pl-2 text-sm text-muted'
 </script>
 
 <template>
-  <div v-if="runId || pipelineId" class="flex items-center gap-2 flex-wrap">
-    <span v-if="runId" class="badge badge-outline badge-sm gap-1">
-      <Icon name="mingcute:play-circle-line" class="text-xs" />
+  <div v-if="runId || pipelineId" class="flex flex-wrap items-center gap-2">
+    <span v-if="runId" :class="CHIP">
+      <Icon name="mingcute:play-circle-line" class="shrink-0" />
       Запуск #{{ runId }}
-      <button class="btn btn-ghost btn-xs btn-circle" aria-label="Сбросить фильтр запуска" @click="$emit('clearRun')">
+      <button
+        type="button"
+        class="cursor-pointer text-subtle hover:text-danger"
+        aria-label="Сбросить фильтр запуска"
+        @click="$emit('clearRun')"
+      >
         <Icon name="mingcute:close-line" />
       </button>
     </span>
 
-    <span v-if="pipelineId" class="badge badge-outline badge-sm gap-1">
-      <Icon name="mingcute:git-branch-line" class="text-xs" />
+    <span v-if="pipelineId" :class="CHIP">
+      <Icon name="mingcute:git-branch-line" class="shrink-0" />
       Конвейер #{{ pipelineId }}
-      <button class="btn btn-ghost btn-xs btn-circle" aria-label="Сбросить фильтр конвейера" @click="$emit('clearPipeline')">
+      <button
+        type="button"
+        class="cursor-pointer text-subtle hover:text-danger"
+        aria-label="Сбросить фильтр конвейера"
+        @click="$emit('clearPipeline')"
+      >
         <Icon name="mingcute:close-line" />
       </button>
     </span>

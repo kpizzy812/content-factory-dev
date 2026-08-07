@@ -16,18 +16,16 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="space-y-3">
+  <section class="flex flex-col gap-3">
     <header class="flex items-center justify-between gap-2">
       <div>
-        <h2 class="text-xl font-bold">Подключённые аккаунты</h2>
-        <p class="text-sm text-base-content/70">
-          Подключено аккаунтов: {{ credentials.length }}
-        </p>
+        <h2 class="text-lg font-semibold">Подключённые аккаунты</h2>
+        <p class="text-muted">Подключено аккаунтов: {{ credentials.length }}</p>
       </div>
-      <button class="btn btn-sm btn-primary" @click="emit('add')">
-        <Icon name="mingcute:add-line" class="h-4 w-4" />
+      <UiButton variant="primary" size="md" @click="emit('add')">
+        <Icon name="mingcute:add-line" />
         Подключить аккаунт
-      </button>
+      </UiButton>
     </header>
 
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

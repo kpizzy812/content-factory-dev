@@ -3,7 +3,7 @@
  * TaxonomyManager — модальное окно для CRUD управления taxonomy items.
  * Открывается из TaxonomyPicker или отдельно.
  */
-import type { TaxonomyItem, TaxonomyCreateInput } from '~/composables/useTaxonomy'
+import type { TaxonomyCreateInput, TaxonomyItem } from '~/composables/useTaxonomy'
 
 const props = defineProps<{
   type: string
@@ -13,13 +13,18 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { items, filtered, categories, loading, error: taxonomyError, searchQuery, selectedCategory, create, update, remove, load } = useTaxonomy(() => props.type)
+const { filtered, categories, loading, error: taxonomyError, searchQuery, selectedCategory, create, update, remove } = useTaxonomy(() => props.type)
 
 const typeLabels: Record<string, string> = {
   strategy: 'Стратегии',
   hook_style: 'Стили хуков',
   prompt_pattern: 'Шаблоны промтов',
 }
+
+const categoryOptions = computed(() => [
+  { value: '', label: 'Все категории' },
+  ...categories.value.map(cat => ({ value: cat, label: cat })),
+])
 
 // Edit/Create state
 const editingItem = ref<TaxonomyItem | null>(null)
@@ -135,6 +140,8 @@ async function generateWithAi() {
   }
 }
 
+// Удаление подтверждается вторым кликом по той же кнопке: строк много,
+// и модалка поверх модалки здесь стоила бы больше, чем защищает.
 const confirmDelete = ref<number | null>(null)
 
 async function onDelete(id: number) {
@@ -149,181 +156,162 @@ async function onDelete(id: number) {
 async function toggleArchive(item: TaxonomyItem) {
   await update(item.id, { isArchived: !item.isArchived })
 }
+
+const BADGE = 'inline-flex h-[18px] shrink-0 items-center rounded-sm border px-1.5 text-micro'
+const NEUTRAL_TONE = 'border-neutral-border bg-neutral-bg text-neutral'
 </script>
 
 <template>
-  <dialog class="modal modal-open" @click.self="emit('close')">
-    <div class="modal-box max-w-2xl max-h-[80vh] flex flex-col">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-bold text-base">
-          {{ typeLabels[type] || 'Taxonomy' }}
-        </h3>
-        <div class="flex gap-1">
-          <button class="btn btn-primary btn-xs" @click="openCreate">
-            <Icon name="mingcute:add-line" class="text-xs" />
-            Создать
-          </button>
-          <button class="btn btn-ghost btn-xs btn-square" @click="emit('close')">
-            <Icon name="mingcute:close-line" />
-          </button>
-        </div>
-      </div>
+  <UiModal :open="true" size="lg" @close="emit('close')">
+    <template #header>
+      <span class="flex items-center gap-2">
+        {{ typeLabels[type] || 'Справочник' }}
+        <UiButton variant="primary" @click="openCreate">
+          <Icon name="mingcute:add-line" />
+          Создать
+        </UiButton>
+      </span>
+    </template>
 
-      <!-- Error display -->
-      <div v-if="saveError" class="alert alert-error alert-sm mb-3">
-        <Icon name="mingcute:warning-line" class="text-sm" />
-        <span class="text-xs">{{ saveError }}</span>
-        <button class="btn btn-ghost btn-xs btn-square ml-auto" @click="saveError = null">
+    <div class="flex flex-col gap-3">
+      <div
+        v-if="saveError"
+        class="flex items-center gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
+        <Icon name="mingcute:warning-line" class="shrink-0" />
+        <span class="min-w-0 flex-1">{{ saveError }}</span>
+        <UiButton variant="ghost" icon-only aria-label="Скрыть ошибку" @click="saveError = null">
           <Icon name="mingcute:close-line" />
-        </button>
+        </UiButton>
       </div>
 
-      <!-- AI generation -->
-      <div v-if="!isCreating" class="flex gap-1.5 mb-3">
-        <input
+      <!-- Черновик от AI -->
+      <div v-if="!isCreating" class="flex gap-1.5">
+        <UiInput
           v-model="aiPrompt"
-          type="text"
-          class="input input-sm flex-1"
-          placeholder="Опиши что нужно — AI создаст черновик..."
+          class="flex-1"
+          placeholder="Опишите что нужно — AI создаст черновик…"
           :disabled="aiGenerating"
           @keyup.enter="generateWithAi"
         />
-        <button
-          class="btn btn-sm btn-ghost"
-          :disabled="!aiPrompt.trim() || aiGenerating"
-          @click="generateWithAi"
-        >
-          <span v-if="aiGenerating" class="loading loading-spinner loading-xs" />
-          <Icon v-else name="mingcute:sparkles-2-line" class="text-sm" />
+        <UiButton size="md" :disabled="!aiPrompt.trim()" :loading="aiGenerating" @click="generateWithAi">
+          <Icon v-if="!aiGenerating" name="mingcute:sparkles-2-line" />
           AI
-        </button>
+        </UiButton>
       </div>
 
-      <!-- Create/Edit form -->
-      <div v-if="isCreating" class="bg-base-200 rounded-box p-3 mb-3 space-y-2">
-        <div class="text-xs font-bold">{{ editingItem ? 'Редактирование' : 'Новый элемент' }}</div>
+      <!-- Форма создания и правки -->
+      <div v-if="isCreating" class="flex flex-col gap-2 rounded-md border border-border bg-card p-3">
+        <div class="font-semibold">{{ editingItem ? 'Редактирование' : 'Новый элемент' }}</div>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-[10px]">Название *</legend>
-          <input v-model="form.name" class="input input-sm w-full" placeholder="Название стратегии / стиля" />
-        </fieldset>
+        <UiField label="Название *">
+          <UiInput v-model="form.name" placeholder="Название стратегии или стиля" />
+        </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-[10px]">Краткое описание *</legend>
-          <input v-model="form.shortDescription" class="input input-sm w-full" placeholder="Одно предложение" />
-        </fieldset>
+        <UiField label="Краткое описание *">
+          <UiInput v-model="form.shortDescription" placeholder="Одно предложение" />
+        </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-[10px]">Полное объяснение</legend>
-          <textarea v-model="form.fullExplanation" class="textarea textarea-sm w-full" rows="3" placeholder="Подробное описание..." />
-        </fieldset>
+        <UiField label="Полное объяснение">
+          <UiTextarea v-model="form.fullExplanation" :rows="3" placeholder="Подробное описание…" />
+        </UiField>
 
         <div class="grid grid-cols-2 gap-2">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend text-[10px]">Категория</legend>
-            <input v-model="form.category" class="input input-sm w-full" placeholder="Например: Рост" />
-          </fieldset>
+          <UiField label="Категория">
+            <UiInput v-model="form.category" placeholder="Например: Рост" />
+          </UiField>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend text-[10px]">Теги (через запятую)</legend>
-            <input v-model="form.tags" class="input input-sm w-full" placeholder="быстрый, массовый" />
-          </fieldset>
+          <UiField label="Теги (через запятую)">
+            <UiInput v-model="form.tags" placeholder="быстрый, массовый" />
+          </UiField>
         </div>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-[10px]">Примеры (каждый с новой строки)</legend>
-          <textarea v-model="form.examples" class="textarea textarea-sm w-full" rows="2" placeholder="Пример использования..." />
-        </fieldset>
+        <UiField label="Примеры (каждый с новой строки)">
+          <UiTextarea v-model="form.examples" :rows="2" placeholder="Пример использования…" />
+        </UiField>
 
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend text-[10px]">Подходит для (через запятую)</legend>
-          <input v-model="form.useCases" class="input input-sm w-full" placeholder="Новые аккаунты, Тестирование" />
-        </fieldset>
+        <UiField label="Подходит для (через запятую)">
+          <UiInput v-model="form.useCases" placeholder="Новые аккаунты, Тестирование" />
+        </UiField>
 
-        <div class="flex gap-1 justify-end">
-          <button class="btn btn-ghost btn-xs" @click="isCreating = false">Отмена</button>
-          <button
-            class="btn btn-primary btn-xs"
-            :disabled="!form.name.trim() || !form.shortDescription.trim() || saving"
+        <div class="flex justify-end gap-1.5">
+          <UiButton variant="ghost" @click="isCreating = false">Отмена</UiButton>
+          <UiButton
+            variant="primary"
+            :disabled="!form.name.trim() || !form.shortDescription.trim()"
+            :loading="saving"
             @click="save"
           >
-            <span v-if="saving" class="loading loading-spinner loading-xs" />
             {{ editingItem ? 'Сохранить' : 'Создать' }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <!-- Search bar -->
-      <div class="flex gap-1.5 mb-2">
-        <input
-          v-model="searchQuery"
-          type="text"
-          class="input input-sm flex-1"
-          placeholder="Поиск..."
-        />
-        <select
+      <!-- Поиск -->
+      <div class="flex gap-1.5">
+        <UiInput v-model="searchQuery" class="flex-1" placeholder="Поиск…" />
+        <UiSelect
           v-if="categories.length"
-          class="select select-sm"
-          :value="selectedCategory ?? ''"
-          @change="selectedCategory = ($event.target as HTMLSelectElement).value || null"
-        >
-          <option value="">Все категории</option>
-          <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-        </select>
+          :model-value="selectedCategory ?? ''"
+          :options="categoryOptions"
+          class="w-40 shrink-0"
+          @update:model-value="(v) => selectedCategory = (v as string) || null"
+        />
       </div>
 
-      <!-- Items list -->
-      <div class="flex-1 overflow-y-auto space-y-1">
-        <div v-if="loading" class="flex justify-center py-6">
-          <span class="loading loading-spinner loading-sm" />
+      <!-- Список -->
+      <div class="flex flex-col gap-1">
+        <div v-if="loading" class="flex justify-center py-6 text-muted">
+          <Icon name="mingcute:loading-line" class="animate-spin text-lg" />
         </div>
 
         <div
           v-for="item in filtered"
           :key="item.id"
-          class="flex items-start gap-2 p-2 rounded-box border border-base-300 hover:border-base-content/20 transition-colors"
-          :class="{ 'opacity-50': item.isArchived }"
+          class="flex items-start gap-2 rounded-md border border-border p-2 transition-colors duration-(--duration-fast) ease-out hover:border-subtle"
+          :class="item.isArchived && 'opacity-50'"
         >
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-sm font-medium">{{ item.name }}</span>
-              <span v-if="item.isSystem" class="badge badge-ghost badge-xs">системный</span>
-              <span v-if="item.category" class="badge badge-outline badge-xs">{{ item.category }}</span>
-              <span v-if="item.isArchived" class="badge badge-warning badge-xs">архив</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="font-medium">{{ item.name }}</span>
+              <span v-if="item.isSystem" :class="[BADGE, NEUTRAL_TONE]">системный</span>
+              <span v-if="item.category" :class="[BADGE, 'border-border text-subtle']">{{ item.category }}</span>
+              <span v-if="item.isArchived" :class="[BADGE, 'border-warning-border bg-warning-bg text-warning']">архив</span>
             </div>
-            <div class="text-xs text-base-content/60 mt-0.5">{{ item.shortDescription }}</div>
-            <div v-if="item.tags.length" class="flex flex-wrap gap-1 mt-1">
-              <span v-for="tag in item.tags" :key="tag" class="text-[10px] text-base-content/40">#{{ tag }}</span>
+            <div class="mt-0.5 text-sm text-muted">{{ item.shortDescription }}</div>
+            <div v-if="item.tags.length" class="mt-1 flex flex-wrap gap-1">
+              <span v-for="tag in item.tags" :key="tag" class="text-micro text-subtle">#{{ tag }}</span>
             </div>
           </div>
 
-          <div class="flex gap-0.5 shrink-0">
-            <button class="btn btn-ghost btn-xs btn-square" title="Редактировать" @click="openEdit(item)">
-              <Icon name="mingcute:edit-2-line" class="text-xs" />
-            </button>
-            <button class="btn btn-ghost btn-xs btn-square" :title="item.isArchived ? 'Восстановить' : 'Архивировать'" @click="toggleArchive(item)">
-              <Icon :name="item.isArchived ? 'mingcute:refresh-2-line' : 'mingcute:archive-line'" class="text-xs" />
-            </button>
-            <button
+          <div class="flex shrink-0 gap-0.5">
+            <UiButton variant="ghost" icon-only title="Редактировать" @click="openEdit(item)">
+              <Icon name="mingcute:edit-2-line" />
+            </UiButton>
+            <UiButton
+              variant="ghost"
+              icon-only
+              :title="item.isArchived ? 'Восстановить' : 'Архивировать'"
+              @click="toggleArchive(item)"
+            >
+              <Icon :name="item.isArchived ? 'mingcute:refresh-2-line' : 'mingcute:archive-line'" />
+            </UiButton>
+            <UiButton
               v-if="!item.isSystem"
-              class="btn btn-ghost btn-xs btn-square"
-              :class="{ 'btn-error': confirmDelete === item.id }"
-              :title="confirmDelete === item.id ? 'Подтвердить удаление' : 'Удалить'"
+              :variant="confirmDelete === item.id ? 'danger' : 'ghost'"
+              icon-only
+              :title="confirmDelete === item.id ? 'Нажмите ещё раз, чтобы удалить' : 'Удалить'"
               @click="onDelete(item.id)"
             >
-              <Icon name="mingcute:delete-2-line" class="text-xs" />
-            </button>
+              <Icon name="mingcute:delete-2-line" />
+            </UiButton>
           </div>
         </div>
 
-        <div v-if="!loading && !filtered.length" class="text-center py-6 text-sm text-base-content/40">
+        <p v-if="!loading && !filtered.length" class="py-6 text-center text-muted">
           {{ searchQuery || selectedCategory ? 'Ничего не найдено' : 'Нет элементов' }}
-        </div>
+        </p>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="emit('close')">close</button>
-    </form>
-  </dialog>
+  </UiModal>
 </template>

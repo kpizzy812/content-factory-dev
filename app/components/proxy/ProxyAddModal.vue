@@ -13,7 +13,8 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const modalRef = ref<HTMLDialogElement>()
+// Открывается императивно из карточки списка — своего состояния она не держит.
+const isOpen = ref(false)
 
 const editingId = ref<string | null>(null)
 
@@ -96,11 +97,11 @@ function open(proxy?: ProxyDto) {
     }
     notes.value = proxy.notes ?? ""
   }
-  modalRef.value?.showModal()
+  isOpen.value = true
 }
 
 function close() {
-  modalRef.value?.close()
+  isOpen.value = false
   reset()
   emit("cancel")
 }
@@ -171,7 +172,7 @@ async function submit() {
 
     const res = await updateProxy(editingId.value as string, update)
     if (res) {
-      modalRef.value?.close()
+      isOpen.value = false
       emit("saved")
       reset()
     } else {
@@ -210,7 +211,7 @@ async function submit() {
 
   const res = await createProxy(input)
   if (res) {
-    modalRef.value?.close()
+    isOpen.value = false
     emit("saved")
     reset()
   } else {
@@ -218,257 +219,190 @@ async function submit() {
   }
 }
 
+
+const TYPE_OPTIONS = [
+  { value: "mobile" as ProxyType, label: "Mobile" },
+  { value: "residential" as ProxyType, label: "Residential" },
+  { value: "datacenter" as ProxyType, label: "Datacenter" },
+]
+
+const PROTOCOL_OPTIONS = [
+  { value: "http" as ProxyProtocol, label: "HTTP" },
+  { value: "https" as ProxyProtocol, label: "HTTPS" },
+  { value: "socks5" as ProxyProtocol, label: "SOCKS5" },
+]
+
+const SEGMENT = "h-6 flex-1 cursor-pointer rounded-sm text-sm font-medium transition-colors duration-(--duration-fast) ease-out"
+const SEGMENT_ON = "bg-accent text-on-accent"
+const SEGMENT_OFF = "text-muted hover:text-fg"
+
 defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="modalRef" class="modal">
-    <div class="modal-box max-w-2xl max-h-[90vh] flex flex-col overflow-x-hidden">
-      <h3 class="font-bold text-lg mb-1 shrink-0">
-        {{ isEditMode ? "Редактировать прокси" : "Добавить прокси" }}
-      </h3>
-      <p class="text-xs text-base-content/60 mb-4 shrink-0">
-        Параметры подключения и метаданные. Поддерживается быстрый ввод строки <code>host:port:user:pass</code>.
+  <UiModal :open="isOpen" size="lg" @close="close">
+    <template #header>
+      {{ isEditMode ? "Редактировать прокси" : "Добавить прокси" }}
+    </template>
+
+    <div class="flex flex-col gap-3">
+      <p class="text-muted">
+        Параметры подключения и метаданные. Поддерживается быстрый ввод строки
+        <code class="font-mono text-fg">host:port:user:pass</code>.
       </p>
 
-      <div class="flex-1 overflow-y-auto pr-1 space-y-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Название*</legend>
-          <input
-            v-model="label"
-            type="text"
-            class="input input-sm w-full"
-            :placeholder="suggestedLabel || 'Например: Mobile RU #1'"
-            maxlength="120"
-          />
-          <p
-            v-if="suggestedLabel && label.trim() !== suggestedLabel"
-            class="text-xs text-base-content/60 mt-1 break-words"
-          >
-            Подсказка:
-            <button
-              type="button"
-              class="link link-primary ml-1"
-              @click="applySuggestedLabel"
-            >
-              {{ suggestedLabel }}
-            </button>
-          </p>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Провайдер</legend>
-          <select v-model="provider" class="select select-sm w-full">
-            <option v-for="opt in providerOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </option>
-          </select>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Тип*</legend>
-          <div class="flex gap-3 flex-wrap">
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="type" type="radio" value="mobile" class="radio radio-sm radio-primary" />
-              <span class="text-sm">Mobile</span>
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="type" type="radio" value="residential" class="radio radio-sm radio-primary" />
-              <span class="text-sm">Residential</span>
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="type" type="radio" value="datacenter" class="radio radio-sm radio-primary" />
-              <span class="text-sm">Datacenter</span>
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Протокол*</legend>
-          <div class="flex gap-3 flex-wrap">
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="protocol" type="radio" value="http" class="radio radio-sm radio-primary" />
-              <span class="text-sm">HTTP</span>
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="protocol" type="radio" value="https" class="radio radio-sm radio-primary" />
-              <span class="text-sm">HTTPS</span>
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input v-model="protocol" type="radio" value="socks5" class="radio radio-sm radio-primary" />
-              <span class="text-sm">SOCKS5</span>
-            </label>
-          </div>
-          <p class="text-xs text-base-content/60 mt-1 break-words">
-            Большинство IPv4/v6 датацентровых и residential — HTTP. Mobile — часто SOCKS5.
-          </p>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="ipv4Only"
-              type="checkbox"
-              class="checkbox checkbox-sm checkbox-primary"
-            />
-            <span class="text-sm">IPv4 only (без IPv6)</span>
-          </label>
-          <p class="text-xs text-base-content/60 mt-1 break-words">
-            Для NodeMaven — соответствует флагу `ipv4-true` в username
-          </p>
-        </fieldset>
-
-        <div class="divider text-xs my-1">Доступы</div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Быстрый ввод host:port:user:pass</legend>
-          <input
-            v-model="shortcut"
-            type="text"
-            class="input input-sm w-full"
-            placeholder="socks5://user:pass@host:port или host:port:user:pass"
-          />
-          <p class="text-xs text-base-content/60 mt-1 break-words">
-            Поля заполнятся автоматически. Распознаются: схема (http/https/socks5),
-            тип (mobile/residential), страна (country-us), регион (region-california),
-            IPv4-only (ipv4-true), session ID и filter из NodeMaven-style username.
-          </p>
-        </fieldset>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <fieldset class="fieldset md:col-span-2">
-            <legend class="fieldset-legend">
-              Host{{ isEditMode ? "" : "*" }}
-            </legend>
-            <input
-              v-model="host"
-              type="text"
-              class="input input-sm w-full"
-              :placeholder="isEditMode ? 'оставьте пустым, чтобы не менять' : 'proxy.example.com'"
-            />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">
-              Port{{ isEditMode ? "" : "*" }}
-            </legend>
-            <input
-              v-model.number="port"
-              type="number"
-              min="1"
-              max="65535"
-              class="input input-sm w-full"
-              placeholder="8080"
-            />
-          </fieldset>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Username</legend>
-            <input
-              v-model="username"
-              type="text"
-              class="input input-sm w-full"
-              :placeholder="isEditMode ? '••• (не меняется)' : ''"
-              autocomplete="off"
-            />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Password</legend>
-            <input
-              v-model="password"
-              type="password"
-              class="input input-sm w-full"
-              :placeholder="isEditMode ? '••• (не меняется)' : ''"
-              autocomplete="new-password"
-            />
-          </fieldset>
-        </div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Rotation URL</legend>
-          <input
-            v-model="rotationUrl"
-            type="text"
-            class="input input-sm w-full"
-            :placeholder="isEditMode ? '••• (не меняется)' : 'https://...'"
-            autocomplete="off"
-          />
-        </fieldset>
-
-        <div class="divider text-xs my-1">Ожидаемая локация</div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Страна</legend>
-            <input
-              v-model="expectedCountry"
-              type="text"
-              class="input input-sm w-full"
-              placeholder="RU"
-            />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Город</legend>
-            <input
-              v-model="expectedCity"
-              type="text"
-              class="input input-sm w-full"
-              placeholder="Moscow"
-            />
-          </fieldset>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Лимит трафика, GB</legend>
-            <input
-              v-model.number="monthlyTrafficGB"
-              type="number"
-              min="0"
-              step="0.1"
-              class="input input-sm w-full"
-            />
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Истекает</legend>
-            <input
-              v-model="expiresAt"
-              type="date"
-              class="input input-sm w-full"
-            />
-          </fieldset>
-        </div>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Заметки</legend>
-          <textarea
-            v-model="notes"
-            class="textarea textarea-sm w-full"
-            rows="2"
-          />
-        </fieldset>
-
-        <div v-if="error" role="alert" class="alert alert-error alert-soft">
-          <Icon name="mingcute:warning-line" />
-          <span>{{ error }}</span>
-        </div>
-      </div>
-
-      <div class="modal-action mt-4 pt-3 border-t border-base-300 sticky bottom-0 bg-base-100 shrink-0">
-        <button class="btn btn-ghost btn-sm" @click="close">Отмена</button>
-        <button
-          class="btn btn-primary btn-sm"
-          :disabled="isBusy"
-          @click="submit"
+      <UiField label="Название*">
+        <UiInput
+          v-model="label"
+          maxlength="120"
+          :placeholder="suggestedLabel || 'Например: Mobile RU #1'"
+        />
+        <p
+          v-if="suggestedLabel && label.trim() !== suggestedLabel"
+          class="mt-1 break-words text-micro text-muted"
         >
-          <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-          {{ isEditMode ? "Сохранить" : "Создать" }}
-        </button>
+          Подсказка:
+          <button type="button" class="ml-1 cursor-pointer text-accent-text" @click="applySuggestedLabel">
+            {{ suggestedLabel }}
+          </button>
+        </p>
+      </UiField>
+
+      <UiField label="Провайдер">
+        <UiSelect v-model="provider" :options="providerOptions" />
+      </UiField>
+
+      <UiField label="Тип*">
+        <div class="flex rounded-md border border-border bg-card p-0.5">
+          <button
+            v-for="opt in TYPE_OPTIONS"
+            :key="opt.value"
+            type="button"
+            :class="[SEGMENT, type === opt.value ? SEGMENT_ON : SEGMENT_OFF]"
+            @click="type = opt.value"
+          >{{ opt.label }}</button>
+        </div>
+      </UiField>
+
+      <UiField
+        label="Протокол*"
+        hint="Большинство IPv4/v6 датацентровых и residential — HTTP. Mobile — часто SOCKS5."
+      >
+        <div class="flex rounded-md border border-border bg-card p-0.5">
+          <button
+            v-for="opt in PROTOCOL_OPTIONS"
+            :key="opt.value"
+            type="button"
+            :class="[SEGMENT, protocol === opt.value ? SEGMENT_ON : SEGMENT_OFF]"
+            @click="protocol = opt.value"
+          >{{ opt.label }}</button>
+        </div>
+      </UiField>
+
+      <UiField hint="Для NodeMaven соответствует флагу ipv4-true в username.">
+        <UiCheckbox v-model="ipv4Only" label="IPv4 only (без IPv6)" />
+      </UiField>
+
+      <div class="flex items-center gap-2 text-micro text-subtle">
+        <span class="h-px flex-1 bg-divider" />
+        Доступы
+        <span class="h-px flex-1 bg-divider" />
       </div>
+
+      <UiField
+        label="Быстрый ввод host:port:user:pass"
+        hint="Поля заполнятся автоматически. Распознаются: схема (http/https/socks5), тип (mobile/residential), страна (country-us), регион (region-california), IPv4-only (ipv4-true), session ID и filter из NodeMaven-style username."
+      >
+        <UiInput
+          v-model="shortcut"
+          mono
+          placeholder="socks5://user:pass@host:port или host:port:user:pass"
+        />
+      </UiField>
+
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <UiField :label="`Host${isEditMode ? '' : '*'}`" class="md:col-span-2">
+          <UiInput
+            v-model="host"
+            mono
+            :placeholder="isEditMode ? 'оставьте пустым, чтобы не менять' : 'proxy.example.com'"
+          />
+        </UiField>
+        <UiField :label="`Port${isEditMode ? '' : '*'}`">
+          <UiInput v-model.number="port" type="number" min="1" max="65535" placeholder="8080" />
+        </UiField>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <UiField label="Username">
+          <UiInput
+            v-model="username"
+            mono
+            autocomplete="off"
+            :placeholder="isEditMode ? '••• (не меняется)' : ''"
+          />
+        </UiField>
+        <UiField label="Password">
+          <UiInput
+            v-model="password"
+            type="password"
+            autocomplete="new-password"
+            :placeholder="isEditMode ? '••• (не меняется)' : ''"
+          />
+        </UiField>
+      </div>
+
+      <UiField label="Rotation URL">
+        <UiInput
+          v-model="rotationUrl"
+          mono
+          autocomplete="off"
+          :placeholder="isEditMode ? '••• (не меняется)' : 'https://...'"
+        />
+      </UiField>
+
+      <div class="flex items-center gap-2 text-micro text-subtle">
+        <span class="h-px flex-1 bg-divider" />
+        Ожидаемая локация
+        <span class="h-px flex-1 bg-divider" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <UiField label="Страна">
+          <UiInput v-model="expectedCountry" placeholder="RU" />
+        </UiField>
+        <UiField label="Город">
+          <UiInput v-model="expectedCity" placeholder="Moscow" />
+        </UiField>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <UiField label="Лимит трафика, GB">
+          <UiInput v-model.number="monthlyTrafficGB" type="number" min="0" step="0.1" />
+        </UiField>
+        <UiField label="Истекает">
+          <UiInput v-model="expiresAt" type="date" />
+        </UiField>
+      </div>
+
+      <UiField label="Заметки">
+        <UiTextarea v-model="notes" :rows="2" />
+      </UiField>
+
+      <p
+        v-if="error"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0" />
+        <span>{{ error }}</span>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" size="md" @click="close">Отмена</UiButton>
+      <UiButton variant="primary" size="md" :loading="isBusy" @click="submit">
+        {{ isEditMode ? "Сохранить" : "Создать" }}
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

@@ -12,24 +12,25 @@ const emit = defineEmits<{
   openDrive: [driveUrl: string]
 }>()
 
+// Подписи доменные (стадия синхронизации файла), тон — из общего словаря.
 const status = computed(() => {
   switch (props.file.syncStatus) {
     case 'detected':
-      return { class: 'badge-info', label: 'Обнаружен', icon: 'mingcute:eye-line' }
+      return { tone: 'border-info-border bg-info-bg text-info', label: 'Обнаружен', icon: 'mingcute:eye-line' }
     case 'downloading':
-      return { class: 'badge-warning', label: 'Скачивается', icon: 'mingcute:download-line', spinner: true }
+      return { tone: 'border-warning-border bg-warning-bg text-warning', label: 'Скачивается', icon: 'mingcute:loading-line', spinner: true }
     case 'downloaded':
-      return { class: 'badge-success', label: 'Скачан', icon: 'mingcute:check-line' }
+      return { tone: 'border-success-border bg-success-bg text-success', label: 'Скачан', icon: 'mingcute:check-line' }
     case 'imported_to_video':
       return {
-        class: 'badge-primary',
+        tone: 'border-accent-border bg-accent-bg text-accent-text',
         label: `Импортирован #${props.file.videoId ?? '?'}`,
         icon: 'mingcute:video-line',
       }
     case 'failed':
-      return { class: 'badge-error', label: 'Ошибка', icon: 'mingcute:warning-line' }
+      return { tone: 'border-danger-border bg-danger-bg text-danger', label: 'Ошибка', icon: 'mingcute:warning-line' }
     default:
-      return { class: 'badge-ghost', label: props.file.syncStatus, icon: 'mingcute:question-line' }
+      return { tone: 'border-neutral-border bg-neutral-bg text-neutral', label: props.file.syncStatus, icon: 'mingcute:question-line' }
   }
 })
 
@@ -42,83 +43,80 @@ function handleOpenDrive() {
 
 <template>
   <div
-    class="flex flex-wrap md:flex-nowrap items-center gap-3 p-3 border-b border-base-300 hover:bg-base-200/50 transition-colors"
+    class="flex flex-wrap items-center gap-3 border-b border-divider p-3 transition-colors duration-(--duration-fast) ease-out last:border-0 hover:bg-card md:flex-nowrap"
   >
-    <!-- Thumbnail -->
-    <div class="shrink-0 w-12 h-12 rounded bg-base-200 flex items-center justify-center overflow-hidden">
+    <!-- Превью -->
+    <div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-card">
       <img
         v-if="file.thumbnailUrl"
         :src="file.thumbnailUrl"
         :alt="file.name"
-        class="w-full h-full object-cover"
+        class="size-full object-cover"
       >
-      <Icon v-else name="mingcute:video-line" class="h-6 w-6 text-base-content/50" />
+      <Icon v-else name="mingcute:video-line" class="text-lg text-subtle" />
     </div>
 
-    <!-- Name + meta -->
-    <div class="grow min-w-0 max-w-full md:max-w-[40%]">
-      <div class="font-medium truncate" :title="file.name">{{ file.name }}</div>
-      <div class="text-xs text-base-content/60 flex items-center gap-2">
-        <span>{{ formatBytes(file.sizeBytes) }}</span>
-        <span class="hidden sm:inline">•</span>
-        <span class="hidden sm:inline truncate">{{ file.mimeType }}</span>
+    <!-- Имя и мета -->
+    <div class="min-w-0 max-w-full grow md:max-w-[40%]">
+      <div class="truncate font-medium" :title="file.name">{{ file.name }}</div>
+      <div class="flex items-center gap-2 text-sm text-muted">
+        <span class="tnum">{{ formatBytes(file.sizeBytes) }}</span>
+        <span class="hidden sm:inline">·</span>
+        <span class="hidden truncate sm:inline">{{ file.mimeType }}</span>
       </div>
     </div>
 
-    <!-- Status -->
-    <div class="flex items-center gap-1 shrink-0">
-      <span
-        class="badge gap-1"
-        :class="status.class"
-        :title="file.syncStatus === 'failed' && file.syncError ? file.syncError : undefined"
-      >
-        <span v-if="status.spinner" class="loading loading-spinner loading-xs" />
-        <Icon v-else :name="status.icon" class="h-3 w-3" />
-        {{ status.label }}
-      </span>
-    </div>
+    <!-- Состояние -->
+    <span
+      class="inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm border px-2 text-sm"
+      :class="status.tone"
+      :title="file.syncStatus === 'failed' && file.syncError ? file.syncError : undefined"
+    >
+      <Icon :name="status.icon" class="shrink-0" :class="status.spinner && 'animate-spin'" />
+      {{ status.label }}
+    </span>
 
-    <!-- Actions -->
-    <div class="flex items-center gap-1 shrink-0 ml-auto">
-      <button
+    <!-- Действия -->
+    <div class="ml-auto flex shrink-0 items-center gap-1">
+      <UiButton
         v-if="file.syncStatus === 'detected' || file.syncStatus === 'failed'"
-        class="btn btn-xs btn-primary"
-        :disabled="isBusy"
+        variant="primary"
+        :loading="isBusy"
         @click="emit('download', file.id)"
       >
-        <span v-if="isBusy" class="loading loading-spinner loading-xs" />
-        <Icon v-else name="mingcute:download-line" class="h-3 w-3" />
+        <Icon v-if="!isBusy" name="mingcute:download-line" />
         Скачать
-      </button>
+      </UiButton>
 
-      <button
+      <UiButton
         v-if="file.syncStatus === 'downloaded'"
-        class="btn btn-xs btn-secondary"
         :disabled="isBusy"
         @click="emit('importVideo', file.id)"
       >
-        <Icon name="mingcute:video-line" class="h-3 w-3" />
-        Импорт в Video
-      </button>
+        <Icon name="mingcute:video-line" />
+        Импорт в ролики
+      </UiButton>
 
       <NuxtLink
         v-if="file.syncStatus === 'imported_to_video' && file.videoId"
         :to="`/videos/${file.videoId}`"
-        class="btn btn-xs btn-ghost"
       >
-        <Icon name="mingcute:right-line" class="h-3 w-3" />
-        Перейти к Video #{{ file.videoId }}
+        <UiButton variant="ghost">
+          <Icon name="mingcute:right-line" />
+          Перейти к ролику #{{ file.videoId }}
+        </UiButton>
       </NuxtLink>
 
-      <button
+      <UiButton
         v-if="file.driveUrl"
-        class="btn btn-xs btn-ghost"
+        variant="ghost"
+        icon-only
         title="Открыть в Google Drive"
         aria-label="Открыть в Google Drive"
         @click="handleOpenDrive"
       >
-        <Icon name="mingcute:external-link-line" class="h-3 w-3" />
-      </button>
+        <Icon name="mingcute:external-link-line" />
+      </UiButton>
     </div>
   </div>
 </template>

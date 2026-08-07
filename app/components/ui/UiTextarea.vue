@@ -6,12 +6,15 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   invalid?: boolean
   disabled?: boolean
+  /** Текст виден и копируется, но не правится — снимок промта, лог, ответ API. */
+  readonly?: boolean
 }>(), { rows: 3 })
 
 defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const tone = computed(() => {
   if (props.disabled) return 'bg-surface border border-dashed border-divider text-subtle cursor-not-allowed'
+  if (props.readonly) return 'bg-surface border border-divider text-muted'
   if (props.invalid) return 'bg-card border border-danger text-fg'
   return 'bg-card border border-border text-fg focus:border-accent'
 })
@@ -23,6 +26,7 @@ const tone = computed(() => {
     :rows="rows"
     :placeholder="placeholder"
     :disabled="disabled"
+    :readonly="readonly"
     class="w-full resize-y rounded-md px-2.5 py-2 text-base outline-offset-1"
     :class="tone"
     @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"

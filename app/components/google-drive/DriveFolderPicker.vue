@@ -76,91 +76,86 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-3">
-    <!-- Breadcrumbs -->
-    <div class="breadcrumbs text-sm">
-      <ul>
-        <li v-for="(crumb, i) in stack" :key="`${crumb.id}-${i}`">
-          <button
-            class="link link-hover"
-            :class="{ 'font-bold': i === stack.length - 1 }"
-            @click="goTo(i)"
-          >
-            <Icon name="mingcute:folder-line" class="h-4 w-4" />
-            {{ crumb.name }}
-          </button>
-        </li>
-      </ul>
-    </div>
+  <div class="flex flex-col gap-3">
+    <!-- Путь -->
+    <nav class="flex flex-wrap items-center gap-1 text-sm">
+      <template v-for="(crumb, i) in stack" :key="`${crumb.id}-${i}`">
+        <Icon v-if="i > 0" name="mingcute:right-line" class="shrink-0 text-subtle" />
+        <button
+          type="button"
+          class="flex cursor-pointer items-center gap-1 rounded-sm px-1 hover:text-fg"
+          :class="i === stack.length - 1 ? 'font-medium text-fg' : 'text-muted'"
+          @click="goTo(i)"
+        >
+          <Icon name="mingcute:folder-line" class="shrink-0" />
+          {{ crumb.name }}
+        </button>
+      </template>
+    </nav>
 
-    <!-- Toolbar -->
-    <div class="flex flex-wrap items-center gap-2 justify-between">
-      <label class="label cursor-pointer gap-2">
-        <input v-model="onlyVideos" type="checkbox" class="checkbox checkbox-sm">
-        <span class="label-text text-sm">Только видео</span>
-      </label>
-      <button
-        class="btn btn-sm btn-primary"
-        :disabled="isSyncing || isLoading || currentParentId === 'root'"
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <UiCheckbox v-model="onlyVideos" label="Только видео" />
+      <UiButton
+        variant="primary"
+        size="md"
+        :disabled="isLoading || currentParentId === 'root'"
+        :loading="isSyncing"
         @click="syncCurrent"
       >
-        <span v-if="isSyncing" class="loading loading-spinner loading-sm" />
-        <Icon v-else name="mingcute:refresh-3-line" class="h-4 w-4" />
-        Запустить sync этой папки
-      </button>
+        <Icon v-if="!isSyncing" name="mingcute:refresh-3-line" />
+        Синхронизировать эту папку
+      </UiButton>
     </div>
 
-    <!-- Error -->
-    <div v-if="errorMessage" class="alert alert-error text-sm">
-      <Icon name="mingcute:warning-line" class="h-5 w-5" />
+    <p
+      v-if="errorMessage"
+      class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+    >
+      <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0" />
       <span>{{ errorMessage }}</span>
+    </p>
+
+    <div v-if="isLoading" class="flex items-center justify-center py-12 text-muted">
+      <Icon name="mingcute:loading-line" class="animate-spin text-2xl" />
     </div>
 
-    <!-- Loading -->
-    <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <span class="loading loading-spinner loading-lg" />
-    </div>
-
-    <!-- Empty -->
     <div
       v-else-if="folders.length === 0"
-      class="text-center py-12 text-base-content/60"
+      class="flex flex-col items-center gap-2 py-12 text-center text-muted"
     >
-      <Icon name="mingcute:folder-open-line" class="h-12 w-12 mx-auto mb-2" />
+      <Icon name="mingcute:folder-open-line" class="text-3xl text-subtle" />
       <template v-if="currentParentId === 'root'">
         <p>Ни одна папка не расшарена на сервис-аккаунт</p>
-        <p class="text-xs mt-2 max-w-md mx-auto">
-          В Google Drive откройте нужную папку, нажмите <b>Поделиться</b> и добавьте email сервис-аккаунта (вы указывали его при подключении). После этого обновите страницу.
+        <p class="mx-auto max-w-md text-sm text-subtle">
+          В Google Drive откройте нужную папку, нажмите <b class="text-muted">Поделиться</b> и добавьте
+          email сервис-аккаунта (вы указывали его при подключении). После этого обновите страницу.
         </p>
       </template>
       <template v-else>
         <p>В этой папке нет вложенных папок</p>
-        <p class="text-xs mt-1">
-          Можно запустить sync файлов прямо здесь.
-        </p>
+        <p class="text-sm text-subtle">Синхронизацию файлов можно запустить прямо здесь.</p>
       </template>
     </div>
 
-    <!-- Grid -->
     <div v-else class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       <div
         v-for="folder in folders"
         :key="folder.id"
-        class="card card-sm card-border bg-base-100 shadow-sm hover:border-primary transition-colors"
+        class="flex items-center gap-2 rounded-lg border border-border bg-panel p-3 shadow-sm transition-colors duration-(--duration-fast) ease-out hover:border-accent-border"
       >
-        <div class="card-body p-3 flex-row items-center gap-2">
-          <Icon name="mingcute:folder-line" class="h-6 w-6 text-primary shrink-0" />
-          <div class="grow min-w-0">
-            <div class="font-medium truncate" :title="folder.name">{{ folder.name }}</div>
-            <div v-if="folder.modifiedTime" class="text-xs text-base-content/60">
+        <Icon name="mingcute:folder-line" class="shrink-0 text-lg text-accent-text" />
+        <div class="min-w-0 grow">
+          <div class="truncate font-medium" :title="folder.name">{{ folder.name }}</div>
+          <ClientOnly>
+            <div v-if="folder.modifiedTime" class="text-sm text-muted">
               {{ new Date(folder.modifiedTime).toLocaleDateString('ru-RU') }}
             </div>
-          </div>
-          <button class="btn btn-xs btn-ghost shrink-0" @click="openFolder(folder)">
-            Открыть
-            <Icon name="mingcute:right-line" class="h-3 w-3" />
-          </button>
+          </ClientOnly>
         </div>
+        <UiButton variant="ghost" class="shrink-0" @click="openFolder(folder)">
+          Открыть
+          <Icon name="mingcute:right-line" />
+        </UiButton>
       </div>
     </div>
   </div>

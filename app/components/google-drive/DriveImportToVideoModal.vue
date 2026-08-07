@@ -12,25 +12,25 @@ const emit = defineEmits<{
 
 const { importToVideo } = useGoogleDrive()
 
-const dialogRef = ref<HTMLDialogElement | null>(null)
 const scenarioId = ref<number | null>(null)
 const applicationId = ref<number | null>(null)
 const format = ref<'portrait' | 'landscape'>('portrait')
 const isSubmitting = ref(false)
 const errorMessage = ref<string | null>(null)
 
+const formatOptions = [
+  { value: 'portrait', label: 'Вертикальное (9:16)' },
+  { value: 'landscape', label: 'Горизонтальное (16:9)' },
+]
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) {
-      scenarioId.value = null
-      applicationId.value = null
-      format.value = 'portrait'
-      errorMessage.value = null
-      nextTick(() => dialogRef.value?.showModal())
-    } else {
-      dialogRef.value?.close()
-    }
+    if (!open) return
+    scenarioId.value = null
+    applicationId.value = null
+    format.value = 'portrait'
+    errorMessage.value = null
   },
 )
 
@@ -64,76 +64,48 @@ function handleClose() {
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal" @close="handleClose">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold mb-4">Импортировать в Video</h3>
-      <p v-if="file" class="text-sm text-base-content/70 mb-3 truncate">
-        Файл: <span class="font-mono">{{ file.name }}</span>
+  <UiModal :open="modelValue" title="Импортировать в ролики" :persistent="isSubmitting" @close="handleClose">
+    <div class="flex flex-col gap-3">
+      <p v-if="file" class="truncate text-muted">
+        Файл: <span class="font-mono text-fg">{{ file.name }}</span>
       </p>
 
-      <div class="form-control mb-3">
-        <label class="label">
-          <span class="label-text">ID существующего сценария <span class="text-error">*</span></span>
-          <span class="label-text-alt">
-            <a href="/scenarios" target="_blank" class="link link-primary">Перейти к сценариям</a>
-          </span>
-        </label>
-        <input
+      <UiField label="ID существующего сценария *" hint="Видео будет привязано к этому сценарию.">
+        <UiInput
           v-model.number="scenarioId"
           type="number"
           min="1"
           placeholder="Например, 42"
-          class="input w-full"
-          required
           :disabled="isSubmitting"
-        >
-        <label class="label">
-          <span class="label-text-alt">Видео будет привязано к этому сценарию</span>
-        </label>
-        <!-- TODO Этап 3: заменить на ScenarioComboBox с автодополнением (требует /api/scenarios?ownership=user) -->
-      </div>
+        />
+        <NuxtLink to="/scenarios" target="_blank" class="mt-1 inline-block text-micro text-accent-text">
+          Перейти к сценариям →
+        </NuxtLink>
+      </UiField>
 
-      <div class="form-control mb-3">
-        <label class="label">
-          <span class="label-text">ID приложения (опционально)</span>
-        </label>
-        <input
-          v-model.number="applicationId"
-          type="number"
-          min="1"
-          class="input w-full"
-          :disabled="isSubmitting"
-        >
-      </div>
+      <UiField label="ID приложения (опционально)">
+        <UiInput v-model.number="applicationId" type="number" min="1" :disabled="isSubmitting" />
+      </UiField>
 
-      <div class="form-control mb-3">
-        <label class="label">
-          <span class="label-text">Формат</span>
-        </label>
-        <select v-model="format" class="select w-full" :disabled="isSubmitting">
-          <option value="portrait">Вертикальное (portrait)</option>
-          <option value="landscape">Горизонтальное (landscape)</option>
-        </select>
-      </div>
+      <UiField label="Формат">
+        <UiSelect v-model="format" :options="formatOptions" :disabled="isSubmitting" />
+      </UiField>
 
-      <div v-if="errorMessage" class="alert alert-error mb-3 text-sm">
-        <Icon name="mingcute:warning-line" class="h-5 w-5" />
+      <p
+        v-if="errorMessage"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0" />
         <span>{{ errorMessage }}</span>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-ghost" :disabled="isSubmitting" @click="handleClose">
-          Отмена
-        </button>
-        <button class="btn btn-primary" :disabled="!canSubmit" @click="handleSubmit">
-          <span v-if="isSubmitting" class="loading loading-spinner loading-sm" />
-          <Icon v-else name="mingcute:check-line" class="h-4 w-4" />
-          Импортировать
-        </button>
-      </div>
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="handleClose">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton variant="ghost" size="md" :disabled="isSubmitting" @click="handleClose">Отмена</UiButton>
+      <UiButton variant="primary" size="md" :disabled="!canSubmit" :loading="isSubmitting" @click="handleSubmit">
+        <Icon v-if="!isSubmitting" name="mingcute:check-line" />
+        Импортировать
+      </UiButton>
+    </template>
+  </UiModal>
 </template>

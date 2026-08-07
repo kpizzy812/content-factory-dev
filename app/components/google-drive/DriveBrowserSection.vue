@@ -46,24 +46,26 @@ function handleSelect(_folder: DriveFolder) {
 </script>
 
 <template>
-  <section class="space-y-3">
-    <div role="tablist" class="tabs tabs-box">
+  <section class="flex flex-col gap-3">
+    <div role="tablist" class="flex gap-1 border-b border-divider">
       <button
         role="tab"
-        class="tab"
-        :class="{ 'tab-active': tab === 'folders' }"
+        type="button"
+        class="flex cursor-pointer items-center gap-1 border-b-2 px-2 pb-1.5 font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="tab === 'folders' ? 'border-accent text-fg' : 'border-transparent text-muted hover:text-fg'"
         @click="tab = 'folders'"
       >
-        <Icon name="mingcute:folder-line" class="h-4 w-4 mr-1" />
+        <Icon name="mingcute:folder-line" />
         Обзор папок
       </button>
       <button
         role="tab"
-        class="tab"
-        :class="{ 'tab-active': tab === 'files' }"
+        type="button"
+        class="flex cursor-pointer items-center gap-1 border-b-2 px-2 pb-1.5 font-medium transition-colors duration-(--duration-fast) ease-out"
+        :class="tab === 'files' ? 'border-accent text-fg' : 'border-transparent text-muted hover:text-fg'"
         @click="tab = 'files'"
       >
-        <Icon name="mingcute:file-line" class="h-4 w-4 mr-1" />
+        <Icon name="mingcute:file-line" />
         Файлы ({{ files.length }})
       </button>
     </div>
@@ -77,34 +79,31 @@ function handleSelect(_folder: DriveFolder) {
       />
     </div>
 
-    <div v-else class="space-y-3">
+    <div v-else class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center gap-2">
-        <div class="join">
-          <button
+        <div class="flex flex-wrap gap-1.5">
+          <UiButton
             v-for="chip in STATUS_CHIPS"
             :key="chip.value"
-            class="btn btn-xs join-item"
-            :class="{ 'btn-primary': filterStatus === chip.value }"
+            :variant="filterStatus === chip.value ? 'primary' : 'secondary'"
             @click="filterStatus = chip.value"
           >
             {{ chip.label }}
-          </button>
+          </UiButton>
         </div>
-        <input
-          v-model="search"
-          type="text"
-          placeholder="Поиск по имени"
-          class="input input-sm grow max-w-xs"
-        >
+        <UiInput v-model="search" placeholder="Поиск по имени" class="max-w-xs grow" />
       </div>
 
-      <div v-if="filteredFiles.length === 0" class="text-center py-12 text-base-content/60 border border-base-300 rounded-box">
-        <Icon name="mingcute:file-line" class="h-12 w-12 mx-auto mb-2" />
+      <div
+        v-if="filteredFiles.length === 0"
+        class="flex flex-col items-center gap-1 rounded-lg border border-border py-12 text-center text-muted"
+      >
+        <Icon name="mingcute:file-line" class="mb-1 text-3xl text-subtle" />
         <p>Файлов нет</p>
-        <p class="text-xs mt-1">Запустите sync во вкладке «Обзор папок»</p>
+        <p class="text-micro text-subtle">Запустите синхронизацию во вкладке «Обзор папок»</p>
       </div>
 
-      <div v-else class="border border-base-300 rounded-box bg-base-100 overflow-hidden">
+      <div v-else class="overflow-hidden rounded-lg border border-border bg-panel">
         <DriveFileRow
           v-for="file in filteredFiles"
           :key="file.id"

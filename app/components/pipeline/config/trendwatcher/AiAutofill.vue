@@ -158,16 +158,16 @@ function dismissPreview() {
       placeholder="Опиши цель парсинга — например: «собирать TikTok-тренды про домашний фитнес в США с 500K+ просмотров»"
     />
 
-    <div class="flex items-center justify-between gap-2">
-      <p class="text-micro text-muted">
-        <template v-if="!appId">Приложение не выбрано — укажите его в промте словами, AI справится без подгруженного контекста.</template>
-        <template v-else>AI подберёт актор, ключевые слова, гео и пороги по контексту приложения.</template>
-      </p>
-      <UiButton variant="primary" :disabled="!canRun" :loading="loading" @click="run">
-        <Icon v-if="!loading" name="mingcute:send-plane-line" />
-        Сгенерировать
-      </UiButton>
-    </div>
+    <!-- Панель узкая (300 px), поэтому пояснение и кнопка идут строками:
+         в один ряд подпись схлопывалась в три строки рядом с кнопкой. -->
+    <p class="text-micro text-muted">
+      <template v-if="!appId">Приложение не выбрано — укажите его в промте словами, AI справится без подгруженного контекста.</template>
+      <template v-else>AI подберёт актор, ключевые слова, гео и пороги по контексту приложения.</template>
+    </p>
+    <UiButton variant="primary" class="self-end" :disabled="!canRun" :loading="loading" @click="run">
+      <Icon v-if="!loading" name="mingcute:send-plane-line" />
+      Сгенерировать
+    </UiButton>
 
     <p
       v-if="errorText"

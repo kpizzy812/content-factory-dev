@@ -20,8 +20,8 @@ interface DiagnosticData {
   proxyPort: number
   protocol: string
   timestamp: string
-  containerIp: { via_v4: string | null; via_v6: string | null; error: string | null }
-  tcp: { connectMs: number | null; error: string | null }
+  containerIp: { via_v4: string | null, via_v6: string | null, error: string | null }
+  tcp: { connectMs: number | null, error: string | null }
   curlBaseline: {
     command: string
     exitCode: number
@@ -55,8 +55,8 @@ interface DiagnosticData {
   verdict: VerdictData
 }
 
-const dialogRef = ref<HTMLDialogElement | null>(null)
-const proxyLabel = ref<string>("")
+const isOpen = ref(false)
+const proxyLabel = ref<string>('')
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const result = ref<DiagnosticData | null>(null)
@@ -65,12 +65,12 @@ function open(id: string, label: string) {
   proxyLabel.value = label
   result.value = null
   error.value = null
-  dialogRef.value?.showModal()
+  isOpen.value = true
   void runDiagnose(id)
 }
 
 function close() {
-  dialogRef.value?.close()
+  isOpen.value = false
 }
 
 async function runDiagnose(id: string) {
@@ -79,24 +79,23 @@ async function runDiagnose(id: string) {
   try {
     const res = await $fetch<{ data: DiagnosticData }>(
       `/api/proxies/${id}/diagnose`,
-      { method: "POST" },
+      { method: 'POST' },
     )
     result.value = res.data
   } catch (e: unknown) {
-    const err = e as { data?: { message?: string }; message?: string }
-    error.value =
-      err?.data?.message ?? err?.message ?? "Не удалось запустить диагностику"
+    const err = e as { data?: { message?: string }, message?: string }
+    error.value = err?.data?.message ?? err?.message ?? 'Не удалось запустить диагностику'
   } finally {
     isLoading.value = false
   }
 }
 
-const verdictColorClass = computed(() => {
-  if (!result.value) return ""
+const verdictTone = computed(() => {
+  if (!result.value) return 'border-border bg-card'
   const root = result.value.verdict.suspectedRoot
-  if (root === "all_methods_work") return "alert-success alert-soft"
-  if (root === "unknown") return "alert-warning alert-soft"
-  return "alert-error alert-soft"
+  if (root === 'all_methods_work') return 'border-success-border bg-success-bg'
+  if (root === 'unknown') return 'border-warning-border bg-warning-bg'
+  return 'border-danger-border bg-danger-bg'
 })
 
 function copyJson() {
@@ -105,183 +104,128 @@ function copyJson() {
 }
 
 defineExpose({ open })
+
+const CARD = 'flex flex-col gap-1 rounded-md border border-border bg-card p-3'
+const BADGE = 'inline-flex h-[18px] items-center rounded-sm border px-1.5 text-micro'
+const LEAK = 'border-danger-border bg-danger-bg text-danger'
+const OK = 'border-success-border bg-success-bg text-success'
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal">
-    <div class="modal-box max-w-5xl max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between gap-2 mb-3">
-        <h3 class="font-bold text-lg">
-          <Icon name="mingcute:search-line" class="inline-block mr-1" />
-          Глубокая диагностика прокси
-        </h3>
-        <button
-          class="btn btn-sm btn-ghost"
-          aria-label="Закрыть"
-          @click="close"
-        >
-          <Icon name="mingcute:close-line" />
-        </button>
-      </div>
+  <UiModal :open="isOpen" size="lg" @close="close">
+    <template #header>
+      <span class="flex items-center gap-2">
+        <Icon name="mingcute:search-line" />
+        Глубокая диагностика прокси
+      </span>
+    </template>
 
-      <p class="text-sm text-base-content/60 mb-4">
-        Прокси: <strong>{{ proxyLabel }}</strong>
+    <div class="flex flex-col gap-4">
+      <p class="text-muted">
+        Прокси: <strong class="text-fg">{{ proxyLabel }}</strong>
       </p>
 
-      <div v-if="isLoading" class="flex flex-col items-center py-8 gap-3">
-        <span class="loading loading-spinner loading-lg" />
-        <p class="text-sm text-base-content/70">
-          Проверяю прокси через 4 метода + curl baseline. До 60 секунд.
-        </p>
+      <div v-if="isLoading" class="flex flex-col items-center gap-3 py-8 text-muted">
+        <Icon name="mingcute:loading-line" class="animate-spin text-2xl" />
+        <p>Проверяю прокси через четыре метода и curl baseline. До 60 секунд.</p>
       </div>
 
-      <div v-else-if="error" role="alert" class="alert alert-error">
-        <Icon name="mingcute:warning-line" />
+      <p
+        v-else-if="error"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
+        <Icon name="mingcute:warning-line" class="mt-0.5 shrink-0" />
         <span>{{ error }}</span>
-      </div>
+      </p>
 
-      <div v-else-if="result" class="space-y-4">
-        <div role="alert" class="alert" :class="verdictColorClass">
-          <Icon name="mingcute:information-line" />
-          <div class="flex-1">
-            <h4 class="font-semibold">
-              Корень проблемы: {{ result.verdict.suspectedRoot }}
-            </h4>
-            <p class="text-sm mt-1">{{ result.verdict.recommendation }}</p>
+      <template v-else-if="result">
+        <div class="flex items-start gap-2 rounded-md border p-3" :class="verdictTone">
+          <Icon name="mingcute:information-line" class="mt-0.5 shrink-0" />
+          <div class="min-w-0 flex-1">
+            <h4 class="font-semibold">Корень проблемы: {{ result.verdict.suspectedRoot }}</h4>
+            <p class="mt-1 text-muted">{{ result.verdict.recommendation }}</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <div class="card card-border bg-base-100">
-            <div class="card-body p-3 gap-1">
-              <h5 class="font-semibold">Container IP</h5>
-              <p>IPv4: <code>{{ result.containerIp.via_v4 ?? "—" }}</code></p>
-              <p>IPv6: <code>{{ result.containerIp.via_v6 ?? "—" }}</code></p>
-            </div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div :class="CARD">
+            <h5 class="font-semibold">Container IP</h5>
+            <p>IPv4: <code class="font-mono text-fg">{{ result.containerIp.via_v4 ?? '—' }}</code></p>
+            <p>IPv6: <code class="font-mono text-fg">{{ result.containerIp.via_v6 ?? '—' }}</code></p>
           </div>
 
-          <div class="card card-border bg-base-100">
-            <div class="card-body p-3 gap-1">
-              <h5 class="font-semibold">TCP к прокси</h5>
-              <p v-if="result.tcp.error" class="text-error">
-                Ошибка: {{ result.tcp.error }}
-              </p>
-              <p v-else>
-                Подключилось за <strong>{{ result.tcp.connectMs }}ms</strong>
-              </p>
-            </div>
+          <div :class="CARD">
+            <h5 class="font-semibold">TCP к прокси</h5>
+            <p v-if="result.tcp.error" class="text-danger">Ошибка: {{ result.tcp.error }}</p>
+            <p v-else>Подключилось за <strong class="tnum">{{ result.tcp.connectMs }} мс</strong></p>
           </div>
 
-          <div class="card card-border bg-base-100">
-            <div class="card-body p-3 gap-1">
-              <h5 class="font-semibold">
-                Curl baseline (ground truth)
-                <span
-                  v-if="result.curlBaseline.isLeakingViaCurl"
-                  class="badge badge-error badge-sm"
-                >LEAK</span>
-                <span
-                  v-else-if="result.curlBaseline.detectedIp"
-                  class="badge badge-success badge-sm"
-                >OK</span>
-              </h5>
-              <p>IP: <code>{{ result.curlBaseline.detectedIp ?? "—" }}</code></p>
-              <p>Exit: {{ result.curlBaseline.exitCode }} · {{ result.curlBaseline.durationMs }}ms</p>
-              <p v-if="result.curlBaseline.stderr" class="text-xs text-base-content/60 truncate">
-                stderr: {{ result.curlBaseline.stderr }}
-              </p>
-            </div>
+          <div :class="CARD">
+            <h5 class="flex flex-wrap items-center gap-1.5 font-semibold">
+              Curl baseline (ground truth)
+              <span v-if="result.curlBaseline.isLeakingViaCurl" :class="[BADGE, LEAK]">утечка</span>
+              <span v-else-if="result.curlBaseline.detectedIp" :class="[BADGE, OK]">OK</span>
+            </h5>
+            <p>IP: <code class="font-mono text-fg">{{ result.curlBaseline.detectedIp ?? '—' }}</code></p>
+            <p class="tnum">Exit: {{ result.curlBaseline.exitCode }} · {{ result.curlBaseline.durationMs }} мс</p>
+            <p v-if="result.curlBaseline.stderr" class="truncate text-micro text-muted">
+              stderr: {{ result.curlBaseline.stderr }}
+            </p>
           </div>
 
-          <div class="card card-border bg-base-100">
-            <div class="card-body p-3 gap-1">
-              <h5 class="font-semibold">
-                Raw https.request + agent
-                <span
-                  v-if="result.rawNodeRequest.isLeaking"
-                  class="badge badge-error badge-sm"
-                >LEAK</span>
-                <span
-                  v-else-if="result.rawNodeRequest.isLeaking === false"
-                  class="badge badge-success badge-sm"
-                >OK</span>
-              </h5>
-              <p>IP: <code>{{ result.rawNodeRequest.detectedIp ?? "—" }}</code></p>
-              <p>HTTP {{ result.rawNodeRequest.httpStatus ?? "—" }} · {{ result.rawNodeRequest.durationMs }}ms</p>
-              <p v-if="result.rawNodeRequest.error" class="text-xs text-error">
-                {{ result.rawNodeRequest.error }}
-              </p>
-            </div>
+          <div :class="CARD">
+            <h5 class="flex flex-wrap items-center gap-1.5 font-semibold">
+              Raw https.request + agent
+              <span v-if="result.rawNodeRequest.isLeaking" :class="[BADGE, LEAK]">утечка</span>
+              <span v-else-if="result.rawNodeRequest.isLeaking === false" :class="[BADGE, OK]">OK</span>
+            </h5>
+            <p>IP: <code class="font-mono text-fg">{{ result.rawNodeRequest.detectedIp ?? '—' }}</code></p>
+            <p class="tnum">HTTP {{ result.rawNodeRequest.httpStatus ?? '—' }} · {{ result.rawNodeRequest.durationMs }} мс</p>
+            <p v-if="result.rawNodeRequest.error" class="text-micro text-danger">
+              {{ result.rawNodeRequest.error }}
+            </p>
           </div>
 
-          <div class="card card-border bg-base-100">
-            <div class="card-body p-3 gap-1">
-              <h5 class="font-semibold">
-                Native fetch + agent
-                <span
-                  v-if="result.nativeFetch.isLeaking"
-                  class="badge badge-error badge-sm"
-                >LEAK</span>
-                <span
-                  v-else-if="result.nativeFetch.isLeaking === false"
-                  class="badge badge-success badge-sm"
-                >OK</span>
-              </h5>
-              <p>IP: <code>{{ result.nativeFetch.detectedIp ?? "—" }}</code></p>
-              <p>HTTP {{ result.nativeFetch.httpStatus ?? "—" }} · {{ result.nativeFetch.durationMs }}ms</p>
-              <p class="text-xs text-base-content/60">Node {{ result.nativeFetch.nodeVersion }}</p>
-              <p v-if="result.nativeFetch.error" class="text-xs text-error">
-                {{ result.nativeFetch.error }}
-              </p>
-            </div>
+          <div :class="CARD">
+            <h5 class="flex flex-wrap items-center gap-1.5 font-semibold">
+              Native fetch + agent
+              <span v-if="result.nativeFetch.isLeaking" :class="[BADGE, LEAK]">утечка</span>
+              <span v-else-if="result.nativeFetch.isLeaking === false" :class="[BADGE, OK]">OK</span>
+            </h5>
+            <p>IP: <code class="font-mono text-fg">{{ result.nativeFetch.detectedIp ?? '—' }}</code></p>
+            <p class="tnum">HTTP {{ result.nativeFetch.httpStatus ?? '—' }} · {{ result.nativeFetch.durationMs }} мс</p>
+            <p class="text-micro text-muted">Node {{ result.nativeFetch.nodeVersion }}</p>
+            <p v-if="result.nativeFetch.error" class="text-micro text-danger">
+              {{ result.nativeFetch.error }}
+            </p>
           </div>
 
-          <div class="card card-border bg-base-100">
-            <div class="card-body p-3 gap-1">
-              <h5 class="font-semibold">
-                socks5h:// (DNS через proxy)
-                <span
-                  v-if="result.socks5hVariant.isLeaking"
-                  class="badge badge-error badge-sm"
-                >LEAK</span>
-                <span
-                  v-else-if="result.socks5hVariant.isLeaking === false"
-                  class="badge badge-success badge-sm"
-                >OK</span>
-              </h5>
-              <p>IP: <code>{{ result.socks5hVariant.detectedIp ?? "—" }}</code></p>
-              <p v-if="result.socks5hVariant.error" class="text-xs text-base-content/60">
-                {{ result.socks5hVariant.error }}
-              </p>
-              <p v-else>HTTP {{ result.socks5hVariant.httpStatus ?? "—" }} · {{ result.socks5hVariant.durationMs }}ms</p>
-            </div>
+          <div :class="CARD">
+            <h5 class="flex flex-wrap items-center gap-1.5 font-semibold">
+              socks5h:// (DNS через прокси)
+              <span v-if="result.socks5hVariant.isLeaking" :class="[BADGE, LEAK]">утечка</span>
+              <span v-else-if="result.socks5hVariant.isLeaking === false" :class="[BADGE, OK]">OK</span>
+            </h5>
+            <p>IP: <code class="font-mono text-fg">{{ result.socks5hVariant.detectedIp ?? '—' }}</code></p>
+            <p v-if="result.socks5hVariant.error" class="text-micro text-muted">
+              {{ result.socks5hVariant.error }}
+            </p>
+            <p v-else class="tnum">HTTP {{ result.socks5hVariant.httpStatus ?? '—' }} · {{ result.socks5hVariant.durationMs }} мс</p>
           </div>
         </div>
 
-        <details class="collapse collapse-arrow bg-base-200">
-          <summary class="collapse-title text-sm font-medium">
-            Полный JSON отчёт (raw)
-          </summary>
-          <div class="collapse-content">
-            <pre class="text-xs whitespace-pre-wrap overflow-auto max-h-96">{{ JSON.stringify(result, null, 2) }}</pre>
-          </div>
-        </details>
-      </div>
-
-      <div class="modal-action">
-        <button
-          v-if="result"
-          class="btn btn-sm btn-ghost gap-1"
-          @click="copyJson"
-        >
-          <Icon name="mingcute:copy-line" />
-          Скопировать JSON
-        </button>
-        <button class="btn btn-sm" @click="close">Закрыть</button>
-      </div>
+        <UiDisclosure title="Полный JSON отчёт" icon="mingcute:code-line">
+          <pre class="max-h-96 overflow-auto rounded-md border border-border bg-card p-2 font-mono text-micro whitespace-pre-wrap">{{ JSON.stringify(result, null, 2) }}</pre>
+        </UiDisclosure>
+      </template>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="close">close</button>
-    </form>
-  </dialog>
+
+    <template #footer>
+      <UiButton v-if="result" variant="ghost" size="md" @click="copyJson">
+        <Icon name="mingcute:copy-2-line" />
+        Скопировать JSON
+      </UiButton>
+      <UiButton size="md" @click="close">Закрыть</UiButton>
+    </template>
+  </UiModal>
 </template>

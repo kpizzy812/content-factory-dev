@@ -34,12 +34,8 @@ const showAdvanced = ref(false)
 const saving = ref(false)
 const errorMsg = ref<string | null>(null)
 
-// Toast уведомление об успехе (inline, как в других местах проекта)
-const toast = ref<{ message: string, type: 'success' | 'error' } | null>(null)
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type }
-  setTimeout(() => { toast.value = null }, 3000)
-}
+// Свой контейнер тостов в углу удалён: он был написан до общего useToast.
+const toast = useToast()
 
 // Load detail for edit mode
 const detailIdRef = computed(() => props.favoritePromptId ?? null)
@@ -56,6 +52,11 @@ const { data: appsData } = useFetch<{ data: Array<{ id: number, name: string }> 
 )
 
 const apps = computed(() => appsData.value?.data ?? [])
+
+const appOptions = computed(() => [
+  { value: '', label: 'Универсальный (для всех приложений)' },
+  ...apps.value.map(a => ({ value: a.id, label: a.name })),
+])
 
 function resetForm() {
   promptTextLocal.value = props.promptText ?? ''
@@ -116,7 +117,7 @@ async function save() {
         return
       }
       const created = await createFavoritePrompt(input)
-      showToast('Промт добавлен в избранное')
+      toast.success('Промт добавлен в избранное')
       emit('saved', created)
       emit('update:open', false)
     } else {
@@ -131,7 +132,7 @@ async function save() {
         isPublic: isPublicLocal.value,
       }
       const updated = await updateFavoritePrompt(props.favoritePromptId, input)
-      showToast('Изменения сохранены')
+      toast.success('Изменения сохранены')
       emit('saved', updated)
       emit('update:open', false)
     }
@@ -143,167 +144,91 @@ async function save() {
   }
 }
 
-// Close on Escape
-watchEffect((onCleanup) => {
-  if (!props.open || typeof window === 'undefined') return
-  const handler = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') close()
-  }
-  window.addEventListener('keydown', handler)
-  onCleanup(() => window.removeEventListener('keydown', handler))
-})
-
 const title = computed(() =>
   props.mode === 'create' ? 'Добавить в избранное' : 'Редактировать промт',
 )
 </script>
 
 <template>
-  <Teleport to="body">
-    <dialog class="modal" :class="{ 'modal-open': open }">
-      <div class="modal-box max-w-2xl">
-        <div class="flex items-start justify-between gap-3 mb-3">
-          <h3 class="font-bold text-lg flex items-center gap-2">
-            <Icon name="mingcute:star-line" class="size-5 text-warning" />
-            {{ title }}
-          </h3>
-          <button
-            type="button"
-            class="btn btn-sm btn-circle btn-ghost"
-            aria-label="Закрыть"
-            :disabled="saving"
-            @click="close"
-          >
-            <Icon name="mingcute:close-line" class="size-4" />
-          </button>
-        </div>
+  <UiModal :open="open" size="lg" :persistent="saving" @close="close">
+    <template #header>
+      <span class="flex items-center gap-2">
+        <Icon name="mingcute:star-line" class="text-warning" />
+        {{ title }}
+      </span>
+    </template>
 
-        <div v-if="mode === 'edit' && detailPending" class="flex justify-center py-8">
-          <span class="loading loading-spinner loading-md" />
-        </div>
-
-        <div v-else class="space-y-3">
-          <!-- Превью промта (read-only во всех режимах: в edit — immutable snapshot) -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Промт (read-only)</legend>
-            <textarea
-              class="textarea w-full text-xs"
-              rows="5"
-              readonly
-              :value="promptTextLocal"
-            />
-            <p class="label text-[10px] text-base-content/50">
-              Текст промта фиксируется как snapshot и не редактируется. Редактируйте теги, заметки и привязку.
-            </p>
-          </fieldset>
-
-          <!-- Приложение -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Приложение</legend>
-            <select
-              class="select select-sm w-full"
-              :value="appIdLocal ?? ''"
-              @change="appIdLocal = ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null"
-            >
-              <option value="">Универсальный (для всех приложений)</option>
-              <option v-for="a in apps" :key="a.id" :value="a.id">
-                {{ a.name }}
-              </option>
-            </select>
-            <SharedFieldHint text="Универсальные промты видны всем приложениям. Привязка к приложению фильтрует промт только под него." />
-          </fieldset>
-
-          <!-- Теги -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Теги</legend>
-            <SharedTagInput
-              :model-value="tagsLocal"
-              placeholder="Введите тег и Enter"
-              @update:model-value="(v) => tagsLocal = v"
-            />
-            <SharedFieldHint text="Теги помогают AI-ранжированию. Пример: closeup, transformation, cinematic. До 10 тегов, 40 символов каждый." />
-          </fieldset>
-
-          <!-- Заметки -->
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Заметки (почему крут)</legend>
-            <textarea
-              v-model="notesLocal"
-              class="textarea textarea-sm w-full"
-              rows="3"
-              placeholder="Что делает этот промт удачным. Необязательно."
-              maxlength="1000"
-            />
-          </fieldset>
-
-          <!-- Доп: публичность -->
-          <div class="border-t border-base-300 pt-2">
-            <button
-              type="button"
-              class="btn btn-ghost btn-xs"
-              @click="showAdvanced = !showAdvanced"
-            >
-              <Icon
-                :name="showAdvanced ? 'mingcute:up-line' : 'mingcute:down-line'"
-                class="text-xs"
-              />
-              Дополнительно
-            </button>
-            <div v-if="showAdvanced" class="mt-2">
-              <label class="label cursor-pointer gap-2 justify-start">
-                <input
-                  v-model="isPublicLocal"
-                  type="checkbox"
-                  class="checkbox checkbox-sm"
-                />
-                <span class="label-text text-sm">Публичный (виден всем пользователям)</span>
-              </label>
-            </div>
-          </div>
-
-          <div v-if="errorMsg" class="alert alert-error alert-soft text-xs py-2">
-            <Icon name="mingcute:alert-line" class="text-sm" />
-            <span>{{ errorMsg }}</span>
-          </div>
-        </div>
-
-        <div class="modal-action">
-          <button
-            type="button"
-            class="btn btn-sm btn-ghost"
-            :disabled="saving"
-            @click="close"
-          >
-            Отмена
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-primary"
-            :disabled="saving || (mode === 'edit' && detailPending)"
-            @click="save"
-          >
-            <span v-if="saving" class="loading loading-spinner loading-xs" />
-            <Icon v-else name="mingcute:save-line" class="text-xs" />
-            Сохранить
-          </button>
-        </div>
-      </div>
-      <div class="modal-backdrop" @click="close" />
-    </dialog>
-
-    <!-- Toast уведомление -->
-    <div v-if="toast" class="toast toast-end toast-bottom z-[100]">
-      <div
-        role="alert"
-        class="alert"
-        :class="toast.type === 'success' ? 'alert-success' : 'alert-error'"
-      >
-        <Icon
-          :name="toast.type === 'success' ? 'mingcute:check-circle-line' : 'mingcute:alert-line'"
-          class="size-4"
-        />
-        <span>{{ toast.message }}</span>
-      </div>
+    <div v-if="mode === 'edit' && detailPending" class="flex justify-center py-8 text-muted">
+      <Icon name="mingcute:loading-line" class="animate-spin text-2xl" />
     </div>
-  </Teleport>
+
+    <div v-else class="flex flex-col gap-3">
+      <!-- Превью промта (read-only во всех режимах: в edit — immutable snapshot) -->
+      <UiField
+        label="Промт (только чтение)"
+        hint="Текст промта фиксируется снимком и не редактируется. Редактируйте теги, заметки и привязку."
+      >
+        <UiTextarea :model-value="promptTextLocal" :rows="5" readonly class="font-mono text-sm" />
+      </UiField>
+
+      <UiField label="Приложение">
+        <UiSelect
+          :model-value="appIdLocal ?? ''"
+          :options="appOptions"
+          @update:model-value="(v) => appIdLocal = v ? Number(v) : null"
+        />
+        <SharedFieldHint text="Универсальные промты видны всем приложениям. Привязка к приложению фильтрует промт только под него." />
+      </UiField>
+
+      <UiField label="Теги">
+        <SharedTagInput
+          :model-value="tagsLocal"
+          placeholder="Введите тег и Enter"
+          @update:model-value="(v) => tagsLocal = v"
+        />
+        <SharedFieldHint text="Теги помогают AI-ранжированию. Пример: closeup, transformation, cinematic. До 10 тегов, 40 символов каждый." />
+      </UiField>
+
+      <UiField label="Заметки (почему хорош)">
+        <UiTextarea
+          v-model="notesLocal"
+          :rows="3"
+          maxlength="1000"
+          placeholder="Что делает этот промт удачным. Необязательно."
+        />
+      </UiField>
+
+      <div class="border-t border-divider pt-2">
+        <UiButton variant="ghost" @click="showAdvanced = !showAdvanced">
+          <Icon :name="showAdvanced ? 'mingcute:up-line' : 'mingcute:down-line'" />
+          Дополнительно
+        </UiButton>
+        <div v-if="showAdvanced" class="mt-2">
+          <UiCheckbox v-model="isPublicLocal" label="Публичный (виден всем пользователям)" />
+        </div>
+      </div>
+
+      <p
+        v-if="errorMsg"
+        class="flex items-start gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span>{{ errorMsg }}</span>
+      </p>
+    </div>
+
+    <template #footer>
+      <UiButton variant="ghost" size="md" :disabled="saving" @click="close">Отмена</UiButton>
+      <UiButton
+        variant="primary"
+        size="md"
+        :disabled="mode === 'edit' && detailPending"
+        :loading="saving"
+        @click="save"
+      >
+        <Icon v-if="!saving" name="mingcute:save-line" />
+        Сохранить
+      </UiButton>
+    </template>
+  </UiModal>
 </template>
