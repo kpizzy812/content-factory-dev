@@ -17,9 +17,13 @@ const listFilters = computed(() => ({
 
 const { data: accountsData, pending: accountsPending, error: accountsError, refresh: refreshAccounts } = useAccounts(listFilters)
 const { data: groupsData, pending: groupsPending, refresh: refreshGroups } = useAccountGroups(listFilters)
+// Свободная ёмкость и прогноз восстановления лимита — свой endpoint: список
+// аккаунтов про наши публикации за сутки ничего не знает.
+const { data: capacityData } = useFetch('/api/accounts/capacity', { query: listFilters })
 
 const accounts = computed<AccountRow[]>(() => (accountsData.value?.data ?? []) as AccountRow[])
 const groups = computed(() => groupsData.value?.data ?? [])
+const capacity = computed(() => capacityData.value?.data ?? null)
 
 const currentAppId = computed(() => selectedAppId.value ?? (apps.value.length ? apps.value[0].id : 1))
 
@@ -126,6 +130,8 @@ async function onAccountCreated(payload: { id: number, displayName: string, plat
       @disconnect="onDisconnect"
       @update:app-id="selectedAppId = $event"
     />
+
+    <AccountCapacityPanel :capacity="capacity" />
 
     <section class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center gap-2">

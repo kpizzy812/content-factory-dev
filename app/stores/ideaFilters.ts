@@ -7,6 +7,9 @@ export const useIdeaFiltersStore = defineStore('ideaFilters', () => {
   const runId = ref<number | undefined>(undefined)
   const pipelineId = ref<number | undefined>(undefined)
   const page = ref<number>(1)
+  // Сортировка одной строкой: '-createdAt' — по убыванию, 'createdAt' — по
+  // возрастанию. Тот же формат читает шапка таблицы и принимает сервер.
+  const sort = ref<string>('-createdAt')
   const perPage = ref<number>(20)
 
   const query = computed(() => ({
@@ -17,6 +20,7 @@ export const useIdeaFiltersStore = defineStore('ideaFilters', () => {
     ...(appId.value ? { appId: appId.value } : {}),
     ...(runId.value ? { runId: runId.value } : {}),
     ...(pipelineId.value ? { pipelineId: pipelineId.value } : {}),
+    sort: sort.value,
     page: page.value,
     perPage: perPage.value,
   }))
@@ -29,6 +33,7 @@ export const useIdeaFiltersStore = defineStore('ideaFilters', () => {
     appId.value = undefined
     runId.value = undefined
     pipelineId.value = undefined
+    sort.value = '-createdAt'
     page.value = 1
   }
 
@@ -38,7 +43,7 @@ export const useIdeaFiltersStore = defineStore('ideaFilters', () => {
 
   return {
     status, source, analysisStatus, syncStatus, appId,
-    runId, pipelineId,
+    runId, pipelineId, sort,
     page, perPage, query, resetFilters, resetPage,
   }
 })

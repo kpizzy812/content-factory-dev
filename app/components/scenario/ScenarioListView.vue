@@ -31,6 +31,17 @@ const COLUMNS: ColumnDef[] = [
   { key: 'created', label: 'Создан' },
 ]
 
+
+/**
+ * Сортировка. Ключ колонки и поле сортировки — разные вещи: «Создан» это
+ * колонка `created`, а сервер сортирует по `createdAt`. Колонки без поля не
+ * кликабельны: заголовок, который ничего не меняет, хуже отсутствующего.
+ */
+const SORT_KEYS: Record<string, string | undefined> = {
+  status: 'status',
+  created: 'createdAt',
+}
+
 const WIDTHS: Record<string, string> = {
   title: 'minmax(240px,1fr)',
   trend: 'minmax(160px,200px)',
@@ -55,9 +66,15 @@ const query = computed(() => ({
   ...(filters.trendId ? { trendId: filters.trendId } : {}),
   ...(filters.runId ? { runId: filters.runId } : {}),
   ...(filters.pipelineId ? { pipelineId: filters.pipelineId } : {}),
+  sort: filters.sort,
   page: filters.page,
   perPage: filters.perPage,
 }))
+
+function onSort(value: string) {
+  filters.sort = value
+  filters.resetPage()
+}
 
 const { data, pending, error, refresh } = useScenarios(query)
 const rows = computed(() => data.value?.data ?? [])
@@ -226,9 +243,16 @@ function fmtDate(iso: string) {
             @change="toggleAllOnPage"
           >
         </span>
-        <span v-for="key in visibleColumns" :key="key" :class="key === 'variants' && 'text-right'">
+        <UiTableHeadCell
+          v-for="key in visibleColumns"
+          :key="key"
+          :sort-key="SORT_KEYS[key]"
+          :sort="filters.sort"
+          :align="key === 'variants' ? 'right' : 'left'"
+          @sort="onSort"
+        >
           {{ COLUMNS.find(c => c.key === key)?.label }}
-        </span>
+        </UiTableHeadCell>
         <span class="text-right">Действия</span>
       </UiTableHead>
 

@@ -16,9 +16,15 @@ import {
  * Режим карточек здесь второй, а не основной: идея — это в первую очередь
  * текст, и в таблице за раз видно втрое больше, чем плитками.
  *
- * Сортировки нет — `/api/ideas` её не принимает.
+ * Сортировка по статусу и дате — на сервере; остальные колонки не кликабельны.
  */
 const filters = useIdeaFiltersStore()
+
+function onSort(value: string) {
+  filters.sort = value
+  filters.resetPage()
+}
+
 const { can } = usePermissions()
 const canDelete = computed(() => can('canDelete'))
 const toast = useToast()
@@ -37,6 +43,17 @@ const COLUMNS: ColumnDef[] = [
   { key: 'status', label: 'Статус' },
   { key: 'created', label: 'Добавлена' },
 ]
+
+
+/**
+ * Сортировка. Ключ колонки и поле сортировки — разные вещи: «Создан» это
+ * колонка `created`, а сервер сортирует по `createdAt`. Колонки без поля не
+ * кликабельны: заголовок, который ничего не меняет, хуже отсутствующего.
+ */
+const SORT_KEYS: Record<string, string | undefined> = {
+  status: 'status',
+  created: 'createdAt',
+}
 
 const WIDTHS: Record<string, string> = {
   title: 'minmax(260px,1fr)',
@@ -248,9 +265,16 @@ function fmtDate(iso: string) {
           >
         </span>
         <span />
-        <span v-for="key in visibleColumns" :key="key">
+        <UiTableHeadCell
+          v-for="key in visibleColumns"
+          :key="key"
+          :sort-key="SORT_KEYS[key]"
+          :sort="filters.sort"
+          
+          @sort="onSort"
+        >
           {{ COLUMNS.find(c => c.key === key)?.label }}
-        </span>
+        </UiTableHeadCell>
         <span class="text-right">Действия</span>
       </UiTableHead>
 

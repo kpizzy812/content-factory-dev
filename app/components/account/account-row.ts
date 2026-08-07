@@ -27,4 +27,17 @@ export interface AccountRow {
   styleProfile?: { id: number, status: string, version: number } | null
   profileCompleteness?: number
   hasLoginCredentials?: boolean
+  /** Прогрев: раньше был виден только на странице здоровья аккаунтов. */
+  warmupStatus?: string | null
+  lastWarmupAt?: string | null
+  totalPostsPublished?: number
+  /**
+   * Лимит публикаций площадки — снимок в момент последней отправки, а не
+   * текущее состояние. Отсюда и `publishingQuotaStale`: замер старше суток
+   * описывает уже другой день, и показывать его как сегодняшний нельзя.
+   */
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: string | null
+  publishingQuotaStale?: boolean
 }

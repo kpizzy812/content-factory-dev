@@ -11,7 +11,8 @@ import { formatMoney } from '~~/shared/utils/money'
  * Стоимость в таблице показывается фактическая, а оценка — только пока факта
  * нет: две цифры рядом в каждой строке читаются как ошибка, а не как прогноз.
  *
- * Сортировки нет — `/api/videos` её не принимает.
+ * Сортировка по длительности, стоимости, статусу и дате — на сервере;
+ * колонки без поля сортировки не кликабельны.
  */
 const VIDEO_STATUS_LABELS: Record<string, string> = {
   pending: 'В очереди',
@@ -29,6 +30,12 @@ const VIDEO_STATUS_LABELS: Record<string, string> = {
 }
 
 const filters = useVideoFiltersStore()
+
+function onSort(value: string) {
+  filters.sort = value
+  filters.resetPage()
+}
+
 const { can } = usePermissions()
 const canDelete = computed(() => can('canDelete'))
 const toast = useToast()
@@ -48,6 +55,19 @@ const COLUMNS: ColumnDef[] = [
   { key: 'status', label: 'Статус' },
   { key: 'created', label: 'Создан' },
 ]
+
+
+/**
+ * Сортировка. Ключ колонки и поле сортировки — разные вещи: «Создан» это
+ * колонка `created`, а сервер сортирует по `createdAt`. Колонки без поля не
+ * кликабельны: заголовок, который ничего не меняет, хуже отсутствующего.
+ */
+const SORT_KEYS: Record<string, string | undefined> = {
+  duration: 'duration',
+  cost: 'totalCostActual',
+  status: 'status',
+  created: 'createdAt',
+}
 
 const WIDTHS: Record<string, string> = {
   title: 'minmax(240px,1fr)',
@@ -249,13 +269,16 @@ function fmtDate(iso: string) {
             @change="toggleAllOnPage"
           >
         </span>
-        <span
+        <UiTableHeadCell
           v-for="key in visibleColumns"
           :key="key"
-          :class="['duration', 'cost'].includes(key) && 'text-right'"
+          :sort-key="SORT_KEYS[key]"
+          :sort="filters.sort"
+          :align="['duration', 'cost'].includes(key) ? 'right' : 'left'"
+          @sort="onSort"
         >
           {{ COLUMNS.find(c => c.key === key)?.label }}
-        </span>
+        </UiTableHeadCell>
         <span class="text-right">Действия</span>
       </UiTableHead>
 

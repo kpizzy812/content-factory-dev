@@ -4,14 +4,16 @@ import type { FilterChip } from '~/components/list/ListFilterChips.vue'
 import { platformMeta } from '~/components/ui/platform-meta'
 import { ACCOUNT_STATUS_LABELS, POSTING_METHOD_LABELS } from './AccountStatusMap'
 import { needsAttention } from './AccountReadinessMap'
+import { quotaLabel, quotaTitle, quotaTone } from './AccountQuotaMap'
 import type { AccountRow } from './account-row'
 
 /**
  * Список аккаунтов. Источник: design-preview/catalog/06-accounts-queue.dc.html.
  *
- * Отличия от макета записаны в implementation-spec.md, раздел 8. Коротко: колонок
- * лимита, недельных публикаций и просмотров нет — этих величин нет ни в одном
- * endpoint, а рисовать их по догадке хуже, чем не рисовать.
+ * Отличия от макета записаны в implementation-spec.md, раздел 8. Колонка лимита
+ * вернулась вместе с полем в API: площадка отдаёт его в момент публикации, мы
+ * сохраняем снимок и показываем его возраст. Колонок недельных публикаций и
+ * просмотров по-прежнему нет — этих величин нет ни в одном endpoint.
  */
 const props = defineProps<{
   accounts: AccountRow[]
@@ -36,6 +38,8 @@ const COLUMNS: ColumnDef[] = [
   { key: 'app', label: 'Приложение' },
   { key: 'uploads', label: 'Публикаций' },
   { key: 'groups', label: 'Группы' },
+  { key: 'limit', label: 'Лимит' },
+  { key: 'warmup', label: 'Прогрев' },
   { key: 'lastPosted', label: 'Последняя' },
   { key: 'status', label: 'Статус' },
 ]
@@ -46,6 +50,8 @@ const WIDTHS: Record<string, string> = {
   app: '150px',
   uploads: '96px',
   groups: '76px',
+  limit: '104px',
+  warmup: '116px',
   lastPosted: '124px',
   status: '132px',
 }
@@ -222,7 +228,7 @@ function onMenu(key: string, row: AccountRow) {
     <UiTable v-else :columns="gridColumns" :min-width="minWidth">
       <UiTableHead>
         <template v-for="key in visibleColumns" :key="key">
-          <span :class="['uploads', 'groups'].includes(key) ? 'text-right' : ''">
+          <span :class="['uploads', 'groups', 'limit'].includes(key) ? 'text-right' : ''">
             {{ COLUMNS.find(c => c.key === key)?.label }}
           </span>
         </template>
@@ -260,6 +266,24 @@ function onMenu(key: string, row: AccountRow) {
 
           <span v-else-if="key === 'groups'" class="tnum text-right font-mono text-sm" :class="row._count?.groups ? '' : 'text-subtle'">
             {{ row._count?.groups ?? 0 }}
+          </span>
+
+          <!--
+            Лимит площадки: снимок в момент последней отправки. Пока замера
+            нет, стоит прочерк с пояснением — «0 / 0» здесь означало бы, что
+            публиковать нельзя, а на самом деле мы просто не спрашивали.
+          -->
+          <span
+            v-else-if="key === 'limit'"
+            class="tnum text-right font-mono text-sm"
+            :class="quotaTone(row)"
+            :title="quotaTitle(row)"
+          >
+            {{ quotaLabel(row) }}
+          </span>
+
+          <span v-else-if="key === 'warmup'">
+            <AccountWarmupBadge :status="row.warmupStatus" :last-warmup-at="row.lastWarmupAt" />
           </span>
 
           <span v-else-if="key === 'lastPosted'" class="tnum font-mono text-sm" :class="row.lastPostedAt ? 'text-muted' : 'text-subtle'">
