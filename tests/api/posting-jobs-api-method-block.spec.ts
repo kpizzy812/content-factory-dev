@@ -1,11 +1,12 @@
 /**
- * Integration-тесты: блок создания api-постинг-джоб для IG/TikTok.
+ * Integration-тесты: блок создания postingJob для аккаунтов с postingMethod=api.
  *
- * Реального API-раннера нет (IG/TikTok постят только через browser_automation).
- * Раньше такая джоба молча фейкала «Опубликовано» с mock-post URL — теперь
- * создание отклоняется дружелюбной 422 (single) / per-pair skip (bulk).
- *
- * YouTube api НЕ блокируется (вне нашего решения).
+ * Реального API-раннера у воркера нет: такая джоба терминально падает с
+ * ApiPostingUnsupportedError, то есть создать её — значит выдать оператору
+ * заведомо невыполнимую задачу. Очередь PostingJob обслуживает только
+ * browser_automation, официальный API публикует через Upload
+ * (/api/uploads/create). Поэтому single-эндпоинт отдаёт 422 для любой площадки
+ * (раньше блок был только для IG/TikTok, YouTube api проходил), bulk — per-pair skip.
  *
  * @vitest-environment node
  */
@@ -44,7 +45,7 @@ async function healthyProxy(createdById: number) {
   return proxy
 }
 
-describe("POST /api/posting-jobs — блок api-метода для IG/TikTok", () => {
+describe("POST /api/posting-jobs — блок api-метода", () => {
   it("instagram + postingMethod=api → 422 api_method_unsupported", async () => {
     const user = await createTestUser({ canAdmin: true })
     const app = await createTestApp()
@@ -132,7 +133,10 @@ describe("POST /api/posting-jobs — блок api-метода для IG/TikTok"
     expect(res.data.id).toBeTruthy()
   })
 
-  it("youtube + postingMethod=api → НЕ блокируется (вне решения)", async () => {
+  // Раньше этот кейс проходил («вне решения»), и оператор получал job, который
+  // воркер валит ApiPostingUnsupportedError. Для api-аккаунта путь публикации —
+  // Upload, поэтому очередь отказывает и YouTube тоже.
+  it("youtube + postingMethod=api → 422 (публикация идёт через Upload)", async () => {
     const user = await createTestUser({ canAdmin: true })
     const app = await createTestApp()
     const video = await createTestVideo(app.id)
@@ -144,20 +148,24 @@ describe("POST /api/posting-jobs — блок api-метода для IG/TikTok"
       postingMethod: "api",
     })
 
-    const res = await $fetch<{ data: { id: string } }>("/api/posting-jobs", {
-      method: "POST",
-      headers: authHeaders(user.id),
-      body: {
-        videoId: video.id,
-        socialAccountId: acc.id,
-        platform: "youtube",
-        contentSnapshot: {
-          title: "yt title",
-          youtube: { visibility: "private", madeForKids: false },
+    await expect(
+      $fetch("/api/posting-jobs", {
+        method: "POST",
+        headers: authHeaders(user.id),
+        body: {
+          videoId: video.id,
+          socialAccountId: acc.id,
+          platform: "youtube",
+          contentSnapshot: {
+            title: "yt title",
+            youtube: { visibility: "private", madeForKids: false },
+          },
         },
-      },
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 422,
+      data: { data: { code: "api_method_unsupported", accountId: acc.id } },
     })
-    expect(res.data.id).toBeTruthy()
   })
 })
 

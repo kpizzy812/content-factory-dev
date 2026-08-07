@@ -31,6 +31,14 @@ import { prisma } from './prisma'
 import { logAgent } from './agent-logger'
 import { syncFactoryCycleStatus } from './content-factory-status'
 import { readStepCost, recalcRunCost } from './pipeline-cost'
+import { evaluateFalPreflight, planFalPreflightTargets } from './fal-preflight-plan'
+
+/**
+ * Статусы шага, после которых нода считается отработавшей в этом run.
+ * Один список на resume-логику и на preflight: если нода уже отработала,
+ * её модели в этом прогоне больше не вызываются, пробивать их незачем.
+ */
+const COMPLETED_STEP_STATUSES = ['success', 'partial', 'no_data', 'skipped'] as const
 
 const MAX_RUN_DURATION_MS = 30 * 60 * 1000 // 30 minutes
 const MAX_STEP_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes per step (default)
@@ -536,28 +544,51 @@ export async function executePipeline(runId: number): Promise<void> {
 
   // ─── Pre-flight: fal.ai model access check for video nodes ───
   try {
-    const videoNodes = nodes.filter(n => n.data?.type === 'video')
-    if (videoNodes.length > 0) {
+    // Пробиваем только модели, которые этому прогону реально нужны:
+    // нода с pinnedOutput исполнителя не дёргает, а уже выполненная при resume
+    // нода не будет выполнена повторно — доступ к их моделям не требуется.
+    const videoNodes = nodes.filter(n => n.data?.type === 'video' && !n.data?.pinnedOutput)
+    const doneNodeIds = videoNodes.length > 0
+      ? new Set((await prisma.workflowStep.findMany({
+          where: { runId, status: { in: [...COMPLETED_STEP_STATUSES] } },
+          select: { nodeId: true },
+        })).map(s => s.nodeId))
+      : new Set<string>()
+    const pendingVideoNodes = videoNodes.filter(n => !doneNodeIds.has(n.id))
+
+    const modelsToCheck: string[] = []
+    for (const vn of pendingVideoNodes) {
+      const cfg = (vn.data?.config ?? {}) as Record<string, unknown>
+      modelsToCheck.push(String(cfg.imageModelId || 'fal-ai/flux/dev'))
+      modelsToCheck.push(String(cfg.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video'))
+    }
+
+    // Модель на Replicate fal-пробой не проверяется: без FAL_KEY probe отдал бы
+    // no_api_key и заблокировал прогон, которому fal вообще не нужен
+    // (PROJECT_CONTEXT §5: Replicate — основной провайдер, fal — резерв).
+    const uniqueModels = planFalPreflightTargets(modelsToCheck)
+
+    if (uniqueModels.length > 0) {
       const { falProbeAccessBatch } = await import('./fal')
       const { getModel } = await import('./video-models')
-      const modelsToCheck: string[] = []
-
-      for (const vn of videoNodes) {
-        const cfg = (vn.data?.config ?? {}) as Record<string, unknown>
-        modelsToCheck.push(String(cfg.imageModelId || 'fal-ai/flux/dev'))
-        modelsToCheck.push(String(cfg.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video'))
-      }
-
-      const uniqueModels = [...new Set(modelsToCheck)]
       const accessResults = await falProbeAccessBatch(uniqueModels)
-      const blockedModels: string[] = []
+      const verdict = evaluateFalPreflight(accessResults)
 
-      for (const [endpoint, result] of accessResults) {
-        if (result.status !== 'available') {
-          const meta = getModel(endpoint)
-          blockedModels.push(`"${meta?.name ?? endpoint}": ${result.reason}`)
-        }
+      // probe_error — сбой самой проверки, а не приговор модели: прогон не валим,
+      // пишем предупреждение, реальный submit вернёт внятную ошибку сам.
+      for (const warning of verdict.warnings) {
+        const meta = getModel(warning.endpoint)
+        await logAgent(
+          'pipeline-engine',
+          'warn',
+          `Preflight модели "${meta?.name ?? warning.endpoint}" не дал вердикта: ${warning.reason} `
+          + `(статус ${warning.status}). Продолжаем — доступ проверит сам submit.`,
+          { runId, pipelineId: run.pipelineId },
+        ).catch(() => {})
       }
+
+      // Валим весь run только на однозначных вердиктах (нет ключа / доступ закрыт).
+      const blockedModels = verdict.blocking.map(b => `"${getModel(b.endpoint)?.name ?? b.endpoint}": ${b.reason}`)
 
       if (blockedModels.length > 0) {
         hasFailed = true
@@ -601,7 +632,7 @@ export async function executePipeline(runId: number): Promise<void> {
     const priorSteps = await prisma.workflowStep.findMany({
       where: {
         runId,
-        status: { in: ['success', 'partial', 'no_data', 'skipped'] },
+        status: { in: [...COMPLETED_STEP_STATUSES] },
       },
       orderBy: { finishedAt: 'desc' },
       select: { nodeId: true, status: true, output: true },

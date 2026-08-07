@@ -24,6 +24,17 @@ export interface InstagramMediaInsights {
   averageWatchTimeMs?: number
 }
 
+/**
+ * Профиль профессионального аккаунта.
+ * Все поля nullable: площадка может не отдать счётчик (нет прав, аккаунт
+ * переключили в личный), и ноль в такой ситуации был бы выдуманным числом.
+ */
+export interface InstagramAccountInfo {
+  followersCount: number | null
+  followsCount: number | null
+  mediaCount: number | null
+}
+
 export interface InstagramApiClient {
   getPublishingLimit(userId: string): Promise<InstagramPublishingLimit>
   createReelContainer(input: {
@@ -40,6 +51,15 @@ export interface InstagramApiClient {
   publishContainer(userId: string, containerId: string): Promise<string>
   getMedia(mediaId: string): Promise<InstagramMedia>
   getMediaInsights(mediaId: string): Promise<InstagramMediaInsights>
+  /**
+   * Счётчики профиля аккаунта (подписчики и подписки).
+   *
+   * Метод необязательный: клиент публикации существует дольше, чем замер
+   * подписчиков, и часть реализаций (в том числе двойники в тестах) описывает
+   * только публикующую часть контракта. Адаптер на отсутствие метода отвечает
+   * явной ошибкой, а не нулём подписчиков.
+   */
+  getAccountInfo?(userId: string): Promise<InstagramAccountInfo>
 }
 
 export type InstagramFetch = (
@@ -237,6 +257,23 @@ export function createInstagramApiClient({
         permalink: response.permalink ?? null,
         likeCount: numberOrNull(response.like_count) ?? 0,
         commentsCount: numberOrNull(response.comments_count) ?? 0,
+      }
+    },
+
+    async getAccountInfo(userId) {
+      // followers_count входит в базовый scope instagram_business_basic —
+      // отдельных прав и Analytics-эндпоинта, как у досматриваемости, не нужно.
+      const response = await request<{
+        followers_count?: number
+        follows_count?: number
+        media_count?: number
+      }>(encodeURIComponent(userId), {
+        params: { fields: "followers_count,follows_count,media_count" },
+      })
+      return {
+        followersCount: numberOrNull(response.followers_count),
+        followsCount: numberOrNull(response.follows_count),
+        mediaCount: numberOrNull(response.media_count),
       }
     },
 

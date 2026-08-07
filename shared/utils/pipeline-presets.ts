@@ -48,7 +48,11 @@ export const pipelinePresets: PipelinePreset[] = [
           requireSourceClips: true,
         }),
         node('scenario-1', 'scenario', 'Сценарий 70-90 секунд', 1, 0, {
-          variantsCount: 1,
+          // ТЗ (Модуль 2) требует три варианта сценария на выбор. Один вариант обходился
+          // дешевле по токенам, но лишал критика и оператора самого выбора — и расхождение
+          // с ТЗ шло именно из флагманского пресета. maxTrends: 1 держит общий объём:
+          // один тренд × три варианта, а не три тренда × три варианта.
+          variantsCount: 3,
           maxTrends: 1,
           generationMode: 'story_driven',
           storytelling: {

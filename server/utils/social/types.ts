@@ -64,6 +64,22 @@ export interface MetricsResult {
   /** Доля переходов, 0…1. */
   ctr: number
   followerGain: number
+  /**
+   * Метрики, которых публичный API платформы не отдаёт вовсе.
+   * Ноль в таком поле — «не измерено», а не «измерено и получилось ноль»:
+   * без этого списка сборщик не отличит одно от другого и будет врать в отчёте.
+   */
+  unsupported?: string[]
+}
+
+/**
+ * Дополнительные данные о ролике, которых нет у платформы, но которые нужны
+ * для расчёта производных метрик. Аргумент необязательный: адаптер обязан
+ * работать и без него, просто честнее с ним.
+ */
+export interface MetricsContext {
+  /** Длительность ролика в секундах — знаменатель доли досмотра. */
+  videoDurationSec?: number | null
 }
 
 /**
@@ -72,5 +88,9 @@ export interface MetricsResult {
  */
 export interface SocialPlatformAdapter {
   uploadVideo(account: DecryptedAccount, params: UploadParams): Promise<UploadResult>
-  getPostMetrics(account: DecryptedAccount, platformPostId: string): Promise<MetricsResult>
+  getPostMetrics(
+    account: DecryptedAccount,
+    platformPostId: string,
+    context?: MetricsContext,
+  ): Promise<MetricsResult>
 }

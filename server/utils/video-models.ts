@@ -1,15 +1,37 @@
 /**
- * Curated Model Registry для video generation.
+ * Витрина моделей для UI и сметы.
  *
- * Единственный source of truth для доступных моделей,
- * их параметров, ценообразования и ограничений.
- * Обновлять только здесь.
+ * Source of truth для медиамоделей — реестр спек
+ * `server/utils/media-provider/model-specs.ts`: там лежат id, провайдер, цена,
+ * маппер входа и разбор выхода. Здесь из спек собирается прежний плоский
+ * `ModelMeta`, которым пользуются десятки мест (смета, API моделей, фронт).
+ *
+ * Что это чинит: цена lip-sync $0.014 была продублирована здесь и в реестре
+ * media-provider, равенство держалось вручную и ничем не проверялось.
+ *
+ * Новую медиамодель добавлять В РЕЕСТР СПЕК, не сюда. Здесь остаётся только
+ * музыка: Mubert — не медиаспособность нового контура (свой HTTP-клиент,
+ * отдельный биллинг за трек), и в MediaCapability его нет.
  */
+
+import { listMediaSpecs } from "./media-provider/registry"
+import type { MediaBilling, MediaCapability, MediaModelSpec } from "./media-provider/types"
 
 // ─── Типы ──────────────────────────────────────────
 
 export type ModelTask = "image" | "video" | "music" | "tts" | "lip_sync"
-export type BillingUnit = "megapixel" | "second" | "video" | "track" | "character" | "audio_second"
+export type BillingUnit =
+  | "megapixel"
+  | "second"
+  | "video"
+  | "track"
+  | "character"
+  | "audio_second"
+  // Единицы новых спек: за изображение, за секунду железа и фиксированная цена.
+  // Появляются вместе с моделями Replicate, у fal-моделей не встречаются.
+  | "image"
+  | "hardware_second"
+  | "flat"
 
 export interface ModelPricing {
   unit: BillingUnit
@@ -50,307 +72,99 @@ export interface ModelMeta {
   tier: "budget" | "standard" | "premium"
 }
 
-// ─── Реестр моделей ────────────────────────────────
+// ─── Сборка витрины из спек ────────────────────────
 
-export const IMAGE_MODELS: ModelMeta[] = [
-  {
-    id: "fal-ai/flux/schnell",
-    name: "FLUX.1 Schnell",
-    task: "image",
-    provider: "Black Forest Labs",
-    pricing: { unit: "megapixel", base: 0.003 },
-    resolutions: ["1024x1024", "1080x1920", "1920x1080"],
-    strengths: [
-      "Самая быстрая генерация (~0.3с)",
-      "В 8x дешевле FLUX Dev",
-      "Хорошее качество для черновиков",
-    ],
-    tradeoffs: [
-      "Меньше деталей, чем FLUX Dev",
-      "Max 4 inference steps",
-    ],
-    avgGenerationTime: "~0.4 сек",
-    integrated: true,
-    tier: "budget",
-  },
-  {
-    id: "fal-ai/flux/dev",
-    name: "FLUX.1 Dev",
-    task: "image",
-    provider: "Black Forest Labs",
-    pricing: { unit: "megapixel", base: 0.025 },
-    resolutions: ["1024x1024", "1080x1920", "1920x1080"],
-    strengths: [
-      "Высокое качество (12B параметров)",
-      "Хорошая детализация и adherence к промпту",
-      "Стабильные результаты",
-    ],
-    tradeoffs: [
-      "Дороже FLUX Schnell в 8x",
-      "Медленнее (~2 сек)",
-    ],
-    avgGenerationTime: "~2 сек",
-    integrated: true,
-    tier: "standard",
-  },
-]
+/**
+ * Какая способность реестра попадает в витрину и под каким `task`.
+ *
+ * `image_to_video` здесь нет намеренно: это не выбираемая пользователем модель,
+ * а маршрут сцен со скриншотом приложения. Её endpoint был константой в шаге и
+ * в реестре моделей не значился — селекторы UI её не показывали и не должны
+ * начать показывать из-за появления спеки.
+ */
+const CAPABILITY_TASKS: Partial<Record<MediaCapability, ModelTask>> = {
+  text_to_image: "image",
+  text_to_video: "video",
+  text_to_speech: "tts",
+  lip_sync: "lip_sync",
+}
 
-export const VIDEO_MODELS: ModelMeta[] = [
-  {
-    id: "fal-ai/kling-video/v3/standard/text-to-video",
-    name: "Kling 3.0 Standard",
-    task: "video",
-    provider: "Kuaishou",
-    pricing: {
-      unit: "second",
-      base: 0.084,
-      withAudio: 0.126,
-    },
-    resolutions: ["1920x1080", "1080x1920", "1080x1080"],
-    durationRange: [3, 15],
-    strengths: [
-      "До 15 сек видео",
-      "Встроенная генерация аудио",
-      "Хорошая кинематографичность",
-      "Подключён к pipeline",
-    ],
-    tradeoffs: [
-      "Долгая генерация (5–15 мин)",
-      "Дороже Hailuo Standard",
-    ],
-    avgGenerationTime: "5–15 мин",
-    integrated: true,
-    tier: "standard",
-  },
-  {
-    id: "fal-ai/kling-video/v3/pro/text-to-video",
-    name: "Kling 3.0 Pro",
-    task: "video",
-    provider: "Kuaishou",
-    pricing: {
-      unit: "second",
-      base: 0.112,
-      withAudio: 0.168,
-    },
-    resolutions: ["1920x1080", "1080x1920", "1080x1080"],
-    durationRange: [3, 15],
-    strengths: [
-      "Максимальное качество видео",
-      "Лучшая кинематографичность",
-      "Встроенная генерация аудио",
-    ],
-    tradeoffs: [
-      "На 33% дороже Standard",
-      "Ещё более долгая генерация",
-    ],
-    avgGenerationTime: "8–20 мин",
-    integrated: false,
-    tier: "premium",
-  },
-  {
-    id: "fal-ai/wan/v2.2-a14b/text-to-video",
-    name: "Wan 2.2 (a14b)",
-    task: "video",
-    provider: "Alibaba / fal.ai",
-    pricing: {
-      // 720p — наш default. 580p = $0.06, 480p = $0.04 (для super-budget путём
-      // resolution override в payload). Wan не имеет встроенного аудио — поэтому
-      // withAudio отсутствует. Считается per video-second.
-      unit: "second",
-      base: 0.08,
-      byResolution: {
-        "480p": 0.04,
-        "580p": 0.06,
-        "720p": 0.08,
-      },
-    },
-    resolutions: ["480p", "580p", "720p"],
-    durationOptions: [3, 5, 7, 10],
-    strengths: [
-      "Лучшая цена на 480p ($0.04/сек)",
-      "Быстрая генерация (≤ 3 мин)",
-      "Самостоятельный визуальный стиль (Alibaba Wan)",
-      "Поддерживает 9:16 / 16:9 / 1:1",
-    ],
-    tradeoffs: [
-      "Только 720p max (без 1080p)",
-      "Без встроенного аудио (используйте TTS + музыку)",
-      "Меньше cinematic quality чем Kling Pro",
-    ],
-    avgGenerationTime: "1-3 мин",
-    integrated: true,
-    tier: "budget",
-  },
-  {
-    id: "fal-ai/minimax/hailuo-02/standard/text-to-video",
-    name: "Hailuo-02 Standard",
-    task: "video",
-    provider: "MiniMax",
-    pricing: {
-      unit: "second",
-      base: 0.045,
-    },
-    resolutions: ["768p"],
-    durationOptions: [5, 10],
-    strengths: [
-      "Самый дешёвый вариант",
-      "Быстрая генерация",
-    ],
-    tradeoffs: [
-      "Только 768p разрешение",
-      "Только 5 или 10 сек",
-      "Не подключён к pipeline",
-    ],
-    avgGenerationTime: "2–5 мин",
-    integrated: false,
-    tier: "budget",
-  },
-]
+/** Единица биллинга спеки → прежняя плоская форма ModelPricing для UI и сметы. */
+function toPricing(billing: MediaBilling): ModelPricing {
+  switch (billing.unit) {
+    case "output_megapixel":
+      return { unit: "megapixel", base: billing.usdPerMegapixel }
+    case "output_second": {
+      const pricing: ModelPricing = { unit: "second", base: billing.usdPerSecond }
+      if (billing.usdPerSecondWithAudio !== undefined) pricing.withAudio = billing.usdPerSecondWithAudio
+      if (billing.byResolution) pricing.byResolution = { ...billing.byResolution }
+      return pricing
+    }
+    case "audio_second":
+      return { unit: "audio_second", base: billing.usdPerSecond }
+    case "character":
+      return { unit: "character", base: billing.usdPerCharacter }
+    case "output_image":
+      return { unit: "image", base: billing.usdPerImage }
+    case "hardware_second":
+      // Цена известна только после завершения задачи — в витрине это оценка.
+      return { unit: "hardware_second", base: billing.usdPerSecond }
+    case "flat":
+      return { unit: "flat", base: billing.usd }
+  }
+}
+
+function toModelMeta(spec: MediaModelSpec): ModelMeta {
+  const task = CAPABILITY_TASKS[spec.capability]
+  if (!task) {
+    throw new Error(`Способность ${spec.capability} не имеет представления в витрине моделей`)
+  }
+
+  const meta: ModelMeta = {
+    id: spec.id,
+    name: spec.name,
+    task,
+    // provider витрины — человекочитаемый вендор ("Kuaishou"), а не имя API.
+    provider: spec.vendorLabel,
+    pricing: toPricing(spec.billing),
+    strengths: [...spec.strengths],
+    tradeoffs: [...spec.tradeoffs],
+    integrated: spec.integrated,
+    tier: spec.tier,
+  }
+
+  const constraints = spec.constraints as {
+    resolutions?: readonly string[]
+    durationRange?: readonly [number, number]
+    durationOptions?: readonly number[]
+  }
+  if (constraints.resolutions) meta.resolutions = [...constraints.resolutions]
+  if (constraints.durationRange) {
+    meta.durationRange = [constraints.durationRange[0], constraints.durationRange[1]]
+  }
+  if (constraints.durationOptions) meta.durationOptions = [...constraints.durationOptions]
+  if (spec.avgGenerationTime) meta.avgGenerationTime = spec.avgGenerationTime
+
+  return meta
+}
+
+/** Порядок спек способности сохраняется: от него зависят дефолты пайплайна. */
+function buildShowcase(capability: MediaCapability): ModelMeta[] {
+  return listMediaSpecs(capability).map(toModelMeta)
+}
+
+export const IMAGE_MODELS: ModelMeta[] = buildShowcase("text_to_image")
+
+export const VIDEO_MODELS: ModelMeta[] = buildShowcase("text_to_video")
 
 /**
  * TTS (text-to-speech) модели.
  * Используются для синтеза voiceover из StoryPlan.voiceoverPlan.lines.
  * Все провайдеры проксированы через fal.ai (используют существующий FAL_KEY).
  */
-export const TTS_MODELS: ModelMeta[] = [
-  {
-    id: "fal-ai/kokoro/american-english",
-    name: "Kokoro (American English)",
-    task: "tts",
-    provider: "Hexgrad / fal.ai",
-    pricing: {
-      unit: "audio_second",
-      base: 0.00025, // примерно $0.015 за минуту
-    },
-    strengths: [
-      "Open-source, самый дешёвый TTS",
-      "Быстрая синтез (~2-3x realtime)",
-      "Естественная интонация на английском",
-      "Множество голосов (male/female)",
-    ],
-    tradeoffs: [
-      "Только американский английский",
-      "Ограниченный emotional range",
-    ],
-    avgGenerationTime: "~3-5 сек на фразу",
-    integrated: true,
-    tier: "budget",
-  },
-  {
-    id: "fal-ai/kokoro/russian",
-    name: "Kokoro (Russian)",
-    task: "tts",
-    provider: "Hexgrad / fal.ai",
-    pricing: {
-      unit: "audio_second",
-      base: 0.00025,
-    },
-    strengths: [
-      "Русский TTS, open-source",
-      "Быстрая синтез",
-    ],
-    tradeoffs: [
-      "Менее естественный чем ElevenLabs",
-      "Ограниченный набор голосов",
-    ],
-    avgGenerationTime: "~3-5 сек",
-    integrated: true,
-    tier: "budget",
-  },
-  {
-    id: "fal-ai/playai/tts/v3",
-    name: "PlayAI TTS v3",
-    task: "tts",
-    provider: "PlayAI / fal.ai",
-    pricing: {
-      unit: "character",
-      base: 0.00003, // ~$0.03 за 1000 символов
-    },
-    strengths: [
-      "Высокое качество голоса",
-      "Expressive эмоциональная окраска",
-      "Multiple languages",
-    ],
-    tradeoffs: [
-      "Дороже Kokoro в 3-5x",
-    ],
-    avgGenerationTime: "~5-10 сек",
-    integrated: true,
-    tier: "standard",
-  },
-  {
-    id: "fal-ai/elevenlabs/tts/turbo-v2.5",
-    name: "ElevenLabs Turbo v2.5",
-    task: "tts",
-    provider: "ElevenLabs / fal.ai",
-    pricing: {
-      unit: "character",
-      base: 0.00015, // ElevenLabs premium pricing
-    },
-    strengths: [
-      "Максимальное качество голоса",
-      "Emotional range и character continuity",
-      "29 языков",
-      "Low latency (turbo)",
-    ],
-    tradeoffs: [
-      "Самый дорогой TTS вариант",
-      "Требует доступ ElevenLabs через fal",
-    ],
-    avgGenerationTime: "~2-4 сек",
-    integrated: true,
-    tier: "premium",
-  },
-]
+export const TTS_MODELS: ModelMeta[] = buildShowcase("text_to_speech")
 
-export const LIP_SYNC_MODELS: ModelMeta[] = [
-  {
-    id: "kwaivgi/kling-lip-sync",
-    name: "Kling Lip Sync",
-    task: "lip_sync",
-    provider: "Replicate / Kuaishou",
-    pricing: {
-      unit: "second",
-      base: 0.014,
-    },
-    strengths: [
-      "Дешёвый липсинк готового видео",
-      "Подходит для коротких сцен с аватаром",
-      "Асинхронный API с восстановлением задач",
-    ],
-    tradeoffs: [
-      "Исходный клип должен быть длиной 2-10 секунд",
-      "Данные модели обрабатываются Kuaishou",
-    ],
-    avgGenerationTime: "~30-90 сек на сцену",
-    integrated: true,
-    tier: "budget",
-  },
-  {
-    id: "fal-ai/sync-lipsync",
-    name: "Sync Lipsync v1",
-    task: "lip_sync",
-    provider: "Sync.so / fal.ai",
-    pricing: {
-      // Биллинг fal.ai per second of OUTPUT video. Реальная цена смотрится
-      // на странице модели в fal.ai dashboard, текущая оценка ~$0.067.
-      unit: "second",
-      base: 0.067,
-    },
-    strengths: [
-      "Sync video с произвольным аудио",
-      "Работает с готовыми клипами Kling",
-      "Сохраняет original facial expression",
-    ],
-    tradeoffs: [
-      "+~$0.07 за каждую секунду lip-synced сцены",
-      "Требует TTS для генерации голоса персонажа",
-    ],
-    avgGenerationTime: "~30-60 сек на сцену",
-    integrated: false,
-    tier: "premium",
-  },
-]
+export const LIP_SYNC_MODELS: ModelMeta[] = buildShowcase("lip_sync")
 
 export const MUSIC_MODELS: ModelMeta[] = [
   {

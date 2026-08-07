@@ -42,6 +42,8 @@ export default defineConfig({
       "tests/unit/entity-status.spec.ts",
       "tests/unit/saved-views-normalize.spec.ts",
       "tests/unit/module-gate.spec.ts",
+      // Регрессии на исправленные дефекты конвейера и публикации (DB-free).
+      "tests/unit/fixes/**/*.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },

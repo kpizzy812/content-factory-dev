@@ -16,8 +16,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import { falRequest } from "~~/server/utils/fal"
-import { isMockUrl, generateMockPlaceholder } from "~~/server/utils/mock/fal-mock"
+import { estimateMediaCost, resolveMediaModel } from "~~/server/utils/media-provider/registry"
+import { runMediaTask } from "~~/server/utils/media-provider/run-media-task"
 import { getStorageDriver } from "~~/server/utils/storage"
 import { StorageKeys } from "~~/server/utils/storage/keys"
 import { storageKeyToLegacyUrl } from "~~/server/utils/storage/download-to-storage"
@@ -91,7 +91,8 @@ export default defineEventHandler(async (event) => {
       message: `Неизвестная модель: ${modelId}. Допустимые: ${[...ALLOWED_MODEL_IDS].join(", ")}.`,
     })
   }
-  const model = IMAGE_MODELS.find((m) => m.id === modelId)!
+  // Спека модели вместо витрины: из неё берутся payload, разбор выхода и цена.
+  const spec = resolveMediaModel("text_to_image", modelId)
 
   const kind = (body?.kind ?? "mood") as SceneKind
   if (!KINDS.includes(kind)) {
@@ -104,38 +105,33 @@ export default defineEventHandler(async (event) => {
   }
   const imageSize = ASPECTS[aspectKey]
 
-  const result = await falRequest<FalImageResult>(modelId, {
-    prompt,
-    image_size: imageSize,
-    num_images: 1,
-  })
-
-  const image = result?.images?.[0]
-  if (!image?.url) {
-    throw createError({
-      statusCode: 502,
-      message: "fal.ai не вернул URL изображения",
-    })
-  }
-
+  // Единая точка вызова медиазадачи. Скачивание в файл умеет и mock://-схему
+  // (тот же generateMockPlaceholder), поэтому отдельной ветки под мок больше нет.
+  const tmp = await mkdtemp(path.join(tmpdir(), "gen-ref-scene-"))
+  const tmpFile = path.join(tmp, "out.bin")
   let buffer: Buffer
-  if (isMockUrl(image.url)) {
-    const tmp = await mkdtemp(path.join(tmpdir(), "gen-ref-scene-"))
-    const tmpFile = path.join(tmp, "out.png")
-    try {
-      await generateMockPlaceholder(image.url, tmpFile)
-      buffer = await readFile(tmpFile)
-    } finally {
-      await rm(tmp, { recursive: true, force: true }).catch(() => {})
-    }
-  } else {
-    const response = await $fetch.raw(image.url, {
-      responseType: "arrayBuffer",
-    } as Parameters<typeof $fetch>[1])
-    buffer = Buffer.from(response._data as ArrayBuffer)
+  let task: Awaited<ReturnType<typeof runMediaTask>>
+  try {
+    task = await runMediaTask({
+      capability: "text_to_image",
+      spec,
+      input: {
+        prompt,
+        width: imageSize.width,
+        height: imageSize.height,
+        count: 1,
+      },
+      unitKey: `scene:${scene.id}`,
+      outputPath: tmpFile,
+    })
+    buffer = await readFile(tmpFile)
+  } finally {
+    await rm(tmp, { recursive: true, force: true }).catch(() => {})
   }
 
-  const mimeType = image.content_type ?? "image/png"
+  // Размеры кадра — поля витрины провайдера, их нет в нормализованном выходе.
+  const image = (task.raw as FalImageResult | undefined)?.images?.[0]
+  const mimeType = task.contentType ?? "image/png"
   const ext = MIME_TO_EXT[mimeType.toLowerCase()] ?? "png"
 
   const sha1 = createHash("sha1").update(buffer).digest("hex").slice(0, 16)
@@ -157,8 +153,9 @@ export default defineEventHandler(async (event) => {
   const storage = getStorageDriver()
   await storage.uploadBuffer(storageKey, buffer, { contentType: mimeType })
 
+  // Цена считается той же функцией, что и в пайплайне, по единице биллинга спеки.
   const megapixels = (imageSize.width * imageSize.height) / 1_000_000
-  const costUsd = Number((megapixels * model.pricing.base).toFixed(6))
+  const costUsd = Number(estimateMediaCost(spec, { megapixels, images: 1 }).toFixed(6))
 
   const created = await prisma.sceneReferenceImage.create({
     data: {
@@ -170,8 +167,8 @@ export default defineEventHandler(async (event) => {
       sha1,
       mimeType,
       bytes: buffer.length,
-      width: image.width ?? imageSize.width,
-      height: image.height ?? imageSize.height,
+      width: image?.width ?? imageSize.width,
+      height: image?.height ?? imageSize.height,
       uploadedById: user.id,
       generationPrompt: prompt,
       generationModel: modelId,

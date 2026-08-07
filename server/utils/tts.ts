@@ -15,9 +15,8 @@
 
 import { join } from 'node:path'
 import ffmpeg from 'fluent-ffmpeg'
-import { falRequest } from './fal'
-import { withTimeoutAndRetry } from './external-call'
-import { downloadFile } from './video-helpers'
+import { estimateMediaCost, resolveMediaModel, resolveSpecVoice } from './media-provider/registry'
+import { runMediaTask } from './media-provider/run-media-task'
 import { getModel, getDefaultTtsModel } from './video-models'
 import type { ModelMeta } from './video-models'
 
@@ -223,35 +222,41 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
     throw new Error('TTS synthesis: нет доступных TTS моделей в реестре')
   }
 
-  const voiceId = options.voiceId || resolveDefaultVoice(model.id, options.language || 'en')
-  const input = buildProviderInput(model.id, text, voiceId, options.pacing)
+  // Спека способности вместо самодельных buildProviderInput / resolveDefaultVoice /
+  // extractAudioUrl: payload, голос по умолчанию, разбор выхода и таймаут лежат
+  // в одной записи реестра. Витрина `ModelMeta` остаётся источником правил
+  // выбора модели (integrated / task), поэтому спека ищется по её id.
+  const spec = resolveMediaModel('text_to_speech', model.id)
+  const language = options.language || 'en'
+  const voiceId = options.voiceId
+    || resolveSpecVoice(spec, language)
+    || resolveDefaultVoice(model.id, language)
 
-  // Submit via fal.ai queue API — использует FAL_KEY + enablePaidApis guard.
-  // Hard timeout 4 минуты per attempt, 3 попытки: TTS обычно занимает 5-15 секунд,
-  // 4 минуты с запасом на queue latency. Pipeline #17 завис именно на TTS Scene 5 без
-  // timeout — теперь даже если fal.ai зависает, retry даёт второй шанс, и общий
-  // upper bound = ~14 минут (3 × 4 мин + backoffs) вместо forever.
-  const result = await withTimeoutAndRetry<Record<string, unknown>>(
-    () => falRequest<Record<string, unknown>>(model.id, input),
-    {
-      label: `TTS ${model.id} (${text.length} chars)`,
-      timeoutMs: 4 * 60 * 1000,
+  // Ретраи прежние (3 попытки с backoff). Таймаут ОДНОЙ попытки берётся из
+  // спеки способности, а не из локальной константы 4 минуты: у TTS собственная
+  // длительность работы, и держать её в коде шага — ровно та связка модели с
+  // бизнес-логикой, от которой мы уходим. Pipeline #17 завис именно на TTS без
+  // таймаута — сам механизм остаётся на месте.
+  const task = await runMediaTask({
+    capability: 'text_to_speech',
+    spec,
+    input: {
+      text,
+      voiceId,
+      speed: resolveSpeed(options.pacing),
+      language,
+      format: 'mp3',
+    },
+    unitKey: `tts:${model.id}`,
+    outputPath: options.outputPath,
+    retry: {
       maxRetries: 3,
       initialBackoffMs: 3000,
-      onRetry: (attempt, err, delayMs) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.warn(`[tts] ${model?.id} attempt ${attempt} failed: ${msg}. Retry in ${delayMs}ms`)
-      },
+      label: `TTS ${model.id} (${text.length} chars)`,
     },
-  )
+  })
 
-  const remoteUrl = extractAudioUrl(result)
-  if (!remoteUrl) {
-    throw new Error(`TTS ${model.id}: провайдер не вернул audio URL (response: ${JSON.stringify(result).slice(0, 300)})`)
-  }
-
-  // Download audio → local path
-  await downloadFile(remoteUrl, options.outputPath)
+  const remoteUrl = task.remoteUrl
 
   // Probe real duration — critical для reconciliation, не доверяемся estimate
   const durationSec = await probeAudioDuration(options.outputPath)
@@ -260,7 +265,10 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
   }
 
   const characters = text.length
-  const costUsd = computeSynthesisCost(model, characters, durationSec)
+  // Цена по спеке того, кто реально исполнял: audio_second — по фактической
+  // длительности, character — по числу символов. Числа те же, что и раньше,
+  // но живут они теперь в одном месте с моделью.
+  const costUsd = estimateMediaCost(spec, { characters, audioSeconds: durationSec })
 
   return {
     audioPath: options.outputPath,

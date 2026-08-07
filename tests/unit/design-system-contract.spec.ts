@@ -137,13 +137,14 @@ describe("навигация", () => {
 })
 
 describe("временные витрины", () => {
-  it("живут только в dev и удаляются перед мержем", () => {
-    const mw = file("app/middleware/auth.global.ts")
-    expect(mw).toContain("import.meta.dev")
-    expect(mw).toContain('startsWith("/_")')
-
-    for (const page of ["app/pages/_ui.vue", "app/pages/_shell.vue"]) {
-      expect(file(page), page).toContain("этапе 7")
-    }
+  // Проверка выполнила свою задачу: витрины `_ui` и `_shell` удалены вместе с
+  // dev-гейтом в auth.global.ts, который существовал только ради них. Раньше тест
+  // требовал наличия гейта и пометки этапа В САМИХ витринах — после удаления он
+  // стал красным на выполненном требовании. Теперь инвариант обратный и строже:
+  // временных витрин в репозитории быть не должно вовсе.
+  it("удалены перед мержем и не возвращаются", () => {
+    const pagesDir = resolve(process.cwd(), "app/pages")
+    const showcases = readdirSync(pagesDir).filter(name => name.startsWith("_"))
+    expect(showcases, `временные витрины вернулись: ${showcases.join(", ")}`).toEqual([])
   })
 })

@@ -31,13 +31,20 @@ describe("content factory pipeline editor contract", () => {
   })
 
   it("offers strategy and quality gate blocks in the palette and on the canvas", () => {
+    // Раньше здесь искались литералы `type: 'content_strategy'` прямо в палитре.
+    // Палитра переехала на общий реестр PIPELINE_NODE_META, литералы исчезли, и тест
+    // стал падать на живой функциональности. Проверяем то, ради чего он написан:
+    // оба блока описаны в реестре, а палитра и холст строятся ИЗ него, а не из
+    // собственных списков — иначе блок снова можно потерять в одном из двух мест.
+    const meta = file("app/components/pipeline/PipelineNodeMeta.ts")
+    expect(meta).toContain("content_strategy:")
+    expect(meta).toContain("quality_gate:")
+
     const sidebar = file("app/components/pipeline/PipelineSidebar.vue")
-    expect(sidebar).toContain("type: 'content_strategy'")
-    expect(sidebar).toContain("type: 'quality_gate'")
+    expect(sidebar).toContain("PIPELINE_NODE_META")
 
     const canvas = file("app/components/pipeline/PipelineCanvas.vue")
-    expect(canvas).toContain("content_strategy:")
-    expect(canvas).toContain("quality_gate:")
+    expect(canvas).toContain("PIPELINE_NODE_META")
   })
 
   it("validates imported pipelines against the shared node registry", () => {

@@ -24,6 +24,9 @@ import {
 } from './posting/instagram-snapshot-validator'
 import { readFactoryContext } from './content-factory-batch'
 import { linkFactoryPublication } from './factory-publication'
+import { resolveScenarioFunnel } from './scenario-funnel'
+import { selectScenarioVariantForVideo, describeVariantSelection } from './scenario-variant-selection'
+import { isFalAccessBlocking, isFalProbeInconclusive } from './fal-access-gate'
 import { COST_ACTUAL_KEY, COST_ESTIMATE_KEY, sumAmounts } from './pipeline-cost'
 
 // Re-export для backward compatibility (call-sites вне этого файла могут
@@ -408,7 +411,8 @@ export async function executeScenarioNode(
     cta: string
     evidence?: { rationale?: string } | null
   }>
-  const factoryPlatform = readFactoryContext(input)?.assignments[0]?.platform ?? 'instagram'
+  const factoryContext = readFactoryContext(input)
+  const factoryPlatform = factoryContext?.assignments[0]?.platform ?? 'instagram'
   const trends = trendInputs.length > 0
     ? trendInputs
     : hypotheses.map(hypothesis => ({
@@ -625,12 +629,28 @@ export async function executeScenarioNode(
     negativeRules: (storytelling.negativeRules ?? []) as string[],
   } : undefined
 
+  // Активная воронка юнита. Без неё генератор уходит в ветку «назови приложение
+  // и скачай», хотя по ТЗ конверсия идёт через кодовое слово в директ
+  // (docs/PROJECT_CONTEXT.md §9). Формат тот же, что у ручного
+  // /api/scenarios/generate — иначе ручной и автоматический путь расходятся.
+  // Приоритет у воронки из контекста фабрики: партия её уже выбрала.
+  const funnelResolution = await resolveScenarioFunnel(app.id, factoryContext?.funnelId)
+  if (funnelResolution.warning) {
+    await logAgent('scenario-node', 'warn', funnelResolution.warning).catch(() => {})
+  }
+  if (!funnelResolution.funnel) {
+    await logAgent('scenario-node', 'warn',
+      `У юнита ${app.id} нет активной воронки — CTA будет про приложение, а не про кодовое слово в директ.`,
+    ).catch(() => {})
+  }
+
   // Build extended app data
   const appData = {
     name: app.name,
     description: app.description,
     keywords: app.keywords as string[],
     language: app.language,
+    funnel: funnelResolution.funnel,
     transformationPromise: (app as any).transformationPromise ?? null,
     corePain: (app as any).corePain ?? null,
     coreOutcome: (app as any).coreOutcome ?? null,
@@ -1014,9 +1034,9 @@ export async function executeVideoNode(
       }
     }
 
-    // Pre-flight: ensure scenario has at least one variant
-    // Pipeline-generated scenarios have status "generated" but no "accepted" variant.
-    // Auto-accept the first variant so video pipeline can proceed.
+    // Pre-flight: у сценария должен быть пригодный вариант.
+    // Какой именно уходит в видео — решает общее правило selectScenarioVariantForVideo
+    // (selectedVariantId → accepted → первый по variantIndex), а не «первый accepted».
     const scenario = await prisma.scenario.findUnique({
       where: { id: sc.id },
       include: {
@@ -1032,23 +1052,28 @@ export async function executeVideoNode(
       ? (await prisma.app.findUnique({ where: { id: scenario.appId }, select: { language: true } }))?.language
       : null
 
-    if (scenario.variants.length === 0) {
+    const variantChoice = selectScenarioVariantForVideo(scenario.variants, scenario.selectedVariantId)
+    if (!variantChoice) {
       launchErrors.push(`У сценария ${sc.id} нет вариантов для генерации видео`)
       continue
     }
 
-    // Auto-accept first variant if none is accepted (pipeline automation)
-    const hasAccepted = scenario.variants.some(v => v.status === 'accepted')
-    if (!hasAccepted) {
-      const firstVariant = scenario.variants[0]!
+    // Авто-акцепт только для полностью автономного прогона (source='fallback'):
+    // если выбор уже сделан оператором или критиком, переписывать его нельзя.
+    if (variantChoice.needsAutoAccept) {
       await prisma.scenarioVariant.update({
-        where: { id: firstVariant.id },
+        where: { id: variantChoice.variant.id },
         data: { status: 'accepted' as never },
       })
       await prisma.scenario.update({
         where: { id: sc.id },
-        data: { selectedVariantId: firstVariant.id },
+        data: { selectedVariantId: variantChoice.variant.id },
       })
+    }
+    if (variantChoice.ignoredSelectedReason) {
+      await logAgent('video-node', 'warn',
+        `Сценарий ${sc.id}: ${describeVariantSelection(variantChoice)}`,
+      ).catch(() => {})
     }
 
     // Map UI field names to Prisma field names
@@ -1062,8 +1087,9 @@ export async function executeVideoNode(
     // сцен и их длительности в storyPlan. video-pipeline в runtime всё равно берёт
     // их оттуда, так что если не синхронизировать - UI показывает одно, а фактически
     // создаётся видео с другой структурой. Синхронизируем при записи Video.
-    const acceptedVariant = scenario.variants.find(v => v.status === 'accepted') ?? scenario.variants[0]!
-    const storyPlan = acceptedVariant.storyPlan as {
+    // Берём storyPlan ровно того варианта, который уйдёт в видео (см. variantChoice),
+    // а не «первого accepted»: иначе UI показал бы структуру чужого варианта.
+    const storyPlan = variantChoice.variant.storyPlan as {
       scenes?: Array<{ duration?: string }>
       voiceoverPlan?: { enabled?: boolean; lines?: unknown[] }
     } | null
@@ -1121,23 +1147,38 @@ export async function executeVideoNode(
     const imgAccess = accessResults.get(resolvedImageModelId)
     const vidAccess = accessResults.get(resolvedVideoModelId)
 
-    if (imgAccess && imgAccess.status !== 'available') {
+    // Валим запуск только на однозначных вердиктах (нет ключа / доступ закрыт).
+    // probe_error — сбой самой проверки, а не приговор модели: из-за сетевого
+    // сбоя терять прогон нельзя, реальный submit вернёт внятную ошибку сам.
+    if (imgAccess && isFalAccessBlocking(imgAccess.status)) {
       throw new Error(
         `Модель изображений "${imgModelCheck.name}" (${resolvedImageModelId}) недоступна: ${imgAccess.reason}. `
         + `Статус: ${imgAccess.status}. Проверьте план/workspace вашего аккаунта fal.ai.`,
       )
     }
-    if (vidAccess && vidAccess.status !== 'available') {
+    if (imgAccess && isFalProbeInconclusive(imgAccess.status)) {
+      await logAgent('video-node', 'warn',
+        `Preflight модели изображений "${imgModelCheck.name}" (${resolvedImageModelId}) не дал вердикта: `
+        + `${imgAccess.reason} (статус ${imgAccess.status}). Продолжаем — доступ проверит сам submit.`,
+      ).catch(() => {})
+    }
+    if (vidAccess && isFalAccessBlocking(vidAccess.status)) {
       throw new Error(
         `Модель видео "${vidModelCheck.name}" (${resolvedVideoModelId}) недоступна: ${vidAccess.reason}. `
         + `Статус: ${vidAccess.status}. Проверьте план/workspace вашего аккаунта fal.ai.`,
       )
     }
+    if (vidAccess && isFalProbeInconclusive(vidAccess.status)) {
+      await logAgent('video-node', 'warn',
+        `Preflight модели видео "${vidModelCheck.name}" (${resolvedVideoModelId}) не дал вердикта: `
+        + `${vidAccess.reason} (статус ${vidAccess.status}). Продолжаем — доступ проверит сам submit.`,
+      ).catch(() => {})
+    }
 
     const video = await prisma.video.create({
       data: {
         scenarioId: sc.id,
-        variantId: acceptedVariant.id,
+        variantId: variantChoice.variant.id,
         applicationId: scenario.appId,
         format: prismaFormat as never,
         imageModelId: resolvedImageModelId,
@@ -1521,8 +1562,11 @@ export async function executeUploadNode(
     },
     include: {
       scenario: {
+        // Грузим все варианты: подпись к публикации должна браться из того же
+        // варианта, из которого собран ролик (Video.variantId), а не из «первого
+        // accepted» — при выборе оператора это разные варианты.
         include: {
-          variants: { where: { status: 'accepted' }, take: 1 },
+          variants: { orderBy: { variantIndex: 'asc' as const } },
         },
       },
     },
@@ -1576,7 +1620,15 @@ export async function executeUploadNode(
   for (const video of completedVideos) {
     for (const accountId of target.accountIds) {
       throwIfAborted(signal)
-      const variant = video.scenario?.variants?.[0]
+      // Вариант ролика: сначала жёсткая привязка Video.variantId (что реально
+      // сняли), затем общее правило выбора — для legacy-видео без variantId.
+      const variant = (video.variantId
+        ? video.scenario?.variants?.find(v => v.id === video.variantId)
+        : undefined)
+        ?? selectScenarioVariantForVideo(
+          video.scenario?.variants ?? [],
+          video.scenario?.selectedVariantId,
+        )?.variant
 
       // Caption substitution: если есть approved+fitsLimits Caption для (videoId, accountPlatform) —
       // подменяем placeholder title/description/hashtags на её значения. Иначе fallback

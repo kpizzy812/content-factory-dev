@@ -151,12 +151,13 @@ export function normalizeReplicatePrediction(
   prediction: RawReplicatePrediction,
   fallbackModel = "unknown",
 ): NormalizedMediaPrediction {
+  const model = prediction.model ?? fallbackModel
   return {
     externalId: prediction.id,
     provider: "replicate",
-    model: prediction.model ?? fallbackModel,
+    model,
     status: normalizeStatus(prediction.status),
-    outputUrl: extractOutputUrl(prediction.output),
+    outputUrl: extractOutputUrl(prediction.output, { id: prediction.id, model }),
     error: normalizeError(prediction.error),
     createdAt: parseDate(prediction.created_at),
     startedAt: parseDate(prediction.started_at),
@@ -184,10 +185,34 @@ function normalizeStatus(status: string): MediaPredictionStatus {
   throw new Error(`Unsupported Replicate prediction status: ${status}`)
 }
 
-function extractOutputUrl(output: unknown): string | null {
+/**
+ * Инвариант разбора выхода: у prediction один результат, и мы забираем первый.
+ *
+ * lip-sync возвращает одну ссылку, но модели изображений возвращают массив, и
+ * при `num_images > 1` остальные элементы теряются. Наш контракт — одна
+ * картинка на сцену (`count: 1` в маппере входа), поэтому массив длиннее
+ * одного означает расхождение маппера и модели, а не нормальный режим.
+ *
+ * Почему лог, а не исключение: `normalizeReplicatePrediction` вызывается из
+ * обработчика вебхука. Бросок здесь превратил бы оплаченный успешный
+ * prediction в запись, которую никто не может довести до конца, — повтор
+ * вебхука упал бы так же, и recovery тоже. Дешевле взять первый выход, а
+ * расхождение сделать заметным: полный список остаётся в снапшоте `raw`.
+ */
+function extractOutputUrl(
+  output: unknown,
+  source: { id: string; model: string },
+): string | null {
   if (typeof output === "string") return output
   if (Array.isArray(output)) {
-    return output.find((value): value is string => typeof value === "string") ?? null
+    const urls = output.filter((value): value is string => typeof value === "string")
+    if (urls.length > 1) {
+      console.warn(
+        `[replicate-client] prediction ${source.id} (${source.model}) вернул ${urls.length} выходов, `
+        + "используется первый; остальные игнорируются — проверьте маппер входа",
+      )
+    }
+    return urls[0] ?? null
   }
   if (!output || typeof output !== "object") return null
 

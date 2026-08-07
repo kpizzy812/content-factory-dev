@@ -17,11 +17,16 @@ export default defineEventHandler(async (event) => {
   const perPage = Math.min(100, Math.max(1, Number(query.perPage) || 20))
   const skip = (page - 1) * perPage
 
-  // Сортировка
-  const orderBy = toOrderBy(
-    parseSort(query, { allowed: SORT_FIELDS, defaultField: 'createdAt' }),
-    ['scheduledAt', 'lastAttemptAt'],
-  )
+  // Сортировка. Вторым ключом всегда идёт id: у status, scheduledAt и
+  // lastAttemptAt значения повторяются (а у последних двух ещё и пустые),
+  // и без уникального ключа порядок внутри группы равных не определён —
+  // Postgres волен вернуть его по-разному на каждой странице, из-за чего
+  // постраничный обход дублирует одни строки и теряет другие.
+  const sort = parseSort(query, { allowed: SORT_FIELDS, defaultField: 'createdAt' })
+  const orderBy: Record<string, unknown>[] = [
+    toOrderBy(sort, ['scheduledAt', 'lastAttemptAt']),
+    { id: sort.direction },
+  ]
 
   // Фильтры
   const where: Record<string, unknown> = {}

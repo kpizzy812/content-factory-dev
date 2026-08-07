@@ -12,6 +12,7 @@
  */
 import type { VisualStyleStructured } from '~~/shared/types/scenario'
 import type { StoryArcTemplate, ProtagonistProfile, SceneCard, ContinuityBible, SubtitlePlacement } from '~~/shared/types/story'
+import type { ScenarioFunnel } from './scenario-pipeline'
 import { callAnthropicAgent } from './call-anthropic'
 
 const SCRIPTER_MAX_TOKENS = 8000
@@ -39,6 +40,13 @@ export interface SceneScripterInput {
   referenceImageDescriptions?: string[]
   platform?: string
   reworkReason?: string | null
+  /**
+   * Активная воронка юнита. Если задана — конверсия идёт через кодовое слово в
+   * директ, а не через установку приложения: меняются требования к хуку и CTA.
+   * Тип общий с trend-driven генератором, чтобы формат воронки был один на оба
+   * пути (docs/PROJECT_CONTEXT.md §9).
+   */
+  funnel?: ScenarioFunnel | null
 }
 
 export interface SceneScripterOutput {
@@ -114,6 +122,14 @@ function normalizeScene(raw: unknown, fallbackOrder: number, fallbackVisual: str
 }
 
 export async function runSceneScripter(input: SceneScripterInput): Promise<SceneScripterOutput> {
+  // Воронка с кодовым словом и продвижение приложения требуют разного: в первом
+  // случае зритель ничего не устанавливает — он отправляет слово в директ, и
+  // навязчивое имя бренда только мешает. Правила те же, что в trend-driven
+  // генераторе (buildFunnelBrief в scenario-pipeline), чтобы оба пути звали к
+  // одному действию.
+  const funnelKeyword = input.funnel?.keyword?.trim()
+  const funnelMagnet = input.funnel?.leadMagnetTitle?.trim()
+
   const characterBlock = input.character
     ? `\n## Персонаж
 - Имя: ${input.character.name}
@@ -127,19 +143,49 @@ ${input.character.aiVisualDescriptions?.length ? `- AI-описания реф-�
     ? `\n## Описания реф-изображений (AI vision)\n${input.referenceImageDescriptions.slice(0, 5).map(d => `- ${d}`).join('\n')}`
     : ''
 
+  // До зрителя доходят не hook/cta, а scene-level subtitleCopy/voiceoverLine —
+  // поэтому кодовое слово требуем именно там, иначе лид не дойдёт до воронки.
+  const funnelBlock = funnelKeyword
+    ? `\n## [FUNNEL CTA — ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА]
+Конверсия идёт через кодовое слово, а не через установку продукта. Зритель
+ничего не скачивает: он отправляет слово и получает материал в ответ.
+
+1. subtitleCopy И voiceoverLine ПОСЛЕДНЕЙ сцены обязаны просить отправить кодовое слово "${funnelKeyword}"
+   — слово пишется ровно так: ${funnelKeyword} (заглавными, без склонения и перевода)
+   — рядом обязателен глагол отправки: напиши / отправь / write / send
+   — куда отправить: в директ или в комментарии
+${funnelMagnet ? `   — что зритель получит взамен: ${funnelMagnet}\n` : ''}2. Промежуточные сцены НЕ рекламируют продукт: они дают пользу по теме. Имя продукта в них не нужно.
+3. Финальная сцена звучит как предложение друга поделиться полезным файлом, а не как рекламный баннер.
+
+❌ "Скачай приложение и начни сегодня"  (продукт не устанавливают)
+✅ "Напиши ${funnelKeyword} в директ — пришлю разбор"`
+    : ''
+
   const reworkBlock = input.reworkReason
     ? `\n## Причина переработки (от оператора)\n${input.reworkReason}\n\nУчитывай это при переработке и предлагай конкретные изменения.`
     : ''
 
   const platform = input.platform ?? 'tiktok'
 
+  const hookRule = funnelKeyword
+    ? 'Hook открывается болью зрителя или неожиданным фактом и цепляет за 1-3 секунды (≤15 слов). Имя приложения называть НЕ нужно.'
+    : 'Hook ОБЯЗАТЕЛЬНО упоминает имя приложения и цепляет за 1-3 секунды (≤15 слов).'
+
+  const ctaRule = funnelKeyword
+    ? `CTA ОБЯЗАТЕЛЬНО просит отправить кодовое слово "${funnelKeyword}" в директ или в комментарии: `
+      + `глагол отправки (напиши / отправь / write / send) + слово ровно как "${funnelKeyword}" `
+      + `(заглавными, без склонения и перевода).`
+      + `${funnelMagnet ? ` Взамен зритель получает: ${funnelMagnet}.` : ''}`
+      + ' Не проси скачивать или устанавливать приложение — зритель ничего не устанавливает.'
+    : 'CTA — глагол + имя приложения (1-2 предложения).'
+
   const systemPrompt = `Ты — сценарист коротких видео (15-30 сек) для AI-генерации (TikTok/Reels/Shorts).
 На основе визуального prompt из композитора сцены, контекста приложения и (опционально) реф-фото персонажа,
 собери текстовый сценарий с МИНИМУМ 2 scene cards.
 
 Жёсткие требования:
-1. Hook ОБЯЗАТЕЛЬНО упоминает имя приложения и цепляет за 1-3 секунды (≤15 слов).
-2. CTA — глагол + имя приложения (1-2 предложения).
+1. ${hookRule}
+2. ${ctaRule}
 3. Никаких эмодзи. Никаких хештегов в тексте.
 4. Текстовые поля video (hook/body/cta/fullScript) на русском, если запрос на русском — иначе сохраняй язык.
 5. visualPromptGuidance в каждой сцене на английском (для FLUX/Kling).
@@ -164,6 +210,7 @@ ${input.app.keywords?.length ? `- Ключи: ${input.app.keywords.slice(0, 8).j
 ${characterBlock}
 ${input.sceneName ? `\n## Имя сцены\n${input.sceneName}` : ''}
 ${refImagesBlock}
+${funnelBlock}
 ${reworkBlock}
 
 ## Платформа
@@ -172,9 +219,9 @@ ${platform}
 ## Формат ответа (JSON)
 {
   "title": "Название варианта (1 предложение)",
-  "hook": "Хук — упоминает приложение, ≤15 слов",
+  "hook": "${funnelKeyword ? 'Хук — боль или неожиданный факт, ≤15 слов' : 'Хук — упоминает приложение, ≤15 слов'}",
   "body": "Основная часть — 3-6 предложений",
-  "cta": "Призыв к действию — глагол + имя приложения",
+  "cta": "${funnelKeyword ? `Призыв к действию — глагол отправки + кодовое слово ${funnelKeyword} в директ` : 'Призыв к действию — глагол + имя приложения'}",
   "fullScript": "Полный скрипт для озвучки",
   "visualStyleText": "Краткое RU описание визуального стиля",
   "visualStyleStructured": null,

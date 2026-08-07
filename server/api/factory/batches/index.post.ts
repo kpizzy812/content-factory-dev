@@ -1,4 +1,5 @@
 import type { Prisma } from '../../../../app/generated/prisma/client'
+import { computePublishingCapacity, nextRecoveryAt } from '../../../utils/accounts/publishing-capacity'
 import { enqueueRun } from '../../../utils/pipeline-runtime'
 import { validatePipeline } from '../../../utils/pipeline-validator'
 import {
@@ -135,7 +136,16 @@ export default defineEventHandler(async (event) => {
       ...(requestedAccountIds.length > 0 ? { id: { in: requestedAccountIds } } : {}),
       ...(groupId ? { groups: { some: { groupId } } } : {}),
     },
-    select: { id: true, platform: true, lastPostedAt: true },
+    // Квоту тянем вместе с аккаунтом: планировать партию надо по фактическому
+    // `content_publishing_limit`, а не по одному числу на всех (PROJECT_CONTEXT §3).
+    select: {
+      id: true,
+      platform: true,
+      lastPostedAt: true,
+      publishingQuotaTotal: true,
+      publishingQuotaUsage: true,
+      publishingQuotaAt: true,
+    },
     orderBy: [{ lastPostedAt: 'asc' }, { id: 'asc' }],
   })
 
@@ -187,13 +197,36 @@ export default defineEventHandler(async (event) => {
       platform: account.platform as FactoryPlatform,
       currentUsage: usage.get(account.id) ?? 0,
       lastPostedAt: account.lastPostedAt,
+      quotaTotal: account.publishingQuotaTotal,
+      quotaUsage: account.publishingQuotaUsage,
+      quotaCheckedAt: account.publishingQuotaAt,
     })),
   })
+  // Фолбэк — это «мы не знаем настоящий лимит», и молчать об этом нельзя:
+  // партия могла разложиться по выдуманному числу слотов.
+  if (plan.fallbacks.length > 0) {
+    console.warn(
+      '[factory-batch] квота площадки неизвестна, планируем по фолбэку',
+      { appId, fallbackDailyLimit: dailyLimitPerAccount, accounts: plan.fallbacks },
+    )
+  }
   if (!plan.ok) {
+    // Нехватка слотов — это «нельзя сейчас», а не «нельзя никогда»: отдаём
+    // оператору момент, к которому по прогнозу освободится нужное число слотов.
+    const missing = plan.shortages.reduce(
+      (max, item) => Math.max(max, item.requestedSlots - item.availableSlots),
+      0,
+    )
+    const snapshot = await computePublishingCapacity({ appId })
     throw createError({
       statusCode: 409,
       message: 'Недостаточно аккаунтов для выпуска партии за одни сутки',
-      data: { capacity: plan.capacity, shortages: plan.shortages },
+      data: {
+        capacity: plan.capacity,
+        shortages: plan.shortages,
+        limits: plan.limits,
+        retryAt: nextRecoveryAt(snapshot.recovery, missing) ?? snapshot.fullyRecoveredAt,
+      },
     })
   }
 

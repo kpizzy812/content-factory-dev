@@ -783,6 +783,9 @@ export const SocialAccountScalarFieldEnum = {
   warmupStatus: 'warmupStatus',
   lastWarmupAt: 'lastWarmupAt',
   totalPostsPublished: 'totalPostsPublished',
+  publishingQuotaUsage: 'publishingQuotaUsage',
+  publishingQuotaTotal: 'publishingQuotaTotal',
+  publishingQuotaAt: 'publishingQuotaAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

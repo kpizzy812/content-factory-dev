@@ -1,7 +1,11 @@
 /**
  * POST /api/uploads/:id/retry
- * Повторить загрузку (для failed или blocked_by_env).
+ * Повторить загрузку: failed / blocked_by_env, а также залипшую в pending или
+ * uploading (процесс перезапустили посреди fire-and-forget прогона — автоматика
+ * такие записи не подбирает, см. upload-rerun-guard).
  */
+import { planManualUploadRetry } from "~~/server/utils/upload-rerun-guard"
+
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canRunAgent'], moduleSlug: 'social-upload' })
 
@@ -15,19 +19,16 @@ export default defineEventHandler(async (event) => {
 
   const upload = await prisma.upload.findUnique({
     where: { id },
-    select: { id: true, status: true },
+    select: { id: true, status: true, updatedAt: true },
   })
 
   if (!upload) {
     throw createError({ statusCode: 404, message: "Загрузка не найдена" })
   }
 
-  const retryableStatuses = ["failed", "blocked_by_env"]
-  if (!retryableStatuses.includes(upload.status)) {
-    throw createError({
-      statusCode: 400,
-      message: `Повторить можно только загрузку со статусом ${retryableStatuses.join("/")}. Текущий: ${upload.status}`,
-    })
+  const decision = planManualUploadRetry(upload)
+  if (!decision.allowed) {
+    throw createError({ statusCode: 400, message: decision.message })
   }
 
   // Проверить env guard перед retry
@@ -38,20 +39,40 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Сбросить статус и ошибку
-  await prisma.upload.update({
-    where: { id },
+  // Сбросить статус и ошибку. updateMany с проверкой прежнего статуса —
+  // защита от гонки с автоповтором планировщика: кто первый забрал запись,
+  // тот и запускает пайплайн, второй получает 409 вместо второй заливки.
+  //
+  // platformPostId/platformPostUrl намеренно НЕ обнуляем: для tiktok и instagram
+  // это якорь идемпотентности (адаптеры по нему делают short-circuit вместо
+  // повторной публикации). Обнулять его — гарантированно получить второй пост.
+  const claimed = await prisma.upload.updateMany({
+    where: { id, status: upload.status as never },
     data: {
       status: "pending" as never,
       errorMessage: null,
-      platformPostId: null,
-      platformPostUrl: null,
       blockedByEnv: false,
     },
   })
 
-  // Fire-and-forget: запустить pipeline
-  runUploadPipeline(id).catch(() => {})
+  if (claimed.count === 0) {
+    throw createError({
+      statusCode: 409,
+      message: "Загрузку уже перезапустил кто-то другой (планировщик или другой оператор).",
+    })
+  }
+
+  if (decision.stuck) {
+    await logAgent(
+      "scheduler",
+      "warn",
+      `Upload #${id}: ручной перезапуск залипшей загрузки (статус был ${upload.status})`,
+    ).catch(() => {})
+  }
+
+  // Fire-and-forget: запустить pipeline. trigger=manual — за кнопкой стоит
+  // человек, он берёт на себя риск дубля на площадках без resume.
+  runUploadPipeline(id, { trigger: "manual" }).catch(() => {})
 
   return { data: { id, status: "pending", retrying: true } }
 })

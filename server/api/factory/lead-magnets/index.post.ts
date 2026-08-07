@@ -1,6 +1,7 @@
 import type { Prisma } from '../../../../app/generated/prisma/client'
-
-const VALID_STATUSES = new Set(['draft', 'approved', 'archived'])
+// Статусы держим в одном месте с таблицей переходов: иначе создание и PATCH
+// разъезжаются, и «утверждённым» становится материал, который так назвали.
+import { isLeadMagnetStatus } from '../../../utils/lead-magnet-library'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<Record<string, unknown>>(event)
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
   if (body.content == null || !['string', 'object'].includes(typeof body.content)) {
     throw createError({ statusCode: 400, message: 'content лид-магнита обязателен' })
   }
-  const status = typeof body.status === 'string' && VALID_STATUSES.has(body.status) ? body.status : 'draft'
+  const status = isLeadMagnetStatus(body.status) ? body.status : 'draft'
   if (body.warmupMessages !== undefined && !Array.isArray(body.warmupMessages)) {
     throw createError({ statusCode: 400, message: 'warmupMessages должен быть массивом сообщений' })
   }

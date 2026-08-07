@@ -18,12 +18,14 @@ import { getModel } from "./video-models"
 import type { StoryPlan } from "~~/shared/types/story"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildStoryVideoPlan } from "./story-video-planner"
+import { selectScenarioVariantForVideo, describeVariantSelection } from "./scenario-variant-selection"
 
 import {
   type StepKey,
   STEP_ORDER,
   acquireLock,
   releaseLock,
+  forceReleaseLock,
   updateVideoStatus,
   ensureStep,
   updateStep,
@@ -50,6 +52,139 @@ import { StorageKeys } from "./storage/keys"
 import { uploadLocalAsset } from "./storage/persist-asset"
 import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
 
+import { isFalAccessBlocking, isFalProbeInconclusive } from "./fal-access-gate"
+import { cancelReplicatePredictionsForVideo } from "./replicate/cancel"
+import { getAssetsDirFor } from "./storage-paths"
+import {
+  assetTypesForSteps,
+  createAssetFileRemovalDeps,
+  removeAssetFiles,
+  STEP_RERUN_RESET_PATCH,
+} from "./video-pipeline-reset"
+import {
+  accumulateStepCost,
+  computeClipActualCost,
+  computeImageActualCost,
+  stepAttemptForLedger,
+} from "./video-cost-actual"
+import type { CostService } from "./balance/cost-attribution"
+import {
+  didLipSyncProduceNewClips,
+  generatedUnitsFromAssetDelta,
+  shouldApplyVoiceoverClipPaths,
+  snapshotInvalidationPatch,
+  stepsInvalidatedByFreshClips,
+  stepsToRerunFrom,
+} from "./video-pipeline-run-policy"
+
+/**
+ * Номер попытки шага на текущий момент (0 — шаг ещё ни разу не стартовал).
+ * Нужен, чтобы отличить «шаг отработал и заплатил» от «шаг вернул готовое с
+ * прошлого прогона»: attemptCount растёт только в первом случае.
+ */
+async function loadStepAttempt(videoId: number, stepKey: StepKey): Promise<number> {
+  const step = await prisma.videoGenerationStep.findFirst({
+    where: { videoId, stepKey: stepKey as never },
+    select: { attemptCount: true },
+  })
+  return step?.attemptCount ?? 0
+}
+
+/**
+ * Записывает деньги, потраченные шагом в ЭТОМ прогоне: копит actualCost шага и
+ * кладёт строку в ledger с номером попытки (разные попытки — разные списания).
+ */
+async function chargeStep(
+  videoId: number,
+  stepKey: StepKey,
+  service: CostService,
+  modelId: string | null,
+  runCost: number,
+): Promise<void> {
+  const step = await prisma.videoGenerationStep.findFirst({
+    where: { videoId, stepKey: stepKey as never },
+  })
+  if (!step) return
+
+  // accumulate, а не перезапись: прогон, который ничего не генерировал, не
+  // должен стирать из отчёта уже потраченное на предыдущей попытке.
+  await updateStep(step.id, { actualCost: accumulateStepCost(step.actualCost, runCost) })
+  await logStepCost(
+    step.id, stepKey, service, runCost, videoId, modelId,
+    { attempt: stepAttemptForLedger(step.attemptCount) },
+  )
+}
+
+/** Сколько ассетов данного типа уже лежит у ролика — база для дельты «сгенерировано за прогон». */
+async function countVideoAssets(videoId: number, type: "image" | "clip"): Promise<number> {
+  return prisma.videoAsset.count({ where: { videoId, type: type as never } })
+}
+
+/**
+ * Списывает то, что упавший шаг успел сгенерировать до сбоя.
+ *
+ * Число единиц восстанавливаем по приросту VideoAsset: сам шаг при исключении
+ * generatedCount не возвращает, и раньше деньги упавшей попытки не попадали в
+ * ledger вообще — ни на этом прогоне, ни на следующем (resume считает только
+ * собственную дельту), из-за чего burn-rate занижался на каждом частичном сбое.
+ *
+ * Ничего не бросает: причина сбоя шага важнее, чем учёт, и подменять исходное
+ * исключение ошибкой БД нельзя.
+ */
+async function chargePartialStepOnFailure(
+  videoId: number,
+  assetType: "image" | "clip",
+  assetsBefore: number,
+  charge: (generatedCount: number) => Promise<void>,
+): Promise<void> {
+  try {
+    const generated = generatedUnitsFromAssetDelta(assetsBefore, await countVideoAssets(videoId, assetType))
+    if (generated > 0) await charge(generated)
+  } catch { /* учёт не должен подменять причину падения шага */ }
+}
+
+/**
+ * Обесценивает кэш шагов, чей результат посчитан от файлов клипов, после того как
+ * lip-sync подменил эти файлы в текущем прогоне.
+ *
+ * Зачем: снапшот озвучки хранит не только clipPaths, но и voiceover_mix — сведённый
+ * по таймлайну ТЕХ клипов (политика extend_scene удлиняет клип и сдвигает старты
+ * всех последующих реплик). Отказаться от одних clipPaths мало: микс из кэша
+ * ложился на свежие lip-sync клипы другой длительности, и звук уезжал от картинки.
+ *
+ * Сброс — тем же патчем, что и у rerunVideoStep, но БЕЗ сноса ассетов: реплики
+ * сцен (VideoAsset type=voiceover) шаг переиспользует по ветке existingAsset и
+ * платит за TTS ноль, а микс он перезапишет по тому же пути и в тот же ассет.
+ * Пересобираются ровно тайминги и микс — то, что и обесценили новые клипы.
+ *
+ * Трогаем только completed-шаги: ранний возврат кэша срабатывает лишь на них,
+ * а сбрасывать в pending живой/упавший шаг незачем.
+ */
+async function invalidateClipDerivedStepCaches(
+  videoId: number,
+  lipSyncProducedNewClips: boolean,
+): Promise<void> {
+  const steps = stepsInvalidatedByFreshClips(lipSyncProducedNewClips)
+  if (steps.length === 0) return
+
+  const reset = await prisma.videoGenerationStep.updateMany({
+    where: {
+      videoId,
+      stepKey: { in: steps as never[] },
+      status: "completed" as never,
+    },
+    data: snapshotInvalidationPatch(STEP_RERUN_RESET_PATCH) as never,
+  })
+
+  if (reset.count > 0) {
+    await logAgent('video-pipeline', 'info',
+      `Video ${videoId}: lip-sync выдал новые клипы — кэш шагов ${steps.join(', ')} сброшен `
+      + `(${reset.count}), микс и тайминги озвучки будут пересобраны на свежих клипах`,
+      { videoId },
+    ).catch(() => {})
+  }
+}
+
 /**
  * Главная оркестрация генерации видео.
  * Запускается fire-and-forget, обновляет статусы в БД.
@@ -68,8 +203,11 @@ export async function runVideoPipeline(
   options?: { signal?: AbortSignal },
 ): Promise<void> {
   const signal = options?.signal
-  const locked = await acquireLock(videoId)
-  if (!locked) {
+  // Токен владения держим в локальной переменной прогона: глобальная карта по
+  // videoId приводила к тому, что finally отменённого прогона снимал блокировку
+  // уже с нового запуска (и по ролику крутились два пайплайна сразу).
+  const lockHandle = await acquireLock(videoId)
+  if (!lockHandle) {
     throw new Error(`Pipeline для видео ${videoId} уже запущен`)
   }
 
@@ -77,16 +215,17 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #1: до загрузки данных ──
     throwIfAborted(signal)
 
-    // 1. Загрузить Video + Scenario + принятый вариант
+    // 1. Загрузить Video + Scenario + ВСЕ варианты.
+    // Грузим все, а не только accepted: выбор варианта делает общее правило
+    // selectScenarioVariantForVideo (selectedVariantId → accepted → первый по
+    // variantIndex). Раньше здесь брался accepted, а при его отсутствии первый
+    // по variantIndex с принудительным акцептом — и выбор оператора терялся.
     const video = await prisma.video.findUnique({
       where: { id: videoId },
       include: {
         scenario: {
           include: {
-            variants: {
-              where: { status: "accepted" as never },
-              take: 1,
-            },
+            variants: { orderBy: { variantIndex: "asc" } },
           },
         },
       },
@@ -97,24 +236,29 @@ export async function runVideoPipeline(
     }
 
     const { scenario } = video
-    let variant = scenario.variants[0]
+    const variantChoice = selectScenarioVariantForVideo(scenario.variants, scenario.selectedVariantId)
+    if (!variantChoice) {
+      throw new Error(`У сценария ${scenario.id} нет вариантов для генерации видео`)
+    }
+    const variant = variantChoice.variant
 
-    // Fallback: if no accepted variant, try any variant
-    if (!variant) {
-      const anyVariant = await prisma.scenarioVariant.findFirst({
-        where: { scenarioId: scenario.id },
-        orderBy: { variantIndex: "asc" },
-      })
-
-      if (!anyVariant) {
-        throw new Error(`У сценария ${scenario.id} нет вариантов для генерации видео`)
-      }
-
+    // Авто-акцепт только когда вариант взят как первый по порядку (автономный
+    // прогон без человека). Готовый выбор оператора или критика не переписываем.
+    if (variantChoice.needsAutoAccept) {
       await prisma.scenarioVariant.update({
-        where: { id: anyVariant.id },
+        where: { id: variant.id },
         data: { status: "accepted" as never },
       })
-      variant = anyVariant
+      await prisma.scenario.update({
+        where: { id: scenario.id },
+        data: { selectedVariantId: variant.id },
+      })
+    }
+    if (variantChoice.ignoredSelectedReason) {
+      await logAgent('video-pipeline', 'warn',
+        `Видео ${videoId}: ${describeVariantSelection(variantChoice)}`,
+        { videoId },
+      ).catch(() => {})
     }
 
     // Model strategy — применяется ДО валидации, может переопределить дефолтные ID.
@@ -197,23 +341,48 @@ export async function runVideoPipeline(
     const vidAccess = needVideoProbe ? accessResults?.get(effectiveVideoModelId) : null
     const ttsAccess = needTtsProbe ? accessResults?.get(effectiveTtsModelId!) : null
 
-    if (imgAccess && imgAccess.status !== "available") {
+    // Валим запуск только на однозначных вердиктах (нет ключа / доступ закрыт).
+    // probe_error — сбой самой проверки, а не приговор модели: из-за сетевого
+    // сбоя терять прогон нельзя, реальный submit вернёт внятную ошибку сам.
+    // Семантика идентична preflight'у в pipeline-executors.ts (общий fal-access-gate).
+    if (imgAccess && isFalAccessBlocking(imgAccess.status)) {
       throw new Error(
         `Нет доступа к модели изображений "${imgModel.name}" (${effectiveImageModelId}): ${imgAccess.reason}. `
         + `Статус: ${imgAccess.status}. Проверьте план/workspace вашего аккаунта fal.ai.`,
       )
     }
-    if (vidAccess && vidAccess.status !== "available") {
+    if (imgAccess && isFalProbeInconclusive(imgAccess.status)) {
+      await logAgent('video-pipeline', 'warn',
+        `Preflight модели изображений "${imgModel.name}" (${effectiveImageModelId}) не дал вердикта: `
+        + `${imgAccess.reason} (статус ${imgAccess.status}). Продолжаем — доступ проверит сам submit.`,
+        { videoId },
+      ).catch(() => {})
+    }
+    if (vidAccess && isFalAccessBlocking(vidAccess.status)) {
       throw new Error(
         `Нет доступа к модели видео "${vidModel.name}" (${effectiveVideoModelId}): ${vidAccess.reason}. `
         + `Статус: ${vidAccess.status}. Проверьте план/workspace вашего аккаунта fal.ai.`,
       )
     }
-    if (ttsAccess && ttsAccess.status !== "available") {
+    if (vidAccess && isFalProbeInconclusive(vidAccess.status)) {
+      await logAgent('video-pipeline', 'warn',
+        `Preflight модели видео "${vidModel.name}" (${effectiveVideoModelId}) не дал вердикта: `
+        + `${vidAccess.reason} (статус ${vidAccess.status}). Продолжаем — доступ проверит сам submit.`,
+        { videoId },
+      ).catch(() => {})
+    }
+    if (ttsAccess && isFalAccessBlocking(ttsAccess.status)) {
       throw new Error(
         `Нет доступа к TTS модели "${effectiveTtsModelId}": ${ttsAccess.reason}. `
         + `Отключите voiceover или выберите другую модель.`,
       )
+    }
+    if (ttsAccess && isFalProbeInconclusive(ttsAccess.status)) {
+      await logAgent('video-pipeline', 'warn',
+        `Preflight TTS модели "${effectiveTtsModelId}" не дал вердикта: `
+        + `${ttsAccess.reason} (статус ${ttsAccess.status}). Продолжаем — доступ проверит сам submit.`,
+        { videoId },
+      ).catch(() => {})
     }
 
     // ── Build Story-Driven Video Plan ──
@@ -306,6 +475,12 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #3: до генерации промптов ──
     throwIfAborted(signal)
 
+    // Попытка шага ДО прогона: runner инкрементит attemptCount только когда
+    // реально идёт в провайдера, а при resume отдаёт готовый outputSnapshot.
+    // Разница «до/после» — единственный честный признак того, что этот прогон
+    // за шаг заплатил (для промптов и музыки счётчика сгенерированного нет).
+    const promptAttemptBefore = await loadStepAttempt(videoId, "prompt_generation")
+
     // 2. Генерация промптов (с полным story context)
     const prompts = await runPromptGeneration(videoId, variant, videoPlan, {
       favoritePrompts: enrichmentContext.favoritePrompts,
@@ -333,12 +508,9 @@ export async function runVideoPipeline(
         await prisma.video.update({ where: { id: videoId }, data: videoUpdate as any })
       }
     }
-    // Actual cost: prompt generation
-    const promptCost = prompts.scenePrompts ? 0.02 : 0.01
-    const promptStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "prompt_generation" as never } })
-    if (promptStep) {
-      await updateStep(promptStep.id, { actualCost: promptCost })
-      await logStepCost(promptStep.id, "prompt_generation", "anthropic", promptCost, videoId)
+    // Actual cost: prompt generation — только если LLM реально дёргали в этом прогоне.
+    if ((await loadStepAttempt(videoId, "prompt_generation")) > promptAttemptBefore) {
+      await chargeStep(videoId, "prompt_generation", "anthropic", null, prompts.scenePrompts ? 0.02 : 0.01)
     }
 
     // 3. Генерация изображений — story-driven может пропустить этот шаг
@@ -349,57 +521,76 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #4: до генерации изображений ──
     throwIfAborted(signal)
 
-    const imgResult = await runImageGeneration(
-      videoId, prompts, video.format, effectiveImageCount,
-      effectiveImageModelId, video.renderQuality, videoPlan,
-    )
-    // Actual cost: images
-    if (imgResult.imagePaths.length > 0) {
-      const isLowQ = video.renderQuality === "low"
-      const imgW = video.format === "portrait" ? (isLowQ ? 720 : 1080) : (isLowQ ? 1280 : 1920)
-      const imgH = video.format === "portrait" ? (isLowQ ? 1280 : 1920) : (isLowQ ? 720 : 1080)
-      const imgMp = Math.ceil((imgW * imgH) / 1_000_000)
-      const imageActualCost = imgResult.imagePaths.length * imgMp * imgModel.pricing.base
-      const imgStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "image_generation" as never } })
-      if (imgStep) {
-        await updateStep(imgStep.id, { actualCost: imageActualCost })
-        await logStepCost(imgStep.id, "image_generation", "fal.ai", imageActualCost, videoId, effectiveImageModelId)
-      }
-    } else {
-      const imgStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "image_generation" as never } })
-      if (imgStep) await updateStep(imgStep.id, { actualCost: 0 })
-      // cost=0 → logStepCost сам skip
+    // Считаем ассеты ДО шага: если шаг упадёт на середине, только по их приросту
+    // и можно восстановить, сколько картинок провайдер уже выставил в счёт.
+    const imageAssetsBefore = await countVideoAssets(videoId, "image")
+    const chargeImages = async (generatedCount: number) => {
+      // Actual cost: images — платим за то, что сгенерировано В ЭТОМ прогоне.
+      // Картинки, поднятые с диска после resume, провайдеру повторно не оплачены.
+      await chargeStep(videoId, "image_generation", "fal.ai", effectiveImageModelId, computeImageActualCost({
+        generatedCount,
+        format: video.format,
+        renderQuality: video.renderQuality,
+        pricePerMegapixel: imgModel.pricing.base,
+      }))
     }
+
+    let imgResult: Awaited<ReturnType<typeof runImageGeneration>>
+    try {
+      imgResult = await runImageGeneration(
+        videoId, prompts, video.format, effectiveImageCount,
+        effectiveImageModelId, video.renderQuality, videoPlan,
+      )
+    } catch (stepError) {
+      // Упавшая попытка тоже оставляет свою строку в ledger — картинки,
+      // скачанные до сбоя, провайдер уже выставил в счёт.
+      await chargePartialStepOnFailure(videoId, "image", imageAssetsBefore, chargeImages)
+      throw stepError
+    }
+    await chargeImages(imgResult.generatedCount)
 
     // ── Cancel checkpoint #5: до генерации клипов ──
     throwIfAborted(signal)
 
     // 4. Генерация клипов — per-scene duration из videoPlan
-    const clipPaths = await runClipGeneration(
-      videoId, prompts, video.format, video.clipDuration,
-      effectiveVideoModelId, video.generateAudio, videoPlan,
-      variant.storyPlan as StoryPlan | null,
-    )
-    // Actual cost: clips (per-scene duration aware)
-    let clipActualCost = 0
-    if (videoPlan.mode !== 'legacy_simple') {
-      for (const scene of videoPlan.scenes) {
-        const pricePerSec = (video.generateAudio && vidModel.pricing.withAudio)
-          ? vidModel.pricing.withAudio
-          : vidModel.pricing.base
-        clipActualCost += scene.durationSec * pricePerSec
-      }
-    } else {
-      const pricePerSec = (video.generateAudio && vidModel.pricing.withAudio)
-        ? vidModel.pricing.withAudio
-        : vidModel.pricing.base
-      clipActualCost = clipPaths.length * video.clipDuration * pricePerSec
+    // Actual cost: clips — по числу реально сгенерированных клипов, а не по числу
+    // сцен: после resume часть клипов берётся с диска и повторно не оплачена.
+    const clipPricePerSec = (video.generateAudio && vidModel.pricing.withAudio)
+      ? vidModel.pricing.withAudio
+      : vidModel.pricing.base
+    const clipAssetsBefore = await countVideoAssets(videoId, "clip")
+    const chargeClips = async (generatedCount: number) => {
+      await chargeStep(videoId, "clip_generation", "fal.ai", effectiveVideoModelId, computeClipActualCost({
+        scenes: videoPlan.mode !== 'legacy_simple' ? videoPlan.scenes : [],
+        generatedCount,
+        pricePerSecond: clipPricePerSec,
+        fallbackDurationSec: video.clipDuration,
+      }))
     }
-    const clipStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "clip_generation" as never } })
-    if (clipStep) {
-      await updateStep(clipStep.id, { actualCost: clipActualCost })
-      await logStepCost(clipStep.id, "clip_generation", "fal.ai", clipActualCost, videoId, effectiveVideoModelId)
+
+    let clipResult: Awaited<ReturnType<typeof runClipGeneration>>
+    try {
+      clipResult = await runClipGeneration(
+        videoId, prompts, video.format, video.clipDuration,
+        effectiveVideoModelId, video.generateAudio, videoPlan,
+        variant.storyPlan as StoryPlan | null,
+      )
+    } catch (stepError) {
+      // Клипы — самый дорогой шаг: три скачанных Kling-клипа из упавшего прогона
+      // это ~$1, и терять их в отчёте нельзя.
+      await chargePartialStepOnFailure(videoId, "clip", clipAssetsBefore, chargeClips)
+      throw stepError
     }
+    const clipPaths = clipResult.clipPaths
+    await chargeClips(clipResult.generatedCount)
+
+    // Порядок нарезки клипов задаёт МОДЕЛЬ: runClipGeneration идёт по
+    // prompts.scenePrompts.scenes и нигде их не сортирует, поэтому clipPaths[i] —
+    // это клип сцены scenePrompts.scenes[i].order, а не сцены videoPlan.scenes[i].
+    // Прокидываем порядок явно во все шаги, которые сопоставляют сцены с клипами:
+    // чтение снапшота prompt_generation остаётся у них фолбэком для вызовов не из
+    // полного прогона, а снапшота может не быть вовсе.
+    const clipSceneOrders = prompts.scenePrompts?.scenes?.map(s => s.order)
 
     // 4b. Lip-sync (премиум) — заменяет клипы scene-by-scene на lip-synced, если фича включена.
     // Идёт между clip_generation и voiceover_generation, чтобы дальнейшие шаги работали с
@@ -408,10 +599,12 @@ export async function runVideoPipeline(
     throwIfAborted(signal)
 
     let effectiveClipPaths = clipPaths
+    const lipSyncAttemptBefore = await loadStepAttempt(videoId, "lip_sync_generation")
     const lipSyncResult = await runLipSyncStep({
       videoId,
       clipPaths,
       videoPlan,
+      clipSceneOrders,
       videoConfig: {
         lipSyncEnabled: video.lipSyncEnabled,
         lipSyncModelId: video.lipSyncModelId,
@@ -425,11 +618,27 @@ export async function runVideoPipeline(
     if (lipSyncResult.status === 'completed' && lipSyncResult.clipPaths.length > 0) {
       effectiveClipPaths = lipSyncResult.clipPaths
     }
+    // Появились ли у lip-sync НОВЫЕ файлы клипов — от этого зависит, можно ли
+    // доверять путям клипов из кэша озвучки. Считаем по факту (сколько сцен реально
+    // ушло в провайдер), а не по приросту attemptCount: шаг увеличивает счётчик и
+    // когда всё переиспользовал из снапшота, и по этому признаку оркестратор
+    // выбрасывал удлинённые (extend_scene) клипы, из-за чего звук уезжал от картинки.
+    // Прирост попытки остаётся фолбэком для снапшотов старого формата.
+    const lipSyncAttemptGrew = (await loadStepAttempt(videoId, "lip_sync_generation")) > lipSyncAttemptBefore
+    const lipSyncProducedNewClips = didLipSyncProduceNewClips(lipSyncResult, lipSyncAttemptGrew)
+
+    // Свежие файлы губ обесценивают кэш озвучки ЦЕЛИКОМ: её микс сведён по
+    // длительностям клипов прошлого прогона. Сбрасываем ДО вызова шага, иначе он
+    // вернёт снапшот с чужим таймлайном и в сборку уедет разъехавшийся звук.
+    if (video.voiceoverEnabled) {
+      await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips)
+    }
 
     // ── Cancel checkpoint #7: до voiceover ──
     throwIfAborted(signal)
 
     // 5. Voiceover (TTS) — идёт ПЕРЕД music чтобы cost/ducking были известны заранее
+    const voiceoverAttemptBefore = await loadStepAttempt(videoId, "voiceover_generation")
     const voiceoverResult = await runVoiceoverGeneration(
       videoId,
       effectiveClipPaths,
@@ -443,12 +652,32 @@ export async function runVideoPipeline(
         modelStrategy: video.modelStrategy || 'auto',
       },
       videoPlan,
+      clipSceneOrders,
     )
+
+    // Политика extend_scene могла удлинить клипы — дальше собираем из обновлённых
+    // файлов, иначе в сборку уедут исходные (короткие) клипы и озвучка обрежется.
+    // Но кэшу озвучки доверяем не всегда: её outputSnapshot хранит пути клипов
+    // ТОГО прогона, и если lip-sync только что переигрался, старые *_ext.mp4
+    // выбросили бы свежий (оплаченный) результат губ.
+    const voiceoverRegenerated = (await loadStepAttempt(videoId, "voiceover_generation")) > voiceoverAttemptBefore
+    if (voiceoverResult.clipPaths) {
+      if (shouldApplyVoiceoverClipPaths({ voiceoverRegenerated, lipSyncProducedNewClips })) {
+        effectiveClipPaths = voiceoverResult.clipPaths
+      } else {
+        await logAgent('video-pipeline', 'warn',
+          `Video ${videoId}: клипы из кэша озвучки не применены — lip-sync выдал новые файлы в этом прогоне, `
+          + `удлинённые файлы относятся к прошлым клипам`,
+          { videoId },
+        ).catch(() => {})
+      }
+    }
 
     // ── Cancel checkpoint #8: до музыки ──
     throwIfAborted(signal)
 
     // 6. Музыка
+    const musicAttemptBefore = await loadStepAttempt(videoId, "music_generation")
     const musicPath = await runMusicGeneration(
       videoId,
       video.musicEnabled,
@@ -458,10 +687,10 @@ export async function runVideoPipeline(
     )
     if (musicPath) {
       const musicModel = getModel("mubert")
-      const musicStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "music_generation" as never } })
-      if (musicStep && musicModel) {
-        await updateStep(musicStep.id, { actualCost: musicModel.pricing.base })
-        await logStepCost(musicStep.id, "music_generation", "mubert", musicModel.pricing.base, videoId, "mubert")
+      // Трек, поднятый из outputSnapshot при resume, Mubert повторно не выставляет:
+      // признак реальной генерации — выросший attemptCount.
+      if (musicModel && (await loadStepAttempt(videoId, "music_generation")) > musicAttemptBefore) {
+        await chargeStep(videoId, "music_generation", "mubert", "mubert", musicModel.pricing.base)
       }
     }
 
@@ -495,6 +724,7 @@ export async function runVideoPipeline(
         clipVolumeWithVoiceover: 0.3,
         subtitlePreset: (video.subtitlePreset as import('./render').SubtitlePresetId | null) ?? undefined,
         subtitleStyleOverride,
+        clipSceneOrders,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })
@@ -606,30 +836,57 @@ export async function runVideoPipeline(
 
     throw error
   } finally {
-    await releaseLock(videoId)
+    await releaseLock(lockHandle)
   }
 }
 
 /**
  * Перезапустить конкретный шаг генерации видео.
  * Сбрасывает только указанный шаг и все последующие шаги.
+ *
+ * Вместе со статусами сносит артефакты этих шагов: без этого перезапуск был
+ * пустышкой — шаги в начале цикла делают continue, если VideoAsset жив и файл
+ * лежит на диске, и оператор получал ровно тот же результат.
+ * Объекты в постоянном хранилище не трогаем: ключи детерминированные
+ * (videos/{id}/...), новая генерация перезапишет их сама.
  */
 export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise<void> {
-  const stepIndex = STEP_ORDER.indexOf(stepKey)
-  if (stepIndex < 0) throw new Error(`Неизвестный шаг: ${stepKey}`)
+  // Каскад считаем по РЕАЛЬНОМУ порядку выполнения, а не по STEP_ORDER (там
+  // lip_sync стоит после озвучки ради исторического stepIndex). Иначе перезапуск
+  // озвучки заставлял заново оплачивать lip-sync, а перезапуск lip-sync оставлял
+  // озвучке кэш с путями клипов прошлого прогона.
+  const stepsToReset = stepsToRerunFrom(stepKey)
+  if (stepsToReset.length === 0) throw new Error(`Неизвестный шаг: ${stepKey}`)
 
-  const stepsToReset = STEP_ORDER.slice(stepIndex)
+  const assetTypes = assetTypesForSteps(stepsToReset)
+  if (assetTypes.length > 0) {
+    const assets = await prisma.videoAsset.findMany({
+      where: { videoId, type: { in: assetTypes as never[] } },
+      select: { id: true, filePath: true },
+    })
+
+    if (assets.length > 0) {
+      const removal = await removeAssetFiles(
+        assets.map(a => a.filePath),
+        getAssetsDirFor(videoId),
+        createAssetFileRemovalDeps(),
+      )
+      await prisma.videoAsset.deleteMany({ where: { id: { in: assets.map(a => a.id) } } })
+      await logAgent('video-pipeline', 'info',
+        `Video ${videoId}: перезапуск с шага ${stepKey} — снесено ${assets.length} ассетов (${assetTypes.join(', ')}), файлов удалено ${removal.removed}, не удалось ${removal.failed}`,
+        { videoId },
+      ).catch(() => {})
+    }
+  }
+
   await prisma.videoGenerationStep.updateMany({
     where: {
       videoId,
       stepKey: { in: stepsToReset as never[] },
     },
-    data: {
-      status: "pending" as never,
-      errorMessage: null,
-      finishedAt: null,
-      actualCost: null,
-    },
+    // Патч чистит и fal-трекинг: с сохранённым falRequestId следующий прогон
+    // сделал бы reattach к старому remote job и вернул прежний результат.
+    data: STEP_RERUN_RESET_PATCH as never,
   })
 
   await updateVideoStatus(videoId, "pending", {
@@ -647,25 +904,43 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
 
 /**
  * Отменить текущую генерацию видео.
+ *
+ * Идемпотентна и не бросает на уже терминальных сущностях: её дёргают и из
+ * ручки отмены, и каскадом из executor'а по abort-сигналу — второй вызов не
+ * должен ронять финализацию.
  */
 export async function cancelVideoPipeline(videoId: number): Promise<void> {
+  // Replicate живёт в MediaPrediction и до fal-веток отмены не доходил: оператор
+  // нажимал «отменить», а lip-sync продолжал считаться и списывать деньги.
+  const replicate = await cancelReplicatePredictionsForVideo(videoId)
+  if (replicate.canceled > 0 || replicate.failed > 0) {
+    await logAgent('video-pipeline', replicate.failed > 0 ? 'warn' : 'info',
+      `Video ${videoId}: отмена Replicate — отменено ${replicate.canceled}, не удалось ${replicate.failed}`,
+      { videoId },
+    ).catch(() => {})
+  }
+
+  // Живые шаги без falRequestId раньше оставались в running навсегда: fal-запрос
+  // мог ещё не уйти (submit в процессе) или шаг вообще локальный.
   const activeSteps = await prisma.videoGenerationStep.findMany({
     where: {
       videoId,
       status: { in: ["running", "queued"] as never[] },
-      falRequestId: { not: null },
     },
   })
 
+  const canceledAt = new Date()
   for (const step of activeSteps) {
     if (step.falRequestId && step.falEndpoint) {
       await falCancel(step.falEndpoint, step.falRequestId).catch(() => {})
     }
+    // Шаг мог завершиться в гонке с отменой — тогда update по исчезнувшей/чужой
+    // записи не повод валить всю отмену.
     await updateStep(step.id, {
       status: "canceled",
-      falCanceledAt: new Date(),
-      finishedAt: new Date(),
-    })
+      falCanceledAt: step.falRequestId ? canceledAt : null,
+      finishedAt: canceledAt,
+    }).catch(() => {})
   }
 
   await prisma.videoGenerationStep.updateMany({
@@ -674,11 +949,13 @@ export async function cancelVideoPipeline(videoId: number): Promise<void> {
   })
 
   await updateVideoStatus(videoId, "canceled", {
-    finishedAt: new Date(),
+    finishedAt: canceledAt,
     currentStep: null,
-  })
+  }).catch(() => {})
 
-  await releaseLock(videoId)
+  // Снимаем блокировку чужого (ещё живого) прогона осознанно — сам он свою уже
+  // не снимет: его токен перестанет совпадать и с реестром, и с lockedAt в БД.
+  await forceReleaseLock(videoId)
 }
 
 /**

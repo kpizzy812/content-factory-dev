@@ -1,6 +1,7 @@
 import type { Prisma } from '../../app/generated/prisma/client'
 import { throwIfAborted } from './pipeline-cancel-registry'
 import { readFactoryContext } from './content-factory-batch'
+import { findReusableLeadMagnet, type LeadMagnetLibraryClient } from './lead-magnet-library'
 import {
   contentHypothesisFingerprint,
   generateContentStrategy,
@@ -271,7 +272,21 @@ export async function executeContentStrategyNode(
   const sourceTrendIds = numericIds(trends)
   const sourceIdeaIds = numericIds(ideas)
   const created = await prisma.$transaction(async (tx) => {
-    const leadMagnet = funnel?.leadMagnet ?? await tx.leadMagnet.create({
+    // Порядок поиска материала: магнит воронки → подходящий из библиотеки
+    // приложения → только потом новый черновик. Без среднего шага каждый прогон
+    // партии плодил новый черновик (до 300 в сутки), который к тому же некому
+    // было утверждать.
+    const reused = funnel?.leadMagnet
+      ? null
+      : config.reuseLeadMagnets === false
+        ? null
+        : await findReusableLeadMagnet(tx as unknown as LeadMagnetLibraryClient, appId, {
+            title: generated!.leadMagnet.title,
+            problem: generated!.leadMagnet.problem,
+            audience: generated!.leadMagnet.audience,
+          }) as { id: string } | null
+
+    const leadMagnet = funnel?.leadMagnet ?? reused ?? await tx.leadMagnet.create({
       data: {
         appId,
         title: generated!.leadMagnet.title,
@@ -286,6 +301,18 @@ export async function executeContentStrategyNode(
         status: 'draft',
       },
     })
+
+    // Привязываем магнит к воронке, а не только к гипотезе: выдачу материала в
+    // мессенджере (factory-automation) и атрибуцию интересует именно
+    // funnel.leadMagnet — без этой строки лид-магнит физически некому отдать.
+    // updateMany с leadMagnetId: null — защита от гонки параллельных прогонов:
+    // кто привязал первым, того и магнит, второй прогон ничего не перетирает.
+    if (funnel && !funnel.leadMagnetId) {
+      await tx.contentFunnel.updateMany({
+        where: { id: funnel.id, leadMagnetId: null },
+        data: { leadMagnetId: leadMagnet.id },
+      })
+    }
 
     const hypothesis = await tx.contentHypothesis.create({
       data: {

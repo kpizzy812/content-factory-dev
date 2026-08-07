@@ -9,6 +9,10 @@ import type { FalRequestMeta } from "./fal"
 import { falReattach } from "./fal"
 import type { SceneImagePrompts } from "./video-helpers"
 import type { VideoRuntimeMode } from "~~/shared/types/video-runtime"
+import { appendAndTrimStepLogs, buildStepLogEntry, STEP_LOG_LIMIT } from "./video-pipeline-log"
+import { createLockRegistry, type PipelineLockHandle } from "./video-pipeline-lock"
+
+export type { PipelineLockHandle } from "./video-pipeline-lock"
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -22,6 +26,14 @@ export interface FalVideoResult {
 
 export type StepKey = "prompt_generation" | "image_generation" | "clip_generation" | "voiceover_generation" | "music_generation" | "lip_sync_generation" | "assembly"
 
+/**
+ * Порядок шагов для персистентного stepIndex и сортировки в UI.
+ *
+ * ВНИМАНИЕ: это НЕ порядок выполнения — lip-sync фактически идёт шагом 4b, между
+ * клипами и озвучкой. Каскад перезапуска считается по STEP_EXECUTION_ORDER из
+ * video-pipeline-run-policy.ts; здесь порядок зафиксирован историей уже
+ * записанных VideoGenerationStep.stepIndex и трогать его нельзя.
+ */
 export const STEP_ORDER: StepKey[] = [
   "prompt_generation",
   "image_generation",
@@ -44,35 +56,68 @@ export interface PromptGenerationResult {
 
 // ─── Lock management ──────────────────────────────────────────────
 
-// In-memory tracking дополняет DB lock — быстрая проверка без round-trip
-const activePipelines = new Set<number>()
+/**
+ * Кто из прогонов ЭТОГО процесса владеет блокировкой ролика.
+ * Штамп выдаётся на прогон, а не на videoId, — см. video-pipeline-lock.ts:
+ * иначе finally отменённого прогона снимал блокировку с нового запуска.
+ */
+const lockRegistry = createLockRegistry()
+
+/** Значение lockedReason у блокировки, которую ставит сам pipeline. */
+const PIPELINE_LOCK_REASON = "pipeline_running"
 
 /**
  * Блокирует video job для предотвращения параллельных запусков.
  * Атомарный DB-level lock: updateMany с WHERE isLocked=false гарантирует,
  * что только один процесс захватит lock даже при concurrent requests.
- * In-memory Set — быстрая проверка без round-trip для этого инстанса.
+ * Реестр в памяти — быстрая проверка без round-trip для этого инстанса.
+ *
+ * Возвращает токен владения; null — блокировку взять не удалось. Токен нужно
+ * донести до releaseLock, иначе прогон разлочит не свою запись.
  */
-export async function acquireLock(videoId: number): Promise<boolean> {
-  if (activePipelines.has(videoId)) return false
+export async function acquireLock(videoId: number): Promise<PipelineLockHandle | null> {
+  const handle = lockRegistry.claim(videoId, Date.now())
+  if (!handle) return null
 
-  // Atomic DB claim: only succeeds if isLocked is currently false
+  // Atomic DB claim: only succeeds if isLocked is currently false.
+  // lockedAt — тот же штамп: по нему прогон потом узнает СВОЮ блокировку в БД.
   const claimed = await prisma.video.updateMany({
     where: { id: videoId, isLocked: false },
-    data: { isLocked: true, lockedAt: new Date(), lockedReason: "pipeline_running" },
+    data: { isLocked: true, lockedAt: new Date(handle.stampMs), lockedReason: PIPELINE_LOCK_REASON },
   })
 
-  if (claimed.count === 0) return false
+  if (claimed.count === 0) {
+    lockRegistry.release(handle)
+    return null
+  }
 
-  activePipelines.add(videoId)
-  return true
+  return handle
 }
 
 /**
- * Снимает блокировку video job.
+ * Снимает блокировку, взятую этим прогоном.
+ *
+ * Двойная сверка владения: реестр процесса (тот же ролик мог уже перехватить
+ * новый прогон после отмены) и lockedAt в БД (владелец мог смениться в другом
+ * процессе). Не наш штамп — не наша блокировка, молча уходим.
  */
-export async function releaseLock(videoId: number): Promise<void> {
-  activePipelines.delete(videoId)
+export async function releaseLock(handle: PipelineLockHandle): Promise<void> {
+  // false — блокировку сорвали отменой и/или ею уже владеет другой прогон.
+  if (!lockRegistry.release(handle)) return
+
+  await prisma.video.updateMany({
+    where: { id: handle.videoId, lockedAt: new Date(handle.stampMs) },
+    data: { isLocked: false, lockedAt: null, lockedReason: null },
+  }).catch(() => {})
+}
+
+/**
+ * Осознанный срыв блокировки — путь отмены.
+ * Прогон, который её держит, ещё крутится в другом контексте и сам не разлочит,
+ * а оператору нужно иметь возможность запустить ролик заново.
+ */
+export async function forceReleaseLock(videoId: number): Promise<void> {
+  lockRegistry.forceRelease(videoId)
   await prisma.video.update({
     where: { id: videoId },
     data: { isLocked: false, lockedAt: null, lockedReason: null },
@@ -119,11 +164,51 @@ export async function updateStep(
   })
 }
 
+/**
+ * Дописывает строку в лог шага.
+ *
+ * Одним UPDATE-ом прямо в jsonb: раньше было read-modify-write (findUnique →
+ * push → update), и параллельные записи затирали друг друга — а пишут в один шаг
+ * из нескольких мест сразу (runner сцены, колбэк статуса fal-очереди, reattach),
+ * так что терялись именно те строки, ради которых в лог и лезут.
+ *
+ * Хвост массива обрезается тем же запросом до STEP_LOG_LIMIT записей.
+ * Значения передаются параметрами ($1..$4), склейки строк в SQL нет.
+ */
 export async function appendStepLog(stepId: number, message: string): Promise<void> {
-  const step = await prisma.videoGenerationStep.findUnique({ where: { id: stepId } })
-  const logs = (step?.logs as Array<{ ts: string; msg: string }>) || []
-  logs.push({ ts: new Date().toISOString(), msg: message })
-  await updateStep(stepId, { logs })
+  const entry = buildStepLogEntry(message)
+
+  try {
+    await prisma.$executeRaw`
+      UPDATE "VideoGenerationStep" AS s
+      SET "logs" = (
+        SELECT COALESCE(jsonb_agg(e.entry ORDER BY e.ord), '[]'::jsonb)
+        FROM (
+          SELECT entry, ord
+          FROM jsonb_array_elements(
+            (CASE WHEN jsonb_typeof(s."logs") = 'array' THEN s."logs" ELSE '[]'::jsonb END)
+            || jsonb_build_array(jsonb_build_object('ts', ${entry.ts}::text, 'msg', ${entry.msg}::text))
+          ) WITH ORDINALITY AS t(entry, ord)
+          ORDER BY ord DESC
+          LIMIT ${STEP_LOG_LIMIT}
+        ) AS e
+      )
+      WHERE s."id" = ${stepId}
+    `
+  }
+  catch (error) {
+    // Логи не тот повод, чтобы валить генерацию: при недоступном raw-пути
+    // (мок prisma в тестах, нештатный драйвер) откатываемся на старый
+    // read-modify-write — он гоночный, но лучше, чем потерянная запись.
+    console.warn(
+      `[video-pipeline] атомарная запись лога шага ${stepId} не прошла, fallback: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    try {
+      const step = await prisma.videoGenerationStep.findUnique({ where: { id: stepId } })
+      await updateStep(stepId, { logs: appendAndTrimStepLogs(step?.logs, entry) })
+    }
+    catch { /* лог шага — не критичен */ }
+  }
 }
 
 export function isStepCompleted(step: { status: string }): boolean {

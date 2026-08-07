@@ -123,12 +123,18 @@ describe("media prediction repository", () => {
 
     await expect(repository.claimPersistence("internal_1")).resolves.toBe(true)
     await expect(repository.claimPersistence("internal_1")).resolves.toBe(false)
+    // Вторая ветка OR — зависшая заявка: процесс мог умереть посреди заливки,
+    // и сбросить `persisting` обратно некому. Без неё запись выбиралась
+    // восстановлением раз в минуту, но не захватывалась никогда.
     expect(updateMany).toHaveBeenCalledWith({
       where: {
         id: "internal_1",
         status: "succeeded",
         persistedStorageKey: null,
-        persistenceStatus: { in: ["pending", "failed"] },
+        OR: [
+          { persistenceStatus: { in: ["pending", "failed"] } },
+          { persistenceStatus: "persisting", persistenceStartedAt: { lte: expect.any(Date) } },
+        ],
       },
       data: expect.objectContaining({
         persistenceStatus: "persisting",

@@ -5,6 +5,7 @@
  */
 
 import { sendMessage } from "./messaging"
+import { requestCycleStop } from "../cycle-orchestrator"
 
 /**
  * Получает привязанного пользователя по chatId.
@@ -36,15 +37,19 @@ export async function cmdStop(token: string, chatId: string): Promise<void> {
   }
 
   const runningCycle = await prisma.productionCycle.findFirst({
-    where: { status: "running" },
+    where: { status: { in: ["running", "pending"] } },
     orderBy: { startedAt: "desc" },
   })
 
   if (!runningCycle) {
+    // Повторный /stop: цикл уже не активен, менять нечего.
     await sendMessage(token, chatId, "Нет активных циклов для остановки.")
     return
   }
 
+  // Сначала статус в БД: его читает оркестратор между шагами (в том числе если
+  // цикл крутится в другом процессе), и по нему же он поймёт, что закрывать
+  // цикл надо как stopped, а не completed.
   await prisma.productionCycle.update({
     where: { id: runningCycle.id },
     data: {
@@ -52,6 +57,10 @@ export async function cmdStop(token: string, chatId: string): Promise<void> {
       completedAt: new Date(),
     },
   })
+
+  // Затем сигнал в память: он прерывает текущий шаг немедленно и гасит уже
+  // запущенные внешние генерации, не дожидаясь следующей проверки статуса.
+  requestCycleStop(runningCycle.id)
 
   await logAgent(
     "telegram",

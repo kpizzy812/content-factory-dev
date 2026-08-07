@@ -8,7 +8,7 @@
  */
 
 import { handleCommand } from "./commands"
-import { analyzeVideoByUrl } from "./analyzer"
+import { analyzeIdeaVideo, describeAnalysisBlocker, detectPlatform } from "./analyzer"
 import { sendMessage } from "./messaging"
 
 interface TelegramUpdate {
@@ -142,20 +142,42 @@ async function handleUpdate(token: string, update: TelegramUpdate): Promise<void
   )
 }
 
-async function processVideoUrl(
+/**
+ * Разбор ссылки идёт фоном: скачивание, транскрибация и синтез занимают минуты,
+ * а handleUpdate крутится внутри polling-интервала — ждать там нельзя.
+ *
+ * Порядок шагов важен. Сначала быстрый метаданный проход (processIdea заполняет
+ * плоские поля и статус ready — это то, что забирает Модуль 2), и только потом
+ * глубокий разбор: он перезаписывает Idea.transcription реальной расшифровкой и
+ * язык — определённым по ней. В обратном порядке processIdea затёр бы
+ * расшифровку своим логом метаданных.
+ */
+async function runIdeaAnalysisInBackground(
+  token: string,
+  chatId: string,
+  ideaId: number,
+  url: string,
+): Promise<void> {
+  try {
+    await processIdea(ideaId)
+  }
+  catch {
+    // Ошибку processIdea пишет в саму идею; разбор референса от неё не зависит.
+  }
+
+  const analysis = await analyzeIdeaVideo(ideaId, url)
+  await sendMessage(token, chatId, analysis.text)
+}
+
+export async function processVideoUrl(
   token: string,
   chatId: string,
   url: string,
   fromUser?: { id: number; first_name?: string; username?: string },
 ): Promise<void> {
-  const statusResult = await sendMessage(token, chatId, "Анализирую видео, подождите...")
-
   try {
-    const lower = url.toLowerCase()
-    let platform: 'youtube' | 'tiktok' | 'instagram' | undefined
-    if (lower.includes('youtube.com') || lower.includes('youtu.be')) platform = 'youtube'
-    else if (lower.includes('tiktok.com') || lower.includes('vm.tiktok.com')) platform = 'tiktok'
-    else if (lower.includes('instagram.com')) platform = 'instagram'
+    const detected = detectPlatform(url)
+    const platform = detected === 'unknown' ? undefined : detected
 
     let createdById: number | null = null
     const chat = await prisma.telegramChat.findUnique({ where: { chatId } })
@@ -181,7 +203,12 @@ async function processVideoUrl(
         source: 'telegram',
         sourceUrl: url,
         platform: platform ?? null,
-        language: 'русский',
+        // Язык заранее не назначаем. Раньше здесь стояло 'русский', и вместе с
+        // захардкоженным «отвечай на русском» в анализаторе это убивало
+        // мультиязычность из ТЗ. Язык проставит транскрибация ролика
+        // (reference-pipeline пишет Idea.language по распознанной речи);
+        // приложения у телеграм-идеи нет, брать язык из его настроек неоткуда.
+        language: null,
         status: 'pending',
         createdById,
       },
@@ -196,19 +223,29 @@ async function processVideoUrl(
       },
     }).catch(() => {})
 
-    processIdea(idea.id).catch(() => {})
+    // Оба прохода анализа ходят в платный Anthropic напрямую, поэтому при
+    // выключенных платных API и в mock-режиме не запускаем ни один из них —
+    // и говорим пользователю причину, а не молчим.
+    const blocker = describeAnalysisBlocker()
 
-    const quickAnalysis = await analyzeVideoByUrl(url)
+    if (blocker) {
+      await sendMessage(token, chatId, [
+        `Идея #${idea.id} сохранена.`,
+        "",
+        blocker,
+        "Транскрибацию и разбор можно запустить позже из интерфейса.",
+      ].join("\n"))
+    }
+    else {
+      await sendMessage(token, chatId, [
+        `Идея #${idea.id} создана. Скачиваю ролик, транскрибирую и разбираю структуру.`,
+        "Это занимает несколько минут — пришлю разбор отдельным сообщением.",
+      ].join("\n"))
 
-    const responseLines = [
-      `Идея #${idea.id} создана и поставлена в очередь обработки.`,
-      "",
-      quickAnalysis,
-      "",
-      `Полный анализ будет доступен в системе после обработки.`,
-    ]
-
-    await sendMessage(token, chatId, responseLines.join("\n"))
+      void runIdeaAnalysisInBackground(token, chatId, idea.id, url).catch(() => {
+        // Своё сообщение об ошибке analyzeIdeaVideo уже отправил.
+      })
+    }
 
     await prisma.telegramCommandAudit.create({
       data: {

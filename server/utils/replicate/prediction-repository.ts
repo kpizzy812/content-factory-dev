@@ -6,6 +6,15 @@ import {
   sanitizePredictionSnapshot,
   transitionPredictionStatus,
 } from "./prediction-state"
+import { attemptScopeKeyFilters, MAX_PERSISTENCE_ATTEMPTS } from "./attempt-key"
+
+/**
+ * Через сколько запись считается брошенной: и «висит в processing», и «висит
+ * в persisting». Одно значение на выборку и на заявку — иначе `findRecoverable`
+ * выбирает запись, которую `claimPersistence` не отдаёт, и добивание крутится
+ * вхолостую.
+ */
+const PERSISTENCE_STALE_MS = 2 * 60 * 1000
 
 export interface MediaPredictionRecord {
   id: string
@@ -18,6 +27,7 @@ export interface MediaPredictionRecord {
   persistedStorageKey: string | null
   persistedStorageProvider: string | null
   persistenceStatus: string
+  persistenceAttemptCount?: number | null
   persistenceError: string | null
   errorMessage: string | null
   terminalAt: Date | null
@@ -31,6 +41,7 @@ interface MediaPredictionDelegate {
   findMany(args: Record<string, unknown>): Promise<MediaPredictionRecord[]>
   update(args: Record<string, unknown>): Promise<MediaPredictionRecord>
   updateMany(args: Record<string, unknown>): Promise<{ count: number }>
+  count(args: Record<string, unknown>): Promise<number>
 }
 
 export interface MediaPredictionDbClient {
@@ -173,13 +184,32 @@ export function createMediaPredictionRepository(
       }, { isolationLevel: "Serializable" })
     },
 
+    /**
+     * Заявка на перенос: условный UPDATE, где выигрывает ровно один.
+     *
+     * Ветка «зависшая заявка» обязательна. Перенос запускают три независимых
+     * финализатора, и если процесс умер посреди заливки, статус так и остаётся
+     * `persisting`. Сбросить его некому: `findRecoverable` такую запись
+     * исправно выбирает раз в минуту, а захватить её было нельзя — заявка
+     * никогда не выдавалась, ключ оставался запертым навсегда, ролик —
+     * невосстановимым. Порог тот же, что в выборке: иначе выборка и заявка не
+     * договорятся и ветка снова окажется мёртвой.
+     *
+     * Цена — после порога возможны два переносчика разом (медленная заливка
+     * большого ролика). Ключ в хранилище детерминированный, так что второй
+     * пишет тот же объект; хуже дубля трафика не будет.
+     */
     async claimPersistence(id: string): Promise<boolean> {
+      const staleBefore = new Date(Date.now() - PERSISTENCE_STALE_MS)
       const result = await client.mediaPrediction.updateMany({
         where: {
           id,
           status: "succeeded",
           persistedStorageKey: null,
-          persistenceStatus: { in: ["pending", "failed"] },
+          OR: [
+            { persistenceStatus: { in: ["pending", "failed"] } },
+            { persistenceStatus: "persisting", persistenceStartedAt: { lte: staleBefore } },
+          ],
         },
         data: {
           persistenceStatus: "persisting",
@@ -209,18 +239,75 @@ export function createMediaPredictionRepository(
       })
     },
 
-    markPersistenceFailed(id: string, error: string): Promise<MediaPredictionRecord> {
-      return client.mediaPrediction.update({
-        where: { id },
+    /**
+     * Перенос не удался. Для устранимой причины заявка возвращается в бюджет.
+     *
+     * `claimPersistence` инкрементит `persistenceAttemptCount` до того, как
+     * что-либо пробовало качать: иначе запись без ссылки никогда не набрала бы
+     * лимит и держала бы свой ключ вечно. Но заявки берут три независимых
+     * финализатора (вебхук, polling, recovery), и двухминутный отказ MinIO
+     * сжигал весь бюджет за один сбой — оплаченный результат объявлялся
+     * потерянным, хотя файл у Replicate ещё жив.
+     *
+     * Отдельной колонки под «устранимые» неудачи в схеме нет и завести её
+     * нельзя, поэтому компромисс такой: откат инкремента, а не второй счётчик.
+     * Цена — `persistenceAttemptCount` теперь означает не «сколько раз
+     * пробовали», а «сколько неустранимых неудач насчитали»; полное число
+     * попыток видно только по логам. Взамен затяжной отказ хранилища не
+     * приближает запись к «lost». Вечного цикла тут нет: когда ссылка
+     * replicate.delivery протухнет, ошибка станет 404 — неустранимой, — и
+     * бюджет доработает как раньше.
+     */
+    async markPersistenceFailed(
+      id: string,
+      error: string,
+      options: { retriable?: boolean } = {},
+    ): Promise<MediaPredictionRecord> {
+      // Условие по persistedStorageKey: после порога зависшей заявки переносчиков
+      // может быть двое, и опоздавший неудачник не должен откатывать уже
+      // сохранённый результат обратно в «failed».
+      await client.mediaPrediction.updateMany({
+        where: { id, persistedStorageKey: null },
         data: {
           persistenceStatus: "failed",
           persistenceError: error.slice(0, 2_000),
+          // Декремент атомарен: заявку в норме держит один финализатор, он же
+          // её и возвращает, так что счётчик откатывается к своему значению.
+          ...(options.retriable ? { persistenceAttemptCount: { decrement: 1 } } : {}),
         },
+      })
+      const result = await client.mediaPrediction.findUnique({ where: { id } })
+      if (!result) throw new Error(`Media prediction disappeared after update: ${id}`)
+      return result
+    },
+
+    /**
+     * Живые prediction'ы ролика — то, что имеет смысл отменять.
+     *
+     * Записи без externalId провайдеру ещё не ушли: отменять там нечего,
+     * а вызов cancel по пустому id только зашумит лог.
+     */
+    findActiveByVideoId(videoId: number): Promise<MediaPredictionRecord[]> {
+      return client.mediaPrediction.findMany({
+        where: {
+          videoId,
+          status: { in: ["starting", "processing"] },
+          externalId: { not: null },
+        },
+        orderBy: { createdAt: "asc" },
       })
     },
 
+    /**
+     * Записи, которые ещё имеет смысл добивать.
+     *
+     * Ограничение по persistenceAttemptCount критично: ссылка replicate.delivery
+     * протухает за часы, и запись «succeeded без файла» после нескольких 404
+     * не оживёт никогда. Без потолка планировщик выбирал её раз в минуту и
+     * вечно писал в лог одну и ту же ошибку.
+     */
     findRecoverable(limit: number): Promise<MediaPredictionRecord[]> {
-      const staleBefore = new Date(Date.now() - 2 * 60 * 1000)
+      const staleBefore = new Date(Date.now() - PERSISTENCE_STALE_MS)
       return client.mediaPrediction.findMany({
         where: {
           externalId: { not: null },
@@ -233,16 +320,54 @@ export function createMediaPredictionRepository(
             {
               status: "succeeded",
               persistenceStatus: { in: ["pending", "failed"] },
+              persistenceAttemptCount: { lt: MAX_PERSISTENCE_ATTEMPTS },
             },
             {
               status: "succeeded",
               persistenceStatus: "persisting",
               persistenceStartedAt: { lte: staleBefore },
+              persistenceAttemptCount: { lt: MAX_PERSISTENCE_ATTEMPTS },
             },
           ],
         },
         orderBy: { updatedAt: "asc" },
         take: Math.max(1, Math.min(limit, 100)),
+      })
+    },
+
+    /**
+     * Сколько попыток уже сожжено в области подсчёта.
+     *
+     * Работает на обоих уровнях: узкая область (ролик + сцена + модель +
+     * отпечатки исходников) и широкая (та же сущность без отпечатков). Область —
+     * префикс идемпотентного ключа: отдельной колонки под неё нет, а схему
+     * трогать нельзя. Принадлежность ключа области считает
+     * `attemptScopeKeyFilters` — простого `startsWith(scope + ":")` мало, он не
+     * видит ни сам базовый ключ узкой области, ни его ретраи через `#`.
+     *
+     * Отменённые записи не в счёт: отмену инициировал оператор, деньгами она не
+     * пахнет.
+     */
+    countSpentAttemptsInScope(scope: string): Promise<number> {
+      return client.mediaPrediction.count({
+        where: {
+          persistedStorageKey: null,
+          // Два независимых OR (по ключу и по статусу) нельзя держать в одном
+          // объекте — второй затёр бы первый; поэтому явный AND.
+          AND: [
+            { OR: attemptScopeKeyFilters(scope).map(idempotencyKey => ({ idempotencyKey })) },
+            {
+              OR: [
+                { status: "failed" },
+                {
+                  status: "succeeded",
+                  persistenceStatus: "failed",
+                  persistenceAttemptCount: { gte: MAX_PERSISTENCE_ATTEMPTS },
+                },
+              ],
+            },
+          ],
+        },
       })
     },
   }

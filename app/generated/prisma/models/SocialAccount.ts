@@ -30,12 +30,16 @@ export type SocialAccountAvgAggregateOutputType = {
   id: number | null
   appId: number | null
   totalPostsPublished: number | null
+  publishingQuotaUsage: number | null
+  publishingQuotaTotal: number | null
 }
 
 export type SocialAccountSumAggregateOutputType = {
   id: number | null
   appId: number | null
   totalPostsPublished: number | null
+  publishingQuotaUsage: number | null
+  publishingQuotaTotal: number | null
 }
 
 export type SocialAccountMinAggregateOutputType = {
@@ -67,6 +71,9 @@ export type SocialAccountMinAggregateOutputType = {
   warmupStatus: $Enums.WarmupStatus | null
   lastWarmupAt: Date | null
   totalPostsPublished: number | null
+  publishingQuotaUsage: number | null
+  publishingQuotaTotal: number | null
+  publishingQuotaAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -100,6 +107,9 @@ export type SocialAccountMaxAggregateOutputType = {
   warmupStatus: $Enums.WarmupStatus | null
   lastWarmupAt: Date | null
   totalPostsPublished: number | null
+  publishingQuotaUsage: number | null
+  publishingQuotaTotal: number | null
+  publishingQuotaAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -133,6 +143,9 @@ export type SocialAccountCountAggregateOutputType = {
   warmupStatus: number
   lastWarmupAt: number
   totalPostsPublished: number
+  publishingQuotaUsage: number
+  publishingQuotaTotal: number
+  publishingQuotaAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -143,12 +156,16 @@ export type SocialAccountAvgAggregateInputType = {
   id?: true
   appId?: true
   totalPostsPublished?: true
+  publishingQuotaUsage?: true
+  publishingQuotaTotal?: true
 }
 
 export type SocialAccountSumAggregateInputType = {
   id?: true
   appId?: true
   totalPostsPublished?: true
+  publishingQuotaUsage?: true
+  publishingQuotaTotal?: true
 }
 
 export type SocialAccountMinAggregateInputType = {
@@ -180,6 +197,9 @@ export type SocialAccountMinAggregateInputType = {
   warmupStatus?: true
   lastWarmupAt?: true
   totalPostsPublished?: true
+  publishingQuotaUsage?: true
+  publishingQuotaTotal?: true
+  publishingQuotaAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -213,6 +233,9 @@ export type SocialAccountMaxAggregateInputType = {
   warmupStatus?: true
   lastWarmupAt?: true
   totalPostsPublished?: true
+  publishingQuotaUsage?: true
+  publishingQuotaTotal?: true
+  publishingQuotaAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -246,6 +269,9 @@ export type SocialAccountCountAggregateInputType = {
   warmupStatus?: true
   lastWarmupAt?: true
   totalPostsPublished?: true
+  publishingQuotaUsage?: true
+  publishingQuotaTotal?: true
+  publishingQuotaAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -366,6 +392,9 @@ export type SocialAccountGroupByOutputType = {
   warmupStatus: $Enums.WarmupStatus
   lastWarmupAt: Date | null
   totalPostsPublished: number
+  publishingQuotaUsage: number | null
+  publishingQuotaTotal: number | null
+  publishingQuotaAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: SocialAccountCountAggregateOutputType | null
@@ -422,6 +451,9 @@ export type SocialAccountWhereInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFilter<"SocialAccount"> | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.DateTimeNullableFilter<"SocialAccount"> | Date | string | null
   totalPostsPublished?: Prisma.IntFilter<"SocialAccount"> | number
+  publishingQuotaUsage?: Prisma.IntNullableFilter<"SocialAccount"> | number | null
+  publishingQuotaTotal?: Prisma.IntNullableFilter<"SocialAccount"> | number | null
+  publishingQuotaAt?: Prisma.DateTimeNullableFilter<"SocialAccount"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"SocialAccount"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SocialAccount"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
@@ -467,6 +499,9 @@ export type SocialAccountOrderByWithRelationInput = {
   warmupStatus?: Prisma.SortOrder
   lastWarmupAt?: Prisma.SortOrderInput | Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrderInput | Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrderInput | Prisma.SortOrder
+  publishingQuotaAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   app?: Prisma.AppOrderByWithRelationInput
@@ -515,6 +550,9 @@ export type SocialAccountWhereUniqueInput = Prisma.AtLeast<{
   warmupStatus?: Prisma.EnumWarmupStatusFilter<"SocialAccount"> | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.DateTimeNullableFilter<"SocialAccount"> | Date | string | null
   totalPostsPublished?: Prisma.IntFilter<"SocialAccount"> | number
+  publishingQuotaUsage?: Prisma.IntNullableFilter<"SocialAccount"> | number | null
+  publishingQuotaTotal?: Prisma.IntNullableFilter<"SocialAccount"> | number | null
+  publishingQuotaAt?: Prisma.DateTimeNullableFilter<"SocialAccount"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"SocialAccount"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SocialAccount"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
@@ -560,6 +598,9 @@ export type SocialAccountOrderByWithAggregationInput = {
   warmupStatus?: Prisma.SortOrder
   lastWarmupAt?: Prisma.SortOrderInput | Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrderInput | Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrderInput | Prisma.SortOrder
+  publishingQuotaAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SocialAccountCountOrderByAggregateInput
@@ -601,6 +642,9 @@ export type SocialAccountScalarWhereWithAggregatesInput = {
   warmupStatus?: Prisma.EnumWarmupStatusWithAggregatesFilter<"SocialAccount"> | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.DateTimeNullableWithAggregatesFilter<"SocialAccount"> | Date | string | null
   totalPostsPublished?: Prisma.IntWithAggregatesFilter<"SocialAccount"> | number
+  publishingQuotaUsage?: Prisma.IntNullableWithAggregatesFilter<"SocialAccount"> | number | null
+  publishingQuotaTotal?: Prisma.IntNullableWithAggregatesFilter<"SocialAccount"> | number | null
+  publishingQuotaAt?: Prisma.DateTimeNullableWithAggregatesFilter<"SocialAccount"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"SocialAccount"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"SocialAccount"> | Date | string
 }
@@ -631,6 +675,9 @@ export type SocialAccountCreateInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -676,6 +723,9 @@ export type SocialAccountUncheckedCreateInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -716,6 +766,9 @@ export type SocialAccountUpdateInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -761,6 +814,9 @@ export type SocialAccountUncheckedUpdateInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -804,6 +860,9 @@ export type SocialAccountCreateManyInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -834,6 +893,9 @@ export type SocialAccountUpdateManyMutationInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -867,6 +929,9 @@ export type SocialAccountUncheckedUpdateManyInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -910,6 +975,9 @@ export type SocialAccountCountOrderByAggregateInput = {
   warmupStatus?: Prisma.SortOrder
   lastWarmupAt?: Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrder
+  publishingQuotaAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -918,6 +986,8 @@ export type SocialAccountAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrder
 }
 
 export type SocialAccountMaxOrderByAggregateInput = {
@@ -949,6 +1019,9 @@ export type SocialAccountMaxOrderByAggregateInput = {
   warmupStatus?: Prisma.SortOrder
   lastWarmupAt?: Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrder
+  publishingQuotaAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -982,6 +1055,9 @@ export type SocialAccountMinOrderByAggregateInput = {
   warmupStatus?: Prisma.SortOrder
   lastWarmupAt?: Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrder
+  publishingQuotaAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -990,6 +1066,8 @@ export type SocialAccountSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   appId?: Prisma.SortOrder
   totalPostsPublished?: Prisma.SortOrder
+  publishingQuotaUsage?: Prisma.SortOrder
+  publishingQuotaTotal?: Prisma.SortOrder
 }
 
 export type SocialAccountScalarRelationFilter = {
@@ -1272,6 +1350,9 @@ export type SocialAccountCreateWithoutAppInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   proxy?: Prisma.ProxyCreateNestedOneWithoutSocialAccountsInput
@@ -1315,6 +1396,9 @@ export type SocialAccountUncheckedCreateWithoutAppInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -1387,6 +1471,9 @@ export type SocialAccountScalarWhereInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFilter<"SocialAccount"> | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.DateTimeNullableFilter<"SocialAccount"> | Date | string | null
   totalPostsPublished?: Prisma.IntFilter<"SocialAccount"> | number
+  publishingQuotaUsage?: Prisma.IntNullableFilter<"SocialAccount"> | number | null
+  publishingQuotaTotal?: Prisma.IntNullableFilter<"SocialAccount"> | number | null
+  publishingQuotaAt?: Prisma.DateTimeNullableFilter<"SocialAccount"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"SocialAccount"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SocialAccount"> | Date | string
 }
@@ -1417,6 +1504,9 @@ export type SocialAccountCreateWithoutMetricsSnapshotsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -1461,6 +1551,9 @@ export type SocialAccountUncheckedCreateWithoutMetricsSnapshotsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -1516,6 +1609,9 @@ export type SocialAccountUpdateWithoutMetricsSnapshotsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -1560,6 +1656,9 @@ export type SocialAccountUncheckedUpdateWithoutMetricsSnapshotsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -1599,6 +1698,9 @@ export type SocialAccountCreateWithoutProxyInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -1642,6 +1744,9 @@ export type SocialAccountUncheckedCreateWithoutProxyInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -1708,6 +1813,9 @@ export type SocialAccountCreateWithoutProxyDeepCheckLogsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -1752,6 +1860,9 @@ export type SocialAccountUncheckedCreateWithoutProxyDeepCheckLogsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -1807,6 +1918,9 @@ export type SocialAccountUpdateWithoutProxyDeepCheckLogsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -1851,6 +1965,9 @@ export type SocialAccountUncheckedUpdateWithoutProxyDeepCheckLogsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -1890,6 +2007,9 @@ export type SocialAccountCreateWithoutDeviceProfileInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -1934,6 +2054,9 @@ export type SocialAccountUncheckedCreateWithoutDeviceProfileInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -1989,6 +2112,9 @@ export type SocialAccountUpdateWithoutDeviceProfileInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -2033,6 +2159,9 @@ export type SocialAccountUncheckedUpdateWithoutDeviceProfileInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -2072,6 +2201,9 @@ export type SocialAccountCreateWithoutDeviceProfileLinksInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -2116,6 +2248,9 @@ export type SocialAccountUncheckedCreateWithoutDeviceProfileLinksInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -2171,6 +2306,9 @@ export type SocialAccountUpdateWithoutDeviceProfileLinksInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -2215,6 +2353,9 @@ export type SocialAccountUncheckedUpdateWithoutDeviceProfileLinksInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -2254,6 +2395,9 @@ export type SocialAccountCreateWithoutStyleProfileInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -2298,6 +2442,9 @@ export type SocialAccountUncheckedCreateWithoutStyleProfileInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -2353,6 +2500,9 @@ export type SocialAccountUpdateWithoutStyleProfileInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -2397,6 +2547,9 @@ export type SocialAccountUncheckedUpdateWithoutStyleProfileInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -2436,6 +2589,9 @@ export type SocialAccountCreateWithoutGroupsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -2480,6 +2636,9 @@ export type SocialAccountUncheckedCreateWithoutGroupsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -2535,6 +2694,9 @@ export type SocialAccountUpdateWithoutGroupsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -2579,6 +2741,9 @@ export type SocialAccountUncheckedUpdateWithoutGroupsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -2618,6 +2783,9 @@ export type SocialAccountCreateWithoutUploadsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -2662,6 +2830,9 @@ export type SocialAccountUncheckedCreateWithoutUploadsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   groups?: Prisma.AccountGroupMemberUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -2717,6 +2888,9 @@ export type SocialAccountUpdateWithoutUploadsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -2761,6 +2935,9 @@ export type SocialAccountUncheckedUpdateWithoutUploadsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   groups?: Prisma.AccountGroupMemberUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -2800,6 +2977,9 @@ export type SocialAccountCreateWithoutFactoryPublicationsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -2844,6 +3024,9 @@ export type SocialAccountUncheckedCreateWithoutFactoryPublicationsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -2899,6 +3082,9 @@ export type SocialAccountUpdateWithoutFactoryPublicationsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -2943,6 +3129,9 @@ export type SocialAccountUncheckedUpdateWithoutFactoryPublicationsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -2982,6 +3171,9 @@ export type SocialAccountCreateWithoutPostingJobsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -3026,6 +3218,9 @@ export type SocialAccountUncheckedCreateWithoutPostingJobsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -3081,6 +3276,9 @@ export type SocialAccountUpdateWithoutPostingJobsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -3125,6 +3323,9 @@ export type SocialAccountUncheckedUpdateWithoutPostingJobsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -3164,6 +3365,9 @@ export type SocialAccountCreateWithoutWarmupSessionsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutSocialAccountsInput
@@ -3208,6 +3412,9 @@ export type SocialAccountUncheckedCreateWithoutWarmupSessionsInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   uploads?: Prisma.UploadUncheckedCreateNestedManyWithoutSocialAccountInput
@@ -3263,6 +3470,9 @@ export type SocialAccountUpdateWithoutWarmupSessionsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -3307,6 +3517,9 @@ export type SocialAccountUncheckedUpdateWithoutWarmupSessionsInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -3348,6 +3561,9 @@ export type SocialAccountCreateManyAppInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -3378,6 +3594,9 @@ export type SocialAccountUpdateWithoutAppInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   proxy?: Prisma.ProxyUpdateOneWithoutSocialAccountsNestedInput
@@ -3421,6 +3640,9 @@ export type SocialAccountUncheckedUpdateWithoutAppInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -3463,6 +3685,9 @@ export type SocialAccountUncheckedUpdateManyWithoutAppInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -3495,6 +3720,9 @@ export type SocialAccountCreateManyProxyInput = {
   warmupStatus?: $Enums.WarmupStatus
   lastWarmupAt?: Date | string | null
   totalPostsPublished?: number
+  publishingQuotaUsage?: number | null
+  publishingQuotaTotal?: number | null
+  publishingQuotaAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -3525,6 +3753,9 @@ export type SocialAccountUpdateWithoutProxyInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutSocialAccountsNestedInput
@@ -3568,6 +3799,9 @@ export type SocialAccountUncheckedUpdateWithoutProxyInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   uploads?: Prisma.UploadUncheckedUpdateManyWithoutSocialAccountNestedInput
@@ -3610,6 +3844,9 @@ export type SocialAccountUncheckedUpdateManyWithoutProxyInput = {
   warmupStatus?: Prisma.EnumWarmupStatusFieldUpdateOperationsInput | $Enums.WarmupStatus
   lastWarmupAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   totalPostsPublished?: Prisma.IntFieldUpdateOperationsInput | number
+  publishingQuotaUsage?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaTotal?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  publishingQuotaAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -3737,6 +3974,9 @@ export type SocialAccountSelect<ExtArgs extends runtime.Types.Extensions.Interna
   warmupStatus?: boolean
   lastWarmupAt?: boolean
   totalPostsPublished?: boolean
+  publishingQuotaUsage?: boolean
+  publishingQuotaTotal?: boolean
+  publishingQuotaAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -3783,6 +4023,9 @@ export type SocialAccountSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   warmupStatus?: boolean
   lastWarmupAt?: boolean
   totalPostsPublished?: boolean
+  publishingQuotaUsage?: boolean
+  publishingQuotaTotal?: boolean
+  publishingQuotaAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -3818,6 +4061,9 @@ export type SocialAccountSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   warmupStatus?: boolean
   lastWarmupAt?: boolean
   totalPostsPublished?: boolean
+  publishingQuotaUsage?: boolean
+  publishingQuotaTotal?: boolean
+  publishingQuotaAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -3853,11 +4099,14 @@ export type SocialAccountSelectScalar = {
   warmupStatus?: boolean
   lastWarmupAt?: boolean
   totalPostsPublished?: boolean
+  publishingQuotaUsage?: boolean
+  publishingQuotaTotal?: boolean
+  publishingQuotaAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SocialAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "platform" | "displayName" | "platformUserId" | "platformHandle" | "accessToken" | "refreshToken" | "expiresAt" | "status" | "lastPostedAt" | "loginEmail" | "loginPassword" | "recoveryEmail" | "recoveryPhone" | "twoFASecret" | "notes" | "birthDate" | "registrationSource" | "proxyId" | "deviceProfileId" | "postingMethod" | "loginCheckedAt" | "loginCheckedStatus" | "loginCheckedUsername" | "warmupStatus" | "lastWarmupAt" | "totalPostsPublished" | "createdAt" | "updatedAt", ExtArgs["result"]["socialAccount"]>
+export type SocialAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "platform" | "displayName" | "platformUserId" | "platformHandle" | "accessToken" | "refreshToken" | "expiresAt" | "status" | "lastPostedAt" | "loginEmail" | "loginPassword" | "recoveryEmail" | "recoveryPhone" | "twoFASecret" | "notes" | "birthDate" | "registrationSource" | "proxyId" | "deviceProfileId" | "postingMethod" | "loginCheckedAt" | "loginCheckedStatus" | "loginCheckedUsername" | "warmupStatus" | "lastWarmupAt" | "totalPostsPublished" | "publishingQuotaUsage" | "publishingQuotaTotal" | "publishingQuotaAt" | "createdAt" | "updatedAt", ExtArgs["result"]["socialAccount"]>
 export type SocialAccountInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   proxy?: boolean | Prisma.SocialAccount$proxyArgs<ExtArgs>
@@ -3927,6 +4176,15 @@ export type $SocialAccountPayload<ExtArgs extends runtime.Types.Extensions.Inter
     warmupStatus: $Enums.WarmupStatus
     lastWarmupAt: Date | null
     totalPostsPublished: number
+    /**
+     * Лимит публикаций площадки на момент последней отправки.
+     * Величину отдаёт только Instagram (content_publishing_limit) и только в
+     * момент публикации — снимок, а не текущее состояние, поэтому рядом лежит
+     * время замера, и интерфейс показывает его возраст.
+     */
+    publishingQuotaUsage: number | null
+    publishingQuotaTotal: number | null
+    publishingQuotaAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["socialAccount"]>
@@ -4392,6 +4650,9 @@ export interface SocialAccountFieldRefs {
   readonly warmupStatus: Prisma.FieldRef<"SocialAccount", 'WarmupStatus'>
   readonly lastWarmupAt: Prisma.FieldRef<"SocialAccount", 'DateTime'>
   readonly totalPostsPublished: Prisma.FieldRef<"SocialAccount", 'Int'>
+  readonly publishingQuotaUsage: Prisma.FieldRef<"SocialAccount", 'Int'>
+  readonly publishingQuotaTotal: Prisma.FieldRef<"SocialAccount", 'Int'>
+  readonly publishingQuotaAt: Prisma.FieldRef<"SocialAccount", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"SocialAccount", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"SocialAccount", 'DateTime'>
 }

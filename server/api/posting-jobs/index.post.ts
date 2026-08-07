@@ -185,24 +185,26 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Блок api-постинга для IG/TikTok: реального API-раннера нет (по решению проекта
-  // эти платформы постят ТОЛЬКО через browser_automation, Graph API отвергнут).
-  // Раньше такая джоба молча фейкала «Опубликовано» с mock-post URL. YouTube api
-  // НЕ трогаем (вне нашего решения). Проверка после proxy-gating: proxy — более
-  // жёсткий гейт, его 412 имеет приоритет.
-  if (account.postingMethod === "api" && (platform === "instagram" || platform === "tiktok")) {
-    const platformName = platform === "instagram" ? "Instagram" : "TikTok"
+  // Очередь PostingJob существует только для browser_automation: воркер
+  // (utils/posting/worker.ts) на api-аккаунте терминально падает с
+  // ApiPostingUnsupportedError, то есть оператор получал job, который не мог
+  // выполниться никогда. Для официального API-аккаунта публикация идёт другим
+  // путём — Upload через POST /api/uploads/create. Проверка после proxy-gating:
+  // proxy — более жёсткий гейт, его 412 имеет приоритет.
+  if (account.postingMethod === "api") {
     throw createError({
       statusCode: 422,
       statusMessage: "api_method_unsupported",
       message:
-        `Постинг в ${platformName} доступен только через browser_automation. `
-        + `Переключите аккаунт „${account.displayName}" на „Через браузер" в редактировании аккаунта.`,
+        `Аккаунт „${account.displayName}" подключён через официальный API (postingMethod=api). `
+        + `Для таких аккаунтов публикация идёт через загрузку: POST /api/uploads/create. `
+        + `Очередь PostingJob обслуживает только аккаунты с методом „Через браузер" (browser_automation).`,
       data: {
         code: "api_method_unsupported",
         accountId: account.id,
         platform,
-        suggestion: `Откройте аккаунт и смените метод постинга на „Через браузер" (browser_automation).`,
+        suggestion:
+          `Опубликуйте видео через /api/uploads/create либо смените метод постинга аккаунта на „Через браузер" (browser_automation).`,
       },
     })
   }

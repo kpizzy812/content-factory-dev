@@ -208,18 +208,18 @@ export default defineEventHandler(async (event) => {
       )
       continue
     }
-    // api-постинг для IG/TikTok недоступен (реального API-раннера нет — постинг
-    // только через browser_automation). Per-pair skip, не роняем весь bulk.
-    // YouTube api НЕ трогаем (вне нашего решения). TikTok bulk и так заблокирован выше.
-    if (
-      account.postingMethod === "api"
-      && (body.platform === "instagram" || body.platform === "tiktok")
-    ) {
-      const platformName = body.platform === "instagram" ? "Instagram" : "TikTok"
+    // Очередь PostingJob обслуживает только browser_automation: на api-аккаунте
+    // воркер терминально падает с ApiPostingUnsupportedError, то есть такая пара
+    // гарантированно не опубликуется. Раньше пропуск стоял только для IG/TikTok,
+    // и YouTube-пара доезжала до воркера, чтобы там упасть. Per-pair skip — весь
+    // bulk из-за одной пары не роняем. Для официального API путь публикации —
+    // Upload (POST /api/uploads/create), тот же контракт, что у одиночного
+    // POST /api/posting-jobs.
+    if (account.postingMethod === "api") {
       skip(
         "api_method_unsupported",
-        `Постинг в ${platformName} доступен только через browser_automation. `
-          + `Переключите аккаунт „${account.displayName}" на „Через браузер".`,
+        `Аккаунт „${account.displayName}" подключён через официальный API. `
+          + `Публикуйте через POST /api/uploads/create либо переключите аккаунт на „Через браузер" (browser_automation).`,
       )
       continue
     }

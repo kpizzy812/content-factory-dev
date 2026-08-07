@@ -5,8 +5,18 @@ function words(count: number): string {
   return Array.from({ length: count }, (_, index) => `word${index}`).join(' ')
 }
 
+/**
+ * Судья policy-чека отработал и претензий не имеет. Без него гейт намеренно
+ * отдаёт 'warning': непроверенный текст не должен выглядеть как проверенный.
+ */
+const judgeOk = {
+  status: 'ok' as const,
+  verdict: { verdict: 'pass' as const, violations: [], summary: 'нарушений нет' },
+}
+
 const base = {
   stage: 'script' as const,
+  policyJudge: judgeOk,
   hypothesis: { id: 'h1', keyword: 'PLAN', cta: 'Send PLAN' },
   funnel: { id: 'f1', status: 'active', keyword: 'PLAN' },
   leadMagnet: { id: 'l1', status: 'approved' },

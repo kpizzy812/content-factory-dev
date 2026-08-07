@@ -86,7 +86,10 @@ export default defineEventHandler(async (event) => {
     },
     include: {
       funnel: { include: { leadMagnet: true } },
-      hypothesis: { select: { id: true } },
+      // Магнит гипотезы — запасной источник выдачи. Основной путь привязывает
+      // материал к воронке, но у публикаций, созданных до этой привязки,
+      // funnel.leadMagnet пуст, а гипотеза свой магнит помнит всегда.
+      hypothesis: { select: { id: true, leadMagnetId: true, leadMagnet: true } },
       socialAccount: {
         select: { id: true, displayName: true, platformHandle: true, platformUserId: true },
       },
@@ -167,6 +170,7 @@ export default defineEventHandler(async (event) => {
     trackingToken,
   )
   const platformPostUrl = publication.platformPostUrl ?? publication.upload?.platformPostUrl ?? null
+  const leadMagnet = publication.funnel.leadMagnet ?? publication.hypothesis?.leadMagnet ?? null
 
   return {
     data: {
@@ -177,13 +181,13 @@ export default defineEventHandler(async (event) => {
       delivery: { adapter: publication.funnel.deliveryAdapter, url: deliveryUrl },
       conversion: { adapter: publication.funnel.conversionAdapter, url: conversionUrl },
       keyword: publication.keyword ?? publication.funnel.keyword,
-      leadMagnet: publication.funnel.leadMagnet
+      leadMagnet: leadMagnet
         ? {
-            id: publication.funnel.leadMagnet.id,
-            title: publication.funnel.leadMagnet.title,
-            content: publication.funnel.leadMagnet.content,
-            deliveryMessage: publication.funnel.leadMagnet.deliveryMessage,
-            warmupMessages: publication.funnel.leadMagnet.warmupMessages,
+            id: leadMagnet.id,
+            title: leadMagnet.title,
+            content: leadMagnet.content,
+            deliveryMessage: leadMagnet.deliveryMessage,
+            warmupMessages: leadMagnet.warmupMessages,
           }
         : null,
       attribution: {
@@ -196,7 +200,7 @@ export default defineEventHandler(async (event) => {
         hypothesisId: publication.hypothesis?.id ?? null,
         scriptId: publication.run.scenarios[0]?.id ?? null,
         funnelId: publication.funnel.id,
-        leadMagnetId: publication.funnel.leadMagnetId,
+        leadMagnetId: publication.funnel.leadMagnetId ?? publication.hypothesis?.leadMagnetId ?? null,
         messengerUserId: messengerUserId ?? null,
         occurredAt: savedEvent.occurredAt,
       },

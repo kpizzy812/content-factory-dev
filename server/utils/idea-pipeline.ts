@@ -57,6 +57,22 @@ ${parts.join('\n')}
 Язык ответа: ${language}. Ответь ТОЛЬКО JSON-объектом с полями: title, hook, body, cta, visualStyle, whyViral. Без обёрток и пояснений.`
 }
 
+/**
+ * Версия модели, которой реально сделан анализ идеи.
+ *
+ * Источник тот же, что и у общего хелпера агентов (agents/call-anthropic.ts:76):
+ * runIdeaAnalyzer зовёт callAnthropicAgent без tier, значит работает основная
+ * (sonnet) модель из ANTHROPIC_MODEL. Литерал здесь не выдуман — это тот же
+ * дефолт, что и в вызывающем коде, иначе в IdeaAnalysis.modelVersion попадёт
+ * имя модели, которой ответ не генерировали.
+ *
+ * ENV читаем в момент записи, а не при импорте модуля: смена ANTHROPIC_MODEL
+ * должна отражаться в новых анализах без перезапуска процесса.
+ */
+function resolveAnalysisModelVersion(): string {
+  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+}
+
 function extractJson(text: string): unknown {
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   const raw = codeBlockMatch ? codeBlockMatch[1]!.trim() : text.trim()
@@ -157,7 +173,7 @@ export async function processIdea(ideaId: number): Promise<void> {
       },
       timeout: 60_000,
       body: {
-        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
+        model: resolveAnalysisModelVersion(),
         max_tokens: 2048,
         system: BASIC_SYSTEM_PROMPT,
         messages: [
@@ -191,6 +207,11 @@ export async function processIdea(ideaId: number): Promise<void> {
 
     // Этап 2: структурированный анализ (IdeaAnalysis — формат CreativeBrief)
     try {
+      // Переменная объявляется здесь и используется в обеих ветках upsert.
+      // Раньше её не было вовсе: upsert падал с ReferenceError, анализ уходил в
+      // analysisStatus='failed', и Модуль 2 не получал бриф ни по одной идее.
+      const anthropicModel = resolveAnalysisModelVersion()
+
       const structured = await runIdeaAnalyzer({
         sourceUrl: idea.sourceUrl,
         platform,
@@ -278,7 +299,7 @@ export async function reanalyzeIdea(ideaId: number): Promise<void> {
       language,
     })
 
-    const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+    const anthropicModel = resolveAnalysisModelVersion()
 
     await prisma.ideaAnalysis.upsert({
       where: { ideaId },

@@ -24,6 +24,79 @@ import { isLimitStale } from '../social/publishing-limit'
 const HOUR_MS = 3_600_000
 const DAY_MS = 24 * HOUR_MS
 
+/**
+ * Текст, которым адаптер Instagram сообщает об исчерпанной квоте
+ * (`server/utils/social/instagram.ts`). Отдельная константа, потому что это
+ * единственный признак, по которому «слот занят» отличается от настоящего
+ * провала публикации.
+ */
+const QUOTA_EXHAUSTED_PATTERN = /publishing quota exhausted|квота публикаций исчерпана/i
+
+/** Минимальная пауза перед переносом, см. `planQuotaDeferral`. */
+const QUOTA_RETRY_FLOOR_MS = 5 * 60_000
+
+/**
+ * Квота исчерпана — это не провал попытки, а «сейчас нельзя».
+ * Считать это провалом означает сжечь три автопопытки за 80 минут, тогда как
+ * лимит катится 24 часа и за это время не восстановится.
+ */
+export function isPublishingQuotaExhausted(message: string | null | undefined): boolean {
+  if (!message) return false
+  return QUOTA_EXHAUSTED_PATTERN.test(message)
+}
+
+/**
+ * Момент, к которому по прогнозу освободится `needed` слотов.
+ *
+ * Прогноз почасовой и накопительный: публикация, сделанная в T, освобождает
+ * слот в T + 24 часа, поэтому нужное число слотов набирается суммой корзин.
+ * null — за ближайшие сутки столько не наберётся, переносить не на что.
+ */
+export function nextRecoveryAt(
+  recovery: CapacityRecoveryPoint[],
+  needed = 1,
+): string | null {
+  const required = Math.max(1, Math.trunc(needed))
+  let accumulated = 0
+  for (const point of [...recovery].sort((a, b) => a.hour.localeCompare(b.hour))) {
+    accumulated += Math.max(0, point.recovered)
+    if (accumulated >= required) return point.hour
+  }
+  return null
+}
+
+export type QuotaDeferral =
+  | { defer: false }
+  | { defer: true; retryAt: Date }
+
+/**
+ * Решение по упавшей из-за квоты публикации: перенести на момент
+ * восстановления слота вместо терминального провала.
+ *
+ * Когда прогноза нет (публикаций за сутки мы не видели — например, лимит
+ * выбрали не через нашу систему), переносим на час вперёд: это дешевле, чем
+ * потерять публикацию, и не превращается в busy-loop.
+ */
+export function planQuotaDeferral(input: {
+  errorMessage: string | null | undefined
+  recovery?: CapacityRecoveryPoint[]
+  fullyRecoveredAt?: string | null
+  now?: Date
+}): QuotaDeferral {
+  if (!isPublishingQuotaExhausted(input.errorMessage)) return { defer: false }
+
+  const now = input.now ?? new Date()
+  const forecast = nextRecoveryAt(input.recovery ?? [], 1) ?? input.fullyRecoveredAt ?? null
+  const forecastMs = forecast ? new Date(forecast).getTime() : Number.NaN
+  // Прогноз почасовой, корзина текущего часа уже могла пройти — пятиминутный
+  // пол не даёт превратить перенос в мгновенный повторный заход в ту же квоту.
+  const retryAtMs = Number.isFinite(forecastMs)
+    ? Math.max(forecastMs, now.getTime() + QUOTA_RETRY_FLOOR_MS)
+    : now.getTime() + HOUR_MS
+
+  return { defer: true, retryAt: new Date(retryAtMs) }
+}
+
 export interface CapacityFilters {
   appId?: number | null
   platform?: string | null

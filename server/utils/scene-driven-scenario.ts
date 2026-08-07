@@ -12,6 +12,7 @@
 import { createHash } from 'node:crypto'
 import { runSceneScripter } from './agents/scene-scripter'
 import type { SceneScripterInput } from './agents/scene-scripter'
+import { resolveScenarioFunnel } from './scenario-funnel'
 import type { StoryPlan } from '~~/shared/types/story'
 import type { AppReferenceImage } from '../../app/generated/prisma/client'
 
@@ -49,6 +50,12 @@ export interface SceneDrivenScenarioOpts {
   referenceImages?: SceneDrivenReferenceImage[]
   /** Если есть AppReferenceImage записи для inject в storyPlan.scenes[0].appScreenRef. */
   primaryAppReferenceImageId?: string | null
+  /**
+   * Воронка из контекста партии фабрики. Приоритетнее последней активной:
+   * партия уже выбрала, каким кодовым словом собирает лиды. Не задана — берём
+   * активную воронку юнита.
+   */
+  funnelId?: string | null
   /** Pipeline tracking. */
   runId?: number | null
   pipelineId?: number | null
@@ -248,9 +255,24 @@ export async function runScenarioGenerationForScene(
     }
   }
 
+  // Активная воронка юнита. Без неё scene-scripter требует «назови приложение и
+  // скачай», хотя по ТЗ конверсия идёт через кодовое слово в директ
+  // (docs/PROJECT_CONTEXT.md §9). Резолвер и формат те же, что у trend-driven
+  // путей, — иначе сценарий из сцены расходится с остальными.
+  const funnelResolution = await resolveScenarioFunnel(opts.appId, opts.funnelId ?? undefined)
+  if (funnelResolution.warning) {
+    await logAgent('scene-driven-scenario', 'warn', funnelResolution.warning).catch(() => {})
+  }
+  if (!funnelResolution.funnel) {
+    await logAgent('scene-driven-scenario', 'warn',
+      `У юнита ${opts.appId} нет активной воронки — CTA будет про приложение, а не про кодовое слово в директ.`,
+    ).catch(() => {})
+  }
+
   const scripterInput: SceneScripterInput = {
     compiledPrompt: opts.compiledPrompt,
     negativePrompt: opts.negativePrompt,
+    funnel: funnelResolution.funnel,
     app: {
       name: app.name,
       description: app.description,

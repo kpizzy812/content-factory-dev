@@ -6,6 +6,20 @@
 
 const SYSTEM_PROMPT = `Ты — аналитик коротких видео для TikTok, Instagram Reels и YouTube Shorts. Анализируешь метрики и объясняешь, почему ролик набрал или не набрал просмотры. Отвечай ТОЛЬКО на русском языке. Отвечай СТРОГО в формате JSON.`
 
+/**
+ * Доля 0…1 → «70.3%» для промпта.
+ *
+ * `watchThrough` и `ctr` хранятся долей (см. `server/utils/social/types.ts` и
+ * `app/components/analytics/AnalyticsFormat.ts`), а модели нужны проценты:
+ * без перевода в промпт уезжало «0.703%» вместо «70.3%», и выводы делались по
+ * заведомо неверным числам. Перевод держим на границе с LLM, чтобы по коду
+ * ходила одна шкала.
+ */
+function formatSharePercent(share: number): string {
+  if (!Number.isFinite(share)) return "0%"
+  return `${(share * 100).toFixed(1)}%`
+}
+
 function buildAnalysisPrompt(data: {
   title: string
   platform: string
@@ -14,7 +28,9 @@ function buildAnalysisPrompt(data: {
   likes: number
   comments: number
   shares: number
+  /** Доля досмотра, 0…1. */
   watchThrough: number
+  /** Доля переходов, 0…1. */
   ctr: number
   followerGain: number
 }): string {
@@ -30,8 +46,8 @@ function buildAnalysisPrompt(data: {
 - Лайки: ${data.likes}
 - Комментарии: ${data.comments}
 - Шеры: ${data.shares}
-- Досматриваемость: ${data.watchThrough}%
-- CTR: ${data.ctr}%
+- Досматриваемость: ${formatSharePercent(data.watchThrough)}
+- CTR: ${formatSharePercent(data.ctr)}
 - Прирост подписчиков: ${data.followerGain}
 
 ## Задача
@@ -151,7 +167,13 @@ export async function analyzePost(uploadId: number): Promise<{
 
   // Проверяем пороги для создания референса
   const thresholdViews = Number(process.env.REFERENCE_THRESHOLD_VIEWS) || 10000
-  const thresholdWatchThrough = Number(process.env.REFERENCE_THRESHOLD_WATCH_THROUGH) || 50
+  // Оператор задаёт порог досмотра в процентах (50 = 50 %) — так он записан в
+  // `.env.example` и так его читают люди. Сама метрика хранится долей 0…1
+  // (`server/utils/social/types.ts`), поэтому переводим порог в её шкалу здесь.
+  // Раньше сравнивали процент с долей: условие «0.7 >= 50» не выполнялось
+  // никогда, и в базу референсов ролик мог попасть только по числу просмотров.
+  const thresholdWatchThroughPercent = Number(process.env.REFERENCE_THRESHOLD_WATCH_THROUGH) || 50
+  const thresholdWatchThrough = thresholdWatchThroughPercent / 100
 
   let referenceCreated = false
 

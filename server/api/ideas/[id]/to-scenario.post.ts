@@ -5,6 +5,7 @@
  */
 
 import { generateScenarios } from '~~/server/utils/anthropic'
+import { resolveScenarioFunnel } from '~~/server/utils/scenario-funnel'
 
 export default defineEventHandler(async (event) => {
   const user = await requireScopedAccess(event, {
@@ -106,6 +107,23 @@ export default defineEventHandler(async (event) => {
     ? idea.analysis.referenceBreakdown as Record<string, unknown>
     : null
 
+  // Активная воронка юнита. Без неё генератор уходит в ветку «назови приложение
+  // и скачай», хотя по ТЗ конверсия идёт через кодовое слово в директ
+  // (docs/PROJECT_CONTEXT.md §9). Резолвер и формат те же, что у ручного
+  // /api/scenarios/generate и сценарной ноды конвейера — иначе сценарий,
+  // рождённый из идеи, расходится с остальными путями.
+  // Idea.appId необязателен: у идеи без юнита воронки быть не может.
+  const funnelResolution = idea.appId === null ? null : await resolveScenarioFunnel(idea.appId)
+  const funnel = funnelResolution?.funnel ?? null
+  if (funnelResolution?.warning) {
+    await logAgent('ideas-to-scenario', 'warn', funnelResolution.warning).catch(() => {})
+  }
+  if (funnelResolution && !funnelResolution.funnel) {
+    await logAgent('ideas-to-scenario', 'warn',
+      `У юнита ${idea.appId} нет активной воронки — CTA будет про приложение, а не про кодовое слово в директ.`,
+    ).catch(() => {})
+  }
+
   // language обязателен: без него агенты получают undefined и пишут сценарий
   // по-английски, даже когда у юнита указан русский.
   const appData = idea.app
@@ -114,8 +132,15 @@ export default defineEventHandler(async (event) => {
         description: idea.app.description,
         keywords: idea.app.keywords,
         language: idea.app.language,
+        funnel,
       }
-    : { name: 'Приложение', description: null, keywords: [], language: null }
+    : {
+        name: 'Приложение',
+        description: null,
+        keywords: [],
+        language: null,
+        funnel,
+      }
 
   const scenario = await prisma.scenario.create({
     data: {

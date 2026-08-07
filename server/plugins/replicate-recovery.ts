@@ -1,4 +1,4 @@
-import { readReplicateConfig } from "../utils/replicate/config"
+import { readReplicateConfig, type ReplicateConfig } from "../utils/replicate/config"
 import { createReplicateProvider } from "../utils/replicate/client"
 import { createMockReplicateProvider } from "../utils/replicate/mock"
 import { createPredictionService } from "../utils/replicate/prediction-service"
@@ -7,9 +7,25 @@ const RECOVERY_INTERVAL_MS = 60_000
 const RECOVERY_BATCH_SIZE = 20
 
 export default defineNitroPlugin((nitro) => {
-  if (process.env.SCHEDULERS_ENABLED !== "true") return
+  // Гейт scheduler'ов (тестовая инфраструктура). См. .env.test.
+  // Раньше здесь стояло `!== "true"`, и в проде без явной переменной
+  // восстановление потерянных predictions молча не запускалось — даже в реестре
+  // планировщиков его не было видно.
+  if (process.env.SCHEDULERS_ENABLED === "false") return
 
-  const config = readReplicateConfig()
+  // Конфигурация Replicate бросает при отсутствии токена или адреса вебхука.
+  // Внутри defineNitroPlugin это валит старт плагина без внятного следа, а
+  // восстановление — не тот механизм, ради которого стоит ронять процесс.
+  let config: ReplicateConfig
+  try {
+    config = readReplicateConfig()
+  }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`[replicate-recovery] выключено: конфигурация Replicate неполна — ${message}`)
+    return
+  }
+
   if (!config.recoveryEnabled) return
 
   const provider = config.mockMode

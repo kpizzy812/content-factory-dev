@@ -48,6 +48,10 @@ async function setupYoutubeFixtures(userId: number) {
     appId: app.id,
     platform: "youtube",
     proxyId: proxy.id,
+    // Очередь PostingJob обслуживает только browser_automation: api-аккаунт
+    // теперь отклоняется на входе (воркер такой job всё равно не выполнит,
+    // публикация для api идёт через Upload). Валидацию snapshot это не меняет.
+    postingMethod: "browser_automation",
   })
   return { app, video, account }
 }

@@ -1,15 +1,20 @@
 import type { Prisma } from '../../app/generated/prisma/client'
+import type { QualityCheck, QualityCheckSeverity, QualityVerdict } from './quality/severity'
+import { aggregateQualityVerdict, makeQualityCheck } from './quality/severity'
+import { buildPolicyChecks, collectPolicyTexts, evaluateContentPolicy } from './quality/policy-check'
+import type { PolicyJudgeOutcome } from './quality/policy-judge'
+import { runPolicyJudge } from './quality/policy-judge'
+import type { VideoUniquenessOutcome } from './quality/video-fingerprint'
+import { buildUniquenessChecks } from './quality/video-fingerprint'
+import { runVideoUniquenessCheck } from './quality/video-uniqueness'
 
-export interface FactoryQualityCheck {
-  key: string
-  passed: boolean
-  blocking: boolean
-  message: string
-  value?: unknown
-}
+export type { QualityCheckSeverity } from './quality/severity'
+
+/** Историческое имя типа. Уровень чека живёт в поле `severity`. */
+export type FactoryQualityCheck = QualityCheck
 
 export interface FactoryQualityGateResult {
-  verdict: 'pass' | 'warning' | 'fail'
+  verdict: QualityVerdict
   score: number
   checks: FactoryQualityCheck[]
   issues: string[]
@@ -24,12 +29,34 @@ export interface FactoryQualityInput {
   scenario?: Record<string, any> | null
   variant?: Record<string, any> | null
   video?: Record<string, any> | null
+  /**
+   * Конфигурация ограничений продукта. Списки берутся из App.forbiddenClaims /
+   * App.riskyClaims — поля уже есть в схеме и заполняются app-enrichment-агентом,
+   * новых миграций policy-чек не требует.
+   */
+  app?: { name?: string | null; forbiddenClaims?: string[] | null; riskyClaims?: string[] | null } | null
+  /** Результат LLM-судьи. Приезжает готовым, чтобы функция осталась чистой. */
+  policyJudge?: PolicyJudgeOutcome | null
+  /**
+   * Результат контура похожести (docs/PROJECT_CONTEXT.md п.7). Приезжает готовым
+   * по той же причине, что и судья: ffmpeg и выборка истории не должны попадать
+   * в чистую функцию.
+   *
+   * ПОЧЕМУ `undefined` не превращается в блокирующий чек: на стадии сценария
+   * готового файла ещё нет, сравнивать физически нечего. Финальный узел
+   * (`executeQualityGateNode`) передаёт поле ВСЕГДА — включая статус `failed`,
+   * когда отпечаток посчитать не удалось, — поэтому в бою «не проверили» видно
+   * как отдельный красный чек, а не как тишина.
+   */
+  uniqueness?: VideoUniquenessOutcome | null
   minDurationSec?: number
   maxDurationSec?: number
   wordsPerMinute?: number
   minCriticScore?: number
   requireFunnel?: boolean
   requireApprovedLeadMagnet?: boolean
+  /** false — AI-критик выключен конфигом узла. */
+  criticEnabled?: boolean
 }
 
 function wordsCount(text: string): number {
@@ -52,8 +79,16 @@ function plannedDurationSec(storyPlan: unknown): number | null {
 
 export function evaluateFactoryQuality(input: FactoryQualityInput): FactoryQualityGateResult {
   const checks: FactoryQualityCheck[] = []
-  const add = (key: string, passed: boolean, message: string, value?: unknown, blocking = true) => {
-    checks.push({ key, passed, blocking, message, value })
+  // Пятый аргумент — уровень чека. По умолчанию blocking: новый чек безопаснее
+  // считать блокирующим, пока автор явно не решил иначе.
+  const add = (
+    key: string,
+    passed: boolean,
+    message: string,
+    value?: unknown,
+    severity: QualityCheckSeverity = 'blocking',
+  ) => {
+    checks.push(makeQualityCheck(key, passed, message, { severity, value }))
   }
   const minDuration = Math.max(10, Number(input.minDurationSec) || 70)
   const maxDuration = Math.max(minDuration, Number(input.maxDurationSec) || 90)
@@ -75,7 +110,15 @@ export function evaluateFactoryQuality(input: FactoryQualityInput): FactoryQuali
     add('lead_magnet', input.leadMagnet?.status === 'approved', 'Lead magnet is approved')
   }
   add('scenario', Boolean(input.scenario?.id && input.variant?.id), 'Scenario and selected variant exist')
-  add('hook', String(input.variant?.hook ?? '').trim().length >= 20, 'Hook is sufficiently detailed', String(input.variant?.hook ?? '').length)
+  // Длина хука — эвристика читаемости, а не дефект ролика. Короткий хук не
+  // должен валить всю партию наравне с медицинским обещанием.
+  add(
+    'hook',
+    String(input.variant?.hook ?? '').trim().length >= 20,
+    'Hook is sufficiently detailed',
+    String(input.variant?.hook ?? '').length,
+    'warning',
+  )
   add('story_plan', Boolean(input.variant?.storyPlan), 'Editing story plan exists')
   add(
     'duration',
@@ -83,7 +126,24 @@ export function evaluateFactoryQuality(input: FactoryQualityInput): FactoryQuali
     `Estimated duration is ${minDuration}-${maxDuration} seconds`,
     estimatedDurationSec,
   )
-  add('critic_score', Number.isFinite(criticScore) && criticScore >= minCriticScore, `AI critic score is at least ${minCriticScore}/100`, Number.isFinite(criticScore) ? criticScore : null)
+  // Критик. Три разных состояния, которые раньше сливались в один чек:
+  //   отработал и дал оценку → сравниваем с порогом;
+  //   не отработал (упал, не запускался) → блокирующий чек «качество не проверено»;
+  //   выключен конфигом → предупреждение, но НЕ зелёный свет.
+  const hasCriticScore = Number.isFinite(criticScore)
+  if (input.criticEnabled === false) {
+    add(
+      'critic_score',
+      false,
+      'AI critic is disabled in the node config — scenario quality is not verified',
+      hasCriticScore ? criticScore : null,
+      'warning',
+    )
+  }
+  else {
+    add('critic_available', hasCriticScore, 'AI critic returned a score for the selected variant', hasCriticScore ? criticScore : null)
+    add('critic_score', hasCriticScore && criticScore >= minCriticScore, `AI critic score is at least ${minCriticScore}/100`, hasCriticScore ? criticScore : null)
+  }
   add('keyword', Boolean(keyword), 'Funnel has a trigger keyword')
   add(
     'cta_keyword',
@@ -91,6 +151,21 @@ export function evaluateFactoryQuality(input: FactoryQualityInput): FactoryQuali
     'CTA contains the funnel trigger keyword',
     keyword || null,
   )
+
+  // Policy-чек (docs/PROJECT_CONTEXT.md, п.10). Проверяем ровно тот текст, который
+  // увидит и услышит зритель: сценарий, хук, CTA и финальные субтитры из storyPlan.
+  const policy = evaluateContentPolicy({
+    parts: collectPolicyTexts({
+      fullScript: input.variant?.fullScript,
+      hook: input.variant?.hook,
+      cta,
+      storyPlan: input.variant?.storyPlan,
+    }),
+    forbiddenClaims: input.app?.forbiddenClaims,
+    riskyClaims: input.app?.riskyClaims,
+    judge: input.policyJudge ?? null,
+  })
+  checks.push(...buildPolicyChecks(policy))
 
   if (input.stage === 'final') {
     add('video_ready', input.video?.status === 'completed', 'Video render completed successfully', input.video?.status ?? null)
@@ -102,18 +177,20 @@ export function evaluateFactoryQuality(input: FactoryQualityInput): FactoryQuali
       `Actual duration is ${minDuration}-${maxDuration} seconds`,
       Number.isFinite(actualDuration) ? actualDuration : null,
     )
+    // Проверка похожести перед публикацией. Последний рубеж: до этого готовый
+    // ролик не сравнивался ни с чем, и серия визуально однотипных видео уходила
+    // в аккаунт (docs/PROJECT_CONTEXT.md п.7).
+    if (input.uniqueness !== undefined) {
+      checks.push(...buildUniquenessChecks(input.uniqueness))
+    }
   }
 
-  const passed = checks.filter(check => check.passed).length
-  const score = Math.round((passed / Math.max(1, checks.length)) * 100)
-  const blockingFailed = checks.filter(check => check.blocking && !check.passed)
-  const nonBlockingFailed = checks.filter(check => !check.blocking && !check.passed)
-  const verdict = blockingFailed.length > 0 ? 'fail' : nonBlockingFailed.length > 0 ? 'warning' : 'pass'
+  const aggregate = aggregateQualityVerdict(checks)
   return {
-    verdict,
-    score,
+    verdict: aggregate.verdict,
+    score: aggregate.score,
     checks,
-    issues: checks.filter(check => !check.passed).map(check => `${check.key}: ${check.message}`),
+    issues: aggregate.issues,
     estimatedDurationSec,
   }
 }
@@ -164,6 +241,51 @@ export async function executeQualityGateNode(
       })
     : null
   const leadMagnet = hypothesis?.funnel?.leadMagnet ?? hypothesis?.leadMagnet ?? null
+
+  // Обложка ролика — отдельный ассет, и п.7 требует, чтобы она тоже отличалась.
+  const cover = video
+    ? await prisma.videoAsset.findFirst({
+        where: { videoId: video.id, type: 'thumbnail' },
+        orderBy: { createdAt: 'desc' },
+        select: { storageKey: true, filePath: true },
+      })
+    : null
+
+  // Контур похожести не бросает: любая его неудача приезжает статусом и
+  // превращается в блокирующий чек внутри evaluateFactoryQuality.
+  const uniqueness = stage === 'final'
+    ? await runVideoUniquenessCheck({
+        appId: run.cycle.appId,
+        video,
+        cover,
+        enabled: config.uniquenessCheck !== false,
+        historyLimit: Number(config.uniquenessHistoryLimit) || undefined,
+      })
+    : undefined
+
+  // Ограничения продукта для policy-чека. Поля уже есть в схеме App и
+  // заполняются app-enrichment-агентом — миграция policy-чеку не нужна.
+  const app = await prisma.app.findUnique({
+    where: { id: run.cycle.appId },
+    select: { name: true, forbiddenClaims: true, riskyClaims: true },
+  })
+
+  const policyParts = collectPolicyTexts({
+    fullScript: variant?.fullScript,
+    hook: variant?.hook,
+    cta: variant?.cta ?? hypothesis?.cta,
+    storyPlan: variant?.storyPlan,
+  })
+  // Судья не бросает: любая его неудача приезжает статусом и превращается
+  // в блокирующий чек внутри evaluateFactoryQuality.
+  const policyJudge = await runPolicyJudge({
+    parts: policyParts,
+    appName: app?.name ?? null,
+    forbiddenClaims: app?.forbiddenClaims ?? [],
+    riskyClaims: app?.riskyClaims ?? [],
+    enabled: config.policyJudge !== false,
+  })
+
   const result = evaluateFactoryQuality({
     stage,
     hypothesis,
@@ -171,6 +293,10 @@ export async function executeQualityGateNode(
     leadMagnet,
     scenario,
     variant,
+    app,
+    policyJudge,
+    uniqueness,
+    criticEnabled: config.criticEnabled !== false,
     video,
     minDurationSec: Number(config.minDurationSec) || 70,
     maxDurationSec: Number(config.maxDurationSec) || 90,

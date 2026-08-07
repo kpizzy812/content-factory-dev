@@ -6,6 +6,10 @@
 
 import type { TrendwatcherRunStatus } from "../../app/generated/prisma/client"
 import type { ApifyRunInfo, ApifyValidationResult, ContentFormat } from "./apify-client"
+// Разбор трендов живёт в агенте — тот же путь, что и у ручной кнопки
+// POST /api/trends/[id]/analyze. Импорт явный, а не через автоимпорт Nitro,
+// чтобы связка «импорт → бриф» проверялась юнит-тестом без Nitro.
+import { resolveTrendAnalysisMode, runTrendAutoAnalysis } from "./agents/trend-analyzer-agent"
 
 interface RunContext {
   runId: number
@@ -461,6 +465,8 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
     }
 
     let imported = 0
+    /** Id только что созданных трендов — кандидаты на AI-разбор. */
+    const importedTrendIds: number[] = []
     let dedupSkipped = 0
     let viewCountSkipped = 0
     let nonPostSkipped = 0
@@ -512,7 +518,7 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
         const author = rawItem.ownerUsername ? String(rawItem.ownerUsername).toLowerCase() : ""
         const followers = followersByAuthor.get(author) ?? data.authorFollowers ?? null
 
-        await prisma.trend.create({
+        const createdTrend = await prisma.trend.create({
           data: {
             ...data,
             keyword,
@@ -526,6 +532,7 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
           },
         })
         imported++
+        if (createdTrend?.id) importedTrendIds.push(createdTrend.id)
       } catch (err: unknown) {
         warnings++
         const msg = err instanceof Error ? err.message : String(err)
@@ -558,6 +565,12 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
       { firstItemError: firstItemError ?? undefined },
     )
 
+    // --- Этап: analyzing ---
+    // По ТЗ (Модуль 1) выход агента — бриф в базе креативов, а не сырой ролик:
+    // именно бриф потребляет Модуль 2. Разбор идёт ограниченной пачкой и только
+    // по трендам без брифа, а при выключенных платных API молча пропускается.
+    const analyzed = await runTrendAnalysisStage(runId, importedTrendIds)
+
     // --- Этап: completed ---
     const finalStatus = warnings > 0 && imported > 0 ? "partially_completed" as const : "completed" as const
     const completionData: Record<string, unknown> = {
@@ -570,10 +583,12 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
       completionData.errorSummary = `Импорт частично завершён: ${imported} из ${items.length} (${warnings} ошибок маппинга)`
       completionData.canRetry = true
     }
+    completionData.analyzedCount = analyzed
     await updateRunStatus(runId, finalStatus, completionData)
     await runLog(runId, "info", `Запуск завершён: ${finalStatus}`, "completed", {
       foundCount: items.length,
       importedCount: imported,
+      analyzedCount: analyzed,
       skippedCount: skipped,
       dedupSkipCount: dedupSkipped,
       viewCountSkipCount: viewCountSkipped,
@@ -582,12 +597,13 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
 
     await updateProfileAfterRun(profileId, runId, true)
 
-    await logAgent("trendwatcher", "info", `Парсинг завершён: ${imported} трендов из ${items.length}`, {
+    await logAgent("trendwatcher", "info", `Парсинг завершён: ${imported} трендов из ${items.length}, разобрано ${analyzed}`, {
       profileId,
       runId,
       externalRunId,
       total: items.length,
       imported,
+      analyzed,
       skipped,
       dedupSkipped,
       viewCountSkipped,
@@ -607,6 +623,58 @@ export async function executeTrendwatcherRun(ctx: RunContext): Promise<void> {
     }).catch(() => {})
   } finally {
     activeRuns.delete(profileId)
+  }
+}
+
+/**
+ * Этап AI-разбора импортированных трендов.
+ *
+ * Возвращает число разобранных трендов. Провал разбора не валит прогон: ролики
+ * уже импортированы и оплачены, а бриф можно дозапросить кнопкой — терять из-за
+ * недоступного LLM весь результат парсинга нельзя.
+ */
+async function runTrendAnalysisStage(runId: number, trendIds: number[]): Promise<number> {
+  if (trendIds.length === 0) return 0
+
+  try {
+    // Статус analyzing выставляем только когда разбор реально пойдёт: при
+    // выключенных платных API прогон не должен зависать в фазе, которой нет.
+    if (resolveTrendAnalysisMode() === "disabled") {
+      await runLog(
+        runId,
+        "info",
+        `AI-анализ пропущен: ENABLE_PAID_APIS != "true" (${trendIds.length} трендов без брифа)`,
+        "analyzing",
+      )
+      return 0
+    }
+
+    await updateRunStatus(runId, "analyzing")
+    await runLog(runId, "info", `AI-анализ трендов: кандидатов ${trendIds.length}`, "analyzing")
+
+    const report = await runTrendAutoAnalysis({
+      trendIds,
+      onLog: (level, message, payload) => runLog(runId, level, message, "analyzing", payload),
+    })
+
+    await prisma.trendwatcherRun.update({
+      where: { id: runId },
+      data: { analyzedCount: report.analyzed },
+    }).catch(() => {})
+
+    await runLog(
+      runId,
+      "info",
+      `AI-анализ завершён: брифов ${report.analyzed}, ошибок ${report.failed}, отложено ${report.skipped}`,
+      "analyzing",
+      { mode: report.mode, selected: report.selected, trendIds: report.trendIds },
+    )
+
+    return report.analyzed
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    await runLog(runId, "warn", `AI-анализ трендов не выполнен: ${msg}`, "analyzing").catch(() => {})
+    return 0
   }
 }
 

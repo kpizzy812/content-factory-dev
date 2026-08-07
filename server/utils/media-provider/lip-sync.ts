@@ -17,13 +17,23 @@ import {
   createPredictionService,
   type PredictionSubmission,
 } from "../replicate/prediction-service"
+import { buildLipSyncIdentity } from "./lip-sync-identity"
 import { estimateMediaCost, mapMediaInput, resolveMediaModel } from "./registry"
 import type { MediaProviderName } from "./types"
 
 const REPLICATE_MAX_ATTEMPTS = 2
 const REPLICATE_RETRY_DELAY_MS = 2_000
-const FAL_LIP_SYNC_MODEL = "fal-ai/sync-lipsync"
-const FAL_PRICE_USD_PER_SECOND = 0.067
+const FAL_LIP_SYNC_REGISTRY_KEY = "fal:sync-lipsync"
+
+/**
+ * Резервная fal-модель берётся из реестра, а не из литералов: раньше её id и
+ * цена $0.067 жили здесь копией того, что записано в спеке, и равенство
+ * держалось вручную. Читаем лениво — реестр смотрит в env, и на этапе импорта
+ * модуля этого делать нельзя.
+ */
+function falLipSyncSpec() {
+  return resolveMediaModel("lip_sync", FAL_LIP_SYNC_REGISTRY_KEY)
+}
 
 export interface LipSyncRequest {
   videoId: number
@@ -92,20 +102,13 @@ export async function runLipSync(
     fingerprintFile(request.sourceVideoPath),
     fingerprintFile(request.audioPath),
   ])
-  const idempotencyKey = [
-    "lip-sync",
-    "v1",
-    "video",
-    request.videoId,
-    "scene",
-    request.sceneOrder,
-    "source",
-    sourceIdentity,
-    "audio",
-    audioIdentity,
-    "model",
-    model.id,
-  ].join(":")
+  const { attemptScope, attemptCeilingScope, idempotencyKey } = buildLipSyncIdentity({
+    videoId: request.videoId,
+    sceneOrder: request.sceneOrder,
+    modelId: model.id,
+    sourceFingerprint: sourceIdentity,
+    audioFingerprint: audioIdentity,
+  })
 
   const uploader = createReplicateInputUploader(config)
   const uploadReplicateInput = dependencies.uploadReplicateInput
@@ -143,6 +146,8 @@ export async function runLipSync(
         }),
         webhookUrl: config.webhookUrl,
         idempotencyKey,
+        attemptScope,
+        attemptCeilingScope,
       }),
       sleep,
     )
@@ -218,17 +223,14 @@ interface FalLipSyncResponse {
 }
 
 async function executeFalLipSync(request: LipSyncRequest): Promise<LipSyncResult> {
+  const spec = falLipSyncSpec()
   const [videoUrl, audioUrl] = await Promise.all([
     falUploadFile(request.sourceVideoPath, videoContentType(request.sourceVideoPath)),
     falUploadFile(request.audioPath, audioContentType(request.audioPath)),
   ])
-  const submitted = await falSubmit(FAL_LIP_SYNC_MODEL, {
-    video_url: videoUrl,
-    audio_url: audioUrl,
-    sync_mode: "cut_off",
-  })
+  const submitted = await falSubmit(spec.id, mapMediaInput(spec, { videoUrl, audioUrl }))
   const result = await falPollUntilDone<FalLipSyncResponse>(
-    FAL_LIP_SYNC_MODEL,
+    spec.id,
     submitted.requestId,
   )
   const outputUrl = result.data?.video?.url
@@ -237,9 +239,9 @@ async function executeFalLipSync(request: LipSyncRequest): Promise<LipSyncResult
   return {
     localPath: request.outputPath,
     provider: "fal",
-    modelId: FAL_LIP_SYNC_MODEL,
+    modelId: spec.id,
     predictionId: submitted.requestId,
-    costUsd: request.durationSec * FAL_PRICE_USD_PER_SECOND,
+    costUsd: estimateMediaCost(spec, { outputSeconds: request.durationSec }),
   }
 }
 

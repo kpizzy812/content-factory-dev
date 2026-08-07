@@ -1,3 +1,5 @@
+import { evaluateFalPreflight, planFalPreflightTargets } from "~~/server/utils/fal-preflight-plan"
+
 const VALID_FORMATS = ["portrait", "landscape"] as const
 const VALID_QUALITIES = ["low", "medium", "high"] as const
 
@@ -127,20 +129,38 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: `Неизвестный pacing: ${body.voiceoverPacing}` })
   }
 
-  // Preflight: проверяем реальную доступность моделей для текущего FAL_KEY
-  const { falProbeAccessBatch } = await import('~~/server/utils/fal')
-  const modelsToCheck = [
+  // Preflight: проверяем доступность только тех моделей, которые хостит fal.
+  // Модель на Replicate fal-пробой проверять нельзя — без FAL_KEY probe отдаёт
+  // no_api_key и роняет запуск, которому fal вообще не нужен (PROJECT_CONTEXT §5:
+  // Replicate — основной провайдер, fal — резерв).
+  const preflightTargets = planFalPreflightTargets([
     body.imageModelId || 'fal-ai/flux/dev',
     body.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
-  ]
-  const accessResults = await falProbeAccessBatch(modelsToCheck)
-  for (const [endpoint, result] of accessResults) {
-    if (result.status !== 'available') {
-      const modelMeta = getModel(endpoint)
+  ])
+  const preflightWarnings: string[] = []
+  if (preflightTargets.length > 0) {
+    const { falProbeAccessBatch } = await import('~~/server/utils/fal')
+    const accessResults = await falProbeAccessBatch(preflightTargets)
+    const verdict = evaluateFalPreflight(accessResults)
+
+    // Валим запуск только на однозначных вердиктах (нет ключа / доступ закрыт).
+    const blocked = verdict.blocking[0]
+    if (blocked) {
+      const modelMeta = getModel(blocked.endpoint)
       throw createError({
         statusCode: 403,
-        message: `Нет доступа к модели "${modelMeta?.name ?? endpoint}": ${result.reason}`,
+        message: `Нет доступа к модели "${modelMeta?.name ?? blocked.endpoint}": ${blocked.reason}`,
       })
+    }
+
+    // probe_error — сбой самой проверки, а не приговор модели: продолжаем,
+    // но честно сообщаем и в лог, и в ответ.
+    for (const warning of verdict.warnings) {
+      const modelMeta = getModel(warning.endpoint)
+      const text = `Проверка доступа к модели "${modelMeta?.name ?? warning.endpoint}" не дала вердикта: `
+        + `${warning.reason} (статус ${warning.status}). Запуск продолжен — доступ проверит сам submit.`
+      preflightWarnings.push(text)
+      await logAgent('video-generate', 'warn', text).catch(() => {})
     }
   }
 
@@ -323,6 +343,8 @@ export default defineEventHandler(async (event) => {
       voiceoverWarning: (body.voiceoverEnabled && !storyHasVoiceoverLines)
         ? 'StoryPlan не содержит voiceover lines — озвучка будет пропущена'
         : null,
+      // Транзиентные сбои fal-preflight не блокируют запуск, но UI о них знает
+      preflightWarnings,
     },
   }
 })

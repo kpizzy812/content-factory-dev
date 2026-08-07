@@ -1,11 +1,33 @@
 /**
- * Анализ видео по ссылке через Anthropic API.
- * Определяет платформу, отправляет промпт и возвращает текстовый анализ.
+ * Разбор чужого ролика для Telegram-бота.
+ *
+ * ТЗ (docs/SPEC.md, раздел «Telegram-бот» → «Анализ чужих роликов»):
+ * ссылка → транскрибация на нужном языке (RU/EN/DE и др.) → разбор структуры
+ * (хук, основная часть, CTA, визуальный стиль) → объяснение, почему залетело.
+ *
+ * ПОЧЕМУ переписано: раньше отсюда уходил один запрос в Anthropic с голым URL и
+ * промптом «проанализируй видео по ссылке». Модель ссылку открыть не может, ни
+ * транскрипта, ни кадров ей не давали — ответ был правдоподобной выдумкой о
+ * ролике, которого никто не видел. Язык был прибит гвоздями («Отвечай на
+ * русском»), то есть мультиязычности из ТЗ не было вовсе.
+ *
+ * Теперь бот идёт тем же путём, что и кнопка разбора в UI: reference-pipeline
+ * скачивает ролик, режет кадры, реально транскрибирует (субтитры / whisper) и
+ * синтезирует разбор. Язык берётся из самой транскрибации, а не назначается
+ * заранее.
  */
 
-type VideoPlatform = "youtube" | "tiktok" | "instagram" | "unknown"
+import {
+  analyzeIdeaReference,
+  releaseAnalysisSlot,
+  tryAcquireAnalysisSlot,
+  type ReferenceAnalysisResult,
+} from "../reference-pipeline"
+import { isAnthropicMockMode } from "../mock/mode"
 
-function detectPlatform(url: string): VideoPlatform {
+export type VideoPlatform = "youtube" | "tiktok" | "instagram" | "unknown"
+
+export function detectPlatform(url: string): VideoPlatform {
   const lower = url.toLowerCase()
 
   if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "youtube"
@@ -22,71 +44,207 @@ const PLATFORM_NAMES: Record<VideoPlatform, string> = {
   unknown: "Неизвестная платформа",
 }
 
-const ANALYSIS_PROMPT = `Ты — эксперт по вирусному видеоконтенту. Проанализируй видео по предоставленной ссылке.
+/** Длина куска расшифровки, который показываем в чате как доказательство. */
+const TRANSCRIPT_PREVIEW_LIMIT = 400
 
-Определи и опиши:
-1. Хук (первые 3 секунды) — как видео цепляет зрителя
-2. Основная часть — структура и подача контента
-3. CTA (призыв к действию) — как видео побуждает к действию
-4. Визуальный стиль — монтаж, эффекты, графика
-5. Почему видео залетело — что делает его вирусным
+export type TelegramVideoAnalysisStatus = "completed" | "skipped" | "busy" | "failed"
 
-Отвечай на русском. Будь конкретен и давай практические рекомендации.
-Формат ответа: структурированный текст с заголовками.`
+export interface TelegramVideoAnalysis {
+  status: TelegramVideoAnalysisStatus
+  /** Текст для чата. Пустым не бывает: молчание бота хуже честного отказа. */
+  text: string
+  /** Язык, определённый по транскрибации (null — расшифровки не получили). */
+  language: string | null
+}
 
-export async function analyzeVideoByUrl(url: string): Promise<string> {
+/**
+ * Причина, по которой реальный разбор запускать нельзя. null — можно.
+ *
+ * Разбор упирается в платный Anthropic (анализ кадров + синтез) и в whisper,
+ * поэтому при выключенных платных API и в mock-режиме мы вообще не заходим в
+ * pipeline: в mock-режиме reference-pipeline фикстур не отдаёт, он честно
+ * скачивал бы ролик и звал платные модели.
+ */
+export function describeAnalysisBlocker(): string | null {
+  if (isAnthropicMockMode()) {
+    return "Mock-режим Anthropic (ANTHROPIC_MOCK_MODE=true): транскрибация и разбор не запускались, реальных вызовов нет."
+  }
   if (process.env.ENABLE_PAID_APIS !== "true") {
+    return "Платные API отключены (ENABLE_PAID_APIS≠true): транскрибация и разбор ролика недоступны."
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return "ANTHROPIC_API_KEY не настроен: разбор ролика недоступен."
+  }
+  return null
+}
+
+/** Экранируем то, что пришло из модели и расшифровки: sendMessage шлёт HTML. */
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+function line(label: string, value: string | null | undefined): string | null {
+  const clean = (value || "").trim()
+  if (!clean) return null
+  return `${label}: ${escapeHtml(clean)}`
+}
+
+/**
+ * Строка про транскрибацию. Если расшифровки нет — говорим об этом прямо,
+ * потому что «разбор без транскрипта» и «разбор с транскриптом» — это разная
+ * степень доверия к выводам, и пользователь должен её видеть.
+ */
+function formatTranscriptSection(result: ReferenceAnalysisResult): string[] {
+  const transcript = result.breakdown.transcript
+  const fullText = transcript?.fullText?.trim() || ""
+
+  if (!result.transcriptExtracted || fullText.length === 0) {
     return [
-      `Платформа: ${PLATFORM_NAMES[detectPlatform(url)]}`,
-      `Ссылка: ${url}`,
-      "",
-      "AI-анализ недоступен: платные API отключены.",
-      "Установите ENABLE_PAID_APIS=true для включения.",
-    ].join("\n")
+      "Транскрибация: не получена (нет субтитров и распознавание не дало текста).",
+      "Разбор построен по кадрам — выводы о речи не делались.",
+    ]
   }
 
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ""
-  if (!anthropicApiKey) {
-    return "AI-анализ недоступен: ANTHROPIC_API_KEY не настроен."
+  const preview = fullText.slice(0, TRANSCRIPT_PREVIEW_LIMIT)
+  const suffix = fullText.length > TRANSCRIPT_PREVIEW_LIMIT ? "…" : ""
+
+  return [
+    `Транскрибация: язык ${transcript?.language || "не определён"}, источник ${transcript?.source || "unknown"}, ${fullText.length} символов.`,
+    `«${escapeHtml(preview)}${suffix}»`,
+  ]
+}
+
+/**
+ * «Почему залетело» собираем из абстрагированных паттернов разбора —
+ * это единственное место в ReferenceBreakdown, где модель объясняет причину
+ * успеха, и у паттернов есть сила, по которой их можно отсортировать.
+ */
+function formatWhyViral(result: ReferenceAnalysisResult): string[] {
+  const patterns = [...(result.breakdown.abstractedPatterns || [])]
+    .sort((a, b) => (b.strength || 0) - (a.strength || 0))
+    .slice(0, 3)
+
+  if (patterns.length === 0) {
+    return ["Почему залетело: модель не выделила устойчивых паттернов."]
   }
 
-  const platform = detectPlatform(url)
+  return [
+    "Почему залетело:",
+    ...patterns.map(p => `- ${escapeHtml(p.name)} (${p.strength}/100): ${escapeHtml(p.abstractDescription)}`),
+  ]
+}
+
+function formatAnalysis(url: string, result: ReferenceAnalysisResult): string {
+  const breakdown = result.breakdown
+  const narrative = breakdown.narrativeMechanics
+  const visual = breakdown.visualPatterns
+
+  const visualParts = [
+    visual.aesthetic,
+    visual.cameraStyle ? `камера — ${visual.cameraStyle}` : null,
+    visual.lighting ? `свет — ${visual.lighting}` : null,
+    visual.effects && visual.effects.length > 0 ? `эффекты — ${visual.effects.join(", ")}` : null,
+  ].filter(Boolean).join("; ")
+
+  const lines: (string | null)[] = [
+    `Разбор ролика (${PLATFORM_NAMES[detectPlatform(url)]})`,
+    url,
+    "",
+    ...formatTranscriptSection(result),
+    "",
+    line("Хук", narrative.hookType ? `${narrative.hookType} — ${narrative.hookDescription}` : narrative.hookDescription),
+    line("Основная часть", narrative.bodyMechanic),
+    line("Структура", narrative.narrativeTemplate),
+    line("Ритм", narrative.pacing),
+    line("CTA", narrative.ctaMechanic),
+    line("Визуальный стиль", visualParts),
+    "",
+    ...formatWhyViral(result),
+    "",
+    `Сцен разобрано: ${breakdown.sceneTimeline.length}. Уверенность разбора: ${Math.round((breakdown.confidence || 0) * 100)}%.`,
+  ]
+
+  if (result.errors.length > 0) {
+    lines.push(`Замечания пайплайна: ${escapeHtml(result.errors.join("; "))}`)
+  }
+
+  return lines.filter(l => l !== null).join("\n")
+}
+
+/**
+ * Полный разбор уже созданной идеи через reference-pipeline.
+ *
+ * Идею создаёт вызывающий код (боту нужен её id для прогресса и для записи
+ * расшифровки), сюда приходит только ideaId. Слот concurrency берём тем же
+ * механизмом, что и HTTP-эндпоинт разбора, иначе телеграм-ссылки могли бы
+ * пробить лимит в два параллельных анализа.
+ */
+export async function analyzeIdeaVideo(ideaId: number, url: string): Promise<TelegramVideoAnalysis> {
+  const blocker = describeAnalysisBlocker()
+  if (blocker) {
+    return {
+      status: "skipped",
+      language: null,
+      text: [
+        `Платформа: ${PLATFORM_NAMES[detectPlatform(url)]}`,
+        `Ссылка: ${url}`,
+        "",
+        blocker,
+        "Ссылка сохранена как идея — разбор можно запустить позже из интерфейса.",
+      ].join("\n"),
+    }
+  }
+
+  if (!tryAcquireAnalysisSlot()) {
+    return {
+      status: "busy",
+      language: null,
+      text: [
+        `Ссылка сохранена как идея #${ideaId}.`,
+        "Сейчас идут два других разбора — очередь занята.",
+        "Запустите разбор позже из интерфейса или пришлите ссылку ещё раз.",
+      ].join("\n"),
+    }
+  }
+
+  // Пока pipeline работает, UI должен видеть running: он опрашивает эти поля
+  // ровно так же, как при запуске разбора из интерфейса.
+  await prisma.idea.update({
+    where: { id: ideaId },
+    data: { referenceStatus: "running", errorMessage: null },
+  }).catch(() => { /* не критично: pipeline всё равно перепишет статус */ })
 
   try {
-    const response = await $fetch<{
-      content: Array<{ type: string; text?: string }>
-    }>("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": anthropicApiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      timeout: 60_000,
-      body: {
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 2048,
-        messages: [
-          {
-            role: "user",
-            content: `${ANALYSIS_PROMPT}\n\nПлатформа: ${PLATFORM_NAMES[platform]}\nСсылка: ${url}`,
-          },
-        ],
-      },
-    })
-
-    const textBlock = response.content.find((c) => c.type === "text")
-    if (!textBlock?.text) {
-      return "AI-сервис вернул пустой ответ. Попробуйте позже."
+    const result = await analyzeIdeaReference(ideaId)
+    return {
+      status: "completed",
+      language: result.breakdown.transcript?.language ?? null,
+      text: formatAnalysis(url, result),
     }
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : "неизвестная ошибка"
 
-    return [
-      `Платформа: ${PLATFORM_NAMES[platform]}`,
-      `Ссылка: ${url}`,
-      "",
-      textBlock.text,
-    ].join("\n")
-  } catch {
-    return `Не удалось проанализировать видео. Попробуйте позже.\n\nПлатформа: ${PLATFORM_NAMES[platform]}\nСсылка: ${url}`
+    await prisma.idea.update({
+      where: { id: ideaId },
+      data: {
+        referenceStatus: "failed",
+        errorMessage: message.slice(0, 2000),
+        analysisProgress: null,
+      },
+    }).catch(() => { /* сообщение пользователю важнее записи статуса */ })
+
+    return {
+      status: "failed",
+      language: null,
+      text: [
+        `Не удалось разобрать ролик: ${escapeHtml(message)}`,
+        "",
+        `Ссылка сохранена как идея #${ideaId} — разбор можно повторить из интерфейса.`,
+      ].join("\n"),
+    }
+  }
+  finally {
+    releaseAnalysisSlot()
   }
 }

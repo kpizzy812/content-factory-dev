@@ -162,8 +162,10 @@ export default defineEventHandler(async (event) => {
           platformOptions: platformById.get(accountId) === "instagram"
             ? { instagram: { publishMode: instagramPublishMode } }
             : undefined,
+          // Обещание держит upload-scheduler: он поднимает blocked_by_env
+          // обратно в очередь на ближайшем тике после включения флага.
           errorMessage: !socialPostingEnabled
-            ? "Публикация отключена (ENABLE_SOCIAL_POSTING=false). Загрузка будет выполнена после включения."
+            ? "Публикация отключена (ENABLE_SOCIAL_POSTING=false). Загрузка вернётся в очередь автоматически, как только флаг включат."
             : null,
         },
         select: {

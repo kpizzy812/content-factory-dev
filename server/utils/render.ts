@@ -2,7 +2,7 @@ import ffmpeg from "fluent-ffmpeg"
 import { writeFile, mkdir, access, unlink, stat } from "node:fs/promises"
 import { join, dirname } from "node:path"
 import { getAssetsDirFor, getVideosBase } from "./storage-paths"
-import type { SubtitleStyleProfile, SubtitlePlacement } from "~~/shared/types/story"
+import type { SubtitleStyleProfile } from "~~/shared/types/story"
 import {
   SUBTITLE_WORDS_PER_LINE_MIN,
   SUBTITLE_WORDS_PER_LINE_MAX,
@@ -12,6 +12,7 @@ import type { AnySubtitlePresetKey } from "~~/shared/types/subtitle-preset"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import { tryRenderAssFilter } from "./subtitles/render-ass"
 import { normalizeSubtitleStyle } from "./subtitle-style"
+import { buildSubtitleTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 
 interface AssembleOptions {
   clips: string[]
@@ -22,8 +23,10 @@ interface AssembleOptions {
   musicPath: string | null
   format: "portrait" | "landscape"
   outputPath: string
-  /** Per-scene subtitle texts with timing (story-driven mode) */
-  sceneSubtitles?: Array<{ text: string; placement: SubtitlePlacement; durationSec?: number }>
+  /** Per-scene субтитры с ЯВНЫМ sceneIndex (story-driven mode).
+   * sceneIndex — позиция сцены в videoPlan.scenes, она же индекс клипа в clips[].
+   * Без него сцена с пустым текстом сдвигала весь хвост субтитров на сцену вперёд. */
+  sceneSubtitles?: SceneSubtitleInput[]
   /** SubtitleStyleProfile из StoryPlan — используется только для casing/длины строки, цвета игнорируем */
   subtitleStyle?: SubtitleStyleProfile | null
   /** Brand-safe preset субтитров — цвета/обводка/размер. Дефолт classic (legacy alias tiktok_classic тоже работает). */
@@ -634,17 +637,48 @@ export async function normalizeClipsForConcat(
 }
 
 /**
+ * Длительность, которой подменяется неизмеримый клип в probeClipDurations.
+ * Только для сборки: таймлайн субтитров и сведение озвучки обязаны построиться
+ * даже по битому файлу, иначе ролик не соберётся вообще.
+ */
+const FALLBACK_CLIP_DURATION_SEC = 5
+
+/**
+ * Строгий замер длительности медиафайла.
+ *
+ * Возвращает null, если ffprobe недоступен, файла нет, он битый или в метаданных
+ * нет вменяемой длительности. Этим и отличается от probeClipDurations: там любая
+ * неудача молча превращается в 5 секунд, и всякая проверка вида «уложился ли
+ * источник в диапазон модели» вырождается в константу — битый файл всегда
+ * «5 с, всё ок». Там, где по длительности принимается РЕШЕНИЕ (пускать сцену в
+ * lip-sync или нет), нужен именно этот замер.
+ */
+export async function probeMediaDuration(filePath: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      // err игнорировать нельзя: без файла/ffprobe metadata приходит пустой, и
+      // «|| 5» превращал ошибку в правдоподобное число.
+      if (err) {
+        resolve(null)
+        return
+      }
+      const duration = metadata?.format?.duration
+      resolve(typeof duration === "number" && Number.isFinite(duration) && duration > 0 ? duration : null)
+    })
+  })
+}
+
+/**
  * Probes clip durations using ffprobe to build accurate timeline.
+ *
+ * Массивная семантика намеренно осталась «с дефолтом»: потребители (таймлайн
+ * субтитров, реконсиляция озвучки) складывают длительности подряд и не умеют
+ * работать с дырами. Для решений по конкретному файлу используйте probeMediaDuration.
  */
 export async function probeClipDurations(clips: string[]): Promise<number[]> {
   const durations: number[] = []
   for (const clip of clips) {
-    const dur = await new Promise<number>((resolve) => {
-      ffmpeg.ffprobe(clip, (err, metadata) => {
-        resolve(metadata?.format?.duration || 5)
-      })
-    })
-    durations.push(dur)
+    durations.push(await probeMediaDuration(clip) ?? FALLBACK_CLIP_DURATION_SEC)
   }
   return durations
 }
@@ -701,6 +735,93 @@ export async function trimAudio(
         })
       })
       .on('error', (err) => reject(new Error(`trimAudio failed: ${err.message}`)))
+      .run()
+  })
+}
+
+/** Предел удлинения сцены: не больше +50% исходной длины и не больше 5 секунд. */
+export const MAX_CLIP_EXTEND_RATIO = 0.5
+export const MAX_CLIP_EXTEND_SEC = 5
+
+/**
+ * Считает, на сколько можно удлинить клип под озвучку (политика extend_scene).
+ * Чистая функция — вся политика лимитов в одном месте, её видно в тестах.
+ *
+ * Возвращает allowed=false, если удлинение вышло за разумный предел: caller
+ * деградирует в ускорение/обрезку, а не растягивает последний кадр на полминуты.
+ */
+export function planClipExtension(opts: {
+  clipDurationSec: number
+  voiceoverDurationSec: number
+  /** Тот же зазор, что использует reconciliation (обычно 0.1s). */
+  gapSec?: number
+}): { neededSec: number; allowed: boolean; limitSec: number } {
+  const gap = opts.gapSec ?? 0.1
+  // Нужная длина клипа = озвучка + зазор, чтобы maxAllowed (clip - gap) её вместил.
+  const needed = Math.max(0, opts.voiceoverDurationSec + gap - opts.clipDurationSec)
+  const limit = Math.min(opts.clipDurationSec * MAX_CLIP_EXTEND_RATIO, MAX_CLIP_EXTEND_SEC)
+  return {
+    neededSec: Math.round(needed * 100) / 100,
+    allowed: needed > 0 && needed <= limit,
+    limitSec: Math.round(limit * 100) / 100,
+  }
+}
+
+/**
+ * Удлиняет видеоклип, удерживая последний кадр (tpad=stop_mode=clone).
+ * Аудио-дорожка клипа добивается тишиной (apad), иначе `-shortest` в последующей
+ * нормализации отрезал бы дорисованный хвост обратно.
+ *
+ * Используется политикой voiceoverReconciliation='extend_scene': сцена растягивается
+ * под озвучку вместо того, чтобы резать/ускорять голос.
+ */
+export async function extendVideoClip(
+  inputPath: string,
+  outputPath: string,
+  extraSec: number,
+): Promise<{ outputPath: string; durationSec: number }> {
+  const extra = Math.max(0.1, Math.round(extraSec * 100) / 100)
+  const audioPresent = await hasAudioStream(inputPath)
+
+  return new Promise((resolve, reject) => {
+    const stderrTail: string[] = []
+    const filters = [`[0:v]tpad=stop_mode=clone:stop_duration=${extra.toFixed(2)}[v]`]
+    const outputOpts = [
+      "-map", "[v]",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "22",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      "-y",
+    ]
+    if (audioPresent) {
+      filters.push(`[0:a]apad=pad_dur=${extra.toFixed(2)}[a]`)
+      outputOpts.push("-map", "[a]", "-c:a", "aac", "-b:a", "128k")
+    }
+
+    ffmpeg()
+      .input(inputPath)
+      .complexFilter(filters)
+      .outputOptions(outputOpts)
+      .output(outputPath)
+      .on("stderr", (line: string) => {
+        stderrTail.push(line)
+        if (stderrTail.length > 20) stderrTail.shift()
+      })
+      .on("end", () => {
+        ffmpeg.ffprobe(outputPath, (_err, metadata) => {
+          const duration = metadata?.format?.duration ?? 0
+          resolve({ outputPath, durationSec: Math.round(duration * 100) / 100 })
+        })
+      })
+      .on("error", (err) => {
+        const tail = stderrTail.slice(-10).join("\n")
+        reject(new Error(
+          `Не удалось удлинить клип ${inputPath} на ${extra}s: ${err.message}`
+          + (tail ? `\n--- stderr ---\n${tail}` : ""),
+        ))
+      })
       .run()
   })
 }
@@ -783,55 +904,22 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
   }
 
   // Если ASS-ветка не сработала ИЛИ preset.renderer === 'drawtext' → собираем drawtext.
-  if (subtitleFilters.length === 0 && sceneSubtitles && sceneSubtitles.length > 0 && clips.length > 1) {
-    // Story-driven mode: per-scene subtitles with time windows
-    // Probe actual clip durations for accurate timing
+  if (subtitleFilters.length === 0 && sceneSubtitles && sceneSubtitles.length > 0) {
+    // Story-driven mode: окно каждого субтитра берём у КЛИПА ЕГО СЦЕНЫ (sceneIndex),
+    // а не по позиции в массиве субтитров — иначе сцена без текста уводила весь хвост.
     const clipDurations = await probeClipDurations(normalizedClips)
-    const timeline: Array<{ start: number; end: number }> = []
-    let currentTime = 0
-    for (const dur of clipDurations) {
-      timeline.push({ start: currentTime, end: currentTime + dur })
-      currentTime += dur
-    }
+    const windows = buildSubtitleTimeline(clipDurations, sceneSubtitles)
 
-    // Map each scene subtitle to its clip's time window
-    for (let i = 0; i < Math.min(sceneSubtitles.length, clips.length); i++) {
-      const sub = sceneSubtitles[i]!
-      const window = timeline[i]
-      if (!sub.text || !window) continue
+    for (const window of windows) {
+      const position = window.placement?.position || 'bottom'
+      const style = resolveSubtitleStyle(format, subtitleStyle, position, subtitlePreset)
+      const role = position === 'top' ? 'top' : position === 'center' ? 'scene' : 'bottom'
 
-      const position = sub.placement?.position || 'bottom'
-
-      // Anti-occlusion: alternate positions for consecutive same-position scenes
-      let effectivePosition = position
-      if (i > 0) {
-        const prevPosition = sceneSubtitles[i - 1]?.placement?.position || 'bottom'
-        if (prevPosition === position && position === 'bottom') {
-          // Alternate to avoid visual monotony — shift every other to center-bottom
-          effectivePosition = i % 2 === 0 ? 'bottom' : 'bottom'
-        }
-      }
-
-      const style = resolveSubtitleStyle(format, subtitleStyle, effectivePosition, subtitlePreset)
-      const role = effectivePosition === 'top' ? 'top' : effectivePosition === 'center' ? 'scene' : 'bottom'
-
-      subtitleFilters.push(...buildDrawtextFilters(sub.text, style, format, role, {
+      subtitleFilters.push(...buildDrawtextFilters(window.text, style, format, role, {
         casing,
-        enableStart: window.start,
-        enableEnd: window.end - 0.1, // Small gap for clean transition
+        enableStart: window.startSec,
+        enableEnd: window.endSec,
       }))
-    }
-  } else if (subtitleFilters.length === 0 && sceneSubtitles && sceneSubtitles.length > 0 && clips.length === 1) {
-    // Single clip with scene subtitles — show all subtitles
-    const positions = new Set(sceneSubtitles.map(s => s.placement?.position || 'bottom'))
-
-    for (const pos of positions) {
-      const subsForPos = sceneSubtitles.filter(s => (s.placement?.position || 'bottom') === pos)
-      // Pick the longest/most meaningful subtitle for this position
-      const best = subsForPos.reduce((a, b) => (a.text.length > b.text.length ? a : b))
-      const style = resolveSubtitleStyle(format, subtitleStyle, pos, subtitlePreset)
-      const role = pos === 'top' ? 'top' : pos === 'center' ? 'scene' : 'bottom'
-      subtitleFilters.push(...buildDrawtextFilters(best.text, style, format, role, { casing }))
     }
   } else if (subtitleFilters.length === 0) {
     // Legacy mode: topText + bottomText с опциональным style profile
@@ -996,7 +1084,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
  */
 async function buildAssSegments(opts: {
   clips: string[]
-  sceneSubtitles?: Array<{ text: string; placement: SubtitlePlacement; durationSec?: number }>
+  sceneSubtitles?: SceneSubtitleInput[]
   topText: string
   bottomText: string
   keywordHints?: Array<{ order: number; keywords: Array<{ word: string; weight: number }> }>
@@ -1004,31 +1092,23 @@ async function buildAssSegments(opts: {
   const segs: Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput> = []
 
   if (opts.sceneSubtitles && opts.sceneSubtitles.length > 0) {
-    const clipDurations = opts.clips.length > 1
-      ? await probeClipDurations(opts.clips)
-      : (opts.clips.length === 1
-        ? [opts.sceneSubtitles.reduce((acc, s) => acc + (s.durationSec ?? 3), 0) || 5]
-        : [])
-    let currentTime = 0
+    const clipDurations = opts.clips.length > 0 ? await probeClipDurations(opts.clips) : []
+    // Тот же расчёт окон, что и в drawtext-ветке — выравнивание строго по sceneIndex.
+    const windows = buildSubtitleTimeline(clipDurations, opts.sceneSubtitles)
+
+    // keywordHints нумеруются как sceneIndex + 1 (1-based, так их видит AI-агент).
     const aiMap = new Map<number, Array<{ word: string; weight: number }>>()
     if (opts.keywordHints) {
       for (const h of opts.keywordHints) aiMap.set(h.order, h.keywords)
     }
-    for (let i = 0; i < opts.sceneSubtitles.length; i++) {
-      const sub = opts.sceneSubtitles[i]!
-      // Multi-clip: каждая сцена идёт ровно на длительность своего клипа.
-      // Single-clip: распределяем равномерно (sceneSubtitles может быть больше клипов).
-      const dur = clipDurations[i] ?? sub.durationSec ?? 3
-      const start = currentTime
-      const end = currentTime + dur - 0.1
-      currentTime += dur
-      if (!sub.text) continue
+
+    for (const window of windows) {
       segs.push({
-        startSec: start,
-        endSec: end,
-        text: sub.text,
-        placement: sub.placement,
-        aiKeywords: aiMap.get(i + 1),
+        startSec: window.startSec,
+        endSec: window.endSec,
+        text: window.text,
+        placement: window.placement,
+        aiKeywords: aiMap.get(window.sceneIndex + 1),
       })
     }
     return segs

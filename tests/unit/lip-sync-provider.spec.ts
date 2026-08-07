@@ -50,7 +50,14 @@ describe("provider-neutral lip-sync", () => {
         audio_file: "https://api.replicate.com/v1/files/audio",
       },
       webhookUrl: null,
-      idempotencyKey: "lip-sync:v1:video:42:scene:3:source:source-sha:audio:audio-sha:model:kwaivgi/kling-lip-sync",
+      // Областей бюджета две. Узкая (с отпечатками исходников) совпадает с
+      // ключом: перегенерировал оператор клип — исходник другой, бюджет свежий,
+      // и сцена не запирается навсегда из-за пяти «no face detected».
+      // Широкая (ролик + сцена + модель) — строгий префикс узкой: по ней считается
+      // общий потолок, иначе каждая переозвучка выдавала бы новый полный бюджет.
+      idempotencyKey: "lip-sync:v1:video:42:scene:3:model:kwaivgi/kling-lip-sync:source:source-sha:audio:audio-sha",
+      attemptScope: "lip-sync:v1:video:42:scene:3:model:kwaivgi/kling-lip-sync:source:source-sha:audio:audio-sha",
+      attemptCeilingScope: "lip-sync:v1:video:42:scene:3:model:kwaivgi/kling-lip-sync",
     }))
     expect(uploadReplicateInput).toHaveBeenNthCalledWith(1, baseInput.sourceVideoPath, "video/mp4")
     expect(uploadReplicateInput).toHaveBeenNthCalledWith(2, baseInput.audioPath, "audio/mpeg")

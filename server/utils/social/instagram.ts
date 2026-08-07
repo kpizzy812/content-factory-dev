@@ -5,10 +5,13 @@ import {
   type InstagramMediaInsights,
   type InstagramTrialStrategy,
 } from "./instagram-api"
+import type { FollowerCount, FollowerCountProvider } from "./follower-count"
+import { computeWatchThrough } from "./metrics-context"
 import { resolvePublicMediaUrl } from "./public-media"
 import { recordPublishingLimit } from "./publishing-limit"
 import type {
   DecryptedAccount,
+  MetricsContext,
   MetricsResult,
   SocialPlatformAdapter,
   UploadParams,
@@ -126,7 +129,7 @@ export function createInstagramAdapter({
   now = Date.now,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   pollTimeoutMs = DEFAULT_POLL_TIMEOUT_MS,
-}: CreateInstagramAdapterOptions = {}): SocialPlatformAdapter {
+}: CreateInstagramAdapterOptions = {}): SocialPlatformAdapter & FollowerCountProvider {
   return {
     async uploadVideo(account: DecryptedAccount, params: UploadParams): Promise<UploadResult> {
       if (!account.platformUserId) {
@@ -217,6 +220,7 @@ export function createInstagramAdapter({
     async getPostMetrics(
       account: DecryptedAccount,
       platformPostId: string,
+      context?: MetricsContext,
     ): Promise<MetricsResult> {
       const accessToken = await getAccessToken(account)
       const client = clientFactory(accessToken)
@@ -224,14 +228,56 @@ export function createInstagramAdapter({
       const insights: InstagramMediaInsights = await client
         .getMediaInsights(platformPostId)
         .catch(() => ({}))
+      const watchThrough = computeWatchThrough(
+        insights.averageWatchTimeMs,
+        context?.videoDurationSec,
+      )
       return {
         views: insights.views ?? insights.plays ?? 0,
         likes: insights.likes ?? media.likeCount,
         comments: insights.comments ?? media.commentsCount,
         shares: insights.shares ?? 0,
-        watchThrough: 0,
+        watchThrough,
         ctr: 0,
         followerGain: 0,
+        // Ноль здесь означал бы «никто не досмотрел», а на деле нечего делить:
+        // Instagram не отдал среднее время просмотра либо мы не знаем длительность.
+        ...(watchThrough === 0 ? { unsupported: ["watchThrough"] } : {}),
+      }
+    },
+
+    /**
+     * Подписчики аккаунта из Instagram Graph API.
+     *
+     * Официальная замена скраперу публичного профиля: величина берётся тем же
+     * токеном, которым мы публикуем, и не требует ни обхода страницы, ни
+     * платного актора (`docs/PROJECT_CONTEXT.md` §4 — только белые инструменты).
+     */
+    async getFollowerCount(account: DecryptedAccount): Promise<FollowerCount> {
+      if (!account.platformUserId) {
+        throw new Error(
+          `Instagram account ${account.displayName} has no professional account id. Reconnect it through OAuth.`,
+        )
+      }
+      const accessToken = await getAccessToken(account)
+      const client = clientFactory(accessToken)
+      if (!client.getAccountInfo) {
+        throw new Error(
+          `Instagram account ${account.displayName}: API client does not support profile counters`,
+        )
+      }
+      const info = await client.getAccountInfo(account.platformUserId)
+      if (info.followersCount === null) {
+        // Ноль здесь означал бы «у аккаунта не осталось подписчиков» и уехал бы
+        // в снимок как измеренная величина, обнулив весь последующий прирост.
+        throw new Error(
+          `Instagram account ${account.displayName}: API did not return followers_count`,
+        )
+      }
+      return {
+        followers: info.followersCount,
+        following: info.followsCount,
+        postsCount: info.mediaCount,
       }
     },
   }

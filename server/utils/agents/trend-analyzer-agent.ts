@@ -4,6 +4,9 @@
  * Результат сохраняется как CreativeBrief.
  */
 import type { TrendAnalysisInput, TrendAnalysisResult } from '~~/shared/types/agents'
+// Явный импорт вместо nitro-автоимпорта: тем же путём агент вызывается из
+// трендвотчера, а он должен запускаться и в чистых юнит-тестах без Nitro.
+import { callAnthropicAgent } from './call-anthropic'
 
 const PROMPT_VERSION = '1.0.0'
 
@@ -131,6 +134,243 @@ export async function runTrendAnalyzer(input: TrendAnalysisInput): Promise<Trend
     maxTokens: 4096,
     validate,
   })
+}
+
+// ─────────────────────── автоматический разбор трендов ───────────────────────
+//
+// По ТЗ (docs/SPEC.md, Модуль 1) выход трендвотчера — не сырые ролики, а бриф
+// в базе креативов: именно его потребляет Модуль 2. Раньше анализ запускался
+// только руками из UI (POST /api/trends/[id]/analyze), поэтому импортированные
+// тренды оставались без брифа. Логика записи брифа живёт здесь, чтобы у ручного
+// и автоматического запуска был один путь: тот же агент, те же CreativeBrief /
+// TrendInsight, те же значения analysisStatus.
+
+/**
+ * Сколько трендов разбираем автоматически за один прогон трендвотчера.
+ * Один прогон Apify привозит десятки-сотни роликов, а разбор каждого — платный
+ * LLM-вызов. Без потолка автозапуск превращается в лавину запросов и счёт,
+ * поэтому берём ограниченную пачку самых виральных.
+ */
+export const TREND_AUTO_ANALYSIS_LIMIT = 5
+
+/** Режим автоматического разбора: фикстуры / реальный вызов / выключено. */
+export type TrendAnalysisMode = 'mock' | 'live' | 'disabled'
+
+/**
+ * Решает, можно ли сейчас разбирать тренды автоматически.
+ *
+ * mock — ANTHROPIC_MOCK_MODE=true: ответы берутся из фикстур, сети и денег нет.
+ * live — платные API явно разрешены оператором.
+ * disabled — платные API выключены: молчим совсем, а не бомбардируем
+ *   paid-guard'а 403-ми на каждый импортированный ролик.
+ */
+export function resolveTrendAnalysisMode(env: NodeJS.ProcessEnv = process.env): TrendAnalysisMode {
+  if (env.ANTHROPIC_MOCK_MODE === 'true') return 'mock'
+  return env.ENABLE_PAID_APIS === 'true' ? 'live' : 'disabled'
+}
+
+/** Статусы, при которых тренд ещё имеет смысл отправлять на разбор. */
+const ANALYZABLE_STATUSES = ['none', 'pending', 'failed'] as const
+
+/**
+ * Идемпотентный отбор трендов на разбор.
+ * Уже разобранный (`completed`) и разбираемый прямо сейчас (`running`) тренд
+ * не переанализируется — повторный прогон профиля не должен платить дважды.
+ * Порядок — по виральности: если пачка меньше числа кандидатов, разбираем
+ * самое интересное, а не случайное.
+ */
+export async function selectTrendsForAnalysis(
+  trendIds: number[],
+  limit: number = TREND_AUTO_ANALYSIS_LIMIT,
+): Promise<number[]> {
+  if (trendIds.length === 0 || limit <= 0) return []
+
+  const rows = await prisma.trend.findMany({
+    where: {
+      id: { in: trendIds },
+      isDeleted: false,
+      analysisStatus: { in: [...ANALYZABLE_STATUSES] },
+    },
+    orderBy: [
+      { viralityScore: { sort: 'desc', nulls: 'last' } },
+      { viewCount: 'desc' },
+    ],
+    take: limit,
+    select: { id: true },
+  })
+
+  return rows.map((row: { id: number }) => row.id)
+}
+
+export interface TrendAnalysisOutcome {
+  trendId: number
+  status: 'analyzed' | 'failed' | 'skipped'
+  /** Причина пропуска или текст ошибки — для лога прогона. */
+  reason?: string
+}
+
+/**
+ * Разбирает один тренд и кладёт бриф в базу.
+ * Повторяет путь ручной кнопки: analysisStatus running → агент → CreativeBrief
+ * + TrendInsight → completed. Ошибку не бросает: в пачке один битый ролик не
+ * должен ронять разбор остальных.
+ */
+export async function analyzeTrendIntoBrief(trendId: number): Promise<TrendAnalysisOutcome> {
+  const trend = await prisma.trend.findUnique({ where: { id: trendId } })
+
+  if (!trend || trend.isDeleted) {
+    return { trendId, status: 'skipped', reason: 'тренд не найден или удалён' }
+  }
+  // Гонка с ручной кнопкой или с параллельным прогоном профиля.
+  if (trend.analysisStatus === 'running' || trend.analysisStatus === 'completed') {
+    return { trendId, status: 'skipped', reason: `analysisStatus=${trend.analysisStatus}` }
+  }
+
+  const modelVersion = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+
+  await prisma.trend.update({ where: { id: trendId }, data: { analysisStatus: 'running' } })
+
+  try {
+    const input: TrendAnalysisInput = {
+      platform: trend.platform,
+      title: trend.title,
+      description: trend.description,
+      authorName: trend.authorName,
+      hashtags: trend.hashtags,
+      viewCount: trend.viewCount,
+      likeCount: trend.likeCount,
+      commentCount: trend.commentCount,
+      shareCount: trend.shareCount,
+      publishedAt: trend.publishedAt?.toISOString() ?? null,
+      language: trend.language,
+      geo: trend.geo,
+      thumbnailUrl: trend.thumbnailUrl,
+      sourceUrl: trend.sourceUrl,
+    }
+
+    const analysis = await runTrendAnalyzer(input)
+
+    const briefData = {
+      hookAnalysis: analysis.hookAnalysis as object,
+      sceneStructure: analysis.sceneStructure as object,
+      visualStyle: analysis.visualStyle as object,
+      viralityReasons: analysis.viralityReasons as object,
+      summary: analysis.summary,
+      confidence: analysis.confidence ?? null,
+      modelVersion,
+      promptVersion: PROMPT_VERSION,
+    }
+
+    await prisma.creativeBrief.upsert({
+      where: { trendId },
+      create: { trendId, ...briefData },
+      update: { ...briefData, errorMessage: null },
+    })
+
+    // TrendInsight — обратная совместимость со старым экраном трендов.
+    const insightData = {
+      whyViral: analysis.viralityReasons.primaryReason,
+      patterns: analysis.viralityReasons.factors.map(f => f.factor),
+      hooks: [analysis.hookAnalysis.description],
+      audience: analysis.viralityReasons.targetAudience,
+      confidence: analysis.confidence ?? null,
+    }
+    await prisma.trendInsight.upsert({
+      where: { trendId },
+      create: { trendId, ...insightData },
+      update: insightData,
+    })
+
+    await prisma.trend.update({ where: { id: trendId }, data: { analysisStatus: 'completed' } })
+
+    return { trendId, status: 'analyzed' }
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown analysis error'
+
+    await prisma.trend.update({
+      where: { id: trendId },
+      data: { analysisStatus: 'failed' },
+    }).catch(() => {})
+
+    await prisma.creativeBrief.upsert({
+      where: { trendId },
+      create: {
+        trendId,
+        hookAnalysis: {},
+        sceneStructure: {},
+        visualStyle: {},
+        viralityReasons: {},
+        summary: '',
+        modelVersion,
+        promptVersion: PROMPT_VERSION,
+        errorMessage,
+      },
+      update: { errorMessage },
+    }).catch(() => {})
+
+    return { trendId, status: 'failed', reason: errorMessage }
+  }
+}
+
+export interface TrendAutoAnalysisReport {
+  mode: TrendAnalysisMode
+  /** Сколько трендов отобрано на разбор (после лимита и идемпотентности). */
+  selected: number
+  analyzed: number
+  failed: number
+  skipped: number
+  trendIds: number[]
+}
+
+/**
+ * Автоматический разбор пачки только что импортированных трендов.
+ * Последовательно, чтобы не открывать N параллельных платных запросов.
+ */
+export async function runTrendAutoAnalysis(options: {
+  trendIds: number[]
+  limit?: number
+  /** Куда писать прогресс (лог прогона трендвотчера). */
+  onLog?: (level: 'info' | 'warn', message: string, payload?: Record<string, unknown>) => void | Promise<void>
+}): Promise<TrendAutoAnalysisReport> {
+  const mode = resolveTrendAnalysisMode()
+  const log = options.onLog ?? (() => {})
+
+  if (mode === 'disabled') {
+    await log('info', 'AI-анализ трендов пропущен: ENABLE_PAID_APIS != "true"', {
+      candidates: options.trendIds.length,
+    })
+    return { mode, selected: 0, analyzed: 0, failed: 0, skipped: options.trendIds.length, trendIds: [] }
+  }
+
+  const selectedIds = await selectTrendsForAnalysis(options.trendIds, options.limit ?? TREND_AUTO_ANALYSIS_LIMIT)
+
+  if (selectedIds.length === 0) {
+    await log('info', 'AI-анализ трендов: нечего разбирать (все уже с брифом)', {
+      candidates: options.trendIds.length,
+    })
+    return { mode, selected: 0, analyzed: 0, failed: 0, skipped: options.trendIds.length, trendIds: [] }
+  }
+
+  let analyzed = 0
+  let failed = 0
+
+  for (const trendId of selectedIds) {
+    const outcome = await analyzeTrendIntoBrief(trendId)
+    if (outcome.status === 'analyzed') analyzed++
+    else if (outcome.status === 'failed') {
+      failed++
+      await log('warn', `AI-анализ тренда #${trendId} не удался: ${outcome.reason}`, { trendId })
+    }
+  }
+
+  return {
+    mode,
+    selected: selectedIds.length,
+    analyzed,
+    failed,
+    skipped: options.trendIds.length - selectedIds.length,
+    trendIds: selectedIds,
+  }
 }
 
 export { PROMPT_VERSION }

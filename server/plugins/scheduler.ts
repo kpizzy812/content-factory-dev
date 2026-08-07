@@ -1,10 +1,15 @@
 /**
  * Nitro-плагин Scheduler.
- * 3 setInterval задачи: загрузка по расписанию, сбор метрик, watchdog циклов.
+ * setInterval-задачи: загрузка по расписанию, сбор метрик публикаций, снимки
+ * подписчиков аккаунтов, watchdog циклов и разбора референсов, плюс воркеры
+ * унаследованных зон.
  */
 
 import type { AlertReason } from "../utils/proxy/alert-dedup"
+import { collectFollowerSnapshots } from "../utils/metrics-collector"
 import { refreshDriveFileMetadata } from "../utils/google-drive/sync"
+import { runUploadSchedulerTick } from "../utils/upload-scheduler"
+import { releaseStuckUploads } from "../utils/upload-stuck-watchdog"
 import {
   isGoogleDriveSchedulerEnabled,
   isPostingWorkerEnabled,
@@ -17,7 +22,8 @@ export default defineNitroPlugin((nitro) => {
   // фоновые writes в test DB.
   if (process.env.SCHEDULERS_ENABLED === "false") return
 
-  const enableSocialPosting = process.env.ENABLE_SOCIAL_POSTING === "true"
+  // ENABLE_SOCIAL_POSTING читается внутри тика (utils/upload-scheduler), а не
+  // здесь: включение флага должно подхватываться без рестарта процесса.
   // Воркеры унаследованных зон стартуют только внутри включённой зоны.
   const proxyHealthCheckEnabled = isProxyHealthCheckEnabled(process.env)
   const postingWorkerEnabled = isPostingWorkerEnabled(process.env)
@@ -25,6 +31,21 @@ export default defineNitroPlugin((nitro) => {
 
   const uploadIntervalMs = Number(process.env.SCHEDULER_UPLOAD_INTERVAL_MS) || 300000
   const metricsIntervalMs = Number(process.env.SCHEDULER_METRICS_INTERVAL_MS) || 3600000
+  // Снимки подписчиков — 6 часов по умолчанию.
+  //
+  // Почему не чаще: прирост подписчиков делится между роликами, вышедшими к
+  // концу отрезка между снимками (social/follower-attribution.ts), и точность
+  // привязки упирается не в частоту опроса, а в то, что площадки отдают.
+  // YouTube округляет subscriberCount до трёх значащих цифр — у канала на
+  // 12 300 подписчиков шаг счётчика сто человек, и почасовые замеры дали бы
+  // двадцать четыре одинаковых числа в сутки вместо роста. Instagram отдаёт
+  // точное followers_count, но при 200 вызовах в час на пользователя замер
+  // профиля соревнуется за квоту со сбором метрик постов, который ходит на
+  // КАЖДУЮ публикацию.
+  // Почему не реже: четыре точки в сутки дают ролику опорный снимок в день
+  // выхода — иначе первый же отрезок склеивает несколько роликов в один и
+  // делит их прирост поровну, теряя разницу между ними.
+  const followersIntervalMs = Number(process.env.SCHEDULER_FOLLOWERS_INTERVAL_MS) || 21600000
   const cycleCheckIntervalMs = Number(process.env.SCHEDULER_CYCLE_CHECK_INTERVAL_MS) || 21600000
   const cycleTimeoutMs = Number(process.env.SCHEDULER_CYCLE_TIMEOUT_MS) || 1800000
   const referenceWatchdogIntervalMs = Number(process.env.SCHEDULER_REFERENCE_WATCHDOG_INTERVAL_MS) || 300000
@@ -36,41 +57,39 @@ export default defineNitroPlugin((nitro) => {
 
   const timers: ReturnType<typeof setInterval>[] = []
 
-  // 1. Upload scheduler (по умолчанию 5 мин)
+  // 1. Upload scheduler (по умолчанию 5 мин).
+  //    Плановые загрузки, разблокировка после включения ENABLE_SOCIAL_POSTING и
+  //    автоповтор упавших — вся логика в utils/upload-scheduler.
   const uploadTimer = trackedInterval('upload', 'Публикации по расписанию', uploadIntervalMs, async () => {
     try {
-      const scheduled = await prisma.upload.findMany({
-        where: {
-          status: "scheduled",
-          scheduledAt: { lte: new Date() },
-        },
-        select: { id: true },
-        take: 10,
-      })
-
-      if (scheduled.length === 0) return
-
-      // Если публикация отключена, помечаем все scheduled как blocked_by_env
-      if (!enableSocialPosting) {
-        for (const upload of scheduled) {
-          await prisma.upload.update({
-            where: { id: upload.id },
-            data: {
-              status: "blocked_by_env" as never,
-              blockedByEnv: true,
-              errorMessage: "Публикация отключена (ENABLE_SOCIAL_POSTING=false). Загрузка заблокирована scheduler.",
-            },
-          })
-        }
-        await logAgent("scheduler", "warn", `${scheduled.length} запланированных загрузок заблокированы: ENABLE_SOCIAL_POSTING=false`)
-        return
+      // Сначала возвращаем в очередь то, что зависло в pending/uploading после
+      // смерти процесса: сам тик такие записи не видит, а ждать оператора
+      // бессмысленно — кнопка «Повторить» для них в интерфейсе не показывается.
+      const releasedStuck = await releaseStuckUploads()
+      if (releasedStuck > 0) {
+        await logAgent(
+          "scheduler",
+          "warn",
+          `Upload watchdog: ${releasedStuck} зависших загрузок возвращены в очередь`,
+        ).catch(() => {})
       }
 
-      for (const upload of scheduled) {
-        runUploadPipeline(upload.id).catch(() => {})
-      }
+      const stats = await runUploadSchedulerTick()
+      // skipped входит в условие намеренно: тик, где все кандидаты отсеяны
+      // (терминальная ошибка, исчерпан лимит, backoff), — это ровно тот случай,
+      // когда автоповтор мёртв, и молчать о нём нельзя.
+      const touched = stats.started + stats.blocked + stats.resumed + stats.retried
+        + stats.rescheduled + stats.skipped
+      if (touched === 0) return
 
-      await logAgent("scheduler", "info", `Запущено ${scheduled.length} запланированных загрузок`)
+      await logAgent(
+        "scheduler",
+        stats.blocked > 0 ? "warn" : "info",
+        `Upload scheduler: запущено ${stats.started}, возобновлено после включения флага ${stats.resumed}, `
+        + `автоповторов ${stats.retried}, пропущено упавших ${stats.skipped}, `
+        + `возвращено в расписание ${stats.rescheduled}, `
+        + `заблокировано (ENABLE_SOCIAL_POSTING=false) ${stats.blocked}`,
+      )
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Неизвестная ошибка"
       await logAgent("scheduler", "error", `Upload scheduler: ${message}`).catch(() => {})
@@ -98,6 +117,41 @@ export default defineNitroPlugin((nitro) => {
     }
   })
   timers.push(metricsTimer)
+
+  // 2b. Снимки подписчиков аккаунтов (по умолчанию 6 часов).
+  //     Держим рядом со сбором метрик: та же природа (бесплатное чтение
+  //     официального API), тот же глобальный гейт SCHEDULERS_ENABLED и такой же
+  //     guard «нет данных — нет запросов». Без этой задачи прирост подписчиков
+  //     в отчётах пуст: снимков для сравнения просто не появляется.
+  const followersTimer = trackedInterval('account-followers', 'Снимки подписчиков аккаунтов', followersIntervalMs, async () => {
+    try {
+      // Guard перед сетью: на стенде без подключённых по OAuth аккаунтов
+      // (и в mock-прогонах) задача не делает ни одного внешнего запроса.
+      const measurableCount = await prisma.socialAccount.count({
+        where: { status: { not: "revoked" }, accessToken: { not: null } },
+      })
+      if (measurableCount === 0) return
+
+      const result = await collectFollowerSnapshots()
+      if (result.collected === 0 && result.errors.length === 0) return
+
+      await logAgent(
+        "scheduler",
+        result.errors.length > 0 ? "warn" : "info",
+        `Снимки подписчиков: снято ${result.collected}, `
+        + `не измеряется официальным API ${result.skipped.length}, ошибок ${result.errors.length}`,
+        {
+          collected: result.collected,
+          skipped: result.skipped.length,
+          errors: result.errors.length,
+        },
+      )
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Неизвестная ошибка"
+      await logAgent("scheduler", "error", `Follower snapshots: ${message}`).catch(() => {})
+    }
+  })
+  timers.push(followersTimer)
 
   // 3. Cycle watchdog (по умолчанию 6 часов)
   const cycleTimer = trackedInterval('cycle-watchdog', 'Watchdog циклов', cycleCheckIntervalMs, async () => {

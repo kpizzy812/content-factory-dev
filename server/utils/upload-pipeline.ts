@@ -1,7 +1,10 @@
 import type { DecryptedAccount, UploadProgress } from "./social/types"
+import type { UploadRunTrigger } from "./upload-rerun-guard"
 import { getSocialAdapter } from "./social/factory"
 import { sendTelegramAlert } from "./telegram/alerts"
 import { syncFactoryPublicationFromUpload } from "./factory-publication"
+import { checkUploadRerun, planFailedUploadAttemptPatch } from "./upload-rerun-guard"
+import { MAX_UPLOAD_ATTEMPTS, isPermanentUploadError } from "./upload-retry-policy"
 
 /**
  * Расшифровывает токены аккаунта.
@@ -28,16 +31,26 @@ function decryptAccount(account: {
 
 /**
  * Обновляет статус загрузки в БД.
+ *
+ * @param onPersisted вызывается сразу после успешной записи строки, до
+ * синхронизации публикации фабрики. Нужен вызывающему, чтобы отличить «в БД не
+ * записалось» от «записалось, но упал следующий шаг».
  */
 async function updateUploadStatus(
   uploadId: number,
   status: string,
   extra?: Record<string, unknown>,
+  onPersisted?: () => void,
 ): Promise<void> {
   await prisma.upload.update({
     where: { id: uploadId },
     data: { status: status as never, ...extra },
   })
+  // Строка уже обновлена, и записанный attemptCount никуда не денется, даже
+  // если синхронизация ниже упадёт. Поэтому сообщаем о попытке здесь, а не
+  // после возврата из функции: иначе обработчик ошибки посчитал бы её второй
+  // раз и один реальный заход съедал бы две из трёх автопопыток.
+  onPersisted?.()
   await syncFactoryPublicationFromUpload(uploadId)
 }
 
@@ -109,11 +122,33 @@ async function updateUploadAttempt(
   })
 }
 
+export interface RunUploadPipelineOptions {
+  /**
+   * Кто запустил прогон. По умолчанию "auto": планировщик и оркестратор зовут
+   * пайплайн без аргументов, и безопасный режим должен быть у них, а не у
+   * человека. "manual" ставят только обработчики, за которыми стоит клик
+   * оператора.
+   */
+  trigger?: UploadRunTrigger
+}
+
 /**
  * Оркестрация загрузки одного видео в одну соцсеть.
  * Запускается fire-and-forget, обновляет статусы в БД.
  */
-export async function runUploadPipeline(uploadId: number): Promise<void> {
+export async function runUploadPipeline(
+  uploadId: number,
+  options: RunUploadPipelineOptions = {},
+): Promise<void> {
+  const trigger: UploadRunTrigger = options.trigger ?? "auto"
+  // Ранние падения (нет токена, аккаунт выключен, нет файла) происходят до
+  // шага 4, где попытка учитывается. Без этого флага такие загрузки уходили в
+  // failed с attemptCount=0 и пустым lastAttemptAt — автоповтор крутил бы их
+  // без пауз и без лимита.
+  let attemptCounted = false
+  // Каким станет attemptCount после этого прогона. Нужен в catch, чтобы
+  // терминальную ошибку вывести из выборки планировщика, не занизив счётчик.
+  let attemptCountAfterRun = 0
   try {
     // 1. Загрузить Upload + Video + SocialAccount из БД
     const upload = await prisma.upload.findUnique({
@@ -127,6 +162,8 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
     if (!upload) {
       throw new Error(`Upload ${uploadId} не найден`)
     }
+
+    attemptCountAfterRun = upload.attemptCount + 1
 
     if (!upload.video) {
       throw new Error(`Видео для Upload ${uploadId} не найдено`)
@@ -153,24 +190,59 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
       )
     }
 
-    // 2. Проверить env guard — без throw, с корректным статусом
+    // 2. Проверить env guard — без throw, с корректным статусом.
+    // Обещание в тексте держит upload-scheduler: он поднимает blocked_by_env
+    // обратно в очередь, как только флаг включат.
     if (!isSocialPostingEnabled()) {
       await updateUploadStatus(uploadId, "blocked_by_env", {
         blockedByEnv: true,
-        errorMessage: `Публикация отключена (ENABLE_SOCIAL_POSTING=false). Платформа: ${upload.socialAccount.platform}`,
+        errorMessage:
+          `Публикация отключена (ENABLE_SOCIAL_POSTING=false). Платформа: ${upload.socialAccount.platform}. `
+          + `Загрузка вернётся в очередь автоматически, как только флаг включат.`,
       })
+      return
+    }
+
+    // 2.5. Защита от дубля поста на площадках без идемпотентного resume.
+    // Повтор после потерянного ответа платформы заливает второй ролик на канал
+    // клиента, и удалять его придётся руками, поэтому автоматический прогон
+    // здесь останавливаем и оставляем решение человеку.
+    const rerun = checkUploadRerun({
+      platform: upload.socialAccount.platform,
+      attemptCount: upload.attemptCount,
+      trigger,
+    })
+    if (!rerun.allowed) {
+      await updateUploadStatus(uploadId, "failed", {
+        errorMessage: rerun.reason.slice(0, 1000),
+        // Дотягиваем счётчик до лимита: иначе планировщик будет забирать эту
+        // запись каждые пять минут и держать место в пачке до скончания века.
+        attemptCount: MAX_UPLOAD_ATTEMPTS,
+        lastAttemptAt: new Date(),
+        blockedByEnv: false,
+      })
+      await sendTelegramAlert(
+        "critical_error",
+        `Автоповтор публикации остановлен: ${upload.title}`,
+        rerun.reason,
+      ).catch(() => {})
       return
     }
 
     // 3. Расшифровать токены
     const decrypted = decryptAccount(upload.socialAccount)
 
-    // 4. Обновить статус -> uploading, инкрементировать attemptCount
-    const newAttemptCount = upload.attemptCount + 1
+    // 4. Обновить статус -> uploading, инкрементировать attemptCount.
+    // Флаг ставим колбэком изнутри, а не после await: между записью строки и
+    // возвратом из функции есть ещё один шаг (синхронизация публикации
+    // фабрики), и его падение не должно приводить к повторному инкременту.
+    const newAttemptCount = attemptCountAfterRun
     await updateUploadStatus(uploadId, "uploading", {
       attemptCount: newAttemptCount,
       lastAttemptAt: new Date(),
       blockedByEnv: false,
+    }, () => {
+      attemptCounted = true
     })
 
     // 5. Создать запись попытки
@@ -241,6 +313,15 @@ export async function runUploadPipeline(uploadId: number): Promise<void> {
 
     await updateUploadStatus(uploadId, "failed", {
       errorMessage: message.slice(0, 1000),
+      // Точка отсчёта backoff-а для автоповтора должна стоять всегда.
+      lastAttemptAt: new Date(),
+      // Терминальную ошибку выводим из выборки планировщика прямо в БД —
+      // почему именно так, расписано в planFailedUploadAttemptPatch.
+      ...planFailedUploadAttemptPatch({
+        permanent: isPermanentUploadError(message),
+        attemptCounted,
+        attemptCountAfterRun,
+      }),
     }).catch(() => {})
   }
 }

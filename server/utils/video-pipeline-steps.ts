@@ -6,31 +6,31 @@
  */
 
 import { join } from "node:path"
-import type { StoryPlan, SubtitleStyleProfile, SubtitlePlacement } from "~~/shared/types/story"
+import type { StoryPlan, SubtitleStyleProfile } from "~~/shared/types/story"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import type { SceneImagePrompts } from "./video-helpers"
 import { type DeviceType, buildDeviceNegativesForScene } from "~~/shared/utils/video-prompt-helpers"
 import {
   type StepKey,
-  type FalImageResult,
-  type FalVideoResult,
   type PromptGenerationResult,
   ensureStep,
   updateStep,
   appendStepLog,
   isStepCompleted,
   updateVideoStatus,
-  falStepRequest,
 } from "./video-pipeline-db"
 import { getAccountStyleContext, formatAccountStyleForPrompt } from "./account-style-context"
 import { getAppScenarioContext, formatAppContextForPrompt } from "./app-context"
 import { synthesizeSpeech, buildVoiceoverTrack } from "./tts"
-import { adjustAudioTempo, trimAudio, probeClipDurations } from "./render"
+import { adjustAudioTempo, trimAudio, probeClipDurations, extendVideoClip, planClipExtension } from "./render"
+import { buildSceneClipTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
+import { buildSceneClipIndexMap } from "./presenter/scene-clip-mapping"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import { runSubtitleKeywordAgent } from "./agents/subtitle-keyword-agent"
 import { pickTtsModel, getModel } from "./video-models"
 import { logStepCost } from "./balance/cost-ledger"
 import { mapStepKeyToService } from "./balance/cost-attribution"
+import { accumulateStepCost, stepAttemptForLedger } from "./video-cost-actual"
 import {
   loadFavoritePromptsForScenario,
   bumpFavoritePromptsUsage,
@@ -40,7 +40,8 @@ import {
   resolveAppReferenceLocalPath,
   detectAppReferenceMediaType,
 } from "./agents/screen-tagger-agent"
-import { falUploadFile } from "./fal"
+import { resolveMediaRoute } from "./media-provider/registry"
+import { runMediaTask } from "./media-provider/run-media-task"
 import { StorageKeys } from "./storage/keys"
 import { uploadLocalAsset } from "./storage/persist-asset"
 import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
@@ -263,6 +264,152 @@ export async function runPromptGeneration(
 
 // ─── Шаг 2: Генерация изображений ──────────────────────────────
 
+/** Сцена для генерации изображения. key/order жёстко привязаны к индексу цикла. */
+export interface ImageScenePlanItem {
+  key: string
+  prompt: string
+  order: number
+  devicesInScene?: DeviceType[]
+}
+
+export interface ImageScenePlan {
+  scenes: ImageScenePlanItem[]
+  /** true — план собран из scenePrompts (story-driven), false — legacy hook/body/cta. */
+  storyDriven: boolean
+  /** Сколько сцен пришло из промптов до усечения в thumbnail-only. */
+  sourceSceneCount: number
+  /** order'ы, которые Claude вернул повторно — повод для WARN в логе шага. */
+  duplicateOrders: number[]
+  /**
+   * key'и сцен, для которых сопоставление с планом по order не сработало и пришлось
+   * взять сцену плана по позиции. Позиционное совпадение — догадка, поэтому случай
+   * логируется отдельно: именно тут AVOID-список может приехать от чужой сцены.
+   */
+  positionalFallbackKeys: string[]
+}
+
+/**
+ * Индекс «order → сцена плана» для сопоставления scenePrompts с videoPlan.scenes.
+ *
+ * В индекс попадают только ОДНОЗНАЧНЫЕ order'ы: если один и тот же order встретился
+ * в плане дважды (или это не конечное число), сопоставлять по нему нельзя — обе сцены
+ * равноправны, и любой выбор был бы случайным. Такой order выкидывается целиком,
+ * вызывающий откатится на позиционный фолбэк и явно это залогирует.
+ */
+export function indexPlanScenesByOrder<T extends { order: number }>(
+  planScenes: readonly T[] | null | undefined,
+): Map<number, T> {
+  const byOrder = new Map<number, T>()
+  const ambiguous = new Set<number>()
+  for (const ps of planScenes ?? []) {
+    if (!ps || !Number.isFinite(ps.order)) continue
+    if (byOrder.has(ps.order)) {
+      ambiguous.add(ps.order)
+      continue
+    }
+    byOrder.set(ps.order, ps)
+  }
+  for (const order of ambiguous) byOrder.delete(order)
+  return byOrder
+}
+
+/**
+ * Строит план генерации изображений. Чистая функция — без БД и сети.
+ *
+ * ВАЖНО: key и order ассета берутся из ИНДЕКСА ЦИКЛА, а не из scene.order,
+ * пришедшего от Claude. Тот же класс бага уже лечили в runClipGeneration: при
+ * дубликатах order файлы scene_X_image.png перезаписывали друг друга, а
+ * falStepRequest с тем же subKey переиспользовал чужой результат — на выходе
+ * одна и та же картинка во всех сценах (и оплаченные впустую генерации).
+ *
+ * Сцена плана ищется ПО ORDER, а не по позиции: порядок scenePrompts приходит от
+ * Claude и нигде не сортируется (см. validateScenes в video-prompts/anthropic-call.ts),
+ * так что при перестановке (order'ы 3,1,2) позиция чужая. Раньше здесь был позиционный
+ * поиск с «фолбэком» по order, но фолбэк был недостижим — ветка всё равно возвращала
+ * planScenes[i] — и в prompt изображения уезжал AVOID-список чужой сцены: устройства
+ * и негативы менялись местами.
+ *
+ * Позиционный фолбэк остаётся только там, где сопоставление по order невозможно
+ * (order не число, дублируется в промптах или в плане, либо в плане такого нет).
+ * Каждый такой случай попадает в positionalFallbackKeys — шаг пишет об этом WARN.
+ */
+export function buildImageScenePlan(opts: {
+  prompts: PromptGenerationResult
+  imageCount: number
+  thumbnailOnly: boolean
+  planScenes?: Array<{ order: number; devicesInScene?: DeviceType[] }> | null
+}): ImageScenePlan {
+  const { prompts, imageCount, thumbnailOnly } = opts
+  const sp = prompts.scenePrompts?.scenes
+
+  if (sp && sp.length > 0) {
+    // В thumbnail-only режиме берём ТОЛЬКО первую сцену (hook).
+    const sceneCount = thumbnailOnly ? 1 : sp.length
+    const seenOrders = new Set<number>()
+    const duplicateOrders: number[] = []
+    const positionalFallbackKeys: string[] = []
+    const scenes: ImageScenePlanItem[] = []
+
+    const planByOrder = indexPlanScenesByOrder(opts.planScenes)
+    const hasPlanScenes = (opts.planScenes?.length ?? 0) > 0
+    // Дубликаты order в самих scenePrompts тоже ломают сопоставление: две сцены
+    // промпта претендуют на одну сцену плана, и одна из них гарантированно чужая.
+    const promptOrderCounts = new Map<number, number>()
+    for (let i = 0; i < sceneCount; i++) {
+      const order = sp[i]!.order
+      if (!Number.isFinite(order)) continue
+      promptOrderCounts.set(order, (promptOrderCounts.get(order) ?? 0) + 1)
+    }
+
+    for (let i = 0; i < sceneCount; i++) {
+      const scene = sp[i]!
+      if (seenOrders.has(scene.order)) duplicateOrders.push(scene.order)
+      seenOrders.add(scene.order)
+
+      const matchedByOrder = Number.isFinite(scene.order)
+        && promptOrderCounts.get(scene.order) === 1
+        && planByOrder.has(scene.order)
+      const planScene = matchedByOrder ? planByOrder.get(scene.order)! : opts.planScenes?.[i]
+      if (!matchedByOrder && hasPlanScenes) {
+        positionalFallbackKeys.push(`scene_${i + 1}`)
+        console.warn(
+          `[buildImageScenePlan] сцена scene_${i + 1}: order=${scene.order} не сопоставился с планом однозначно, беру сцену плана по позиции ${i}`,
+        )
+      }
+      const devices = planScene?.devicesInScene && planScene.devicesInScene.length > 0
+        ? [...planScene.devicesInScene]
+        : undefined
+      // FLUX не имеет negative_prompt — AVOID-список инжектируем в конец prompt.
+      const avoidList = buildDeviceNegativesForScene({ devices, hasAppScreenRef: false })
+      const finalPrompt = avoidList.length > 0
+        ? `${scene.prompt}\n\nAVOID: ${avoidList.join(", ")}`
+        : scene.prompt
+
+      scenes.push({
+        key: `scene_${i + 1}`,
+        prompt: finalPrompt,
+        order: i,
+        devicesInScene: devices,
+      })
+    }
+
+    return { scenes, storyDriven: true, sourceSceneCount: sp.length, duplicateOrders, positionalFallbackKeys }
+  }
+
+  const cnt = thumbnailOnly ? 1 : imageCount
+  const scenes: ImageScenePlanItem[] = []
+  for (let i = 0; i < cnt; i++) {
+    if (i === 0) {
+      scenes.push({ key: "hook", prompt: prompts.hook, order: i })
+    } else if (i === cnt - 1) {
+      scenes.push({ key: "cta", prompt: prompts.cta, order: i })
+    } else {
+      scenes.push({ key: `body_${i}`, prompt: prompts.body, order: i })
+    }
+  }
+  return { scenes, storyDriven: false, sourceSceneCount: cnt, duplicateOrders: [], positionalFallbackKeys: [] }
+}
+
 export async function runImageGeneration(
   videoId: number,
   prompts: PromptGenerationResult,
@@ -271,19 +418,34 @@ export async function runImageGeneration(
   imageModelId: string,
   renderQuality: string,
   videoPlan?: StoryDrivenVideoPlan | null,
-): Promise<{ imagePaths: string[]; imageRemoteUrls: string[] }> {
+): Promise<{ imagePaths: string[]; imageRemoteUrls: string[]; generatedCount: number }> {
   const step = await ensureStep(videoId, "image_generation", 1)
 
   // Cost-aware: даже в story-driven clip-only режиме генерим МИНИМУМ 1 изображение
   // первой сцены — нужно для preview thumbnail в UI. Раньше тут был полный skip,
   // но user не видел превью видео без главного кадра.
   const thumbnailOnly = videoPlan?.skipImageGeneration === true
-  const effectiveImageCount = thumbnailOnly ? 1 : imageCount
+
+  // План строим ДО resume-проверки: только он знает фактическое число сцен.
+  // Раньше snapshot сверялся с effectiveImageCount, и при любом расхождении
+  // (story-driven расширяет imageCount до числа сцен) шаг перегенерировал ВСЕ
+  // изображения заново — платно и без нужды.
+  const plan = buildImageScenePlan({
+    prompts,
+    imageCount,
+    thumbnailOnly,
+    planScenes: videoPlan?.scenes ?? null,
+  })
+  const scenes = plan.scenes
 
   if (isStepCompleted(step) && step.outputSnapshot) {
     const output = step.outputSnapshot as { imagePaths: string[]; imageRemoteUrls?: string[] }
-    if (output.imagePaths?.length === effectiveImageCount) {
-      return { imagePaths: output.imagePaths, imageRemoteUrls: output.imageRemoteUrls || [] }
+    if (output.imagePaths?.length === scenes.length) {
+      return {
+        imagePaths: output.imagePaths,
+        imageRemoteUrls: output.imageRemoteUrls || [],
+        generatedCount: 0,
+      }
     }
   }
 
@@ -296,56 +458,33 @@ export async function runImageGeneration(
   await appendStepLog(step.id, thumbnailOnly
     ? "Story-driven clip-only mode: генерирую 1 thumbnail-изображение для preview"
     : "Начинаю генерацию изображений через fal.ai")
+  if (plan.storyDriven && !thumbnailOnly && scenes.length !== imageCount) {
+    await appendStepLog(step.id, `Story-driven: ${plan.sourceSceneCount} сцен (imageCount=${imageCount} расширен до ${scenes.length} чтобы не потерять сцены)`)
+  }
+  if (plan.duplicateOrders.length > 0) {
+    await appendStepLog(step.id, `WARN: AI вернул повторяющиеся scene.order (${plan.duplicateOrders.join(", ")}) — ключи сцен взяты по индексу, коллизии файлов не будет`)
+  }
+  if (plan.positionalFallbackKeys.length > 0) {
+    // Сцены плана не сопоставились по order — AVOID-список для этих сцен взят
+    // по позиции и может принадлежать соседней сцене. Видно в логе шага.
+    await appendStepLog(step.id, `WARN: сцены ${plan.positionalFallbackKeys.join(", ")} не сопоставились с планом по order — devices/AVOID взяты по позиции`)
+  }
   await updateVideoStatus(videoId, "generating_images", { currentStep: "image_generation" })
 
   const assetsDir = getAssetsDir(videoId)
   await ensureDir(assetsDir)
 
-  const scenes: { key: string; prompt: string; order: number; devicesInScene?: DeviceType[] }[] = []
-
-  if (prompts.scenePrompts?.scenes && prompts.scenePrompts.scenes.length > 0) {
-    const sp = prompts.scenePrompts.scenes
-    // В thumbnail-only режиме берём ТОЛЬКО первую сцену (hook).
-    const sceneCount = thumbnailOnly ? 1 : sp.length
-    if (!thumbnailOnly && sceneCount !== imageCount) {
-      await appendStepLog(step.id, `Story-driven: ${sp.length} сцен (imageCount=${imageCount} расширен до ${sceneCount} чтобы не потерять сцены)`)
-    }
-
-    // FLUX не имеет negative_prompt — AVOID-список инжектируем в конец prompt.
-    // devicesInScene берём из videoPlan.scenes (там санитизированный массив).
-    for (let i = 0; i < sceneCount; i++) {
-      const scene = sp[i]!
-      const planScene = videoPlan?.scenes.find(ps => ps.order === scene.order)
-      const devices = planScene?.devicesInScene && planScene.devicesInScene.length > 0
-        ? [...planScene.devicesInScene]
-        : undefined
-      const avoidList = buildDeviceNegativesForScene({ devices, hasAppScreenRef: false })
-      const finalPrompt = avoidList.length > 0
-        ? `${scene.prompt}\n\nAVOID: ${avoidList.join(", ")}`
-        : scene.prompt
-      scenes.push({
-        key: `scene_${scene.order}`,
-        prompt: finalPrompt,
-        order: i,
-        devicesInScene: devices,
-      })
-    }
-  } else {
-    const cnt = thumbnailOnly ? 1 : imageCount
-    for (let i = 0; i < cnt; i++) {
-      if (i === 0) {
-        scenes.push({ key: "hook", prompt: prompts.hook, order: i })
-      } else if (i === cnt - 1) {
-        scenes.push({ key: "cta", prompt: prompts.cta, order: i })
-      } else {
-        scenes.push({ key: `body_${i}`, prompt: prompts.body, order: i })
-      }
-    }
-  }
-
   try {
     const imagePaths: string[] = []
     const imageRemoteUrls: string[] = []
+    // Считаем только реально оплаченные генерации: переиспользованные с диска
+    // изображения в стоимость шага попадать не должны.
+    let generatedCount = 0
+
+    // Маршрут способности разрешается ОДИН раз на шаг: спека несёт и payload,
+    // и разбор выхода, и цену. Незнакомой модели в реестре нет по построению —
+    // раньше такая уезжала в submit «в формате похожей модели».
+    const imageRoute = resolveMediaRoute("text_to_image", imageModelId)
 
     for (const scene of scenes) {
       await appendStepLog(step.id, `Генерирую изображение для сцены: ${scene.key}`)
@@ -377,27 +516,42 @@ export async function runImageGeneration(
 
       await appendStepLog(step.id, `Модель: ${imageModelId}, размер: ${imageSize.width}x${imageSize.height}`)
 
-      // subKey=scene.key — без него повторные итерации цикла reattach'или бы
-      // к результату первой сцены (один step.id хранит один falRequestId).
-      const result = await falStepRequest<FalImageResult>(step.id, imageModelId, {
-        prompt: scene.prompt,
-        image_size: imageSize,
-        num_images: 1,
-      }, scene.key)
-
-      const imageUrl = result.images?.[0]?.url
-      if (!imageUrl) throw new Error(`Не получено изображение для сцены ${scene.key}`)
-
       const imagePath = join(assetsDir, `${scene.key}_image.png`)
-      await downloadFile(imageUrl, imagePath)
-      imagePaths.push(imagePath)
-      imageRemoteUrls.push(imageUrl)
+      // unitKey=scene.key — прямая замена falSubKey: без него повторные итерации
+      // цикла reattach'или бы к результату первой сцены (один step.id хранит
+      // один falRequestId).
+      const task = await runMediaTask({
+        capability: "text_to_image",
+        spec: imageRoute.primary,
+        fallbackSpec: imageRoute.fallback,
+        input: {
+          prompt: scene.prompt,
+          width: imageSize.width,
+          height: imageSize.height,
+          count: 1,
+        },
+        videoId,
+        stepId: step.id,
+        unitKey: scene.key,
+        sceneOrder: scene.order,
+        outputPath: imagePath,
+        persist: {
+          storageKey: StorageKeys.videoSceneImage(videoId, scene.order),
+          contentType: "image/png",
+        },
+      })
 
-      const imageStorage = await uploadLocalAsset(
-        imagePath,
-        StorageKeys.videoSceneImage(videoId, scene.order),
-        "image/png",
-      )
+      imagePaths.push(task.localPath)
+      imageRemoteUrls.push(task.remoteUrl ?? "")
+      // generatedCount теперь означает «сколько НОВЫХ ОПЛАЧЕННЫХ задач создали»:
+      // результат, вытянутый из нашего же хранилища по ключу идемпотентности,
+      // провайдеру второй раз не оплачивается и в стоимость шага не идёт.
+      if (task.source === "generated") generatedCount++
+      if (task.source === "reused_prediction") {
+        await appendStepLog(step.id, `Изображение для ${scene.key} взято из хранилища по уже оплаченной задаче`)
+      }
+
+      const imageStorage = task.storage!
 
       if (existingAsset) {
         await prisma.videoAsset.update({
@@ -429,11 +583,11 @@ export async function runImageGeneration(
     await updateStep(step.id, {
       status: "completed",
       finishedAt: new Date(),
-      outputSnapshot: { imagePaths, imageRemoteUrls, effectiveImageModel: imageModelId, renderQuality },
+      outputSnapshot: { imagePaths, imageRemoteUrls, generatedCount, effectiveImageModel: imageModelId, renderQuality },
     })
-    await appendStepLog(step.id, "Все изображения сгенерированы")
+    await appendStepLog(step.id, `Все изображения готовы: ${imagePaths.length} шт (сгенерировано в этом прогоне: ${generatedCount})`)
 
-    return { imagePaths, imageRemoteUrls }
+    return { imagePaths, imageRemoteUrls, generatedCount }
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Неизвестная ошибка"
     const isTimeout = msg.includes("таймаут") || msg.includes("timeout")
@@ -451,6 +605,13 @@ export async function runImageGeneration(
 
 // ─── Шаг 3: Генерация видеоклипов ──────────────────────────────
 
+/** Итог шага клипов. generatedCount — сколько клипов реально оплачено В ЭТОМ прогоне. */
+export interface ClipStepResult {
+  clipPaths: string[]
+  generatedCount: number
+  scenes: Array<{ key: string; order: number; durationSec: number }>
+}
+
 export async function runClipGeneration(
   videoId: number,
   prompts: PromptGenerationResult,
@@ -460,12 +621,26 @@ export async function runClipGeneration(
   generateAudio: boolean,
   videoPlan?: StoryDrivenVideoPlan | null,
   storyPlan?: StoryPlan | null,
-): Promise<string[]> {
+): Promise<ClipStepResult> {
   const step = await ensureStep(videoId, "clip_generation", 2)
 
   if (isStepCompleted(step) && step.outputSnapshot) {
-    const output = step.outputSnapshot as { clipPaths: string[] }
-    if (output.clipPaths?.length > 0) return output.clipPaths
+    const output = step.outputSnapshot as {
+      clipPaths: string[]
+      perSceneDurations?: Array<{ key: string; order?: number; durationSec: number }>
+    }
+    if (output.clipPaths?.length > 0) {
+      // Шаг уже выполнен — новых оплаченных генераций нет.
+      return {
+        clipPaths: output.clipPaths,
+        generatedCount: 0,
+        scenes: (output.perSceneDurations ?? []).map((s, idx) => ({
+          key: s.key,
+          order: s.order ?? idx,
+          durationSec: s.durationSec,
+        })),
+      }
+    }
   }
 
   await updateStep(step.id, {
@@ -565,6 +740,14 @@ export async function runClipGeneration(
 
   try {
     const clipPaths: string[] = []
+    // Только реально сгенерированные (оплаченные) клипы — переиспользованные
+    // с диска в стоимость шага попадать не должны.
+    let generatedCount = 0
+
+    // Маршрут text-to-video разрешается один раз на шаг. Спека несёт payload,
+    // разбор выхода, квантование длительности и цену — ветвления по префиксу
+    // id (`buildClipPayload`) здесь больше нет.
+    const clipRoute = resolveMediaRoute("text_to_video", videoModelId)
     const assetsDir = getAssetsDir(videoId)
     // В story-driven режиме runImageGeneration может быть skipped (skipImageGeneration=true),
     // тогда директория не создаётся. Гарантируем её существование здесь — writeFile в
@@ -625,62 +808,85 @@ export async function runClipGeneration(
         hasAppScreenRef: useImageToVideo,
       })
 
-      let scenePayload: Record<string, unknown>
-      if (useImageToVideo && scene.appScreenRef) {
-        const refRecord = screenRefsById.get(scene.appScreenRef.imageId)!
-        const localPath = resolveAppReferenceLocalPath(refRecord.appId, refRecord.fileUrl)
-        const mediaType = detectAppReferenceMediaType(refRecord.mimeType, refRecord.fileUrl)
-        await appendStepLog(step.id, `Сцена ${scene.key}: image-to-video через скриншот ${scene.appScreenRef.imageId}, заливаю в fal storage`)
-        const publicImageUrl = await falUploadFile(localPath, mediaType)
-
-        // Image-to-video v2.1 standard: duration ∈ {"5", "10"}. Реальная длина клипа
-        // в timeline не меняется — assemble отрежет по originalDurationSec.
-        const klingDuration = clampKlingI2vDuration(scene.durationSec)
-        scenePayload = {
-          prompt: scene.prompt,
-          image_url: publicImageUrl,
-          duration: klingDuration,
-          aspect_ratio: aspectRatio,
-          negative_prompt: sceneNegativePrompt,
-        }
-        await appendStepLog(step.id, `Сцена ${scene.key}: kling i2v duration=${klingDuration}s (исходно ${scene.durationSec}s)`)
-      } else {
-        scenePayload = buildClipPayload(videoModelId, {
-          prompt: scene.prompt,
-          durationSec: scene.durationSec,
-          aspectRatio,
-          negativePrompt: sceneNegativePrompt,
-          generateAudio,
-        })
-      }
-
       if (scene.devicesInScene && scene.devicesInScene.length > 0) {
         await appendStepLog(step.id, `Сцена ${scene.key}: device-orientation negatives применены (devices: ${scene.devicesInScene.join(", ")})`)
       }
 
       await appendStepLog(step.id, `Генерирую клип: ${scene.key} (${scene.durationSec}s, ${sceneEndpoint}${useImageToVideo ? '' : `, audio: ${generateAudio}`})`)
 
-      // subKey=scene.key — критично! Без него все 5 клипов получали бы результат
-      // первого scene (reattach к одному falRequestId). User потерял $3 на это.
-      const result = await falStepRequest<FalVideoResult>(
-        step.id,
-        sceneEndpoint,
-        scenePayload,
-        scene.key,
-      )
-
-      const videoUrl = result.video?.url
-      if (!videoUrl) throw new Error(`Не получен клип для сцены ${scene.key}`)
-
       const clipPath = join(assetsDir, `${scene.key}_clip.mp4`)
-      await downloadFile(videoUrl, clipPath)
-      clipPaths.push(clipPath)
+      const clipPersist = {
+        storageKey: StorageKeys.videoSceneClip(videoId, scene.order),
+        contentType: "video/mp4",
+      }
 
-      const clipStorage = await uploadLocalAsset(
-        clipPath,
-        StorageKeys.videoSceneClip(videoId, scene.order),
-        "video/mp4",
-      )
+      // unitKey=scene.key — критично! Без него все 5 клипов получали бы результат
+      // первого scene (reattach к одному falRequestId). User потерял $3 на это.
+      let task: Awaited<ReturnType<typeof runMediaTask>>
+      if (useImageToVideo && scene.appScreenRef) {
+        const refRecord = screenRefsById.get(scene.appScreenRef.imageId)!
+        const localPath = resolveAppReferenceLocalPath(refRecord.appId, refRecord.fileUrl)
+        const mediaType = detectAppReferenceMediaType(refRecord.mimeType, refRecord.fileUrl)
+        await appendStepLog(step.id, `Сцена ${scene.key}: image-to-video через скриншот ${scene.appScreenRef.imageId}, заливаю в fal storage`)
+
+        // Опорный кадр заливается внутри вызова: в ключ идемпотентности идёт
+        // sha256 файла, а не временный URL заливки — иначе каждый прогон
+        // считался бы новой задачей и оплачивался заново.
+        const i2vRoute = resolveMediaRoute("image_to_video")
+        task = await runMediaTask({
+          capability: "image_to_video",
+          spec: i2vRoute.primary,
+          fallbackSpec: i2vRoute.fallback,
+          input: {
+            prompt: scene.prompt,
+            imageUrl: "",
+            durationSec: scene.durationSec,
+            aspectRatio,
+            withAudio: false,
+            negativePrompt: sceneNegativePrompt,
+          },
+          inputUploads: [{ field: "imageUrl", path: localPath, contentType: mediaType }],
+          videoId,
+          stepId: step.id,
+          unitKey: scene.key,
+          sceneOrder: scene.order,
+          outputPath: clipPath,
+          persist: clipPersist,
+        })
+        // Длительность после квантования модели (5 или 10) известна из спеки.
+        // Реальная длина клипа в timeline не меняется — assemble отрежет по
+        // originalDurationSec, поэтому perSceneDurations остаются прежними.
+        await appendStepLog(step.id, `Сцена ${scene.key}: kling i2v duration=${task.effectiveDurationSec}s (исходно ${scene.durationSec}s)`)
+      } else {
+        task = await runMediaTask({
+          capability: "text_to_video",
+          spec: clipRoute.primary,
+          fallbackSpec: clipRoute.fallback,
+          input: {
+            prompt: scene.prompt,
+            durationSec: scene.durationSec,
+            aspectRatio,
+            withAudio: generateAudio,
+            negativePrompt: sceneNegativePrompt,
+          },
+          videoId,
+          stepId: step.id,
+          unitKey: scene.key,
+          sceneOrder: scene.order,
+          outputPath: clipPath,
+          persist: clipPersist,
+        })
+      }
+
+      clipPaths.push(task.localPath)
+      // Только новые оплаченные задачи: клип, вытянутый из нашего хранилища по
+      // ключу идемпотентности, второй раз провайдеру не оплачивается.
+      if (task.source === "generated") generatedCount++
+      if (task.source === "reused_prediction") {
+        await appendStepLog(step.id, `Клип для ${scene.key} взят из хранилища по уже оплаченной задаче`)
+      }
+
+      const clipStorage = task.storage!
 
       if (existingClip) {
         await prisma.videoAsset.update({
@@ -710,19 +916,22 @@ export async function runClipGeneration(
       await appendStepLog(step.id, `Клип для ${scene.key} сгенерирован (${scene.durationSec}s)`)
     }
 
+    const sceneSummary = scenes.map(s => ({ key: s.key, order: s.order, durationSec: s.durationSec }))
+
     await updateStep(step.id, {
       status: "completed",
       finishedAt: new Date(),
       outputSnapshot: {
         clipPaths,
+        generatedCount,
         effectiveVideoModel: videoModelId,
         generateAudio,
-        perSceneDurations: scenes.map(s => ({ key: s.key, durationSec: s.durationSec })),
+        perSceneDurations: sceneSummary,
       },
     })
-    await appendStepLog(step.id, `Все клипы сгенерированы (total: ${scenes.reduce((s, sc) => s + sc.durationSec, 0)}s)`)
+    await appendStepLog(step.id, `Все клипы готовы: ${clipPaths.length} шт, сгенерировано в этом прогоне ${generatedCount} (total: ${scenes.reduce((s, sc) => s + sc.durationSec, 0)}s)`)
 
-    return clipPaths
+    return { clipPaths, generatedCount, scenes: sceneSummary }
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Неизвестная ошибка"
     const isTimeout = msg.includes("таймаут") || msg.includes("timeout")
@@ -764,7 +973,7 @@ export interface VoiceoverStepResult {
     audioPath: string | null
     durationSec: number
     characters: number
-    reconciliation: 'none' | 'sped_up' | 'slowed_down' | 'trimmed' | 'skipped'
+    reconciliation: 'none' | 'sped_up' | 'slowed_down' | 'trimmed' | 'skipped' | 'scene_extended'
     speedFactor?: number
     warning?: string
   }>
@@ -772,6 +981,42 @@ export interface VoiceoverStepResult {
   provider: string | null
   modelId: string | null
   voiceId: string | null
+  /** Обновлённые пути клипов, если политика extend_scene удлинила сцены.
+   * Отсутствует, если ничего не менялось — caller делает `clipPaths ?? effectiveClipPaths`. */
+  clipPaths?: string[]
+}
+
+/**
+ * Перепривязывает VideoAsset сцены на удлинённый клип (extend_scene).
+ * Заливка в storage тем же способом, что и остальные ассеты — ключ сцены не меняется,
+ * чтобы UI и переиздание ролика продолжали видеть актуальный файл.
+ */
+async function persistExtendedClipAsset(
+  videoId: number,
+  sceneIndex: number,
+  filePath: string,
+  durationSec: number,
+): Promise<boolean> {
+  const asset = await prisma.videoAsset.findFirst({
+    where: { videoId, type: "clip" as never, order: sceneIndex },
+  })
+  if (!asset) return false
+
+  const storage = await uploadLocalAsset(
+    filePath,
+    StorageKeys.videoSceneClip(videoId, sceneIndex),
+    "video/mp4",
+  )
+  await prisma.videoAsset.update({
+    where: { id: asset.id },
+    data: {
+      filePath,
+      fileUrl: storageKeyToLegacyUrl(storage.storageKey),
+      duration: Math.round(durationSec),
+      ...storage,
+    },
+  })
+  return true
 }
 
 export async function runVoiceoverGeneration(
@@ -787,6 +1032,12 @@ export async function runVoiceoverGeneration(
     modelStrategy: string
   },
   videoPlan?: StoryDrivenVideoPlan | null,
+  /**
+   * order'ы сцен в том порядке, в котором реально нарезались клипы
+   * (prompts.scenePrompts.scenes). Не передан — сцены сопоставляются с клипами
+   * по позиции в плане, как раньше, но об этом пишется предупреждение в лог шага.
+   */
+  clipSceneOrders?: readonly number[] | null,
 ): Promise<VoiceoverStepResult> {
   const step = await ensureStep(videoId, "voiceover_generation", 3)
 
@@ -870,10 +1121,18 @@ export async function runVoiceoverGeneration(
     if (output.mixedPath) return output
   }
 
+  // Номер попытки нужен ledger'у: rerun шага реально переозвучивает все реплики
+  // и провайдер списывает деньги ещё раз — без attempt дедуп cost-ledger склеил бы
+  // второе списание с первым и занизил бы траты на TTS (см. cost-ledger.ts).
+  const attempt = stepAttemptForLedger(step.attemptCount + 1)
+  // Стоимость предыдущих попыток по этому же ролику: actualCost — это деньги,
+  // потраченные на шаг целиком, а не за последний прогон.
+  const costBefore = step.actualCost
+
   await updateStep(step.id, {
     status: "running",
     startedAt: new Date(),
-    attemptCount: step.attemptCount + 1,
+    attemptCount: attempt,
   })
   await updateVideoStatus(videoId, "generating_voiceover", { currentStep: "voiceover_generation" })
 
@@ -908,23 +1167,36 @@ export async function runVoiceoverGeneration(
   const lineByOrder = new Map<number, typeof voiceoverLines[number]>()
   for (const line of voiceoverLines) lineByOrder.set(line.sceneOrder, line)
 
-  // Per-scene start times (из реальных clip durations — sceneIdx соответствует clip idx)
-  const sceneStartTimes: number[] = []
-  let currentStart = 0
-  for (let i = 0; i < Math.max(scenes.length, clipDurations.length); i++) {
-    sceneStartTimes.push(currentStart)
-    const clipDur = clipDurations[i] ?? scenes[i]?.durationSec ?? 5
-    currentStart += clipDur
+  // Клип сцены ищем по ФАКТИЧЕСКОМУ порядку нарезки (prompts.scenePrompts.scenes):
+  // этот порядок задаёт модель и совпадать с videoPlan.scenes он не обязан, так что
+  // позиция сцены в плане — не индекс её клипа. Раньше было `clipDurations[i]`, и при
+  // перестановке сцен озвучка ложилась на чужой клип.
+  // Копии массивов — политика extend_scene может удлинить клипы прямо в цикле.
+  const clipOrderKnown = !!clipSceneOrders && clipSceneOrders.length > 0
+  const clipIndexByOrder = buildSceneClipIndexMap(scenes, clipSceneOrders, {
+    allowPositionalFallback: false,
+  })
+  const effectiveClipDurations = [...clipDurations]
+  const effectiveClipPaths = [...clipPaths]
+  let clipsExtended = false
+  if (!clipOrderKnown) {
+    // Деградация, а не молчание: без порядка нарезки сопоставление остаётся
+    // позиционным (как раньше) и может уехать, если модель переставила сцены.
+    await appendStepLog(step.id, "Порядок нарезки клипов не передан — сцены сопоставлены с клипами по позиции в плане")
   }
 
   const assetsDir = getAssetsDir(videoId)
   await ensureDir(assetsDir)
 
   const sceneResults: VoiceoverStepResult['sceneResults'] = []
+  // Стартовые времена здесь НЕ храним — только индекс клипа. Политика extend_scene
+  // может удлинить клип уже после того, как сцена с бо́льшим индексом клипа прошла
+  // цикл (порядок сцен в плане не совпадает с порядком нарезки), поэтому старты
+  // считаются один раз после цикла — по финальным длительностям клипов.
   const audiosToMix: Array<{
     sceneOrder: number
     audioPath: string
-    sceneStartSec: number
+    clipIndex: number
     voiceoverDurationSec: number
     sceneDurationSec: number
   }> = []
@@ -935,7 +1207,13 @@ export async function runVoiceoverGeneration(
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i]!
     const line = lineByOrder.get(scene.order)
-    const sceneDurationSec = clipDurations[i] ?? scene.durationSec
+    // Индекс клипа сцены: по порядку нарезки, а при неизвестном порядке — по позиции.
+    const clipIndex = clipOrderKnown ? (clipIndexByOrder.get(scene.order) ?? -1) : i
+    // Берём только длительность своего клипа: она от удлинения соседей не зависит.
+    // Старт сцены на таймлайне зависит, поэтому вычисляется после цикла.
+    const originalClipDurationSec = clipIndex >= 0
+      ? (effectiveClipDurations[clipIndex] ?? null)
+      : null
 
     if (!line || !line.text?.trim()) {
       sceneResults.push({
@@ -948,6 +1226,22 @@ export async function runVoiceoverGeneration(
       await appendStepLog(step.id, `Scene ${scene.order}: нет voiceover text — пропускаю`)
       continue
     }
+
+    if (originalClipDurationSec === null) {
+      // Клипа для сцены нет — озвучивать нечего: без клипа реплику некуда положить,
+      // а подстановка плановой длительности сдвинула бы весь остальной таймлайн.
+      sceneResults.push({
+        sceneOrder: scene.order,
+        audioPath: null,
+        durationSec: 0,
+        characters: 0,
+        reconciliation: 'skipped',
+        warning: `Нет клипа для сцены (индекс клипа ${clipIndex}, клипов всего ${effectiveClipPaths.length}) — озвучка сцены пропущена`,
+      })
+      await appendStepLog(step.id, `Scene ${scene.order}: клип с индексом ${clipIndex} отсутствует (клипов ${effectiveClipPaths.length} на ${scenes.length} сцен) — озвучку пропускаю`)
+      continue
+    }
+    let sceneDurationSec = originalClipDurationSec
 
     // Re-use existing asset if present (idempotency)
     const existingAsset = await prisma.videoAsset.findFirst({
@@ -1015,7 +1309,54 @@ export async function runVoiceoverGeneration(
       const overshoot = finalDuration - maxAllowedSec
       const requiredSpeed = finalDuration / maxAllowedSec
 
-      if (videoConfig.voiceoverReconciliation === 'trim_audio') {
+      // Политика extend_scene: удлиняем СЦЕНУ, а не режем голос. Раньше ветки не было
+      // вовсе, и выбор оператора «растянуть сцену» молча работал как compress_audio.
+      let resolvedByExtend = false
+      if (videoConfig.voiceoverReconciliation === 'extend_scene') {
+        const extension = planClipExtension({
+          clipDurationSec: sceneDurationSec,
+          voiceoverDurationSec: finalDuration,
+          gapSec: 0.1,
+        })
+        const clipPathForScene = effectiveClipPaths[clipIndex]
+
+        if (!clipPathForScene) {
+          warning = `Scene ${scene.order}: нет файла клипа для удлинения — деградирую в ускорение/обрезку`
+          await appendStepLog(step.id, warning)
+        } else if (!extension.allowed) {
+          warning = `Scene ${scene.order}: нужно +${extension.neededSec}s, но лимит удлинения ${extension.limitSec}s (max +50% и не более 5s) — деградирую в ускорение/обрезку`
+          await appendStepLog(step.id, warning)
+        } else {
+          try {
+            const extPath = clipPathForScene.replace(/\.mp4$/i, '_ext.mp4')
+            const extended = await extendVideoClip(clipPathForScene, extPath, extension.neededSec)
+            const newDuration = extended.durationSec > 0
+              ? extended.durationSec
+              : sceneDurationSec + extension.neededSec
+
+            effectiveClipPaths[clipIndex] = extended.outputPath
+            effectiveClipDurations[clipIndex] = newDuration
+            sceneDurationSec = newDuration
+            clipsExtended = true
+            resolvedByExtend = true
+            reconciliation = 'scene_extended'
+
+            // Ассет клипа лежит под order = индекс клипа (runClipGeneration пишет idx),
+            // поэтому перепривязываем именно clipIndex, а не позицию сцены в плане.
+            const persisted = await persistExtendedClipAsset(videoId, clipIndex, extended.outputPath, newDuration)
+            await appendStepLog(step.id, `Scene ${scene.order}: клип удлинён на +${extension.neededSec}s (было ${originalClipDurationSec}s, стало ${newDuration}s)${persisted ? '' : ' — VideoAsset клипа не найден, обновлён только файл'}`)
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            warning = `Scene ${scene.order}: удлинение клипа не удалось (${msg.slice(0, 160)}) — деградирую в ускорение/обрезку`
+            await appendStepLog(step.id, warning)
+          }
+        }
+      }
+
+      if (resolvedByExtend) {
+        // Сцена стала длиннее озвучки — ни ускорять, ни резать не нужно.
+        await appendStepLog(step.id, `Scene ${scene.order}: озвучка ${finalDuration}s уместилась в удлинённую сцену без ускорения`)
+      } else if (videoConfig.voiceoverReconciliation === 'trim_audio') {
         // Политика: обрезать без изменения темпа
         const trimmedPath = join(assetsDir, `voiceover_scene_${scene.order}_trim.mp3`)
         const trimmed = await trimAudio(finalPath, trimmedPath, maxAllowedSec)
@@ -1109,7 +1450,7 @@ export async function runVoiceoverGeneration(
     audiosToMix.push({
       sceneOrder: scene.order,
       audioPath: finalPath,
-      sceneStartSec: sceneStartTimes[i] ?? 0,
+      clipIndex,
       voiceoverDurationSec: finalDuration,
       sceneDurationSec,
     })
@@ -1131,7 +1472,7 @@ export async function runVoiceoverGeneration(
         modelId: ttsModel.id,
         voiceId: resolvedVoiceId,
       } as unknown as Record<string, unknown>,
-      actualCost: totalCost,
+      actualCost: accumulateStepCost(costBefore, totalCost),
     })
     await logStepCost(
       step.id,
@@ -1140,6 +1481,7 @@ export async function runVoiceoverGeneration(
       totalCost,
       videoId,
       ttsModel.id,
+      { attempt },
     )
     await appendStepLog(step.id, `Voiceover завершился без озвученных сцен (все строки пустые)`)
     return {
@@ -1154,13 +1496,33 @@ export async function runVoiceoverGeneration(
     }
   }
 
-  // 7. Build combined voiceover track
-  const totalDurationSec = clipDurations.reduce((sum, d) => sum + d, 0) || scenes.reduce((sum, s) => sum + s.durationSec, 0)
+  // 7. Build combined voiceover track (длительности — уже с учётом extend_scene)
+  // Таймлайн строим ОДИН раз и только здесь: к этому моменту все удлинения клипов
+  // применены, поэтому старт каждой реплики считается по финальным длительностям.
+  // Считай мы старты внутри цикла — сцена, чей клип нарезан позже, но в плане идёт
+  // раньше, зафиксировала бы старт до удлинения предыдущего клипа и уехала бы.
+  const finalTimeline = buildSceneClipTimeline(
+    effectiveClipDurations,
+    Math.max(scenes.length, effectiveClipDurations.length),
+  )
+  const mixScenes = audiosToMix.map(a => {
+    const slot = finalTimeline[a.clipIndex]
+    return {
+      sceneOrder: a.sceneOrder,
+      audioPath: a.audioPath,
+      sceneStartSec: slot?.startSec ?? 0,
+      voiceoverDurationSec: a.voiceoverDurationSec,
+      sceneDurationSec: slot?.clipDurationSec ?? a.sceneDurationSec,
+    }
+  })
+
+  const totalDurationSec = effectiveClipDurations.reduce((sum, d) => sum + d, 0)
+    || scenes.reduce((sum, s) => sum + s.durationSec, 0)
   const mixPath = join(assetsDir, 'voiceover_mix.mp3')
 
-  await appendStepLog(step.id, `Микширую ${audiosToMix.length} сегментов в единый voiceover track (${totalDurationSec}s)`)
+  await appendStepLog(step.id, `Микширую ${mixScenes.length} сегментов в единый voiceover track (${totalDurationSec}s)`)
   const mixResult = await buildVoiceoverTrack({
-    scenes: audiosToMix,
+    scenes: mixScenes,
     outputPath: mixPath,
     totalDurationSec,
   })
@@ -1211,13 +1573,16 @@ export async function runVoiceoverGeneration(
     provider: ttsModel.provider,
     modelId: ttsModel.id,
     voiceId: resolvedVoiceId,
+    // Поле появляется ТОЛЬКО если extend_scene реально удлинила клипы — иначе
+    // caller продолжает работать со своим массивом путей.
+    ...(clipsExtended ? { clipPaths: effectiveClipPaths } : {}),
   }
 
   await updateStep(step.id, {
     status: "completed",
     finishedAt: new Date(),
     outputSnapshot: result as unknown as Record<string, unknown>,
-    actualCost: totalCost,
+    actualCost: accumulateStepCost(costBefore, totalCost),
   })
   await logStepCost(
     step.id,
@@ -1226,6 +1591,7 @@ export async function runVoiceoverGeneration(
     totalCost,
     videoId,
     ttsModel.id,
+    { attempt },
   )
   await appendStepLog(step.id, `Voiceover завершён: ${audiosToMix.length} сцен, mix=${mixResult.durationSec}s, стоимость $${totalCost.toFixed(3)}${partialFailures ? ' (partial — есть warnings)' : ''}`)
 
@@ -1362,30 +1728,74 @@ export async function runAssembly(
     /** Override subtitleStyle. Если задан — используется ВМЕСТО videoPlan.subtitleStyle.
      * Это финальная точка истины для assembly (читается из Video.subtitlesStyle на уровне выше). */
     subtitleStyleOverride?: SubtitleStyleProfile | null
+    /**
+     * order'ы сцен в порядке нарезки клипов (prompts.scenePrompts.scenes) — по нему
+     * субтитр сцены находит СВОЙ клип. Не передан — раскладка по позициям плана
+     * (прежнее поведение) плюс предупреждение в лог шага.
+     */
+    clipSceneOrders?: readonly number[] | null
   },
 ): Promise<{ filePath: string; duration: number }> {
   const step = await ensureStep(videoId, "assembly", 5)
 
   const isStoryDriven = videoPlan && videoPlan.mode !== 'legacy_simple'
 
-  let sceneSubtitles: Array<{ text: string; placement: SubtitlePlacement; durationSec: number }> | undefined
+  let sceneSubtitles: SceneSubtitleInput[] | undefined
   // subtitleStyle: приоритет override (Video.subtitlesStyle) > videoPlan (storyPlan).
   // Это позволяет editor'у править Video.subtitlesStyle и видеть изменения в render
   // после rerunVideoStep('assembly') без модификации storyPlan.
   let subtitleStyle: SubtitleStyleProfile | null = extras?.subtitleStyleOverride ?? null
+  let clipOrderWarning: string | null = null
 
   if (isStoryDriven) {
     if (!subtitleStyle) subtitleStyle = videoPlan.subtitleStyle ?? null
+    // sceneIndex субтитра — это индекс его КЛИПА, а клипы нарезаны в порядке
+    // prompts.scenePrompts.scenes (порядок задаёт модель, нигде не сортируется).
+    // Позиция сцены в videoPlan.scenes этому порядку не равна: при ответе модели
+    // [1,2,4,3] субтитр сцены 3 лёг бы на клип сцены 4. Позиционная раскладка
+    // остаётся только фолбэком, когда порядок нарезки неизвестен.
+    const clipIndexByOrder = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
+      allowPositionalFallback: false,
+    })
+    const clipOrderKnown = clipIndexByOrder.size > 0
+    if (!clipOrderKnown) {
+      clipOrderWarning = "Порядок нарезки клипов не передан — субтитры разложены по позициям сцен в плане; при перестановке сцен моделью они могут уехать на соседний клип"
+    }
+    // sceneIndex фиксируем ДО фильтрации: сцена с пустым subtitleCopy не должна
+    // сдвигать хвост субтитров на сцену вперёд (раньше render раскладывал их
+    // строго по позиции в отфильтрованном массиве).
     sceneSubtitles = videoPlan.scenes
-      .filter(s => s.subtitleCopy)
-      .map(s => ({
-        text: s.subtitleCopy,
+      .map((s, idx) => ({
+        // Сцена, для которой клипа нет вовсе, отсеивается ниже: класть её субтитр
+        // на чужой клип хуже, чем не показать его.
+        sceneIndex: clipOrderKnown ? clipIndexByOrder.get(s.order) : idx,
+        text: s.subtitleCopy ?? '',
         placement: s.subtitlePlacement,
         durationSec: s.durationSec,
       }))
+      .filter((s): s is SceneSubtitleInput => s.sceneIndex !== undefined && s.text.trim().length > 0)
   }
 
   const hasSceneSubs = subtitlesEnabled && sceneSubtitles && sceneSubtitles.length > 0
+
+  // Story-driven ролик с включёнными субтитрами, у которого после сборки не осталось
+  // ни одного per-scene субтитра. Так бывает штатно: оператор вычистил subtitleCopy
+  // через POST /api/videos/[id]/edit-subtitles (эндпоинт принимает пустую строку),
+  // либо ни одна сцена не сопоставилась со своим клипом и все субтитры отсеялись выше.
+  // Раньше такой ролик молча уезжал в рендер вообще без надписей, хотя оператор видел
+  // subtitlesEnabled=true — сигнала об этом не было нигде.
+  //
+  // Откатываемся на legacy hook/CTA: это единственный текст, который у нас гарантированно
+  // есть, и немой ролик при включённых субтитрах удивит оператора сильнее, чем знакомые
+  // хук и призыв на экране. Дублирования с per-scene субтитрами тут быть не может —
+  // ветка работает ровно тогда, когда их ноль. В обоих случаях (откатились или откатываться
+  // не на что) пишем WARN в лог шага, чтобы источник надписей был виден без гадания.
+  const storySubsMissing = subtitlesEnabled && !!isStoryDriven && !hasSceneSubs
+  const hasLegacyTexts = (hookText ?? '').trim().length > 0 || (ctaText ?? '').trim().length > 0
+  const legacyFallbackUsed = storySubsMissing && hasLegacyTexts
+  // Legacy hook/CTA рендерим в legacy_simple всегда, а в story-driven — только как
+  // аварийный фолбэк выше.
+  const legacyTexts = subtitlesEnabled && (!isStoryDriven || legacyFallbackUsed)
 
   await updateStep(step.id, {
     status: "running",
@@ -1399,10 +1809,20 @@ export async function runAssembly(
       hasSceneSubtitles: hasSceneSubs,
       hasSubtitleStyle: !!subtitleStyle,
       runtimeMode: videoPlan?.mode ?? 'legacy_simple',
+      // Видно в снапшоте шага, почему на ролике оказались (или не оказались) надписи.
+      subtitleFallback: legacyFallbackUsed
+        ? 'legacy_texts'
+        : storySubsMissing ? 'none_available' : null,
     },
   })
   const hasVoiceover = !!extras?.voiceoverPath
   await appendStepLog(step.id, `Собираю видео: ${clipPaths.length} клипов, музыка: ${musicPath ? "да" : "нет"}, voiceover: ${hasVoiceover ? "да" : "нет"}, субтитры: ${subtitlesEnabled}${hasSceneSubs ? ` (${sceneSubtitles!.length} per-scene subs)` : ""}${subtitleStyle ? " (styled)" : ""}`)
+  if (clipOrderWarning && hasSceneSubs) await appendStepLog(step.id, clipOrderWarning)
+  if (legacyFallbackUsed) {
+    await appendStepLog(step.id, "WARN: субтитры включены, но ни у одной сцены нет текста — накладываю legacy hook/CTA. Проверьте тексты сцен в редакторе субтитров.")
+  } else if (storySubsMissing) {
+    await appendStepLog(step.id, "WARN: субтитры включены, но текста нет ни у сцен, ни в hook/CTA — ролик соберётся без надписей")
+  }
   await updateVideoStatus(videoId, "assembling", { currentStep: "assembly" })
 
   // Keyword pre-pass — только для пресетов с needsKeywordDetection=true. При выключенных
@@ -1412,7 +1832,9 @@ export async function runAssembly(
     const presetMeta = getPresetByKey(extras.subtitlePreset)
     if (presetMeta.needsKeywordDetection) {
       try {
-        const segs = sceneSubtitles!.map((s, idx) => ({ order: idx + 1, text: s.text }))
+        // order = sceneIndex + 1 — тот же ключ, по которому render читает подсказки
+        // (aiMap.get(sceneIndex + 1)). Нумерация с единицы: так её видит AI-агент.
+        const segs = sceneSubtitles!.map(s => ({ order: s.sceneIndex + 1, text: s.text }))
         const lang = videoPlan?.subtitleStyle?.typography?.fontIntent?.toLowerCase().includes('rus')
           ? 'ru'
           : 'en'
@@ -1433,10 +1855,14 @@ export async function runAssembly(
   try {
     const outputPath = join(getVideosDir(), `${videoId}.mp4`)
     await safeUnlink(outputPath)
+    // Legacy hook/cta — для legacy_simple и для story-driven без единого субтитра
+    // (см. legacyTexts выше). В обычном story-driven за текст на экране отвечают
+    // per-scene субтитры; hookText/ctaText там дублировали бы их поверх всего ролика
+    // (и всплывали в ASS-ветке, где legacy-сегменты идут на всю длину).
     const result = await assembleVideo({
       clips: clipPaths,
-      topText: subtitlesEnabled ? hookText : "",
-      bottomText: subtitlesEnabled ? ctaText : "",
+      topText: legacyTexts ? hookText : "",
+      bottomText: legacyTexts ? ctaText : "",
       musicPath,
       format: format as "portrait" | "landscape",
       outputPath,

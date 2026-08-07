@@ -6,6 +6,7 @@ import {
   readRawBody,
 } from "h3"
 import { readReplicateConfig } from "../../utils/replicate/config"
+import { finalizeAfterWebhook } from "../../utils/replicate/finalize"
 import {
   handleReplicateWebhook,
   InvalidReplicateWebhookError,
@@ -30,6 +31,10 @@ export default defineEventHandler(async (event) => {
       url: getRequestURL(event).toString(),
       secret: config.webhookSigningSecret,
     })
+    // Вебхук — основной путь завершения, а не только запись статуса: ставим
+    // перенос результата в фоновую очередь, не задерживая ответ 200. Очередь
+    // нужна потому, что вебхуки приходят пачкой по всему пакету роликов.
+    finalizeAfterWebhook(prediction, config)
     return {
       ok: true,
       predictionId: prediction.externalId,
