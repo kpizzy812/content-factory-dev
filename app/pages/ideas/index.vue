@@ -9,6 +9,12 @@ useRunPipelineFilter(filters)
 
 const list = useTemplateRef('list')
 
+// Обмен идеями с MarketingCamp — унаследованная зона: при выключенном
+// LEGACY_MARKETING_CAMP_SYNC_ENABLED сервер отдаёт /api/ideas/sync как 404,
+// и кнопка «Импорт из MarketingCamp» вела бы в никуда.
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+await loadLegacyModules()
+
 async function onCreated() {
   filters.resetPage()
   await list.value?.refresh()
@@ -18,7 +24,7 @@ async function onCreated() {
 <template>
   <div class="flex flex-col gap-3">
     <IdeaSubmitForm @created="onCreated" />
-    <IdeaSyncToolbar @imported="onCreated" />
+    <IdeaSyncToolbar v-if="legacyModules.marketingCampSync" @imported="onCreated" />
     <IdeaListView ref="list" />
   </div>
 </template>

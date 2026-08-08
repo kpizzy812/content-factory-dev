@@ -3,8 +3,11 @@
  * Настройки пользователя. Макет: design-preview/catalog/08-settings-admin.dc.html
  *
  * Здесь только то, что человек меняет себе: тема и вид собственной учётки.
- * Права и модули приходят из MarketingCamp и правятся не тут — на них стоит
- * ссылка в админку, чтобы не искать.
+ * Права и модули правятся не тут — на них стоит ссылка в админку, чтобы не искать.
+ *
+ * Откуда именно они берутся, зависит от поставки: по умолчанию ContentFactory
+ * логинит сам, а MarketingCamp — необязательный адаптер. Подпись под карточкой
+ * и раздел «Интеграции» показываются по фактическому провайдеру, а не наугад.
  */
 definePageMeta({ layout: 'default' })
 useHead({ title: 'Настройки' })
@@ -12,6 +15,13 @@ useHead({ title: 'Настройки' })
 const { user } = useUserSession()
 const { can } = usePermissions()
 const colorMode = useColorMode()
+
+const { legacyModules, authProvider, loadLegacyModules } = useLegacyModules()
+await loadLegacyModules()
+
+const usesMarketingCamp = computed(
+  () => authProvider.value === 'marketingcamp' || legacyModules.value.marketingCampSync,
+)
 
 const THEMES = [
   { value: 'dark', label: 'Тёмная', icon: 'mingcute:moon-line' },
@@ -73,7 +83,9 @@ const modules = computed(() => user.value?.moduleAccess ?? [])
       </div>
 
       <p class="border-t border-divider bg-card px-3.5 py-2 text-micro text-subtle">
-        Роль и права приходят из MarketingCamp при входе и здесь не правятся.
+        {{ authProvider === 'marketingcamp'
+          ? 'Роль и права приходят из MarketingCamp при входе и здесь не правятся.'
+          : 'Роль и права заданы при заведении учётной записи и здесь не правятся.' }}
         <NuxtLink v-if="can('canAdmin')" to="/admin/users">Кто и что может</NuxtLink>
       </p>
     </section>
@@ -106,9 +118,9 @@ const modules = computed(() => user.value?.moduleAccess ?? [])
       </div>
     </section>
 
-    <section class="flex flex-col gap-2">
+    <section v-if="usesMarketingCamp" class="flex flex-col gap-2">
       <h2 class="text-base font-medium">Интеграции</h2>
-      <SettingsIntegrationCard />
+      <SettingsIntegrationCard :auth-provider="authProvider" />
     </section>
   </div>
 </template>

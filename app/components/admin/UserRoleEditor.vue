@@ -1,10 +1,15 @@
 <script setup lang="ts">
 /**
- * Права пользователя приходят из MarketingCamp и здесь только показываются.
- * Менять можно единственное — локальную блокировку, поэтому всё остальное
- * подано как справка, а не как форма.
+ * Права пользователя здесь только показываются: менять можно единственное —
+ * локальную блокировку, поэтому всё остальное подано как справка, а не как форма.
+ *
+ * Откуда они взялись, зависит от поставки: при AUTH_PROVIDER=marketingcamp их
+ * перезаписывает родительская платформа на каждом входе, при local они заданы
+ * при заведении учётки. Подпись говорит то, что верно для этой установки.
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
+  /** Провайдер авторизации поставки: от него зависят подписи. */
+  authProvider?: 'local' | 'marketingcamp'
   user: {
     id: number
     email: string
@@ -30,7 +35,7 @@ const props = defineProps<{
     }>
     isActive: boolean
   }
-}>()
+}>(), { authProvider: 'marketingcamp' })
 
 const emit = defineEmits<{ saved: [] }>()
 
@@ -85,7 +90,9 @@ async function save() {
     >
       <Icon name="mingcute:information-line" class="mt-0.5 shrink-0 text-info" />
       <span class="text-muted">
-        Роли, права, модули и приложения ведутся в MarketingCamp и приезжают при каждом входе.
+        {{ authProvider === 'marketingcamp'
+          ? 'Роли, права, модули и приложения ведутся в MarketingCamp и приезжают при каждом входе.'
+          : 'Роли, права, модули и приложения задаются при заведении учётной записи.' }}
         Здесь их можно только посмотреть — менять есть что одно, локальную блокировку.
       </span>
     </div>
@@ -143,7 +150,9 @@ async function save() {
       <p v-if="!appAssignments.length" class="text-sm text-muted">
         {{ user.canAdmin
           ? 'У администратора доступ ко всем приложениям.'
-          : 'В MarketingCamp приложения не назначены.' }}
+          : (authProvider === 'marketingcamp'
+            ? 'В MarketingCamp приложения не назначены.'
+            : 'Приложения этой учётной записи не назначены.') }}
       </p>
       <div v-else class="flex flex-col gap-1.5">
         <div
@@ -172,7 +181,9 @@ async function save() {
       <h3 class="mb-1.5 text-micro tracking-[.06em] text-subtle uppercase">Локальная блокировка</h3>
       <UiToggle v-model="isActive" :label="isActive ? 'Работает' : 'Заблокирован здесь'" />
       <p class="mt-1 text-micro text-subtle">
-        Действует только в ContentFactory. В MarketingCamp учётная запись остаётся.
+        {{ authProvider === 'marketingcamp'
+          ? 'Действует только в ContentFactory. В MarketingCamp учётная запись остаётся.'
+          : 'Учётная запись остаётся, вход по ней перестаёт работать.' }}
       </p>
     </section>
 

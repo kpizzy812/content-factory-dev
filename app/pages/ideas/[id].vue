@@ -81,12 +81,20 @@ const EDIT_FIELDS = [
 const tab = ref<'analysis' | 'reference' | 'transcript' | 'history' | 'sync'>('analysis')
 const hasReferenceBreakdown = computed(() => !!idea.value?.analysis?.referenceBreakdown)
 
+// Вкладка синхронизации живёт в унаследованной зоне: при выключенном
+// LEGACY_MARKETING_CAMP_SYNC_ENABLED сервер отдаёт /api/ideas/sync как 404,
+// и обе кнопки внутри неё падали бы с ошибкой.
+const { legacyModules, loadLegacyModules } = useLegacyModules()
+await loadLegacyModules()
+
 const tabs = computed(() => [
   { key: 'analysis' as const, label: 'Разбор' },
   { key: 'reference' as const, label: 'Референс', marked: hasReferenceBreakdown.value },
   { key: 'transcript' as const, label: 'Транскрипт' },
   { key: 'history' as const, label: 'История' },
-  { key: 'sync' as const, label: 'Синхронизация', marked: !!idea.value?.syncStatus && idea.value.syncStatus !== 'none' },
+  ...(legacyModules.value.marketingCampSync
+    ? [{ key: 'sync' as const, label: 'Синхронизация', marked: !!idea.value?.syncStatus && idea.value.syncStatus !== 'none' }]
+    : []),
 ])
 
 // ─── Навигация по соседям ────────────────────────────────────────────────────

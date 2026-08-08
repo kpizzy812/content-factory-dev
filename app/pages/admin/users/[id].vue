@@ -10,6 +10,10 @@ const { data, pending, error, refresh } = useFetch(() => `/api/admin/users/${use
 
 const user = computed(() => data.value?.data ?? null)
 
+// Откуда приезжают права, зависит от поставки — редактор подписывает это сам.
+const { authProvider, loadLegacyModules } = useLegacyModules()
+await loadLegacyModules()
+
 useHead({ title: computed(() => `${user.value?.email ?? 'Пользователь'} — пользователь`) })
 
 function onSaved() {
@@ -56,7 +60,7 @@ const title = computed(() => {
       </DetailHeader>
 
       <section class="rounded-lg border border-border bg-panel p-3.5">
-        <AdminUserRoleEditor :user="user" @saved="onSaved" />
+        <AdminUserRoleEditor :user="user" :auth-provider="authProvider" @saved="onSaved" />
       </section>
     </template>
   </div>

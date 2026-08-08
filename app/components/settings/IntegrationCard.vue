@@ -4,8 +4,20 @@
  *
  * Секретов карточка не показывает и не правит: ключ MarketingCamp живёт в
  * окружении, а не в базе. Здесь только состояние связи и её проверка.
+ *
+ * Показывается она только там, где MarketingCamp действительно подключён —
+ * провайдером авторизации или обменом идеями. Подпись зависит от того, что
+ * именно через него ходит: на local-авторизации права приходят не оттуда.
  */
+const props = withDefaults(defineProps<{
+  authProvider?: 'local' | 'marketingcamp'
+}>(), { authProvider: 'marketingcamp' })
+
 const { data, pending, refresh } = useIntegrationStatus()
+
+const subtitle = computed(() =>
+  props.authProvider === 'marketingcamp' ? 'учётные записи и права' : 'обмен идеями',
+)
 
 const isRefreshing = ref(false)
 
@@ -39,7 +51,7 @@ function formatTime(dateStr: string): string {
       </span>
       <span class="min-w-0">
         <span class="block font-medium">MarketingCamp</span>
-        <span class="block text-micro text-subtle">учётные записи и права</span>
+        <span class="block text-micro text-subtle">{{ subtitle }}</span>
       </span>
 
       <span
@@ -78,8 +90,10 @@ function formatTime(dateStr: string): string {
       </p>
 
       <p v-else class="text-sm text-muted">
-        Логин и права приходят из MarketingCamp при входе. Отдельного ключа
-        здесь нет — он задаётся в окружении приложения.
+        {{ authProvider === 'marketingcamp'
+          ? 'Логин и права приходят из MarketingCamp при входе.'
+          : 'Логин здесь свой; через MarketingCamp ходит только обмен идеями.' }}
+        Отдельного ключа здесь нет — он задаётся в окружении приложения.
       </p>
     </div>
   </section>

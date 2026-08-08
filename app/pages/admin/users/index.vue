@@ -7,6 +7,10 @@ useHead({ title: 'Пользователи' })
 
 const { data, pending, error, refresh } = useAdminUsers()
 const users = computed(() => data.value?.data ?? [])
+
+// Откуда берутся учётки, зависит от поставки — подпись не должна врать.
+const { authProvider, loadLegacyModules } = useLegacyModules()
+await loadLegacyModules()
 </script>
 
 <template>
@@ -17,7 +21,9 @@ const users = computed(() => data.value?.data ?? [])
     </div>
 
     <p class="text-sm text-muted">
-      Учётные записи заводятся входом через MarketingCamp — здесь их только смотрят.
+      {{ authProvider === 'marketingcamp'
+        ? 'Учётные записи заводятся входом через MarketingCamp — здесь их только смотрят.'
+        : 'Учётные записи заводятся командой bun run create:admin — здесь их только смотрят.' }}
     </p>
 
     <UiSkeleton v-if="pending && !users.length" variant="details" :count="6" />
@@ -32,7 +38,9 @@ const users = computed(() => data.value?.data ?? [])
     <UiEmptyState
       v-else-if="!users.length"
       title="Пользователей нет"
-      description="Появятся после первого входа через MarketingCamp."
+      :description="authProvider === 'marketingcamp'
+        ? 'Появятся после первого входа через MarketingCamp.'
+        : 'Первого администратора заводит команда bun run create:admin.'"
     />
 
     <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
