@@ -15,7 +15,7 @@
  */
 
 import type { TrendAnalysisResult } from '~~/shared/types/agents'
-import type { VisualStyleStructured } from '~~/shared/types/scenario'
+import type { SceneCountStrategy, VisualStyleStructured } from '~~/shared/types/scenario'
 import type {
   StoryPlan,
   StoryArc,
@@ -62,6 +62,20 @@ interface InsightFallback {
   patterns: string[]
   hooks: string[]
   audience?: string | null
+}
+
+/**
+ * Длительность ролика. Воронка с лид-магнитом требует места под пользу: за
+ * 15-25 секунд «auto» помещается один тезис, и зрителю не за что отдавать
+ * кодовое слово. По ТЗ ролик идёт 70-90 секунд — это стратегия longform.
+ * Явный выбор оператора всегда важнее умолчания.
+ */
+export function resolveSceneCountStrategy(
+  profileSettings: { sceneCountStrategy?: SceneCountStrategy } | null | undefined,
+  funnel: { keyword: string } | null | undefined,
+): SceneCountStrategy {
+  if (profileSettings?.sceneCountStrategy) return profileSettings.sceneCountStrategy
+  return funnel?.keyword ? 'longform' : 'auto'
 }
 
 /** Воронка юнита в объёме, нужном генератору сценария. */
@@ -115,6 +129,18 @@ export interface ScenarioInput {
     analyzedAt: string | null
   }>
 
+  /**
+   * Библиотека живых исходников ведущего, если она наполнена. Когда поле задано,
+   * планировщик обязан отметить сцены с ведущей в кадре полем spokenLine — по ним
+   * пойдёт lip-sync вместо генерации клипа. Пусто — сценарий полностью B-roll'овый.
+   */
+  presenter?: {
+    name: string
+    clipCount: number
+    minClipSec: number
+    maxClipSec: number
+  } | null
+
   profileSettings?: Partial<ScenarioGenerationProfileData> | null
   appId?: number | null
   // Reference-driven generation (v3.1)
@@ -148,6 +174,40 @@ function contentLanguageLabel(raw: string | null | undefined): string {
   if (value === 'es' || value.startsWith('es-') || value === 'spanish') return 'Spanish'
   if (value === 'de' || value.startsWith('de-') || value === 'german') return 'German'
   return raw!.trim()
+}
+
+// --- Presenter (live footage) Context Builder ---
+
+/**
+ * Блок про ведущую в кадре. Без него планировщик оставляет spokenLine пустым,
+ * lip-sync шаг пропускает все сцены, и живая ведущая в ролик не попадает вовсе.
+ */
+function buildPresenterPromptBlock(
+  presenter: ScenarioInput['presenter'],
+  contentLanguage: string,
+): string {
+  if (!presenter || presenter.clipCount <= 0) {
+    return `## Ведущий в кадре
+Библиотека живых исходников пуста, поэтому НИ ОДНА сцена не может показать говорящего ведущего.
+Поле spokenLine у всех сцен = null. Речь идёт только закадровым голосом (voiceoverLine).`
+  }
+
+  const minSec = Math.ceil(presenter.minClipSec)
+  const maxSec = Math.floor(presenter.maxClipSec)
+
+  return `## Ведущий в кадре (spokenLine) — ОБЯЗАТЕЛЬНЫЙ БЛОК
+В системе есть библиотека живых фрагментов ведущей (${presenter.name}, ${presenter.clipCount} фрагментов по ${minSec}-${maxSec} секунд).
+Сцена, у которой заполнен spokenLine, снимается НЕ нейросетью: берётся реальный фрагмент ведущей и её губы синхронизируются с этой репликой.
+
+Правила распределения:
+1. Ведущая ведёт ОПОРНЫЕ точки ролика, а не весь хронометраж: хук (сцена 1), один-два ключевых тезиса в середине и финальный CTA.
+2. Всего сцен со spokenLine — от 3 до 4. Остальные сцены иллюстративные: spokenLine = null.
+3. Если у сцены заполнен spokenLine, её voiceoverLine ОБЯЗАН быть null. Иначе на одном отрезке звучат два голоса одновременно.
+4. Если spokenLine = null, речь этой сцены идёт закадром через voiceoverLine, как обычно.
+5. Длительность сцены со spokenLine — строго от ${minSec} до ${maxSec} секунд: фрагмент ведущей длиннее не бывает.
+6. spokenLine — живая устная фраза на языке ${contentLanguage}, от 60 до 120 символов, без эмодзи и спецсимволов. Это то, что человек реально успевает сказать за длительность сцены.
+7. subtitleCopy сцены со spokenLine передаёт ту же мысль — это субтитры к словам ведущей, а не отдельный текст.
+8. setting и action такой сцены описывают живую съёмку ведущей (говорит на камеру), а не сгенерированный визуал.`
 }
 
 // --- Account Style Context Builder ---
@@ -390,10 +450,15 @@ ${referenceContext}
 ${favoritePromptsContext}
 ${accountStyleContext}
 
-## Приложение
+${input.funnel?.keyword ? `## Воронка
+- Кодовое слово: ${input.funnel.keyword} (зритель отправляет его в директ или комментарии)
+${input.funnel.leadMagnetTitle ? `- Что он получает: ${input.funnel.leadMagnetTitle}` : ''}
+- Тема эксперта: ${input.appName}${input.appDescription ? ` — ${input.appDescription}` : ''}
+- Ключевые слова: ${input.appKeywords.join(', ') || 'нет'}
+- Продукт зрителю не устанавливают и не продают в кадре` : `## Приложение
 - Название: ${input.appName}
 ${input.appDescription ? `- Описание: ${input.appDescription}` : ''}
-- Ключевые слова: ${input.appKeywords.join(', ') || 'нет'}
+- Ключевые слова: ${input.appKeywords.join(', ') || 'нет'}`}
 
 ## Задача
 Создай JSON-объект с полной драматургией:
@@ -402,8 +467,12 @@ ${input.appDescription ? `- Описание: ${input.appDescription}` : ''}
    - template: один из "transformation"|"discovery"|"challenge"|"comparison"|"day_in_life"|"social_proof"|"curiosity"|"custom"
    - premise: исходная ситуация (1-2 предложения)
    - conflict: дефицит / проблема / сомнение
-   - turningPoint: момент встречи с приложением
-   - resolution: трансформация / результат
+   - turningPoint: ${input.funnel?.keyword
+     ? 'ключевой факт, цифра или механизм, который переворачивает понимание темы. НЕ появление продукта'
+     : 'момент встречи с приложением'}
+   - resolution: ${input.funnel?.keyword
+     ? 'конкретный шаг, который зритель может сделать сегодня же'
+     : 'трансформация / результат'}
    - emotionalJourney: массив эмоций по сценам (3-6 штук)
 
 2. protagonist — объект:
@@ -413,16 +482,29 @@ ${input.appDescription ? `- Описание: ${input.appDescription}` : ''}
    - finalState: состояние в конце
    - visualIdentifiers: массив визуальных маркеров (что отличает героя на экране)
 
-3. appIntegrationStrategy: как приложение органично встраивается в сюжет (2-3 предложения)
+3. appIntegrationStrategy: ${input.funnel?.keyword
+  ? 'как подаётся польза — какие конкретные факты, цифры и ошибки раскрываются по ходу ролика и почему в конце логично попросить лид-магнит (2-3 предложения)'
+  : 'как приложение органично встраивается в сюжет (2-3 предложения)'}
 
 4. negativeConstraints: массив строк — что ЗАПРЕЩЕНО в этом сценарии (шаблоны, банальности, повторы)
-
+${input.funnel?.keyword ? `
+5. valueBeats: массив из 4-6 строк — конкретные полезные тезисы ролика. Каждый
+   с фактурой: цифра, норма, единица измерения, типичная ошибка или проверяемый
+   признак. Общие советы уровня «питайтесь сбалансированно» не считаются.
+` : ''}
 Правила:
-- Не строй банальную историю "было плохо — нашёл приложение — стало хорошо"
+${input.funnel?.keyword ? `- Ролик — экспертный разбор, а не история про продукт. Зритель должен унести
+  пользу, даже если не напишет кодовое слово: 3-4 применимых тезиса минимум
+- Продукт НЕ является точкой перелома и НЕ решает проблему героя. Перелом — это
+  знание: неочевидный факт, цифра, механизм
+- Лид-магнит упоминается один раз, в самом конце, как продолжение темы
+- Конкретика важнее эмоций: «двести восемьдесят калорий в ложке соуса» сильнее,
+  чем «я была в шоке»
+- Герой — эксперт, который делится разбором, а не пользователь продукта` : `- Не строй банальную историю "было плохо — нашёл приложение — стало хорошо"
 - Герой должен быть конкретным, визуально узнаваемым
 - Конфликт должен быть эмоционально резонансным
 - Приложение появляется органично, а не как рекламный баннер
-- Трансформация должна быть видимой, а не абстрактной
+- Трансформация должна быть видимой, а не абстрактной`}
 ${ref ? `
 ANTI-COPY (обязательно при работе с референсом):
 - Используй АБСТРАКТНЫЕ паттерны из референса, НЕ конкретные фразы/сцены
@@ -562,7 +644,7 @@ EXAMPLES:
 В промежуточных сценах после первого упоминания допустимо "the app" / "it" / "оно" — но первое упоминание ОБЯЗАНО быть полным именем "${input.appName}".`}
 
 ${(() => {
-  const strategy = input.profileSettings?.sceneCountStrategy ?? 'auto'
+  const strategy = resolveSceneCountStrategy(input.profileSettings, input.funnel)
   const budgetMap: Record<string, { min: number; max: number; minSec: number; maxSec: number; cost: string }> = {
     minimal:   { min: 3, max: 3, minSec: 3, maxSec: 4, cost: '~\$1 (минимум денег, короткое видео 9-12с)' },
     auto:      { min: 3, max: 5, minSec: 3, maxSec: 6, cost: '~\$2 (стандарт, 15-25с)' },
@@ -593,12 +675,15 @@ ${(() => {
 - appScreenRef: объект { imageId, intent } или null. Заполняй ТОЛЬКО когда сцена показывает экран приложения и imageId взят из списка "ДОСТУПНЫЕ СКРИНШОТЫ" выше. Если списка нет или сцена не про UI — null.
 - subtitleCopy: текст субтитров на языке ${contentLanguage} (1-2 строки максимум, без эмодзи и спецсимволов)
 - subtitlePlacement: { position: "top"|"center"|"bottom", alignment: "left"|"center"|"right", avoidZones: [] }
-- voiceoverLine: строка для озвучки на языке ${contentLanguage} или null
+- voiceoverLine: строка закадровой озвучки на языке ${contentLanguage} или null
+- spokenLine: реплика, которую ведущая произносит В КАДРЕ, или null (правила ниже)
 - continuityNotes: заметки по непрерывности с предыдущей сценой
 - duration: длительность ("3s"-"10s")
 - cameraAngle: ракурс камеры
 - props: массив реквизита
 - appliedReferences: массив объектов { favoritePromptId, aspects } или []. Заполняй ТОЛЬКО если применил паттерн из STYLE COMPASS блока (если он был передан). favoritePromptId должен быть из списка [${favoritePromptIds.join(', ') || '—нет эталонов—'}], не выдумывай. aspects — подмножество ["camera","lighting","actionStructure","mood","pacing","composition"].
+
+${buildPresenterPromptBlock(input.presenter, contentLanguage)}
 
 Правила:
 - Каждая сцена УНИКАЛЬНА по содержанию и функции
@@ -971,6 +1056,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
 
     // Step 2: Scene Planner
     // Модель: anthropicModel (Sonnet) — не указываем tier, чтобы использовалась основная модель.
+    const hasPresenterLibrary = (input.presenter?.clipCount ?? 0) > 0
     const scenes = await callAnthropicAgent({
       systemPrompt: `Ты — Scene Planner, режиссёр-раскадровщик коротких видео.
 Каждая сцена — уникальная карточка с целью, декорацией, действием, эмоцией, камерой, субтитрами.
@@ -1007,6 +1093,18 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
               : (trimmed.length > 120 ? trimmed.slice(0, 120) : trimmed)
           } else {
             s.spokenLine = null
+          }
+
+          // Без библиотеки исходников играть в кадре некому: lip-sync такую сцену
+          // всё равно пропустит, а речь должна остаться — отдаём её закадру.
+          if (s.spokenLine && !hasPresenterLibrary) {
+            if (!s.voiceoverLine) s.voiceoverLine = s.spokenLine
+            s.spokenLine = null
+          }
+          // Ведущая в кадре и закадровый голос на одном отрезке — это два голоса
+          // одновременно. Реплика в кадре важнее: закадровую строку убираем.
+          if (s.spokenLine && s.voiceoverLine) {
+            s.voiceoverLine = null
           }
 
           // appliedReferences: трассировка применённых FavoritePrompt-эталонов.
@@ -1059,7 +1157,7 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
         // clamp длительности под диапазон. Это реальная защита расхода — если AI
         // проигнорировал инструкцию и выдал 6 сцен при minimal (лимит 3), лишние
         // отбрасываем вместо отказа.
-        const strategy = input.profileSettings?.sceneCountStrategy ?? 'auto'
+        const strategy = resolveSceneCountStrategy(input.profileSettings, input.funnel)
         const budgetMap: Record<string, { min: number; max: number; minSec: number; maxSec: number }> = {
           minimal:   { min: 3, max: 3, minSec: 3, maxSec: 4 },
           auto:      { min: 3, max: 5, minSec: 3, maxSec: 6 },
@@ -1280,7 +1378,9 @@ export async function generateScenarioVariants(input: ScenarioInput): Promise<Ge
       }
       // После auto-fix scriptResult.cta может быть устаревшим — приклеиваем имя
       // приложения к scenario.cta если его там нет (защита от UI-показа без бренда).
-      if (!scriptResult.cta.toLowerCase().includes(input.appName.toLowerCase())) {
+      // С воронкой этого делать нельзя: цель CTA — кодовое слово, а приклеенное
+      // «Попробуйте <продукт>» превращает призыв в рекламу того, что не продают.
+      if (!input.funnel?.keyword && !scriptResult.cta.toLowerCase().includes(input.appName.toLowerCase())) {
         const fallbackCta = contentLanguageLabel(input.language) === 'Russian'
           ? `Попробуйте ${input.appName}`
           : `Try ${input.appName}`

@@ -70,9 +70,17 @@ const BY_REGISTRY_KEY = new Map<string, MediaModelSpec>(
 const BY_PROVIDER_ID = new Map<string, MediaModelSpec>(
   MEDIA_MODEL_SPECS.map(spec => [`${spec.provider}:${spec.id}`, spec]),
 )
-const BY_ID = new Map<string, MediaModelSpec>(
-  MEDIA_MODEL_SPECS.map(spec => [spec.id, spec]),
-)
+/**
+ * Голый id провайдера НЕ уникален: одна модель может уметь две способности
+ * (Kling 1.6 на Replicate — и text-to-video, и image-to-video), и в БД у роликов
+ * лежит именно голый id. Побеждает первая по порядку объявления спека, а
+ * `specForCapability` всё равно доищет нужную способность по этому же id —
+ * иначе выбор t2v молча уезжал бы на i2v-спеку просто потому, что она ниже.
+ */
+const BY_ID = new Map<string, MediaModelSpec>()
+for (const spec of MEDIA_MODEL_SPECS) {
+  if (!BY_ID.has(spec.id)) BY_ID.set(spec.id, spec)
+}
 
 /** Все спеки способности в порядке объявления (порядок задаёт дефолты и витрину). */
 export function listMediaSpecs(capability?: MediaCapability): readonly MediaModelSpec[] {
@@ -105,10 +113,20 @@ function specForCapability(
   reference: string,
 ): MediaModelSpec {
   const spec = findMediaSpec(reference)
-  if (!spec || spec.capability !== capability) {
-    throw new Error(`Unsupported media model for ${capability}: ${reference}`)
-  }
-  return spec
+  if (spec?.capability === capability) return spec
+
+  // Тот же id у другой способности — ищем среди спек нужной. Так «kling-v1.6-standard»
+  // из Video.videoModelId находит t2v-спеку, даже если по голому id первой лежит i2v.
+  const normalized = reference.trim()
+  const byCapability = MEDIA_MODEL_SPECS.find(candidate =>
+    candidate.capability === capability
+    && (candidate.registryKey === normalized
+      || `${candidate.provider}:${candidate.id}` === normalized
+      || candidate.id === normalized),
+  )
+  if (byCapability) return byCapability
+
+  throw new Error(`Unsupported media model for ${capability}: ${reference}`)
 }
 
 function readEnvDefault(capability: MediaCapability, env: Env): string | null {
@@ -202,11 +220,13 @@ export function mapMediaInput<S extends MediaModelSpec>(
   input: MediaInputFor<S["capability"]>,
   ctx?: MapContext,
 ): Record<string, unknown> {
-  const mapper = spec.mapInput as (
-    value: MediaTaskInput,
-    context?: MapContext,
-  ) => { payload: Record<string, unknown> }
-  return mapper(input, ctx).payload
+  // Зовём МЕТОДОМ спеки, а не отвязанной ссылкой: мапперы читают собственные
+  // ограничения через `this.constraints` (лимит кадров на запрос, список языков),
+  // и отвязанный вызов ронял их на «Cannot read properties of undefined».
+  const spec_ = spec as unknown as {
+    mapInput(value: MediaTaskInput, context?: MapContext): { payload: Record<string, unknown> }
+  }
+  return spec_.mapInput(input as MediaTaskInput, ctx).payload
 }
 
 /**

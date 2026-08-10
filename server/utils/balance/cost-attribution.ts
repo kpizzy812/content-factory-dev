@@ -7,8 +7,24 @@
  */
 
 import { getModel } from "../video-models"
+import { findMediaSpec } from "../media-provider/registry"
 
 export type CostService = "anthropic" | "fal.ai" | "replicate" | "mubert"
+
+/**
+ * Провайдер по спеке модели, а не по подстроке «fal» в человекочитаемом
+ * названии вендора. Спека — единственное место, где провайдер записан явно
+ * (`MediaModelSpec.provider`); подстрока врала на каждой модели, у которой
+ * вендор и хостинг разные («MiniMax» на Replicate, «Sync.so / fal.ai»).
+ *
+ * null — модели нет в реестре спек (старый id из БД): решает вызывающий.
+ */
+function serviceFromSpec(modelId: string | null | undefined): CostService | null {
+  if (!modelId) return null
+  const spec = findMediaSpec(modelId)
+  if (!spec) return null
+  return spec.provider === "replicate" ? "replicate" : "fal.ai"
+}
 
 /**
  * Возвращает имя сервиса для cost-tracking или null если шаг
@@ -27,10 +43,15 @@ export function mapStepKeyToService(
 
     case "image_generation":
     case "clip_generation":
-      return "fal.ai"
+      // Раньше здесь стоял литерал "fal.ai", не глядя на модель. После перевода
+      // кадров и клипов на Replicate это писало бы чужой расход на счётчик fal.
+      // Модель вне реестра — оставляем прежний ответ, чтобы не менять историю.
+      return serviceFromSpec(modelId) ?? "fal.ai"
 
     case "lip_sync_generation": {
       if (!modelId) return "replicate"
+      const fromSpec = serviceFromSpec(modelId)
+      if (fromSpec) return fromSpec
       const model = getModel(modelId)
       return model?.provider.toLowerCase().includes("fal")
         ? "fal.ai"
@@ -41,10 +62,12 @@ export function mapStepKeyToService(
       return "mubert"
 
     case "voiceover_generation": {
-      // Voiceover может идти через fal.ai (Kokoro/PlayAI/ElevenLabs)
-      // или другого провайдера. Все интегрированные TTS модели сейчас имеют
-      // в provider строку "<vendor> / fal.ai", проверяем по includes('fal').
+      // Провайдер берётся из спеки. Прежняя ветка возвращала null для всего,
+      // что не содержит «fal» в названии вендора, — то есть расход на
+      // Replicate-озвучку молча не попадал в отчётность вообще.
       if (!modelId) return null
+      const fromSpec = serviceFromSpec(modelId)
+      if (fromSpec) return fromSpec
       const model = getModel(modelId)
       if (!model) return null
       return model.provider.toLowerCase().includes("fal") ? "fal.ai" : null

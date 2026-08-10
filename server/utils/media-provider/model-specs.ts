@@ -16,12 +16,14 @@
  * повторяет прежний порядок IMAGE_MODELS / VIDEO_MODELS / TTS_MODELS /
  * LIP_SYNC_MODELS — менять его нельзя, это изменит дефолты пайплайна.
  *
- * Моделей Replicate под изображения, видео и речь здесь нет намеренно: их
- * список и тарифы — открытый вопрос к заказчику (§7 спецификации). Каждая
- * добавляется одной записью в этот массив.
+ * Модели Replicate под кадры, клипы и речь — те, что уже обкатаны на стенде
+ * (flux-dev, kling-v1.6-standard, minimax/speech-02-turbo). Их цены не выдуманы,
+ * а взяты из переменных окружения с теми же дефолтами, по которым они
+ * оплачивались на стенде, и помечены `billingConfirmed: false`: canary по
+ * `docs/operations/replicate.md` по ним ещё никто не проводил.
  */
 
-import { DEFAULT_REPLICATE_LIPSYNC_MODEL } from "../replicate/config"
+import { DEFAULT_REPLICATE_LIPSYNC_MODEL, DEFAULT_REPLICATE_TTS_MODEL } from "../replicate/config"
 import { extractMediaOutput } from "./output"
 import type {
   ImageToVideoModelSpec,
@@ -45,6 +47,50 @@ function requirePositive(value: number, field: string): number {
     throw new Error(`Медиавход: поле ${field} должно быть положительным числом`)
   }
   return value
+}
+
+/**
+ * Цена Replicate из окружения.
+ *
+ * Replicate не отдаёт тарифы через публичный API, поэтому число живёт в env с
+ * дефолтом, по которому эти модели фактически оплачивались на стенде. Читается
+ * ЛЕНИВО, при обращении к спеке: реестр импортируется в том числе тестами, и
+ * бросать на этапе импорта модуля из-за кривой переменной нельзя.
+ */
+function readReplicatePrice(envKey: string, fallback: number): number {
+  const raw = process.env[envKey]?.trim()
+  if (!raw) return fallback
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${envKey} должен быть неотрицательным числом`)
+  }
+  return parsed
+}
+
+/**
+ * Пропорция кадра в нотации модели. Нормализованный вход несёт width/height, а
+ * у моделей Replicate список пропорций закрытый: просим настоящую вертикаль,
+ * если модель её знает, иначе самую узкую из доступных — обрезать лишнее по
+ * краям дешевле, чем дорисовывать.
+ */
+function pickAspectRatio(supported: readonly string[], width: number, height: number): string {
+  if (width > height) {
+    return supported.includes("16:9") ? "16:9" : supported[0]!
+  }
+  if (width === height) {
+    return supported.includes("1:1") ? "1:1" : supported[0]!
+  }
+  const portraitPreference = ["9:16", "2:3", "3:4", "4:5", "1:1"]
+  return portraitPreference.find(ratio => supported.includes(ratio)) ?? supported[0]!
+}
+
+/**
+ * Ближайшая допустимая длительность НЕ МЕНЬШЕ запрошенной: лишнее подрежет
+ * монтаж, а недостачу восполнить нечем.
+ */
+function pickDuration(supported: readonly number[], requestedSec: number): number {
+  const sorted = [...supported].sort((a, b) => a - b)
+  return sorted.find(value => value >= requestedSec) ?? sorted[sorted.length - 1]!
 }
 
 // ─── text_to_image ──────────────────────────────────────────────
@@ -84,6 +130,70 @@ function extractImageOutput(raw: unknown) {
     defaultContentType: "image/png",
   })
 }
+
+const REPLICATE_FLUX_ASPECT_RATIOS = Object.freeze([
+  "1:1", "16:9", "21:9", "3:2", "2:3", "4:5", "5:4", "3:4",
+])
+
+/**
+ * FLUX.1 [dev] на Replicate — основной провайдер кадров (PROJECT_CONTEXT §5).
+ *
+ * Списка 9:16 у модели нет: самая близкая вертикаль — 2:3. Для превью этого
+ * достаточно, а сцены снимает text-to-video напрямую, без промежуточной картинки.
+ *
+ * Цена — за изображение, а не за мегапиксель: тариф $0.025 за кадр
+ * переопределяется REPLICATE_IMAGE_PRICE_USD. `billingConfirmed: false` —
+ * число подтверждено практикой стенда, но canary по
+ * `docs/operations/replicate.md` по этой модели не проводился.
+ */
+const FLUX_DEV_REPLICATE: TextToImageModelSpec = Object.freeze<TextToImageModelSpec>({
+  registryKey: "replicate:flux-dev",
+  id: "black-forest-labs/flux-dev",
+  provider: "replicate",
+  capability: "text_to_image",
+  execution: "async_prediction",
+  get billing() {
+    return { unit: "output_image", usdPerImage: readReplicatePrice("REPLICATE_IMAGE_PRICE_USD", 0.025) } as const
+  },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    resolutions: Object.freeze(["1024x1024", "832x1248", "1248x832"]),
+    maxImagesPerRequest: 1,
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    assertImageCount(input.count, this.constraints.maxImagesPerRequest)
+    const width = requirePositive(input.width, "width")
+    const height = requirePositive(input.height, "height")
+    const payload: Record<string, unknown> = {
+      prompt: requireText(input.prompt, "prompt"),
+      aspect_ratio: pickAspectRatio(REPLICATE_FLUX_ASPECT_RATIOS, width, height),
+      output_format: "jpg",
+      num_outputs: input.count,
+    }
+    if (input.seed !== undefined) payload.seed = input.seed
+    return { payload }
+  },
+  extractOutput: extractImageOutput,
+  dataProcessor: Object.freeze({
+    name: "Black Forest Labs",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "standard",
+  name: "FLUX.1 Dev (Replicate)",
+  vendorLabel: "Replicate / Black Forest Labs",
+  strengths: Object.freeze([
+    "Основной провайдер: тот же контур predictions, что у lip-sync",
+    "Идемпотентность по промпту сцены — повтор не оплачивается второй раз",
+    "Результат сразу переносится в постоянное хранилище",
+  ]),
+  tradeoffs: Object.freeze([
+    "Нет пропорции 9:16 — самая близкая вертикаль 2:3",
+    "Цена за кадр не подтверждена canary — смета считается по ставке стенда",
+  ]),
+  avgGenerationTime: "~10 сек",
+})
 
 const FLUX_SCHNELL: TextToImageModelSpec = Object.freeze<TextToImageModelSpec>({
   registryKey: "fal:flux-schnell",
@@ -202,6 +312,81 @@ function mapKlingTextToVideo(input: {
     effectiveDurationSec: durationSec,
   }
 }
+
+const REPLICATE_KLING_16_ID = "kwaivgi/kling-v1.6-standard"
+const REPLICATE_KLING_16_DURATIONS = Object.freeze([5, 10])
+
+/** Цена Kling 1.6 на Replicate — за секунду выхода, override через env. */
+function replicateVideoBilling() {
+  return {
+    unit: "output_second",
+    usdPerSecond: readReplicatePrice("REPLICATE_VIDEO_PRICE_USD_PER_SEC", 0.045),
+  } as const
+}
+
+/**
+ * Kling 1.6 Standard на Replicate — основной провайдер клипов (PROJECT_CONTEXT §5).
+ *
+ * Единственная из проверенных моделей Kuaishou на Replicate, которая умеет и
+ * text-to-video, и image-to-video. Длительность принимает только 5 или 10 секунд,
+ * поэтому сцену на 9 секунд она снимет десятисекундной, а лишнее подрежет монтаж —
+ * платим и планируем по `effectiveDurationSec`, а не по запрошенному числу.
+ *
+ * `billingConfirmed: false` — ставка $0.045/с подтверждена практикой стенда, но
+ * не canary по `docs/operations/replicate.md`.
+ */
+const REPLICATE_KLING_16_T2V: TextToVideoModelSpec = Object.freeze<TextToVideoModelSpec>({
+  registryKey: "replicate:kling-v1.6-standard-t2v",
+  id: REPLICATE_KLING_16_ID,
+  provider: "replicate",
+  capability: "text_to_video",
+  execution: "async_prediction",
+  get billing() {
+    return replicateVideoBilling()
+  },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    aspectRatios: KLING_ASPECT_RATIOS,
+    resolutions: Object.freeze(["1080x1920", "1920x1080", "1080x1080"]),
+    durationOptions: REPLICATE_KLING_16_DURATIONS,
+    supportsAudio: false,
+    requiresImage: false,
+  }),
+  timeoutMs: VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const requestedSec = requirePositive(input.durationSec, "durationSec")
+    const quantized = pickDuration(REPLICATE_KLING_16_DURATIONS, requestedSec)
+    return {
+      payload: {
+        prompt: requireText(input.prompt, "prompt"),
+        duration: quantized,
+        aspect_ratio: input.aspectRatio,
+        ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
+      },
+      effectiveDurationSec: quantized,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "Kuaishou",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "standard",
+  name: "Kling 1.6 Standard (Replicate)",
+  vendorLabel: "Replicate / Kuaishou",
+  strengths: Object.freeze([
+    "Основной провайдер: тот же контур predictions, что у lip-sync",
+    "Идемпотентность: повторный запуск не оплачивает сцену второй раз",
+    "Результат сразу переносится в постоянное хранилище",
+  ]),
+  tradeoffs: Object.freeze([
+    "Длительность только 5 или 10 секунд",
+    "Без встроенной генерации звука",
+    "Цена за секунду не подтверждена canary",
+  ]),
+  avgGenerationTime: "3-8 мин",
+})
 
 const KLING_V3_STANDARD: TextToVideoModelSpec = Object.freeze<TextToVideoModelSpec>({
   registryKey: "fal:kling-v3-standard-t2v",
@@ -411,6 +596,67 @@ const HAILUO_02_STANDARD: TextToVideoModelSpec = Object.freeze<TextToVideoModelS
  * эти сцены оплачиваются сегодня (Kling v3 standard, $0.084/с) — так смета не
  * занижается. Шаг 7 плана обязан заменить число подтверждённым.
  */
+/**
+ * Тот же Kling 1.6 на Replicate, но со стартовым кадром.
+ *
+ * `integrated: false` осознанно: маршрут сцен со скриншотом приложения сегодня
+ * идёт на fal (KLING_V21_IMAGE_TO_VIDEO ниже), и переключать его вместе со
+ * слиянием нельзя — это отдельный этап 7 спецификации, у него свой canary и свой
+ * ответ на вопрос «как отдавать референсный кадр» (§7 п.11). Спека лежит готовой,
+ * включается одной правкой `integrated` или переменной MEDIA_MODEL_IMAGE_TO_VIDEO.
+ */
+const REPLICATE_KLING_16_I2V: ImageToVideoModelSpec = Object.freeze<ImageToVideoModelSpec>({
+  registryKey: "replicate:kling-v1.6-standard-i2v",
+  id: REPLICATE_KLING_16_ID,
+  provider: "replicate",
+  capability: "image_to_video",
+  execution: "async_prediction",
+  get billing() {
+    return replicateVideoBilling()
+  },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    aspectRatios: KLING_ASPECT_RATIOS,
+    resolutions: Object.freeze(["1080x1920", "1920x1080", "1080x1080"]),
+    durationOptions: REPLICATE_KLING_16_DURATIONS,
+    supportsAudio: false,
+    requiresImage: true,
+  }),
+  timeoutMs: IMAGE_TO_VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const requestedSec = requirePositive(input.durationSec, "durationSec")
+    const quantized = pickDuration(REPLICATE_KLING_16_DURATIONS, requestedSec)
+    return {
+      payload: {
+        prompt: requireText(input.prompt, "prompt"),
+        start_image: requireText(input.imageUrl, "imageUrl"),
+        duration: quantized,
+        aspect_ratio: input.aspectRatio,
+        ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
+      },
+      effectiveDurationSec: quantized,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "Kuaishou",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: false,
+  tier: "standard",
+  name: "Kling 1.6 Standard (Replicate, image-to-video)",
+  vendorLabel: "Replicate / Kuaishou",
+  strengths: Object.freeze([
+    "Оживляет скриншот приложения тем же контуром predictions, что и остальные способности",
+    "Идемпотентность по отпечатку опорного кадра",
+  ]),
+  tradeoffs: Object.freeze([
+    "Длительность только 5 или 10 секунд",
+    "Не включена: маршрут i2v переводится отдельным этапом со своим canary",
+  ]),
+  avgGenerationTime: "3-8 мин",
+})
+
 const KLING_V21_IMAGE_TO_VIDEO: ImageToVideoModelSpec = Object.freeze<ImageToVideoModelSpec>({
   registryKey: "fal:kling-v2.1-standard-i2v",
   id: "fal-ai/kling-video/v2.1/standard/image-to-video",
@@ -471,6 +717,121 @@ function extractAudioOutput(raw: unknown) {
 }
 
 const TTS_LANGUAGES_MULTI = Object.freeze(["en", "ru", "de", "fr", "es", "it", "pt", "pl"])
+
+/** MiniMax принимает язык отдельным полем language_boost, в своей нотации. */
+const MINIMAX_LANGUAGE_BOOST: Record<string, string> = {
+  ru: "Russian",
+  en: "English",
+}
+
+/**
+ * Эмоция у MiniMax — закрытый список, а сценарист пишет её свободным текстом
+ * («лёгкая тревога», «тёплая уверенность»). Непонятое не угадываем: провайдер
+ * сам выберет интонацию по тексту, а неизвестное значение уронило бы запрос.
+ */
+const MINIMAX_EMOTIONS = new Set([
+  "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent", "neutral",
+])
+
+const MINIMAX_EMOTION_HINTS: Array<{ match: RegExp, emotion: string }> = [
+  { match: /радост|восторг|happy|joy/i, emotion: "happy" },
+  { match: /груст|печал|sad/i, emotion: "sad" },
+  { match: /злост|раздраж|гнев|angry/i, emotion: "angry" },
+  { match: /страх|тревог|fear|anxious/i, emotion: "fearful" },
+  { match: /удивл|изумл|surprise/i, emotion: "surprised" },
+  { match: /спокой|уверен|ясност|calm|confident/i, emotion: "calm" },
+]
+
+function normalizeMinimaxEmotion(raw: string | null | undefined): string | null {
+  const value = raw?.trim().toLowerCase()
+  if (!value) return null
+  if (MINIMAX_EMOTIONS.has(value)) return value
+  return MINIMAX_EMOTION_HINTS.find(hint => hint.match.test(value))?.emotion ?? null
+}
+
+/**
+ * MiniMax speech-02-turbo на Replicate — основная TTS-модель.
+ *
+ * Русский произносит на родном уровне, в отличие от Kokoro, у которого русского
+ * языка нет вовсе, а эндпоинта `fal-ai/kokoro/russian` не существует (fal отдаёт
+ * 404) — проверено живыми вызовами.
+ *
+ * Голоса задаются собственными идентификаторами MiniMax, а не ISO-кодами, и
+ * списка допустимых значений схема модели не публикует — там просто строка.
+ * Проверено живыми вызовами: `Wise_Woman` и `Calm_Woman` работают и читают
+ * русский, а языковые варианты вроде `Russian_Wiselady` модель отвергает.
+ * Женский голос по умолчанию — ведущая в кадре женщина.
+ *
+ * Цена — $0.06 за 1000 символов, override через
+ * REPLICATE_TTS_PRICE_USD_PER_1K_CHARS. `billingConfirmed: false` — canary по
+ * `docs/operations/replicate.md` по модели не проводился.
+ */
+const MINIMAX_SPEECH_02_TURBO: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>({
+  registryKey: "replicate:minimax-speech-02-turbo",
+  id: DEFAULT_REPLICATE_TTS_MODEL,
+  provider: "replicate",
+  capability: "text_to_speech",
+  execution: "async_prediction",
+  get billing() {
+    return {
+      unit: "character",
+      usdPerCharacter: readReplicatePrice("REPLICATE_TTS_PRICE_USD_PER_1K_CHARS", 0.06) / 1000,
+    } as const
+  },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    maxCharacters: 5000,
+    languages: Object.freeze(["ru", "en"]),
+    formats: Object.freeze(["mp3"]),
+  }),
+  // Реплика синтезируется секунды, а не минуты, но prediction идёт через очередь
+  // Replicate и на занятом аккаунте ждёт своей очереди.
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const text = requireText(input.text, "text")
+    if (text.length > this.constraints.maxCharacters) {
+      throw new Error(`Медиавход: реплика длиннее ${this.constraints.maxCharacters} символов для ${this.id}`)
+    }
+    const language = (input.language || "en").slice(0, 2).toLowerCase()
+    if (!this.constraints.languages.includes(language)) {
+      throw new Error(`Модель ${this.id} не произносит язык "${language}"`)
+    }
+    const emotion = normalizeMinimaxEmotion(input.emotion)
+    return {
+      payload: {
+        text,
+        // MiniMax принимает темп в 0.5–2. Нормализованный вход приходит из
+        // pacing (0.85/1.0/1.15) и в диапазон укладывается, но зажимаем здесь:
+        // ограничение провайдера — свойство модели, а не вызывающего.
+        speed: Math.min(2, Math.max(0.5, Number.isFinite(input.speed) ? input.speed : 1)),
+        voice_id: requireText(input.voiceId, "voiceId"),
+        // "Automatic" — значение из enum модели; "auto" она не принимает.
+        language_boost: MINIMAX_LANGUAGE_BOOST[language] ?? "Automatic",
+        ...(emotion ? { emotion } : {}),
+      },
+    }
+  },
+  extractOutput: extractAudioOutput,
+  voices: Object.freeze({ default: "Wise_Woman", envOverrideKey: "REPLICATE_TTS_VOICE" }),
+  dataProcessor: Object.freeze({
+    name: "MiniMax",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "standard",
+  name: "MiniMax Speech 02 Turbo",
+  vendorLabel: "Replicate / MiniMax",
+  strengths: Object.freeze([
+    "Родной русский, а не английская модель с русским текстом",
+    "Основной провайдер Replicate — тот же контур, что у lip-sync",
+    "Идемпотентный синтез: повтор той же реплики не тратит деньги",
+  ]),
+  tradeoffs: Object.freeze([
+    "Голоса задаются идентификаторами MiniMax, а не ISO-кодами",
+    "Цена за символ не подтверждена canary",
+  ]),
+  avgGenerationTime: "~3-8 сек на фразу",
+})
 
 const KOKORO_EN: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>({
   registryKey: "fal:kokoro-american-english",
@@ -541,19 +902,20 @@ const KOKORO_RU: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>({
   extractOutput: extractAudioOutput,
   voices: Object.freeze({ default: "bf_emma", envOverrideKey: "DEFAULT_TTS_VOICE_RU" }),
   dataProcessor: null,
-  integrated: true,
+  // Запись оставлена НЕ подключённой намеренно: эндпоинта не существует, fal
+  // отдаёт 404, и русского языка у Kokoro нет вовсе — проверено живыми вызовами.
+  // Удалять спеку нельзя: у роликов в БД этот id уже записан в voiceoverModelId,
+  // и без неё они падали бы «модель неизвестна» вместо внятного «не подключена».
+  // Замена — replicate:minimax-speech-02-turbo.
+  integrated: false,
   tier: "budget",
   name: "Kokoro (Russian)",
   vendorLabel: "Hexgrad / fal.ai",
-  strengths: Object.freeze([
-    "Русский TTS, open-source",
-    "Быстрая синтез",
-  ]),
+  strengths: Object.freeze([]),
   tradeoffs: Object.freeze([
-    "Менее естественный чем ElevenLabs",
-    "Ограниченный набор голосов",
+    "Эндпоинта не существует: fal.ai отдаёт 404, у Kokoro нет русского языка",
   ]),
-  avgGenerationTime: "~3-5 сек",
+  avgGenerationTime: "-",
 })
 
 const PLAYAI_V3: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>({
@@ -754,15 +1116,24 @@ const FAL_SYNC_LIPSYNC: LipSyncModelSpec = Object.freeze<LipSyncModelSpec>({
 /**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
+ *
+ * Модель Replicate стоит первой в своей способности везде, где она подключена:
+ * `docs/PROJECT_CONTEXT.md` §5 требует Replicate основным провайдером медиа, а
+ * fal оставляет явным резервом. Исключение — image_to_video: его маршрут
+ * переводится отдельным этапом со своим canary (см. REPLICATE_KLING_16_I2V).
  */
 export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
+  FLUX_DEV_REPLICATE,
   FLUX_SCHNELL,
   FLUX_DEV,
+  REPLICATE_KLING_16_T2V,
   KLING_V3_STANDARD,
   KLING_V3_PRO,
   WAN_V22,
   HAILUO_02_STANDARD,
   KLING_V21_IMAGE_TO_VIDEO,
+  REPLICATE_KLING_16_I2V,
+  MINIMAX_SPEECH_02_TURBO,
   KOKORO_EN,
   KOKORO_RU,
   PLAYAI_V3,

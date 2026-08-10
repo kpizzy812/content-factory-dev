@@ -182,16 +182,14 @@ export async function runPromptGeneration(
       const scenePrompts = generated.scenes
       promptGenerationDebug = generated.debug
 
-      const legacyPrompts = await generateImagePrompts({
-        hook: variant.hook,
-        body: variant.body,
-        cta: variant.cta,
-        visualStyle: variant.visualStyleText,
-        storyPlan,
-      })
-
+      // Legacy-промпты hook/body/cta в story-driven режиме никто не читает: и
+      // картинки, и клипы берут scenePrompts. При этом старый вызов ходит в
+      // Anthropic напрямую, мимо общего транспорта, и роняет весь шаг с 401,
+      // когда доступ к модели идёт через CLI. Оставляем поля пустыми.
       result = {
-        ...legacyPrompts,
+        hook: '',
+        body: '',
+        cta: '',
         scenePrompts,
         storySceneCount: sceneCount,
         runtimeMode: videoPlan.mode,
@@ -509,6 +507,10 @@ export async function runImageGeneration(
         }
       }
 
+      // Ветвления «Replicate идёт своим путём» здесь нет: провайдера выбирает
+      // спека маршрута (imageRoute), и runMediaTask сам решает, prediction это
+      // или fal-очередь. Размер кадра нормализованный — пересчёт в пропорцию
+      // модели лежит в её mapInput.
       const isLowQuality = renderQuality === "low"
       const imageSize = format === "portrait"
         ? { width: isLowQuality ? 720 : 1080, height: isLowQuality ? 1280 : 1920 }
@@ -621,15 +623,23 @@ export async function runClipGeneration(
   generateAudio: boolean,
   videoPlan?: StoryDrivenVideoPlan | null,
   storyPlan?: StoryPlan | null,
+  /**
+   * Индексы сцен (позиция в videoPlan.scenes), которые снимает живая ведущая.
+   * Их клип собирает lip-sync из библиотеки исходников, поэтому платная
+   * text-to-video генерация для них не запускается вовсе.
+   */
+  presenterSceneIndexes?: ReadonlySet<number>,
 ): Promise<ClipStepResult> {
   const step = await ensureStep(videoId, "clip_generation", 2)
 
   if (isStepCompleted(step) && step.outputSnapshot) {
     const output = step.outputSnapshot as {
-      clipPaths: string[]
-      perSceneDurations?: Array<{ key: string; order?: number; durationSec: number }>
+      clipPaths?: string[]
+      perSceneDurations?: Array<{ key: string, order?: number, durationSec: number }>
     }
-    if (output.clipPaths?.length > 0) {
+    // Пустой массив — законный результат: ролик целиком снят ведущей, генерировать
+    // было нечего. Поэтому проверяем сам факт массива, а не его длину.
+    if (Array.isArray(output.clipPaths)) {
       // Шаг уже выполнен — новых оплаченных генераций нет.
       return {
         clipPaths: output.clipPaths,
@@ -778,6 +788,11 @@ export async function runClipGeneration(
     }
 
     for (const scene of scenes) {
+      if (presenterSceneIndexes?.has(scene.order)) {
+        await appendStepLog(step.id, `Сцена ${scene.key}: снимает ведущая, клип соберёт lip-sync — генерацию пропускаю`)
+        continue
+      }
+
       const existingClip = await prisma.videoAsset.findFirst({
         where: { videoId, type: "clip" as never, order: scene.order },
       })
@@ -794,6 +809,9 @@ export async function runClipGeneration(
         }
       }
 
+      // Ветвления «Replicate идёт своим путём» здесь нет: провайдера и модель
+      // исполнения выбирает спека маршрута (clipRoute / i2vRoute), а runMediaTask
+      // сам решает, prediction это или очередь fal.
       const aspectRatio = format === "portrait" ? "9:16" : "16:9"
 
       // Image-to-video routing: если сцена привязана к существующему AppReferenceImage,
@@ -926,10 +944,19 @@ export async function runClipGeneration(
         generatedCount,
         effectiveVideoModel: videoModelId,
         generateAudio,
+        // perSceneDurations держит ВСЕ сцены плана, включая отданные ведущей:
+        // по нему сборка и субтитры строят таймлайн, и дыра в нём уехала бы в
+        // рассинхрон картинки со звуком.
         perSceneDurations: sceneSummary,
+        presenterSceneIndexes: presenterSceneIndexes ? [...presenterSceneIndexes] : [],
       },
     })
-    await appendStepLog(step.id, `Все клипы готовы: ${clipPaths.length} шт, сгенерировано в этом прогоне ${generatedCount} (total: ${scenes.reduce((s, sc) => s + sc.durationSec, 0)}s)`)
+    const generatedSeconds = scenes
+      .filter(s => !presenterSceneIndexes?.has(s.order))
+      .reduce((sum, sc) => sum + sc.durationSec, 0)
+    await appendStepLog(step.id, presenterSceneIndexes?.size
+      ? `Клипы готовы: ${clipPaths.length} шт (${generatedSeconds}s), сгенерировано в этом прогоне ${generatedCount}; ${presenterSceneIndexes.size} сцен отданы ведущей`
+      : `Все клипы готовы: ${clipPaths.length} шт, сгенерировано в этом прогоне ${generatedCount} (total: ${generatedSeconds}s)`)
 
     return { clipPaths, generatedCount, scenes: sceneSummary }
   } catch (error) {
@@ -1277,6 +1304,7 @@ export async function runVoiceoverGeneration(
           language: videoConfig.voiceoverLanguage,
           pacing: videoConfig.voiceoverPacing,
           emotion: line.emotion,
+          videoId,
         })
       }
     } else {
@@ -1289,6 +1317,7 @@ export async function runVoiceoverGeneration(
         language: videoConfig.voiceoverLanguage,
         pacing: videoConfig.voiceoverPacing,
         emotion: line.emotion,
+        videoId,
       })
     }
 
@@ -1734,6 +1763,8 @@ export async function runAssembly(
      * (прежнее поведение) плюс предупреждение в лог шага.
      */
     clipSceneOrders?: readonly number[] | null
+    /** Отрезки, где звучит закадровый голос — только там глушится звук клипов. */
+    voiceoverIntervals?: Array<{ startSec: number, endSec: number }>
   },
 ): Promise<{ filePath: string; duration: number }> {
   const step = await ensureStep(videoId, "assembly", 5)
@@ -1761,19 +1792,24 @@ export async function runAssembly(
     if (!clipOrderKnown) {
       clipOrderWarning = "Порядок нарезки клипов не передан — субтитры разложены по позициям сцен в плане; при перестановке сцен моделью они могут уехать на соседний клип"
     }
-    // sceneIndex фиксируем ДО фильтрации: сцена с пустым subtitleCopy не должна
+    // sceneIndex фиксируем ДО фильтрации: сцена с пустым текстом не должна
     // сдвигать хвост субтитров на сцену вперёд (раньше render раскладывал их
     // строго по позиции в отфильтрованном массиве).
+    //
+    // Текст субтитра обязан повторять то, что звучит, слово в слово. subtitleCopy —
+    // это пересказ сценариста («0% жира — на 35% больше сахара»), тогда как в
+    // кадре произносится совсем другая фраза. Берём произносимое: реплику ведущей
+    // в кадре или закадровую строку, а пересказ оставляем на случай немой сцены.
     sceneSubtitles = videoPlan.scenes
       .map((s, idx) => ({
         // Сцена, для которой клипа нет вовсе, отсеивается ниже: класть её субтитр
         // на чужой клип хуже, чем не показать его.
         sceneIndex: clipOrderKnown ? clipIndexByOrder.get(s.order) : idx,
-        text: s.subtitleCopy ?? '',
+        text: (s.spokenLine?.trim() || s.voiceoverLine?.trim() || s.subtitleCopy || '').trim(),
         placement: s.subtitlePlacement,
         durationSec: s.durationSec,
       }))
-      .filter((s): s is SceneSubtitleInput => s.sceneIndex !== undefined && s.text.trim().length > 0)
+      .filter((s): s is SceneSubtitleInput => s.sceneIndex !== undefined && s.text.length > 0)
   }
 
   const hasSceneSubs = subtitlesEnabled && sceneSubtitles && sceneSubtitles.length > 0
@@ -1874,6 +1910,7 @@ export async function runAssembly(
       musicVolume: extras?.musicVolume,
       musicVolumeWithVoiceover: extras?.musicVolumeWithVoiceover,
       clipVolumeWithVoiceover: extras?.clipVolumeWithVoiceover,
+      voiceoverIntervals: extras?.voiceoverIntervals,
     })
 
     await updateStep(step.id, {

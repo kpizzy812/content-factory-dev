@@ -111,7 +111,7 @@ export function createMediaPredictionRepository(
       externalId: string,
       status: MediaPredictionStatus,
     ): Promise<MediaPredictionRecord> {
-      return client.$transaction(async (tx) => {
+      return withSerializableRetry(() => client.$transaction(async (tx) => {
         const current = await tx.mediaPrediction.findUnique({ where: { id } })
         if (!current) throw new Error(`Media prediction not found: ${id}`)
         if (current.externalId === externalId) return current
@@ -134,7 +134,7 @@ export function createMediaPredictionRepository(
         const result = await tx.mediaPrediction.findUnique({ where: { id } })
         if (!result) throw new Error(`Media prediction disappeared after update: ${id}`)
         return result
-      }, { isolationLevel: "Serializable" })
+      }, { isolationLevel: "Serializable" }))
     },
 
     async applyStatusUpdate(
@@ -142,7 +142,7 @@ export function createMediaPredictionRepository(
       nextStatus: MediaPredictionStatus,
       patch: PredictionStatusPatch = {},
     ): Promise<MediaPredictionRecord> {
-      return client.$transaction(async (tx) => {
+      return withSerializableRetry(() => client.$transaction(async (tx) => {
         const current = await tx.mediaPrediction.findUnique({ where: { externalId } })
         if (!current) throw new Error(`Media prediction not found for provider id: ${externalId}`)
 
@@ -181,7 +181,7 @@ export function createMediaPredictionRepository(
         const result = await tx.mediaPrediction.findUnique({ where: { id: current.id } })
         if (!result) throw new Error(`Media prediction disappeared after update: ${current.id}`)
         return result
-      }, { isolationLevel: "Serializable" })
+      }, { isolationLevel: "Serializable" }))
     },
 
     /**
@@ -371,6 +371,37 @@ export function createMediaPredictionRepository(
       })
     },
   }
+}
+
+/** Postgres сообщает о неудачной сериализации транзакции этим кодом. */
+const SERIALIZATION_FAILURE = "P2034"
+const SERIALIZABLE_MAX_ATTEMPTS = 5
+
+/**
+ * Состояние prediction меняют одновременно два пути: вебхук от Replicate и
+ * поллинг пайплайна. Serializable-транзакция делает это корректно, но при
+ * столкновении Postgres откатывает одну из них — и это нормальный исход,
+ * который надо повторить, а не выносить наверх как ошибку сцены.
+ */
+async function withSerializableRetry<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; attempt <= SERIALIZABLE_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : ""
+      const conflicted = code === SERIALIZATION_FAILURE
+        || (error instanceof Error && (
+          /write conflict or a deadlock/i.test(error.message)
+          // Наши собственные compare-and-set проверки: строку успел изменить сосед.
+          || /^Concurrent (status update|external id attachment)/.test(error.message)
+        ))
+      if (!conflicted || attempt === SERIALIZABLE_MAX_ATTEMPTS) throw error
+      await new Promise(resolve => setTimeout(resolve, 50 * attempt))
+    }
+  }
+  throw new Error("Unreachable serializable retry state")
 }
 
 function copyDefinedPatch(patch: PredictionStatusPatch): Record<string, unknown> {

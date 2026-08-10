@@ -16,13 +16,12 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import { estimateMediaCost, resolveMediaModel } from "~~/server/utils/media-provider/registry"
+import { estimateMediaCost, listMediaSpecs, resolveMediaModel } from "~~/server/utils/media-provider/registry"
 import { runMediaTask } from "~~/server/utils/media-provider/run-media-task"
 import { getStorageDriver } from "~~/server/utils/storage"
 import { StorageKeys } from "~~/server/utils/storage/keys"
 import { storageKeyToLegacyUrl } from "~~/server/utils/storage/download-to-storage"
 import { scheduleScenePhotoAnalysis } from "~~/server/utils/agents/character-photo-analyzer"
-import { IMAGE_MODELS } from "~~/server/utils/video-models"
 import { logServiceCost } from "~~/server/utils/balance/cost-ledger"
 
 interface FalImageResult {
@@ -43,7 +42,18 @@ const ASPECTS = {
   landscape: { width: 1820, height: 1024 },
 } as const
 
-const ALLOWED_MODEL_IDS = new Set(IMAGE_MODELS.map((m) => m.id))
+/**
+ * Референс сцены не принадлежит ролику, а ключ идемпотентности асинхронного
+ * контура строится от videoId (`buildMediaIdentity`). Поэтому здесь допускаются
+ * только модели с синхронным исполнением — Replicate под референсы включается
+ * отдельным этапом вместе со своей схемой идентичности (см. spec
+ * 2026-08-07-replicate-media-contour, шаг 6).
+ */
+const ALLOWED_MODEL_IDS = new Set(
+  listMediaSpecs("text_to_image")
+    .filter(spec => spec.execution === "sync_queue")
+    .map(spec => spec.id),
+)
 const DEFAULT_MODEL_ID = "fal-ai/flux/schnell"
 
 const MIME_TO_EXT: Record<string, string> = {

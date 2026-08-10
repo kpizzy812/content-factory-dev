@@ -241,10 +241,12 @@ export function pickTtsModel(options: {
   const integrated = TTS_MODELS.filter(m => m.integrated)
   if (integrated.length === 0) return null
 
-  // Russian-specific path
+  // Русский: только модели, которые его действительно произносят. Kokoro сюда
+  // не подходит — у него нет русского языка, а fal-эндпоинта kokoro/russian не
+  // существует вовсе (404), поэтому его спека и помечена integrated: false.
   if (lang.startsWith('ru')) {
-    const ruKokoro = integrated.find(m => m.id === 'fal-ai/kokoro/russian')
-    if (ruKokoro) return ruKokoro
+    const minimax = integrated.find(m => m.id === 'minimax/speech-02-turbo')
+    if (minimax) return minimax
     const multilingual = integrated.find(m => m.id === 'fal-ai/playai/tts/v3')
     if (multilingual) return multilingual
   }

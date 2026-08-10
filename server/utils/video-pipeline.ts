@@ -14,13 +14,14 @@
 
 import { falProbeAccessBatch } from "./fal"
 import { estimateVideoCost } from "./video-cost"
-import { getModel } from "./video-models"
+import { getModel, getDefaultImageModel, getDefaultVideoModel } from "./video-models"
 import type { StoryPlan } from "~~/shared/types/story"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildStoryVideoPlan } from "./story-video-planner"
 import { selectScenarioVariantForVideo, describeVariantSelection } from "./scenario-variant-selection"
 
 import {
+  type PromptGenerationResult,
   type StepKey,
   STEP_ORDER,
   acquireLock,
@@ -65,9 +66,11 @@ import {
   accumulateStepCost,
   computeClipActualCost,
   computeImageActualCost,
+  imageMegapixels,
   stepAttemptForLedger,
 } from "./video-cost-actual"
-import type { CostService } from "./balance/cost-attribution"
+import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
+import { mapStepKeyToService, type CostService } from "./balance/cost-attribution"
 import {
   didLipSyncProduceNewClips,
   generatedUnitsFromAssetDelta,
@@ -113,6 +116,15 @@ async function chargeStep(
     step.id, stepKey, service, runCost, videoId, modelId,
     { attempt: stepAttemptForLedger(step.attemptCount) },
   )
+}
+
+/**
+ * Сервис, которому ушли деньги за кадр или клип. Берётся из спеки модели, а не
+ * литералом "fal.ai": после перевода этих способностей на Replicate литерал
+ * писал бы чужой расход на счётчик fal.
+ */
+function mediaServiceFor(modelId: string | null): CostService {
+  return mapStepKeyToService("image_generation", modelId) ?? "fal.ai"
 }
 
 /** Сколько ассетов данного типа уже лежит у ролика — база для дельты «сгенерировано за прогон». */
@@ -263,8 +275,11 @@ export async function runVideoPipeline(
 
     // Model strategy — применяется ДО валидации, может переопределить дефолтные ID.
     // Если user выбрал strategy ≠ 'auto' и оставил DB-дефолты — подставляем recommendModels().
-    const DEFAULT_IMG = 'fal-ai/flux/dev'
-    const DEFAULT_VID = 'fal-ai/kling-video/v3/standard/text-to-video'
+    // Дефолт берётся из реестра спек, а не литералом: ровно то, что записал в
+    // Video эндпоинт запуска. Литеральная копия здесь молча ломала подстановку
+    // стратегии, как только основной провайдер сменился (P1-17).
+    const DEFAULT_IMG = getDefaultImageModel().id
+    const DEFAULT_VID = getDefaultVideoModel().id
     const storyPlanForStrategy = variant.storyPlan as { scenes?: unknown[] } | null
     const storySceneCount = storyPlanForStrategy?.scenes?.length ?? 0
     const strategyFromDb = (video.modelStrategy as ModelStrategy | undefined) ?? 'auto'
@@ -320,10 +335,31 @@ export async function runVideoPipeline(
     })
     const doneStepKeys = new Set(doneSteps.map(s => s.stepKey as string))
 
+    // Ролик, целиком снятый живой ведущей, не трогает fal вообще: ни клипов,
+    // ни превью-кадра. Пробивать доступ к моделям, которые не будут вызваны,
+    // и падать из-за отсутствующего FAL_KEY — нечестно.
+    const storyScenes = (variant.storyPlan as StoryPlan | null)?.scenes ?? []
+    const presenterCapable = video.lipSyncEnabled && !!video.lipSyncCharacterId
+    const presenterSceneCount = presenterCapable
+      ? storyScenes.filter(s => s.spokenLine && s.spokenLine.trim().length > 0).length
+      : 0
+    const presenterOnly = presenterCapable
+      && storyScenes.length > 0
+      && presenterSceneCount === storyScenes.length
+
+    // Пробить через fal можно только fal-модель: доступность Replicate проверяет
+    // сам prediction-service при первом вызове.
     const needImageProbe = !doneStepKeys.has("image_generation")
+      && !presenterOnly
+      && effectiveImageModelId.startsWith("fal-ai/")
     const needVideoProbe = !doneStepKeys.has("clip_generation")
+      && !presenterOnly
+      && effectiveVideoModelId.startsWith("fal-ai/")
+    // Пробить через fal можно только fal-модель. Replicate-озвучка сюда не идёт:
+    // её доступность проверяет сам prediction-service при первом вызове.
     const needTtsProbe = video.voiceoverEnabled
       && !!effectiveTtsModelId
+      && effectiveTtsModelId.startsWith("fal-ai/")
       && !doneStepKeys.has("voiceover_generation")
 
     const accessCheckTargets: string[] = []
@@ -406,6 +442,18 @@ export async function runVideoPipeline(
       } catch { /* non-critical */ }
     }
 
+    // Сцены, которые играет живая ведущая. Их клип собирает lip-sync из библиотеки
+    // исходников, поэтому платить за text-to-video по ним не нужно ни в оценке,
+    // ни в самой генерации. Индекс — позиция в плане, так же адресуют клипы шаги.
+    const presenterSceneIndexes = new Set<number>()
+    if (video.lipSyncEnabled && video.lipSyncCharacterId && videoPlan.mode !== 'legacy_simple') {
+      videoPlan.scenes.forEach((scene, index) => {
+        if (scene.spokenLine && scene.spokenLine.trim().length > 0) {
+          presenterSceneIndexes.add(index)
+        }
+      })
+    }
+
     // Cost estimation — записываем estimate перед запуском
     const qualityMap: Record<string, "720p" | "1080p"> = { low: "720p", medium: "1080p", high: "1080p" }
     const effectiveSceneCount = videoPlan.mode !== 'legacy_simple'
@@ -423,7 +471,9 @@ export async function runVideoPipeline(
       quality: qualityMap[video.renderQuality] ?? "1080p" as "720p" | "1080p",
       skipImageGeneration: videoPlan.skipImageGeneration,
       perSceneDurations: videoPlan.mode !== 'legacy_simple'
-        ? videoPlan.scenes.map(s => s.durationSec)
+        ? videoPlan.scenes
+          .filter((_, index) => !presenterSceneIndexes.has(index))
+          .map(s => s.durationSec)
         : undefined,
       // Voiceover config
       voiceoverEnabled: video.voiceoverEnabled,
@@ -481,16 +531,20 @@ export async function runVideoPipeline(
     // за шаг заплатил (для промптов и музыки счётчика сгенерированного нет).
     const promptAttemptBefore = await loadStepAttempt(videoId, "prompt_generation")
 
-    // 2. Генерация промптов (с полным story context)
-    const prompts = await runPromptGeneration(videoId, variant, videoPlan, {
-      favoritePrompts: enrichmentContext.favoritePrompts,
-      platform: video.targetPlatform,
-      format: video.format as 'portrait' | 'landscape',
-      voiceoverLanguage: video.voiceoverLanguage,
-      videoModelId: effectiveVideoModelId,
-      appId: enrichmentContext.appId,
-      socialAccountId: enrichmentContext.socialAccountId,
-    })
+    // 2. Генерация промптов (с полным story context).
+    // Ролику из живых сцен рисовать нечего — визуальные промпты никто не прочтёт,
+    // а сам шаг это ещё и платный вызов LLM на каждую сцену.
+    const prompts = presenterOnly
+      ? await skipPromptGenerationStep(videoId, videoPlan.scenes.length)
+      : await runPromptGeneration(videoId, variant, videoPlan, {
+        favoritePrompts: enrichmentContext.favoritePrompts,
+        platform: video.targetPlatform,
+        format: video.format as 'portrait' | 'landscape',
+        voiceoverLanguage: video.voiceoverLanguage,
+        videoModelId: effectiveVideoModelId,
+        appId: enrichmentContext.appId,
+        socialAccountId: enrichmentContext.socialAccountId,
+      })
 
     // Сохраняем voiceoverPlan и subtitlesStyle из storyPlan в Video.
     // Video.subtitlesStyle — единая точка истины для render и editor; нормализуем
@@ -508,7 +562,9 @@ export async function runVideoPipeline(
         await prisma.video.update({ where: { id: videoId }, data: videoUpdate as any })
       }
     }
-    // Actual cost: prompt generation — только если LLM реально дёргали в этом прогоне.
+    // Actual cost: prompt generation — только если LLM реально дёргали в этом
+    // прогоне. Пропущенный шаг ведущей attemptCount не трогает, поэтому
+    // отдельная проверка на presenterOnly не нужна: разница «до/после» уже нулевая.
     if ((await loadStepAttempt(videoId, "prompt_generation")) > promptAttemptBefore) {
       await chargeStep(videoId, "prompt_generation", "anthropic", null, prompts.scenePrompts ? 0.02 : 0.01)
     }
@@ -524,23 +580,39 @@ export async function runVideoPipeline(
     // Считаем ассеты ДО шага: если шаг упадёт на середине, только по их приросту
     // и можно восстановить, сколько картинок провайдер уже выставил в счёт.
     const imageAssetsBefore = await countVideoAssets(videoId, "image")
+    // Спека модели решает, в чём считать: fal берёт за мегапиксель, Replicate —
+    // за кадр. Умножать «за кадр» на мегапиксели значило бы завысить вертикальный
+    // кадр вдвое, поэтому единицу выбирает биллинг спеки, а не вызывающий.
+    const imageSpec = findMediaSpec(effectiveImageModelId)
     const chargeImages = async (generatedCount: number) => {
       // Actual cost: images — платим за то, что сгенерировано В ЭТОМ прогоне.
       // Картинки, поднятые с диска после resume, провайдеру повторно не оплачены.
-      await chargeStep(videoId, "image_generation", "fal.ai", effectiveImageModelId, computeImageActualCost({
-        generatedCount,
-        format: video.format,
-        renderQuality: video.renderQuality,
-        pricePerMegapixel: imgModel.pricing.base,
-      }))
+      // Сервис берётся из спеки модели: маршрут может вести и на Replicate.
+      const runCost = generatedCount <= 0
+        ? 0
+        : imageSpec
+          ? estimateMediaCost(imageSpec, {
+            images: generatedCount,
+            megapixels: generatedCount * imageMegapixels(video.format, video.renderQuality),
+          })
+          : computeImageActualCost({
+            generatedCount,
+            format: video.format,
+            renderQuality: video.renderQuality,
+            pricePerMegapixel: imgModel.pricing.base,
+          })
+      await chargeStep(videoId, "image_generation", mediaServiceFor(effectiveImageModelId), effectiveImageModelId, runCost)
     }
 
     let imgResult: Awaited<ReturnType<typeof runImageGeneration>>
     try {
-      imgResult = await runImageGeneration(
-        videoId, prompts, video.format, effectiveImageCount,
-        effectiveImageModelId, video.renderQuality, videoPlan,
-      )
+      // Ролик из живых фрагментов ведущей не рисует ни одного кадра, включая превью.
+      imgResult = presenterOnly
+        ? await skipImageGenerationStep(videoId)
+        : await runImageGeneration(
+          videoId, prompts, video.format, effectiveImageCount,
+          effectiveImageModelId, video.renderQuality, videoPlan,
+        )
     } catch (stepError) {
       // Упавшая попытка тоже оставляет свою строку в ledger — картинки,
       // скачанные до сбоя, провайдер уже выставил в счёт.
@@ -554,14 +626,17 @@ export async function runVideoPipeline(
 
     // 4. Генерация клипов — per-scene duration из videoPlan
     // Actual cost: clips — по числу реально сгенерированных клипов, а не по числу
-    // сцен: после resume часть клипов берётся с диска и повторно не оплачена.
+    // сцен: после resume часть клипов берётся с диска и повторно не оплачена,
+    // а сцены ведущей вообще не уходят в text-to-video.
     const clipPricePerSec = (video.generateAudio && vidModel.pricing.withAudio)
       ? vidModel.pricing.withAudio
       : vidModel.pricing.base
     const clipAssetsBefore = await countVideoAssets(videoId, "clip")
     const chargeClips = async (generatedCount: number) => {
-      await chargeStep(videoId, "clip_generation", "fal.ai", effectiveVideoModelId, computeClipActualCost({
-        scenes: videoPlan.mode !== 'legacy_simple' ? videoPlan.scenes : [],
+      await chargeStep(videoId, "clip_generation", mediaServiceFor(effectiveVideoModelId), effectiveVideoModelId, computeClipActualCost({
+        scenes: videoPlan.mode !== 'legacy_simple'
+          ? videoPlan.scenes.filter((_, index) => !presenterSceneIndexes.has(index))
+          : [],
         generatedCount,
         pricePerSecond: clipPricePerSec,
         fallbackDurationSec: video.clipDuration,
@@ -574,6 +649,7 @@ export async function runVideoPipeline(
         videoId, prompts, video.format, video.clipDuration,
         effectiveVideoModelId, video.generateAudio, videoPlan,
         variant.storyPlan as StoryPlan | null,
+        presenterSceneIndexes,
       )
     } catch (stepError) {
       // Клипы — самый дорогой шаг: три скачанных Kling-клипа из упавшего прогона
@@ -708,6 +784,28 @@ export async function runVideoPipeline(
     // ── Cancel checkpoint #9: до сборки (ffmpeg assembly) ──
     throwIfAborted(signal)
 
+    // Отрезки таймлайна с закадровым голосом. Сцены ведущей сюда не попадают:
+    // их звук — это её собственная речь, и глушить его нельзя.
+    const voiceoverIntervals: Array<{ startSec: number; endSec: number }> = []
+    if (videoPlan.mode !== 'legacy_simple' && voiceoverResult.mixedPath) {
+      const voicedScenes = new Map(
+        voiceoverResult.sceneResults
+          .filter(scene => scene.audioPath && scene.durationSec > 0)
+          .map(scene => [scene.sceneOrder, scene.durationSec]),
+      )
+      let cursorSec = 0
+      for (const scene of videoPlan.scenes) {
+        const voiceDuration = voicedScenes.get(scene.order)
+        if (voiceDuration) {
+          voiceoverIntervals.push({
+            startSec: cursorSec,
+            endSec: cursorSec + Math.min(voiceDuration, scene.durationSec),
+          })
+        }
+        cursorSec += scene.durationSec
+      }
+    }
+
     const result = await runAssembly(
       videoId,
       effectiveClipPaths,
@@ -725,6 +823,7 @@ export async function runVideoPipeline(
         subtitlePreset: (video.subtitlePreset as import('./render').SubtitlePresetId | null) ?? undefined,
         subtitleStyleOverride,
         clipSceneOrders,
+        voiceoverIntervals: voiceoverIntervals.length > 0 ? voiceoverIntervals : undefined,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })
@@ -838,6 +937,41 @@ export async function runVideoPipeline(
   } finally {
     await releaseLock(lockHandle)
   }
+}
+
+/**
+ * Помечает генерацию визуальных промптов пропущенной. В ролике из живых сцен
+ * рисовать нечего, а промпты — это ещё и платный вызов LLM на каждую сцену.
+ */
+async function skipPromptGenerationStep(
+  videoId: number,
+  sceneCount: number,
+): Promise<PromptGenerationResult> {
+  const step = await ensureStep(videoId, "prompt_generation", STEP_ORDER.indexOf("prompt_generation"))
+  await updateStep(step.id, {
+    status: "skipped",
+    finishedAt: new Date(),
+    actualCost: 0,
+    outputSnapshot: { reason: "presenter_only_video", sceneCount },
+  })
+  return { hook: '', body: '', cta: '', storySceneCount: sceneCount }
+}
+
+/**
+ * Помечает генерацию изображений пропущенной: в ролике из живых фрагментов
+ * ведущей ни один кадр не рисуется нейросетью, включая превью.
+ */
+async function skipImageGenerationStep(
+  videoId: number,
+): Promise<{ imagePaths: string[], imageRemoteUrls: string[], generatedCount: number }> {
+  const step = await ensureStep(videoId, "image_generation", STEP_ORDER.indexOf("image_generation"))
+  await updateStep(step.id, {
+    status: "skipped",
+    finishedAt: new Date(),
+    actualCost: 0,
+    outputSnapshot: { reason: "presenter_only_video", imagePaths: [], imageRemoteUrls: [], generatedCount: 0 },
+  })
+  return { imagePaths: [], imageRemoteUrls: [], generatedCount: 0 }
 }
 
 /**

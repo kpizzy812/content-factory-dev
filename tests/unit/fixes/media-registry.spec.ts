@@ -11,6 +11,7 @@ import {
   estimateMediaCost,
   findMediaSpec,
   listMediaSpecs,
+  MEDIA_CAPABILITIES,
   mapMediaInput,
   requireSingleOutputUrl,
   resolveMediaModel,
@@ -44,12 +45,16 @@ function specFor(reference: string): MediaModelSpec {
 
 describe("resolveMediaRoute — выбор маршрута способности", () => {
   it("берёт первую integrated модель, когда нет ни запроса, ни env-дефолта", () => {
-    expect(resolveMediaRoute("text_to_image", null, EMPTY_ENV).primary.id).toBe("fal-ai/flux/schnell")
+    // PROJECT_CONTEXT §5: Replicate — основной провайдер медиа, поэтому его
+    // спека стоит первой в каждой способности, где она подключена.
+    expect(resolveMediaRoute("text_to_image", null, EMPTY_ENV).primary.id).toBe("black-forest-labs/flux-dev")
     expect(resolveMediaRoute("text_to_video", null, EMPTY_ENV).primary.id)
-      .toBe("fal-ai/kling-video/v3/standard/text-to-video")
+      .toBe("kwaivgi/kling-v1.6-standard")
     expect(resolveMediaRoute("text_to_speech", null, EMPTY_ENV).primary.id)
-      .toBe("fal-ai/kokoro/american-english")
+      .toBe("minimax/speech-02-turbo")
     expect(resolveMediaRoute("lip_sync", null, EMPTY_ENV).primary.id).toBe("kwaivgi/kling-lip-sync")
+    // image_to_video — исключение: маршрут остаётся на fal, его перевод идёт
+    // отдельным этапом со своим canary, поэтому replicate-спека не integrated.
     expect(resolveMediaRoute("image_to_video", null, EMPTY_ENV).primary.id)
       .toBe("fal-ai/kling-video/v2.1/standard/image-to-video")
   })
@@ -374,10 +379,26 @@ describe("estimateMediaCost — все единицы биллинга", () => {
 })
 
 describe("контракт реестра", () => {
-  it("все спеки имеют уникальные registryKey и id", () => {
+  it("registryKey уникален глобально, id — в пределах способности", () => {
     const specs = listMediaSpecs()
     expect(new Set(specs.map(s => s.registryKey)).size).toBe(specs.length)
-    expect(new Set(specs.map(s => s.id)).size).toBe(specs.length)
+
+    // Голый id провайдера уникален не глобально, а внутри способности: одна
+    // модель может уметь две (Kling 1.6 на Replicate — t2v и i2v). Именно
+    // поэтому ключ реестра — registryKey, а не id.
+    for (const capability of MEDIA_CAPABILITIES) {
+      const ids = listMediaSpecs(capability).map(s => s.id)
+      expect(new Set(ids).size).toBe(ids.length)
+    }
+  })
+
+  it("одна модель под двумя способностями находится по голому id для каждой из них", () => {
+    // В Video.videoModelId лежит именно голый id, и он обязан привести к t2v-спеке,
+    // а не к i2v только потому, что та объявлена ниже в реестре.
+    expect(resolveMediaModel("text_to_video", "kwaivgi/kling-v1.6-standard").registryKey)
+      .toBe("replicate:kling-v1.6-standard-t2v")
+    expect(resolveMediaModel("image_to_video", "kwaivgi/kling-v1.6-standard").registryKey)
+      .toBe("replicate:kling-v1.6-standard-i2v")
   })
 
   it("модель исполнения определяется спекой, а не подстрокой в id", () => {
@@ -395,26 +416,52 @@ describe("контракт реестра", () => {
   it("неподтверждённая цена помечена явно — в деньги такую модель пускать нельзя", () => {
     // Тариф fal за секунду Kling v2.1 i2v в проекте не зафиксирован (§7 п.1).
     expect(specFor("fal-ai/kling-video/v2.1/standard/image-to-video").billingConfirmed).toBe(false)
-    for (const spec of listMediaSpecs("text_to_image")) expect(spec.billingConfirmed).toBe(true)
+    // Цены Replicate взяты из практики стенда, но canary по
+    // docs/operations/replicate.md по ним не проводился (§6.1).
+    for (const spec of listMediaSpecs()) {
+      if (spec.provider === "replicate" && spec.capability !== "lip_sync") {
+        expect(spec.billingConfirmed).toBe(false)
+      }
+    }
+    // Тарифы fal подтверждены страницами моделей, lip-sync — обкатан.
+    for (const spec of listMediaSpecs("text_to_image")) {
+      if (spec.provider === "fal") expect(spec.billingConfirmed).toBe(true)
+    }
     for (const spec of listMediaSpecs("lip_sync")) expect(spec.billingConfirmed).toBe(true)
   })
 
-  it("моделей Replicate под изображения, видео и речь пока нет намеренно", () => {
+  it("Replicate закрывает кадры, клипы и речь, fal остаётся резервом", () => {
     const replicate = listMediaSpecs().filter(spec => spec.provider === "replicate")
-    expect(replicate.map(spec => spec.capability)).toEqual(["lip_sync"])
+    expect([...new Set(replicate.map(spec => spec.capability))].sort()).toEqual([
+      "image_to_video",
+      "lip_sync",
+      "text_to_image",
+      "text_to_speech",
+      "text_to_video",
+    ])
+    // Все кроме i2v — подключены и стоят первыми в своей способности.
+    for (const capability of ["text_to_image", "text_to_video", "text_to_speech", "lip_sync"] as const) {
+      expect(listMediaSpecs(capability).find(spec => spec.integrated)?.provider).toBe("replicate")
+    }
   })
 })
 
 describe("витрина video-models собирается из спек", () => {
-  it("состав и порядок прежние", () => {
-    expect(IMAGE_MODELS.map(m => m.id)).toEqual(["fal-ai/flux/schnell", "fal-ai/flux/dev"])
+  it("состав и порядок: Replicate первым, прежние fal-модели следом", () => {
+    expect(IMAGE_MODELS.map(m => m.id)).toEqual([
+      "black-forest-labs/flux-dev",
+      "fal-ai/flux/schnell",
+      "fal-ai/flux/dev",
+    ])
     expect(VIDEO_MODELS.map(m => m.id)).toEqual([
+      "kwaivgi/kling-v1.6-standard",
       "fal-ai/kling-video/v3/standard/text-to-video",
       "fal-ai/kling-video/v3/pro/text-to-video",
       "fal-ai/wan/v2.2-a14b/text-to-video",
       "fal-ai/minimax/hailuo-02/standard/text-to-video",
     ])
     expect(TTS_MODELS.map(m => m.id)).toEqual([
+      "minimax/speech-02-turbo",
       "fal-ai/kokoro/american-english",
       "fal-ai/kokoro/russian",
       "fal-ai/playai/tts/v3",
@@ -429,21 +476,24 @@ describe("витрина video-models собирается из спек", () =>
       .not.toContain("fal-ai/kling-video/v2.1/standard/image-to-video")
   })
 
-  it("дефолты и рекомендации не изменились", () => {
-    expect(getDefaultImageModel().id).toBe("fal-ai/flux/schnell")
-    expect(getDefaultVideoModel().id).toBe("fal-ai/kling-video/v3/standard/text-to-video")
-    expect(getDefaultTtsModel()?.id).toBe("fal-ai/kokoro/american-english")
+  it("дефолты ведут на Replicate, tier-подбор по-прежнему на fal", () => {
+    expect(getDefaultImageModel().id).toBe("black-forest-labs/flux-dev")
+    expect(getDefaultVideoModel().id).toBe("kwaivgi/kling-v1.6-standard")
+    expect(getDefaultTtsModel()?.id).toBe("minimax/speech-02-turbo")
     expect(getDefaultLipSyncModel()?.id).toBe("kwaivgi/kling-lip-sync")
-    expect(pickTtsModel({ language: "ru" })?.id).toBe("fal-ai/kokoro/russian")
+    // Русский идёт на MiniMax: у Kokoro русского языка нет, а эндпоинта
+    // fal-ai/kokoro/russian не существует вовсе (404).
+    expect(pickTtsModel({ language: "ru" })?.id).toBe("minimax/speech-02-turbo")
     expect(pickTtsModel({ language: "en", tier: "premium" })?.id).toBe("fal-ai/elevenlabs/tts/turbo-v2.5")
 
+    // Рекомендации по tier не изменились: они выбирают по уровню, а не по провайдеру.
     const balanced = recommendModels("balanced")
-    expect(balanced.imageModel.id).toBe("fal-ai/flux/dev")
-    expect(balanced.videoModel.id).toBe("fal-ai/kling-video/v3/standard/text-to-video")
+    expect(balanced.imageModel.id).toBe("black-forest-labs/flux-dev")
+    expect(balanced.videoModel.id).toBe("kwaivgi/kling-v1.6-standard")
     const budget = recommendModels("budget", { language: "ru" })
     expect(budget.imageModel.id).toBe("fal-ai/flux/schnell")
     expect(budget.videoModel.id).toBe("fal-ai/wan/v2.2-a14b/text-to-video")
-    expect(budget.ttsModel?.id).toBe("fal-ai/kokoro/russian")
+    expect(budget.ttsModel?.id).toBe("minimax/speech-02-turbo")
   })
 
   it("прайс витрины и прайс спеки — одно число (дубля $0.014 больше нет)", () => {

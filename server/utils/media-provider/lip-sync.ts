@@ -21,8 +21,11 @@ import { buildLipSyncIdentity } from "./lip-sync-identity"
 import { estimateMediaCost, mapMediaInput, resolveMediaModel } from "./registry"
 import type { MediaProviderName } from "./types"
 
-const REPLICATE_MAX_ATTEMPTS = 2
-const REPLICATE_RETRY_DELAY_MS = 2_000
+// Лимит запросов у Replicate жёсткий: на небольшом балансе это один запрос за
+// раз. Пайплайн ставит TTS и lip-sync подряд, поэтому упереться в 429 —
+// нормальный режим работы, а не сбой; переживать его надо молча.
+const REPLICATE_MAX_ATTEMPTS = 5
+const REPLICATE_RETRY_DELAY_MS = 5_000
 const FAL_LIP_SYNC_REGISTRY_KEY = "fal:sync-lipsync"
 
 /**
@@ -199,7 +202,7 @@ async function executePrediction(
   }
 }
 
-async function withReplicateRetries<T>(
+export async function withReplicateRetries<T>(
   operation: () => Promise<T>,
   sleep: (ms: number) => Promise<void>,
 ): Promise<T> {
@@ -212,7 +215,13 @@ async function withReplicateRetries<T>(
       if (attempt === REPLICATE_MAX_ATTEMPTS) {
         throw new MediaProviderRetriesExhaustedError("replicate", attempt, error)
       }
-      await sleep(REPLICATE_RETRY_DELAY_MS * attempt)
+      // Назначенная провайдером пауза точнее нашей догадки: ждать меньше —
+      // значит гарантированно получить тот же отказ второй раз.
+      const backoffMs = REPLICATE_RETRY_DELAY_MS * attempt
+      const requestedMs = error.retryAfterSec !== null
+        ? Math.ceil(error.retryAfterSec * 1000) + 1_000
+        : 0
+      await sleep(Math.max(backoffMs, requestedMs))
     }
   }
   throw new Error("Unreachable Replicate retry state")

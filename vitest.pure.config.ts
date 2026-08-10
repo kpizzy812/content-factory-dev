@@ -17,6 +17,7 @@ export default defineConfig({
     include: [
       "tests/unit/replicate/**/*.spec.ts",
       "tests/unit/media-provider/**/*.spec.ts",
+      "tests/unit/subtitles/**/*.spec.ts",
       "tests/unit/lip-sync-provider.spec.ts",
       "tests/unit/content-factory-*.spec.ts",
       "tests/unit/content-quality-gate.spec.ts",
@@ -36,6 +37,7 @@ export default defineConfig({
       "tests/unit/apify-instagram-trends.spec.ts",
       "tests/unit/apify-account-discovery.spec.ts",
       "tests/unit/scenario-funnel-cta.spec.ts",
+      "tests/unit/scenario-value-structure.spec.ts",
       "tests/unit/claude-cli-transport.spec.ts",
       // Перестройка фронта: контракты дизайн-системы и чистая логика.
       "tests/unit/design-system-contract.spec.ts",

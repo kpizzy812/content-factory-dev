@@ -1,4 +1,5 @@
 import { evaluateFalPreflight, planFalPreflightTargets } from "~~/server/utils/fal-preflight-plan"
+import { getDefaultImageModel, getDefaultVideoModel } from "~~/server/utils/video-models"
 
 const VALID_FORMATS = ["portrait", "landscape"] as const
 const VALID_QUALITIES = ["low", "medium", "high"] as const
@@ -129,41 +130,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: `Неизвестный pacing: ${body.voiceoverPacing}` })
   }
 
-  // Preflight: проверяем доступность только тех моделей, которые хостит fal.
-  // Модель на Replicate fal-пробой проверять нельзя — без FAL_KEY probe отдаёт
-  // no_api_key и роняет запуск, которому fal вообще не нужен (PROJECT_CONTEXT §5:
-  // Replicate — основной провайдер, fal — резерв).
-  const preflightTargets = planFalPreflightTargets([
-    body.imageModelId || 'fal-ai/flux/dev',
-    body.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
-  ])
-  const preflightWarnings: string[] = []
-  if (preflightTargets.length > 0) {
-    const { falProbeAccessBatch } = await import('~~/server/utils/fal')
-    const accessResults = await falProbeAccessBatch(preflightTargets)
-    const verdict = evaluateFalPreflight(accessResults)
-
-    // Валим запуск только на однозначных вердиктах (нет ключа / доступ закрыт).
-    const blocked = verdict.blocking[0]
-    if (blocked) {
-      const modelMeta = getModel(blocked.endpoint)
-      throw createError({
-        statusCode: 403,
-        message: `Нет доступа к модели "${modelMeta?.name ?? blocked.endpoint}": ${blocked.reason}`,
-      })
-    }
-
-    // probe_error — сбой самой проверки, а не приговор модели: продолжаем,
-    // но честно сообщаем и в лог, и в ответ.
-    for (const warning of verdict.warnings) {
-      const modelMeta = getModel(warning.endpoint)
-      const text = `Проверка доступа к модели "${modelMeta?.name ?? warning.endpoint}" не дала вердикта: `
-        + `${warning.reason} (статус ${warning.status}). Запуск продолжен — доступ проверит сам submit.`
-      preflightWarnings.push(text)
-      await logAgent('video-generate', 'warn', text).catch(() => {})
-    }
-  }
-
   // Проверка существования сценария
   const scenario = await prisma.scenario.findUnique({
     where: { id: body.scenarioId },
@@ -259,9 +225,55 @@ export default defineEventHandler(async (event) => {
   }
 
   // Story-driven auto-detection: adjust imageCount to match scene count
-  const storyPlan = acceptedVariant.storyPlan as { scenes?: unknown[] } | null
-  const storySceneCount = storyPlan?.scenes?.length ?? 0
+  const storyPlan = acceptedVariant.storyPlan as { scenes?: Array<{ spokenLine?: string | null }> } | null
+  const storyScenes = storyPlan?.scenes ?? []
+  const storySceneCount = storyScenes.length
   const isStoryDriven = storySceneCount >= 2
+
+  // Ролик целиком из живых фрагментов ведущей не обращается к fal ни за клипами,
+  // ни за превью-кадром, поэтому и доступ к его моделям проверять незачем.
+  const presenterOnly = body.lipSyncEnabled === true
+    && !!resolvedLipSyncCharacterId
+    && storySceneCount > 0
+    && storyScenes.every(scene => !!scene.spokenLine && scene.spokenLine.trim().length > 0)
+
+  // Preflight: проверяем доступность только тех моделей, которые хостит fal.
+  // Модель на Replicate fal-пробой проверять нельзя — без FAL_KEY probe отдаёт
+  // no_api_key и роняет запуск, которому fal вообще не нужен (PROJECT_CONTEXT §5:
+  // Replicate — основной провайдер, fal — резерв). Ролик целиком из живых
+  // фрагментов ведущей не обращается к моделям кадров и клипов вовсе.
+  const preflightTargets = presenterOnly
+    ? []
+    : planFalPreflightTargets([
+      body.imageModelId || getDefaultImageModel().id,
+      body.videoModelId || getDefaultVideoModel().id,
+    ])
+  const preflightWarnings: string[] = []
+  if (preflightTargets.length > 0) {
+    const { falProbeAccessBatch } = await import('~~/server/utils/fal')
+    const accessResults = await falProbeAccessBatch(preflightTargets)
+    const verdict = evaluateFalPreflight(accessResults)
+
+    // Валим запуск только на однозначных вердиктах (нет ключа / доступ закрыт).
+    const blocked = verdict.blocking[0]
+    if (blocked) {
+      const modelMeta = getModel(blocked.endpoint)
+      throw createError({
+        statusCode: 403,
+        message: `Нет доступа к модели "${modelMeta?.name ?? blocked.endpoint}": ${blocked.reason}`,
+      })
+    }
+
+    // probe_error — сбой самой проверки, а не приговор модели: продолжаем,
+    // но честно сообщаем и в лог, и в ответ.
+    for (const warning of verdict.warnings) {
+      const modelMeta = getModel(warning.endpoint)
+      const text = `Проверка доступа к модели "${modelMeta?.name ?? warning.endpoint}" не дала вердикта: `
+        + `${warning.reason} (статус ${warning.status}). Запуск продолжен — доступ проверит сам submit.`
+      preflightWarnings.push(text)
+      await logAgent('video-generate', 'warn', text).catch(() => {})
+    }
+  }
 
   // В story-driven mode расширяем imageCount до числа сцен чтобы не терять сцены
   const effectiveImageCount = isStoryDriven
@@ -306,8 +318,11 @@ export default defineEventHandler(async (event) => {
       imageCount: effectiveImageCount,
       renderQuality,
       targetPlatform: body.targetPlatform || null,
-      imageModelId: body.imageModelId || "fal-ai/flux/dev",
-      videoModelId: body.videoModelId || "fal-ai/kling-video/v3/standard/text-to-video",
+      // Дефолт берётся из реестра спек, а не литералом: первая integrated модель
+      // способности. Иначе шестая копия строки «fal-ai/flux/dev» разъедется с
+      // реестром при первой же смене основного провайдера (P1-17).
+      imageModelId: body.imageModelId || getDefaultImageModel().id,
+      videoModelId: body.videoModelId || getDefaultVideoModel().id,
       modelStrategy: body.modelStrategy || 'auto',
       generateAudio: body.generateAudio ?? true,
       // Voiceover

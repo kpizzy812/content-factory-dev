@@ -1,16 +1,20 @@
 /**
- * TTS Provider — synthesize voiceover audio via fal.ai endpoints.
+ * TTS Provider — синтез озвучки.
  *
- * Supported providers (все через fal.ai Queue API, FAL_KEY reused):
- *   - fal-ai/kokoro/american-english  (budget, open-source)
- *   - fal-ai/kokoro/russian           (budget, ru)
+ * Маршрут выбирает реестр спек (media-provider/registry), а не этот модуль:
+ * основной путь — Replicate (minimax/speech-02-turbo), единственная подключённая
+ * модель, которая произносит русский. Она идёт через prediction-service, поэтому
+ * синтез идемпотентен и переживает рестарт.
+ *
+ * fal.ai — оставшийся с VideoCamp запасной путь через Queue API (FAL_KEY):
+ *   - fal-ai/kokoro/american-english  (budget, open-source, только английский)
  *   - fal-ai/playai/tts/v3            (standard, multilingual)
  *   - fal-ai/elevenlabs/tts/turbo-v2.5 (premium, opt-in)
  *
  * Runtime behavior:
  *   - Accepts text + voice options, returns local audio file + real duration (probed).
  *   - Cost tracked per-call (character- or audio-second-based depending on model).
- *   - Fails loudly when FAL_KEY missing or endpoint 403s (no silent fake-success).
+ *   - Fails loudly when the provider key is missing or the endpoint 403s (no silent fake-success).
  */
 
 import { join } from 'node:path'
@@ -35,6 +39,8 @@ export interface TtsSynthesisOptions {
   pacing?: 'slow' | 'moderate' | 'fast'
   /** Emotional hint (для providers с expressivity) */
   emotion?: string | null
+  /** Привязка prediction к видео — чтобы он удалялся вместе с ним. */
+  videoId?: number | null
 }
 
 export interface TtsSynthesisResult {
@@ -226,6 +232,9 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
   // extractAudioUrl: payload, голос по умолчанию, разбор выхода и таймаут лежат
   // в одной записи реестра. Витрина `ModelMeta` остаётся источником правил
   // выбора модели (integrated / task), поэтому спека ищется по её id.
+  //
+  // Ветвления «Replicate идёт своим путём» здесь больше нет: маршрут выбирает
+  // `spec.execution`, а не подстрока «replicate» в имени провайдера витрины.
   const spec = resolveMediaModel('text_to_speech', model.id)
   const language = options.language || 'en'
   const voiceId = options.voiceId
@@ -246,7 +255,11 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
       speed: resolveSpeed(options.pacing),
       language,
       format: 'mp3',
+      emotion: options.emotion ?? null,
     },
+    // Без videoId prediction не привязан к ролику и не удалится вместе с ним;
+    // у моделей на async_prediction это ещё и условие переиспользования уровня 2.
+    videoId: options.videoId ?? null,
     unitKey: `tts:${model.id}`,
     outputPath: options.outputPath,
     retry: {

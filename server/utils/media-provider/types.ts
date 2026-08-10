@@ -73,6 +73,12 @@ export interface TtsInput {
   speed: number
   language: string
   format: string
+  /**
+   * Подсказка по интонации свободным текстом («лёгкая тревога»). Модели без
+   * управления экспрессией её игнорируют, у остальных маппер спеки сводит её
+   * к своему закрытому списку — в нормализованном входе гадать нельзя.
+   */
+  emotion?: string | null
 }
 
 export interface LipSyncInput {

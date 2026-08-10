@@ -34,6 +34,7 @@ import { getModel, getDefaultLipSyncModel } from "./video-models"
 import { getAssetsDirFor } from "./storage-paths"
 import { StorageKeys } from "./storage/keys"
 import { uploadLocalAsset } from "./storage/persist-asset"
+import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
 import { getStorageDriver } from "./storage"
 import { downloadFile } from "./video-helpers"
 import { probeMediaDuration } from "./render"
@@ -162,12 +163,42 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   const sceneIndexByOrder = buildSceneClipIndexMap(sceneUnits, clipSceneOrders, {
     allowPositionalFallback: false,
   })
+
+  /**
+   * Ролик, снятый целиком живой ведущей.
+   *
+   * Такому ролику text-to-video не запускали ни разу (см. presenterSceneIndexes в
+   * runClipGeneration): clipPaths пуст, снапшота prompt_generation нет, и
+   * сопоставлять сцену не с чем. Позиция сцены в плане здесь не догадка, а
+   * единственный возможный порядок — чужих клипов, на которые могла бы уехать
+   * реплика, просто не существует. Клип каждой сцены создаёт этот шаг.
+   */
+  const presenterOnlyVideo = !!videoConfig.lipSyncCharacterId
+    && clipPaths.length === 0
+    && sceneUnits.length > 0
+    && lipSyncTargets.length === sceneUnits.length
+
+  /** Индекс сцены на таймлайне: порядок нарезки, а у ролика ведущей — позиция в плане. */
+  const sceneIndexOf = (scene: (typeof sceneUnits)[number]): number | undefined => {
+    const mapped = sceneIndexByOrder.get(scene.order)
+    if (mapped !== undefined) return mapped
+    return presenterOnlyVideo ? sceneUnits.indexOf(scene) : undefined
+  }
+
+  /**
+   * Путь-якорь для отпечатка сцены. У ролика ведущей исходного клипа нет вовсе,
+   * а исходник ведущей резервируется заново на каждом прогоне — его путь в ключ
+   * брать нельзя, иначе кэш не сработает никогда. Якорь стабильный и синтетический.
+   */
+  const sourceAnchorFor = (sceneIndex: number, resolvedPath: string | null): string =>
+    resolvedPath ?? `presenter:${videoConfig.lipSyncCharacterId ?? ""}:scene:${sceneIndex}`
+
   // Снапшот читаем НЕЗАВИСИМО от статуса шага: прерванный прогон оставляет
   // частичный снапшот именно в статусе running/failed, и это его единственный смысл.
   const previousByIndex = readPreviousSceneRecords(step.outputSnapshot)
   // undefined остаются намеренно: areAllScenesCovered обязан отличать «сцене не нашлось
   // клипа в порядке нарезки» (записи быть не может) от «сцена ещё не обработана».
-  const targetIndexes = lipSyncTargets.map(scene => sceneIndexByOrder.get(scene.order))
+  const targetIndexes = lipSyncTargets.map(scene => sceneIndexOf(scene))
 
   /**
    * Отпечаток сцены: по нему решаем, годится ли уже готовый lip-sync файл.
@@ -197,21 +228,27 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     const cached = step.outputSnapshot as unknown as LipSyncStepResult
     const expectedKeys = new Map<number, string>()
     for (const scene of lipSyncTargets) {
-      const sceneIndex = sceneIndexByOrder.get(scene.order)
+      const sceneIndex = sceneIndexOf(scene)
       if (sceneIndex === undefined) continue
       // Источник тот же, что возьмёт цикл: clipPaths шага clip_generation, иначе
-      // сохранённый в снапшоте исходник.
-      const sourcePath = resolveSceneSourcePath({
+      // сохранённый в снапшоте исходник. У ролика ведущей исходника нет — идём
+      // на синтетический якорь, ровно как в самом цикле.
+      const resolvedPath = resolveSceneSourcePath({
         sceneIndex,
         clipPaths,
         snapshotSourcePath: previousByIndex.get(sceneIndex)?.sourcePath,
       }).path
-      if (!sourcePath) continue
-      expectedKeys.set(sceneIndex, await reuseKeyFor(scene.spokenLine!.trim(), sourcePath))
+      if (!resolvedPath && !presenterOnlyVideo) continue
+      expectedKeys.set(sceneIndex, await reuseKeyFor(scene.spokenLine!.trim(), sourceAnchorFor(sceneIndex, resolvedPath)))
     }
     const covered = areAllScenesCovered(targetIndexes, previousByIndex)
       && areAllScenesReusable(expectedKeys, previousByIndex)
-    if (covered && Array.isArray(cached.clipPaths) && cached.clipPaths.length === clipPaths.length) {
+    // Длину сверяем с входным массивом только там, где он вообще был: у ролика
+    // ведущей клипы создаёт этот шаг, и списки заведомо разной длины (0 против N).
+    const lengthMatches = presenterOnlyVideo
+      ? cached.clipPaths?.length === lipSyncTargets.length
+      : cached.clipPaths?.length === clipPaths.length
+    if (covered && Array.isArray(cached.clipPaths) && lengthMatches) {
       // resyncedSceneCount берём НЕ из снапшота: там лежит число того прогона, который
       // реально платил. Здесь мы файлов не трогали — оркестратору важно именно это,
       // иначе он выбросит удлинённые озвучкой клипы как «относящиеся к прошлым».
@@ -258,7 +295,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     )
   }
 
-  const updatedClipPaths = [...clipPaths]
+  // У ролика ведущей входной массив пуст, а мест на таймлайне столько же, сколько
+  // сцен: резервируем их сразу, иначе присваивание по индексу расширяло бы массив
+  // дырами. Незаполненные места ловятся ниже как незакрытые сцены.
+  const updatedClipPaths = presenterOnlyVideo
+    ? new Array<string>(sceneUnits.length).fill("")
+    : [...clipPaths]
   // Стоимость шага ДО этого прогона: actualCost — деньги, потраченные на шаг по
   // этому ролику, а не за последний заход (см. accumulateStepCost).
   const costBefore = step.actualCost
@@ -348,7 +390,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
 
   try {
     for (const scene of lipSyncTargets) {
-      const sceneIndex = sceneIndexByOrder.get(scene.order)
+      const sceneIndex = sceneIndexOf(scene)
       if (sceneIndex === undefined) {
         await appendStepLog(step.id, `Сцена order=${scene.order}: клип не сопоставлен с фактическим порядком нарезки — пропускаю (позиционная догадка отдала бы чужой клип)`)
         continue
@@ -379,7 +421,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         assetFilePath: clipAsset?.filePath,
         snapshotSourcePath: previous?.sourcePath,
       })
-      if (!resolvedSource.path) {
+      // Сцену снимает ведущая — сгенерированного клипа под неё нет и быть не должно.
+      // Исходником станет фрагмент из библиотеки, он резервируется ниже.
+      if (!resolvedSource.path && !presenterOnlyVideo) {
         await appendStepLog(step.id, `${sceneTag}: исходный клип не найден ни в clipPaths (${clipPaths.length} шт.), ни в БД — пропускаю`)
         recordSkippedScene({ sceneOrder: scene.order, sceneIndex, reason: "no_clip" })
         continue
@@ -388,13 +432,14 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         // Типовой случай: в БД уже лежит *_lipsync.mp4 после прошлого прогона.
         await appendStepLog(
           step.id,
-          `${sceneTag}: filePath ассета (${basename(clipAsset?.filePath ?? "—")}) расходится с исходником ${basename(resolvedSource.path)} [${resolvedSource.origin}] — синхронизирую оригинал`,
+          `${sceneTag}: filePath ассета (${basename(clipAsset?.filePath ?? "—")}) расходится с исходником ${basename(resolvedSource.path ?? "—")} [${resolvedSource.origin}] — синхронизирую оригинал`,
         )
       }
 
       const spokenLine = scene.spokenLine!.trim()
       const spokenLineHash = hashSpokenLine(spokenLine)
-      const reuseKey = await reuseKeyFor(spokenLine, resolvedSource.path)
+      const sourceAnchor = sourceAnchorFor(sceneIndex, resolvedSource.path)
+      const reuseKey = await reuseKeyFor(spokenLine, sourceAnchor)
 
       // Переиспользование готового результата сцены: совпал ВЕСЬ отпечаток (текст,
       // исходник, персонаж, параметры синтеза) и файл на месте — повторно платить
@@ -416,7 +461,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       }
 
       const plannedDurationSec = scene.durationSec || 5
-      let sourceVideoPath = resolvedSource.path
+      let sourceVideoPath: string | null = resolvedSource.path
       let presenterSourcePath: string | null = null
       if (videoConfig.lipSyncCharacterId) {
         const sourceClip = await reservePresenterSourceClip({
@@ -443,6 +488,15 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         }
       }
 
+      // Ролик ведущей: сгенерированного клипа под сцену нет и не будет. Без
+      // фрагмента ведущей в ролике осталась бы дыра — честнее уронить шаг, чем
+      // молча собрать видео без сцены.
+      if (!sourceVideoPath) {
+        throw new Error(
+          `${sceneTag}: нет ни фрагмента ведущего, ни сгенерированного клипа — собирать нечего`,
+        )
+      }
+
       // Реальная длительность файла, а не плановая: модель работает с тем, что ей отдали,
       // и по ней же считается стоимость. Плановая длительность здесь врёт при любом
       // подставленном исходнике ведущего и при клипе, удлинённом под voiceover.
@@ -454,7 +508,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // 2.5-секундный клип для сцены на 9 с формально «в 2-10 с», а по факту минус
       // 6.5 с хронометража. Метаданные в БД могут врать, поэтому сверяем измеренное.
       // Неизмеримый исходник ведущего тоже отбрасываем — доверять ему нечем.
-      if (presenterSourcePath && (measuredDurationSec === null || !isSourceDurationCloseToScene(measuredDurationSec, plannedDurationSec))) {
+      // Откатываться есть куда только там, где сгенерированный клип существует:
+      // у ролика ведущей запасного исходника нет вовсе, и подменять его нечем.
+      if (presenterSourcePath && resolvedSource.path && (measuredDurationSec === null || !isSourceDurationCloseToScene(measuredDurationSec, plannedDurationSec))) {
         await appendStepLog(
           step.id,
           measuredDurationSec === null
@@ -545,6 +601,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
             voiceId: videoConfig.voiceoverVoiceId,
             language: videoConfig.voiceoverLanguage,
             pacing: videoConfig.voiceoverPacing,
+            // Без videoId у задачи на Replicate нет ключа идемпотентности, и
+            // prediction не привяжется к ролику: повтор оплатил бы реплику снова.
+            videoId,
           })
           ttsCost = tts.costUsd
         } catch (err) {
@@ -628,6 +687,26 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         "video/mp4",
       )
 
+      // Сцена ведущей: клипа в БД под неё нет — clip_generation его не делал.
+      // Создаём здесь, и filePath указывает на lip-sync результат: оригинала,
+      // который надо было бы защищать от повторной синхронизации, не существует,
+      // а `isLipSyncOutputPath` не даст взять этот файл источником на следующем
+      // прогоне. Без записи в БД сцена невидима для сборки и переиспользования.
+      if (!clipAsset) {
+        await prisma.videoAsset.create({
+          data: {
+            videoId,
+            type: "clip" as never,
+            prompt: spokenLine.slice(0, 500),
+            filePath: lipSyncedPath,
+            fileUrl: storageKeyToLegacyUrl(lipSyncStorage.storageKey),
+            order: sceneIndex,
+            duration: measuredDurationSec,
+            ...lipSyncStorage,
+          },
+        })
+      }
+
       await appendStepLog(
         step.id,
         `${sceneTag}: ${lipSyncResult.provider} lip-sync завершён за ${measuredDurationSec.toFixed(2)}s (lip $${lipSyncCost.toFixed(3)} + tts $${ttsCost.toFixed(3)}), storage ${lipSyncStorage.storageKey}`,
@@ -665,6 +744,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     )
   }
 
+  // Итоговый список — именно updatedClipPaths, а не выборка из БД по порядку:
+  // filePath у VideoAsset обычных сцен намеренно продолжает указывать на
+  // ОРИГИНАЛ (см. выше), и сборка по нему получила бы несинхронизированные клипы.
   const result: LipSyncStepResult = {
     status: "completed",
     clipPaths: updatedClipPaths,

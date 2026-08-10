@@ -11,6 +11,7 @@ import {
 import type { AnySubtitlePresetKey } from "~~/shared/types/subtitle-preset"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import { tryRenderAssFilter } from "./subtitles/render-ass"
+import { chunkSceneSpeech, maxCharsForWidth } from "./subtitles/phrase-chunker"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildSubtitleTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 
@@ -41,6 +42,12 @@ interface AssembleOptions {
   musicVolumeWithVoiceover?: number
   /** Громкость clip-native audio когда voiceover включён (attenuate) */
   clipVolumeWithVoiceover?: number
+  /**
+   * Отрезки таймлайна, где реально звучит закадровый голос. Если заданы, звук
+   * клипов приглушается только внутри них: сцену, где ведущая говорит в кадре,
+   * глушить нельзя — её голос и есть содержание сцены.
+   */
+  voiceoverIntervals?: Array<{ startSec: number; endSec: number }>
 }
 
 interface AssembleResult {
@@ -385,18 +392,17 @@ function stripUnsupportedGlyphs(text: string): string {
     .trim()
 }
 
-function escapeDrawtext(text: string): string {
-  // \u041f\u043e \u0434\u043e\u043a\u0435 ffmpeg filtergraph: \u0432\u043d\u0443\u0442\u0440\u0438 `'...'` quoted-\u0441\u0442\u0440\u043e\u043a\u0438 \u043b\u0438\u0442\u0435\u0440\u0430\u043b\u0430\u043c\u0438 \u0438\u0434\u0443\u0442 \u0432\u0441\u0435
-  // \u0441\u0438\u043c\u0432\u043e\u043b\u044b \u043a\u0440\u043e\u043c\u0435 `\` \u0438 `'`. \u0422\u043e \u0435\u0441\u0442\u044c `,` \u0438 `:` \u0432\u043d\u0443\u0442\u0440\u0438 text='...' \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438
-  // \u043d\u0435 \u0438\u043d\u0442\u0435\u0440\u043f\u0440\u0435\u0442\u0438\u0440\u0443\u044e\u0442\u0441\u044f \u043a\u0430\u043a \u0440\u0430\u0437\u0434\u0435\u043b\u0438\u0442\u0435\u043b\u0438 \u2014 \u041d\u0418\u0427\u0415\u0413\u041e \u044d\u043a\u0440\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043d\u0435 \u043d\u0443\u0436\u043d\u043e.
-  // \u0420\u0443\u0447\u043d\u043e\u0439 escape `:` \u2192 `\:` \u0438 `,` \u2192 `\,` \u043b\u043e\u043c\u0430\u043b filter graph: drawtext text
-  // parser \u0432\u0441\u0442\u0440\u0435\u0447\u0430\u043b `\:` \u0438 \u0441\u0447\u0438\u0442\u0430\u043b \u044d\u0442\u043e \u043d\u0430\u0447\u0430\u043b\u043e\u043c \u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e\u0439 option ("No option
-  // name near ' to turn dreams...'").
-  // \u041e\u0434\u0438\u043d\u0430\u0440\u043d\u044b\u0435 \u043a\u0430\u0432\u044b\u0447\u043a\u0438 \u0437\u0430\u043c\u0435\u043d\u044f\u0435\u043c \u043d\u0430 \u0442\u0438\u043f\u043e\u0433\u0440\u0430\u0444\u0441\u043a\u0438\u0435, \u0447\u0442\u043e\u0431\u044b \u043d\u0435 \u0437\u0430\u043a\u0440\u044b\u0432\u0430\u0442\u044c quoted-\u0441\u0442\u0440\u043e\u043a\u0443.
-  // Backslash \u0434\u0443\u0431\u043b\u0438\u0440\u0443\u0435\u043c \u2014 \u043e\u043d \u0441\u0430\u043c \u043f\u043e \u0441\u0435\u0431\u0435 escape character.
+export function escapeDrawtext(text: string): string {
+  // Внутри `text='...'` литералами идут не все символы: запятая проходит, а
+  // двоеточие обрывает строку, и парсер начинает читать остаток как имя опции
+  // ("No option name near ' салаты,:fontfile='"). Проверено на ffmpeg в
+  // контейнере: `,` — можно, `:` — только экранированным.
+  // Одинарные кавычки заменяем на типографские, чтобы не закрывать строку.
+  // Backslash дублируем — он сам по себе escape character.
   return stripUnsupportedGlyphs(text)
     .replace(/\\/g, "\\\\\\\\")
-    .replace(/'/g, "\u2019")
+    .replace(/'/g, "’")
+    .replace(/:/g, "\\:")
     .replace(/%/g, "%%")
 }
 
@@ -852,6 +858,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
     musicVolume = 0.3,
     musicVolumeWithVoiceover = 0.12,
     clipVolumeWithVoiceover = 0.3,
+    voiceoverIntervals,
   } = options
 
   await ensureDir(dirname(outputPath))
@@ -885,6 +892,11 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       topText,
       bottomText,
       keywordHints: options.keywordHints,
+      maxChars: maxCharsForWidth(
+        format === 'portrait' ? 1080 : 1920,
+        format === 'portrait' ? presetMeta.fontSizePortrait : presetMeta.fontSizeLandscape,
+        format === 'portrait' ? 60 : 100,
+      ),
     })
     if (assSegments.length > 0) {
       // videoId используется только для имени директории — выдёргиваем из outputPath.
@@ -915,11 +927,25 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       const style = resolveSubtitleStyle(format, subtitleStyle, position, subtitlePreset)
       const role = position === 'top' ? 'top' : position === 'center' ? 'scene' : 'bottom'
 
-      subtitleFilters.push(...buildDrawtextFilters(window.text, style, format, role, {
-        casing,
-        enableStart: window.startSec,
-        enableEnd: window.endSec,
-      }))
+      // Окно показа уже посчитано (buildSubtitleTimeline, зазор в конце учтён),
+      // но реплика сцены не должна висеть одним блоком на девять секунд: внутри
+      // окна режем её на короткие фразы, чтобы субтитр шёл вслед за речью и не
+      // вылезал по ширине кадра.
+      const chunks = chunkSceneSpeech(window.text, window.startSec, window.endSec, {
+        maxChars: maxCharsForWidth(
+          format === 'portrait' ? 1080 : 1920,
+          style.fontSize,
+          format === 'portrait' ? 60 : 100,
+        ),
+      })
+
+      for (const chunk of chunks) {
+        subtitleFilters.push(...buildDrawtextFilters(chunk.text, style, format, role, {
+          casing,
+          enableStart: chunk.startSec,
+          enableEnd: chunk.endSec,
+        }))
+      }
     }
   } else if (subtitleFilters.length === 0) {
     // Legacy mode: topText + bottomText с опциональным style profile
@@ -994,9 +1020,18 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       const audioFilters: string[] = []
       const mixLabels: string[] = []
 
-      // Clip-native audio lane
-      const clipAudioVolume = hasVoiceover ? clipVolumeWithVoiceover : 1.0
-      audioFilters.push(`[0:a]volume=${clipAudioVolume.toFixed(3)}[va]`)
+      // Clip-native audio lane. При закадровом голосе приглушаем — но точечно,
+      // если известно, на каких отрезках он звучит.
+      if (hasVoiceover) {
+        const duckWindows = (voiceoverIntervals ?? [])
+          .filter(i => Number.isFinite(i.startSec) && Number.isFinite(i.endSec) && i.endSec > i.startSec)
+          .map(i => `between(t,${i.startSec.toFixed(2)},${i.endSec.toFixed(2)})`)
+        audioFilters.push(duckWindows.length > 0
+          ? `[0:a]volume=${clipVolumeWithVoiceover.toFixed(3)}:enable='${duckWindows.join('+')}'[va]`
+          : `[0:a]volume=${clipVolumeWithVoiceover.toFixed(3)}[va]`)
+      } else {
+        audioFilters.push(`[0:a]volume=1.000[va]`)
+      }
       mixLabels.push('[va]')
 
       // Music lane (с ducking если есть voiceover)
@@ -1088,6 +1123,8 @@ async function buildAssSegments(opts: {
   topText: string
   bottomText: string
   keywordHints?: Array<{ order: number; keywords: Array<{ word: string; weight: number }> }>
+  /** Потолок длины фразы под ширину кадра и кегль выбранного пресета. */
+  maxChars?: number
 }): Promise<Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput>> {
   const segs: Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput> = []
 
@@ -1103,13 +1140,16 @@ async function buildAssSegments(opts: {
     }
 
     for (const window of windows) {
-      segs.push({
-        startSec: window.startSec,
-        endSec: window.endSec,
-        text: window.text,
-        placement: window.placement,
-        aiKeywords: aiMap.get(window.sceneIndex + 1),
-      })
+      // Та же нарезка, что и в drawtext-ветке: фраза за фразой вслед за речью.
+      for (const chunk of chunkSceneSpeech(window.text, window.startSec, window.endSec, { maxChars: opts.maxChars })) {
+        segs.push({
+          startSec: chunk.startSec,
+          endSec: chunk.endSec,
+          text: chunk.text,
+          placement: window.placement,
+          aiKeywords: aiMap.get(window.sceneIndex + 1),
+        })
+      }
     }
     return segs
   }
