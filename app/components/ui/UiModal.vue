@@ -83,7 +83,7 @@ const width = computed(() => ({ sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-3xl' 
           <h2 class="flex-1 text-lg font-medium">
             <slot name="header">{{ title }}</slot>
           </h2>
-          <UiButton v-if="!persistent" icon-only variant="ghost" aria-label="Закрыть" @click="close">
+          <UiButton v-if="!persistent" icon-only variant="ghost" aria-label="Закрыть окно" @click="close">
             <Icon name="mingcute:close-line" />
           </UiButton>
         </div>

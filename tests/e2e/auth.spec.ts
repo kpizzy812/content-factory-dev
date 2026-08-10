@@ -41,7 +41,7 @@ test.describe("Auth flow", () => {
     await expect(page).not.toHaveURL(/\/auth\/login/)
     // Оболочка: подвал сайдбара с именем пользователя. На узких экранах сайдбар
     // спрятан за кнопкой «Меню», поэтому проверяем её же наличие.
-    const shell = page.locator('nav, aside, header').first()
+    const shell = page.locator('nav:visible, aside:visible, header:visible').first()
     await expect(shell).toBeVisible()
   })
 

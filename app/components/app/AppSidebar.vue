@@ -169,27 +169,39 @@ async function logout() {
       </div>
     </div>
 
+    <!--
+      Выход и переключатель темы остаются и в свёрнутом сайдбаре — просто
+      уходят под аватар колонкой. Пока они были спрятаны за `!collapsed`,
+      выйти было нельзя вообще: на экранах уже 768 сайдбар сворачивается сам,
+      и подвал терял единственную кнопку выхода.
+    -->
     <div class="shrink-0 border-t border-divider p-2">
-      <div class="flex h-[34px] items-center gap-[9px] rounded-md px-2 hover:bg-card">
+      <div
+        class="flex rounded-md hover:bg-card"
+        :class="collapsed ? 'flex-col items-center gap-1 py-1' : 'h-[34px] items-center gap-[9px] px-2'"
+      >
         <span
           class="flex size-[22px] shrink-0 items-center justify-center rounded-full border border-border bg-card font-mono text-[10.5px] text-muted"
         >{{ initials }}</span>
         <div v-if="!collapsed" class="min-w-0 flex-1">
           <div class="truncate text-sm">{{ displayName }}</div>
         </div>
-        <template v-if="!collapsed">
-          <button
-            type="button"
-            class="shrink-0 cursor-pointer text-subtle hover:text-fg"
-            :title="colorMode.preference === 'dark' ? 'Светлая тема' : 'Тёмная тема'"
-            @click="colorMode.preference = colorMode.preference === 'dark' ? 'light' : 'dark'"
-          >
-            <Icon :name="colorMode.preference === 'dark' ? 'mingcute:sun-line' : 'mingcute:moon-line'" />
-          </button>
-          <button type="button" class="shrink-0 cursor-pointer text-subtle hover:text-danger" title="Выход" @click="logout">
-            <Icon name="mingcute:exit-line" />
-          </button>
-        </template>
+        <button
+          type="button"
+          class="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-subtle hover:text-fg"
+          :title="colorMode.preference === 'dark' ? 'Светлая тема' : 'Тёмная тема'"
+          @click="colorMode.preference = colorMode.preference === 'dark' ? 'light' : 'dark'"
+        >
+          <Icon :name="colorMode.preference === 'dark' ? 'mingcute:sun-line' : 'mingcute:moon-line'" />
+        </button>
+        <button
+          type="button"
+          class="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-subtle hover:text-danger"
+          title="Выход"
+          @click="logout"
+        >
+          <Icon name="mingcute:exit-line" />
+        </button>
       </div>
     </div>
   </nav>

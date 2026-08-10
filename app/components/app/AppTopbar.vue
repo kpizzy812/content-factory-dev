@@ -32,7 +32,7 @@ onMounted(() => {
   <header class="flex h-11 shrink-0 items-center gap-3 border-b border-border bg-panel px-3.5">
     <button
       type="button"
-      class="shrink-0 cursor-pointer text-muted hover:text-fg md:hidden"
+      class="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted hover:text-fg md:hidden"
       aria-label="Меню"
       @click="mobileOpen = !mobileOpen"
     >
