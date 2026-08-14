@@ -113,6 +113,22 @@ export async function mockFalPollUntilDone<T>(
  *
  * Использует кеш: повторные вызовы для одного kind → копия из кеша без ffmpeg.
  */
+/**
+ * Расширение файла кеша заглушки.
+ *
+ * Контейнер ffmpeg выбирает ПО РАСШИРЕНИЮ выходного файла. Кеш лежал в
+ * `<kind>.bin`, и на холодном старте ffmpeg отвечал «Unable to choose an output
+ * format for image.bin» с кодом Invalid argument — падал первый же вызов, а с
+ * ним весь API-контур генерации кадров. На машине с прогретым кешем этого не
+ * видно: файл уже есть, ffmpeg не зовётся.
+ */
+const CACHE_EXTENSIONS: Record<string, string> = {
+  video: ".mp4",
+  audio: ".mp3",
+  image: ".png",
+  transcript: ".json",
+}
+
 export async function generateMockPlaceholder(url: string, destPath: string): Promise<void> {
   if (!isMockUrl(url)) {
     throw new Error(`generateMockPlaceholder: ожидался mock:// URL, получен ${url}`)
@@ -122,7 +138,7 @@ export async function generateMockPlaceholder(url: string, destPath: string): Pr
 
   const cacheDir = getMockCacheBase()
   await mkdir(cacheDir, { recursive: true })
-  const cacheFile = join(cacheDir, `${kind}.bin`)
+  const cacheFile = join(cacheDir, `${kind}${CACHE_EXTENSIONS[kind] ?? ".json"}`)
 
   if (!existsSync(cacheFile)) {
     await buildPlaceholder(kind, cacheFile)

@@ -46,6 +46,7 @@ import { MediaProviderRetriesExhaustedError } from "./lip-sync"
 import { buildMediaIdentity, type MediaIdentity } from "./media-identity"
 import { requireSingleOutputUrl } from "./output"
 import type {
+  ImageToImageInput,
   MediaCapability,
   MediaInputFor,
   MediaModelSpec,
@@ -85,9 +86,15 @@ export interface MediaTaskRequest<C extends MediaCapability = MediaCapability> {
    * хранилища сменой провайдера не маскируются (§3.7).
    */
   fallbackSpec?: MediaSpecFor<C> | null
-  /** Без videoId нет идентичности: уровень 2 и запись prediction недоступны. */
+  /** Ролик задачи. Нет ролика — идентичность строится по `identityScope`. */
   videoId?: number | null
   videoAssetId?: number | null
+  /**
+   * Область идемпотентности для задачи вне ролика: `character:{id}:variation:{n}`.
+   * Без неё и без videoId идентичности нет вовсе — уровень 2 и запись
+   * prediction недоступны, а асинхронный контур честно отказывает.
+   */
+  identityScope?: string | null
   /**
    * Шаг ролика. Нет шага (TTS, генерация референсов) — идём прямым вызовом
    * провайдера без step-tracking, ровно как эти места работали раньше.
@@ -149,7 +156,8 @@ export interface PersistedPredictionRef {
 }
 
 export interface SavedPredictionInput {
-  videoId: number
+  /** null — задача вне ролика (вариации портрета); колонка в схеме nullable. */
+  videoId: number | null
   videoAssetId?: number | null
   provider: MediaProviderName
   capability: MediaCapability
@@ -361,7 +369,7 @@ async function runAsyncPredictionTask<C extends MediaCapability>(
       // Без ключа идемпотентности асинхронный контур теряет смысл: повтор
       // создаст второй оплаченный prediction, а recovery не свяжет их с задачей.
       throw new Error(
-        `Задача ${spec.capability} на Replicate требует videoId — без него нет ключа идемпотентности`,
+        `Задача ${spec.capability} на Replicate требует videoId либо identityScope — иначе нет ключа идемпотентности`,
       )
     }
 
@@ -505,15 +513,17 @@ function buildIdentity<C extends MediaCapability>(
   spec: MediaModelSpec,
   prepared: PreparedInput,
 ): MediaIdentity | null {
-  if (request.videoId === null || request.videoId === undefined) return null
+  const hasVideo = request.videoId !== null && request.videoId !== undefined
+  if (!hasVideo && !request.identityScope?.trim()) return null
   const mappedForIdentity = spec.mapInput(prepared.identityInput as never, {
     unitKey: request.unitKey,
     sceneOrder: request.sceneOrder,
   })
   return buildMediaIdentity({
     capability: spec.capability,
-    videoId: request.videoId,
+    videoId: request.videoId ?? null,
     sceneOrder: request.sceneOrder ?? 0,
+    subjectScope: request.identityScope ?? null,
     modelId: spec.id,
     payload: mappedForIdentity.payload,
     fingerprints: prepared.fingerprints,
@@ -578,11 +588,10 @@ async function savePrediction<C extends MediaCapability>(
   storage: AssetStorageColumns,
   dependencies: RunMediaTaskDependencies,
 ): Promise<void> {
-  if (request.videoId === null || request.videoId === undefined) return
   const save = dependencies.savePrediction ?? defaultSavePrediction
   try {
     await save({
-      videoId: request.videoId,
+      videoId: request.videoId ?? null,
       videoAssetId: request.videoAssetId ?? null,
       provider: spec.provider,
       capability: spec.capability,
@@ -637,6 +646,18 @@ function deriveUsage(
       return {
         images: value.count,
         megapixels: (value.width * value.height * value.count) / 1_000_000,
+      }
+    }
+    case "image_to_image": {
+      // Kontext тарифицируется за кадр, размер на цену не влияет. Мегапиксели
+      // считаем только когда кадр задан явно — иначе он равен кадру референса,
+      // а его здесь никто не измерял.
+      const value = input as unknown as ImageToImageInput
+      return {
+        images: value.count,
+        megapixels: value.width && value.height
+          ? (value.width * value.height * value.count) / 1_000_000
+          : undefined,
       }
     }
     case "text_to_video":

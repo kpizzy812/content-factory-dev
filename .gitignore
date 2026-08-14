@@ -29,6 +29,8 @@ node_modules
 storage/uploads/
 storage/frames/*
 !storage/frames/.gitkeep
+# Локальный драйвер хранилища пишет сюда на прогонах API-сьют (localRoot='./storage')
+storage/zavodcamp/
 
 # Playwright MCP artifacts
 .playwright-mcp-output/

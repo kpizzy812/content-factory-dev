@@ -40,8 +40,15 @@ export interface MediaIdentity {
 
 export interface MediaIdentityInput {
   capability: MediaCapability
-  videoId: number
-  sceneOrder: number
+  /** Ролик, которому принадлежит задача. Нет ролика — нужен `subjectScope`. */
+  videoId?: number | null
+  sceneOrder?: number
+  /**
+   * Область субъекта для задач вне ролика: `character:{id}:variation:{n}`.
+   * Ролика у вариаций портрета нет, а платный prediction есть, и повтор
+   * запроса не должен оплачиваться второй раз.
+   */
+  subjectScope?: string | null
   modelId: string
   /** Payload модели, где поля-файлы заменены их отпечатками. */
   payload: Record<string, unknown>
@@ -57,6 +64,15 @@ export function buildMediaIdentity(input: MediaIdentityInput): MediaIdentity {
     throw new Error("Идентификатор модели не может быть пустым")
   }
 
+  const subjectScope = input.subjectScope?.trim()
+  if (input.videoId === null || input.videoId === undefined) {
+    if (!subjectScope) {
+      throw new Error(
+        "Идентичность медиазадачи требует videoId либо subjectScope — безымянного ключа не бывает",
+      )
+    }
+  }
+
   // Прежняя раскладка lip-sync — единственная, что уже лежит в БД.
   if (input.capability === "lip_sync") {
     const sourceFingerprint = input.fingerprints?.videoUrl
@@ -66,22 +82,28 @@ export function buildMediaIdentity(input: MediaIdentityInput): MediaIdentity {
         "Идентичность lip-sync требует отпечатков исходного видео и аудио",
       )
     }
+    if (input.videoId === null || input.videoId === undefined) {
+      throw new Error("Идентичность lip-sync существует только внутри ролика")
+    }
     return buildLipSyncIdentity({
       videoId: input.videoId,
-      sceneOrder: input.sceneOrder,
+      sceneOrder: input.sceneOrder ?? 0,
       modelId: input.modelId,
       sourceFingerprint,
       audioFingerprint,
     })
   }
 
+  // Задача ролика описывается сценой, задача вне ролика — своим субъектом.
+  // Раскладку ключа роликов трогать нельзя: она уже лежит в БД.
+  const scope = input.videoId === null || input.videoId === undefined
+    ? [subjectScope]
+    : ["video", input.videoId, "scene", input.sceneOrder ?? 0]
+
   const attemptCeilingScope = [
     input.capability,
     "v1",
-    "video",
-    input.videoId,
-    "scene",
-    input.sceneOrder,
+    ...scope,
     "model",
     input.modelId,
   ].join(":")

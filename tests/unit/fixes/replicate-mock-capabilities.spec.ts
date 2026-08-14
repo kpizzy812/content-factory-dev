@@ -59,6 +59,15 @@ describe("мок Replicate отдаёт выход по способности",
     await expect(succeededOutput("lip_sync", "video:1:scene:5")).resolves.toMatch(/\.mp4$/)
   })
 
+  it("знает выход аватарных сцен и вариаций портрета", async () => {
+    // speech_to_video завели в аватарной волне, но в мок не добавили: любой
+    // прогон аватарной ветки в mock-режиме падал на «no output type».
+    // image_to_image — вариации портрета, выход в том же jpg, что просит маппер.
+    await expect(succeededOutput("speech_to_video", "video:2:scene:1")).resolves.toMatch(/\.mp4$/)
+    await expect(succeededOutput("image_to_image", "character-reference:ref_1:variation:angle"))
+      .resolves.toMatch(/\.jpg$/)
+  })
+
   it("остаётся детерминированным и офлайн: тот же ключ — тот же выход", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch")
 

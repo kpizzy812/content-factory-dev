@@ -26,6 +26,7 @@
 import { DEFAULT_REPLICATE_LIPSYNC_MODEL, DEFAULT_REPLICATE_TTS_MODEL } from "../replicate/config"
 import { extractMediaOutput } from "./output"
 import type {
+  ImageToImageModelSpec,
   ImageToVideoModelSpec,
   LipSyncModelSpec,
   MediaModelSpec,
@@ -1394,6 +1395,288 @@ const WAN_22_S2V: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>
   avgGenerationTime: "5-15 мин",
 })
 
+// ─── image_to_image: референс + инструкция → тот же человек ─────
+//
+// Схемы сняты с Replicate 14.08.2026 через
+// `https://replicate.com/api/models/<owner>/<name>/versions`, цены — из
+// `billingConfig` страницы модели (`https://replicate.com/<owner>/<name>`).
+// Публичный API тарифы не отдаёт вовсе, а страница отдаёт: у трёх Kontext это
+// per-unit `image_output_count`, у pulid цены нет — только оценка прогона.
+
+const KONTEXT_IMAGE_EXTENSIONS = Object.freeze([".jpg", ".jpeg", ".png", ".gif", ".webp"])
+
+/** Пропорции Kontext pro/max — дословно enum `aspect_ratio` их схемы. */
+const KONTEXT_PRO_ASPECT_RATIOS = Object.freeze([
+  "match_input_image", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3",
+  "4:5", "5:4", "21:9", "9:21", "2:1", "1:2",
+])
+
+/** У dev тот же набор, но в другом порядке — берём из его собственной схемы. */
+const KONTEXT_DEV_ASPECT_RATIOS = Object.freeze([
+  "1:1", "16:9", "21:9", "3:2", "2:3", "4:5", "5:4", "3:4", "4:3",
+  "9:16", "9:21", "match_input_image",
+])
+
+/**
+ * Пропорция кадра для Kontext. Размер не задан — `match_input_image`: у правки
+ * портрета нет причин менять кадрирование, а насильная пропорция обрежет лицо.
+ */
+function pickKontextAspectRatio(
+  supported: readonly string[],
+  width: number | undefined,
+  height: number | undefined,
+): string {
+  if (!width || !height) return "match_input_image"
+  return pickAspectRatio(supported.filter(value => value !== "match_input_image"), width, height)
+}
+
+function requireEditInstruction(input: { imageUrl: string, prompt: string, count: number }, max: number) {
+  assertImageCount(input.count, max)
+  return {
+    image: requireText(input.imageUrl, "imageUrl"),
+    prompt: requireText(input.prompt, "prompt"),
+  }
+}
+
+/**
+ * FLUX.1 Kontext [dev] — основной маршрут вариаций портрета.
+ *
+ * Самый дешёвый из трёх ($0.025 за кадр против $0.04 у pro и $0.08 у max) и
+ * единственный, у кого `input_image` обязателен по схеме, — то есть модель
+ * заточена ровно под нашу задачу: правку существующего кадра, а не рисование
+ * с нуля. Цена подтверждена страницей модели 14.08.2026.
+ */
+const FLUX_KONTEXT_DEV: ImageToImageModelSpec = Object.freeze<ImageToImageModelSpec>({
+  registryKey: "replicate:flux-kontext-dev",
+  id: "black-forest-labs/flux-kontext-dev",
+  provider: "replicate",
+  capability: "image_to_image",
+  execution: "async_prediction",
+  billing: { unit: "output_image", usdPerImage: 0.025 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    aspectRatios: KONTEXT_DEV_ASPECT_RATIOS,
+    maxImagesPerRequest: 1,
+    inputImageExtensions: KONTEXT_IMAGE_EXTENSIONS,
+    preservesIdentity: true,
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const { image, prompt } = requireEditInstruction(input, this.constraints.maxImagesPerRequest)
+    return {
+      payload: {
+        prompt,
+        input_image: image,
+        aspect_ratio: pickKontextAspectRatio(this.constraints.aspectRatios, input.width, input.height),
+        output_format: "jpg",
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+      },
+    }
+  },
+  extractOutput: extractImageOutput,
+  dataProcessor: Object.freeze({
+    name: "Black Forest Labs",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "standard",
+  name: "FLUX.1 Kontext [dev]",
+  vendorLabel: "Replicate / Black Forest Labs",
+  strengths: Object.freeze([
+    "Правка кадра инструкцией: лицо сохраняется, меняются ракурс, одежда и фон",
+    "$0.025 за кадр — цена подтверждена страницей модели",
+    "Открытые веса, воспроизводимость по seed",
+  ]),
+  tradeoffs: Object.freeze([
+    "Один кадр за вызов: пачка вариаций — это пачка predictions",
+    "Сложные правки держит хуже pro и max",
+  ]),
+  avgGenerationTime: "~15 сек",
+})
+
+/**
+ * FLUX.1 Kontext [pro] — когда dev не удержал человека.
+ *
+ * Схема отличается от dev: нет guidance и num_inference_steps, зато есть
+ * safety_tolerance и prompt_upsampling. Апсемплинг не включаем — он переписывает
+ * инструкцию, а мы просим сохранить конкретного человека.
+ */
+const FLUX_KONTEXT_PRO: ImageToImageModelSpec = Object.freeze<ImageToImageModelSpec>({
+  registryKey: "replicate:flux-kontext-pro",
+  id: "black-forest-labs/flux-kontext-pro",
+  provider: "replicate",
+  capability: "image_to_image",
+  execution: "async_prediction",
+  billing: { unit: "output_image", usdPerImage: 0.04 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    aspectRatios: KONTEXT_PRO_ASPECT_RATIOS,
+    maxImagesPerRequest: 1,
+    inputImageExtensions: KONTEXT_IMAGE_EXTENSIONS,
+    preservesIdentity: true,
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const { image, prompt } = requireEditInstruction(input, this.constraints.maxImagesPerRequest)
+    return {
+      payload: {
+        prompt,
+        input_image: image,
+        aspect_ratio: pickKontextAspectRatio(this.constraints.aspectRatios, input.width, input.height),
+        output_format: "jpg",
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+      },
+    }
+  },
+  extractOutput: extractImageOutput,
+  dataProcessor: Object.freeze({
+    name: "Black Forest Labs",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "premium",
+  name: "FLUX.1 Kontext [pro]",
+  vendorLabel: "Replicate / Black Forest Labs",
+  strengths: Object.freeze([
+    "Держит идентичность на сложных правках лучше dev",
+    "Цена подтверждена страницей модели: $0.04 за кадр",
+  ]),
+  tradeoffs: Object.freeze([
+    "В 1.6 раза дороже dev",
+    "Веса закрыты: только через провайдера",
+  ]),
+  avgGenerationTime: "~20 сек",
+})
+
+/** FLUX.1 Kontext [max] — та же схема, что у pro, вдвое дороже. */
+const FLUX_KONTEXT_MAX: ImageToImageModelSpec = Object.freeze<ImageToImageModelSpec>({
+  registryKey: "replicate:flux-kontext-max",
+  id: "black-forest-labs/flux-kontext-max",
+  provider: "replicate",
+  capability: "image_to_image",
+  execution: "async_prediction",
+  billing: { unit: "output_image", usdPerImage: 0.08 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    aspectRatios: KONTEXT_PRO_ASPECT_RATIOS,
+    maxImagesPerRequest: 1,
+    inputImageExtensions: KONTEXT_IMAGE_EXTENSIONS,
+    preservesIdentity: true,
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const { image, prompt } = requireEditInstruction(input, this.constraints.maxImagesPerRequest)
+    return {
+      payload: {
+        prompt,
+        input_image: image,
+        aspect_ratio: pickKontextAspectRatio(this.constraints.aspectRatios, input.width, input.height),
+        output_format: "jpg",
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+      },
+    }
+  },
+  extractOutput: extractImageOutput,
+  dataProcessor: Object.freeze({
+    name: "Black Forest Labs",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "premium",
+  name: "FLUX.1 Kontext [max]",
+  vendorLabel: "Replicate / Black Forest Labs",
+  strengths: Object.freeze([
+    "Самое точное следование инструкции правки из трёх Kontext",
+    "Цена подтверждена страницей модели: $0.08 за кадр",
+  ]),
+  tradeoffs: Object.freeze([
+    "Вдвое дороже pro и втрое дороже dev",
+  ]),
+  avgGenerationTime: "~25 сек",
+})
+
+/** Границы кадра pulid из его схемы: width и height от 256 до 1536. */
+const PULID_MIN_SIDE = 256
+const PULID_MAX_SIDE = 1536
+
+/**
+ * Кадр в границах модели с сохранением пропорции.
+ *
+ * Обрезать по стороне нельзя: 1080x1920 превратилось бы в 1080x1536, то есть в
+ * другое кадрирование, и портрет уехал бы за край. Масштабируем целиком.
+ */
+function fitPulidFrame(width: number, height: number): { width: number, height: number } {
+  const scale = Math.min(1, PULID_MAX_SIDE / Math.max(width, height))
+  const scaled = {
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
+  }
+  return {
+    width: Math.min(PULID_MAX_SIDE, Math.max(PULID_MIN_SIDE, scaled.width)),
+    height: Math.min(PULID_MAX_SIDE, Math.max(PULID_MIN_SIDE, scaled.height)),
+  }
+}
+
+/**
+ * PuLID для FLUX — другой механизм: не правка кадра, а генерация нового
+ * изображения по лицу с референса. Полезен там, где Kontext упирается в
+ * «переставить того же человека в другую сцену целиком».
+ *
+ * Тарифицируется временем GPU (A100 80GB). Страница модели даёт только оценку
+ * прогона (≈$0.021), а оценка — не тариф: модель лежит выключенной, пока цену
+ * не подтвердят счётом аккаунта (§7 п.2 спецификации).
+ */
+const BYTEDANCE_FLUX_PULID: ImageToImageModelSpec = Object.freeze<ImageToImageModelSpec>({
+  registryKey: "replicate:flux-pulid",
+  id: "bytedance/flux-pulid",
+  provider: "replicate",
+  capability: "image_to_image",
+  execution: "async_prediction",
+  billing: { unit: "hardware_second", usdPerSecond: 0.0014, estimatedSeconds: 15 },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    // Пропорции задаются width/height, отдельного enum у модели нет.
+    aspectRatios: Object.freeze([]),
+    maxImagesPerRequest: 1,
+    inputImageExtensions: KONTEXT_IMAGE_EXTENSIONS,
+    preservesIdentity: true,
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const { image, prompt } = requireEditInstruction(input, this.constraints.maxImagesPerRequest)
+    const frame = fitPulidFrame(input.width ?? 896, input.height ?? 1152)
+    return {
+      payload: {
+        main_face_image: image,
+        prompt,
+        width: frame.width,
+        height: frame.height,
+        num_outputs: input.count,
+        output_format: "jpg",
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+      },
+    }
+  },
+  extractOutput: extractImageOutput,
+  dataProcessor: Object.freeze({
+    name: "ByteDance",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: false,
+  tier: "standard",
+  name: "FLUX PuLID",
+  vendorLabel: "Replicate / ByteDance",
+  strengths: Object.freeze([
+    "Переносит лицо в новую сцену целиком, а не правит исходный кадр",
+    "Сила сходства регулируется (id_weight)",
+  ]),
+  tradeoffs: Object.freeze([
+    "Тариф по времени GPU: точная цена известна только после прогона",
+    "Кадр не больше 1536 по стороне",
+  ]),
+  avgGenerationTime: "~15 сек",
+})
+
 /**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
@@ -1425,4 +1708,8 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   VEED_FABRIC_1,
   BYTEDANCE_OMNI_HUMAN,
   WAN_22_S2V,
+  FLUX_KONTEXT_DEV,
+  FLUX_KONTEXT_PRO,
+  FLUX_KONTEXT_MAX,
+  BYTEDANCE_FLUX_PULID,
 ])

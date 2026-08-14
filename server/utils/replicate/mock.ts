@@ -37,6 +37,10 @@ const OUTPUT_EXTENSION_BY_CAPABILITY: Record<string, string> = {
   image_to_video: "mp4",
   text_to_image: "png",
   text_to_speech: "mp3",
+  // Аватарная сцена: портрет плюс речь дают видео со встроенным звуком.
+  speech_to_video: "mp4",
+  // Вариации портрета: маппер просит output_format=jpg, мок обязан совпадать.
+  image_to_image: "jpg",
 }
 
 /**

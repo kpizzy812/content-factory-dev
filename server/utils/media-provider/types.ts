@@ -16,6 +16,7 @@ export type MediaCapability =
   | "image_to_video"
   | "text_to_speech"
   | "speech_to_video"
+  | "image_to_image"
 // b_roll добавляется отдельным решением (P0-16, §7 спецификации)
 
 export type MediaProviderName = "replicate" | "fal"
@@ -108,6 +109,31 @@ export interface SpeechToVideoInput {
   seed?: number
 }
 
+/**
+ * Референс плюс инструкция правки — новый кадр того же человека.
+ *
+ * Отличие от `text_to_image` не в наличии картинки на входе, а в том, что
+ * промпт здесь ИНСТРУКЦИЯ («тот же человек, в профиль, у окна»), а не описание
+ * с нуля: модель обязана сохранить идентичность лица. Без этого аватарной
+ * ротации нужны 5-10 снятых фотографий человека, и это главное требование к
+ * заказчику (spec 2026-08-14-avatar-pipeline, этап 5).
+ */
+export interface ImageToImageInput {
+  /** Публичный URL исходного кадра персонажа. */
+  imageUrl: string
+  /** Инструкция правки. Пустая означает «сделай что-нибудь» — это отказ. */
+  prompt: string
+  /** Сколько кадров просим. Наш инвариант — один на вызов. */
+  count: number
+  /**
+   * Кадр результата. Не задан — сохраняем пропорции референса: у моделей
+   * Kontext для этого есть отдельное значение `match_input_image`.
+   */
+  width?: number
+  height?: number
+  seed?: number
+}
+
 export interface MediaInputMap {
   lip_sync: LipSyncInput
   text_to_image: TextToImageInput
@@ -115,6 +141,7 @@ export interface MediaInputMap {
   image_to_video: ImageToVideoInput
   text_to_speech: TtsInput
   speech_to_video: SpeechToVideoInput
+  image_to_image: ImageToImageInput
 }
 
 export type MediaInputFor<C extends MediaCapability> = MediaInputMap[C]
@@ -173,6 +200,20 @@ export interface SpeechToVideoConstraints {
   imageExtensions: readonly string[]
   /** Принимает ли модель текстовое описание поведения в кадре. */
   supportsPrompt: boolean
+}
+
+export interface ImageToImageConstraints {
+  /** Значения enum `aspect_ratio` из схемы модели, дословно. */
+  aspectRatios: readonly string[]
+  /** Кадров за запрос: разбор выхода берёт один URL, поэтому один. */
+  maxImagesPerRequest: number
+  /** Форматы референса, которые модель принимает. */
+  inputImageExtensions: readonly string[]
+  /**
+   * Сохраняет ли модель идентичность лица без дообучения. false означает
+   * «похожий человек», и для библиотеки портретов это брак, а не вариация.
+   */
+  preservesIdentity: boolean
 }
 
 // ─── Биллинг ────────────────────────────────────────────────────
@@ -293,6 +334,7 @@ export type TextToVideoModelSpec = MediaModelSpecBase<"text_to_video", TextToVid
 export type ImageToVideoModelSpec = MediaModelSpecBase<"image_to_video", ImageToVideoInput, VideoModelConstraints>
 export type TextToSpeechModelSpec = MediaModelSpecBase<"text_to_speech", TtsInput, TtsConstraints>
 export type SpeechToVideoModelSpec = MediaModelSpecBase<"speech_to_video", SpeechToVideoInput, SpeechToVideoConstraints>
+export type ImageToImageModelSpec = MediaModelSpecBase<"image_to_image", ImageToImageInput, ImageToImageConstraints>
 
 export type MediaModelSpec =
   | LipSyncModelSpec
@@ -301,6 +343,7 @@ export type MediaModelSpec =
   | ImageToVideoModelSpec
   | TextToSpeechModelSpec
   | SpeechToVideoModelSpec
+  | ImageToImageModelSpec
 
 export type MediaSpecFor<C extends MediaCapability> = Extract<MediaModelSpec, { capability: C }>
 

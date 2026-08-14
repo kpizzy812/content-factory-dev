@@ -428,18 +428,20 @@ describe("контракт реестра", () => {
     // Тариф fal за секунду Kling v2.1 i2v в проекте не зафиксирован (§7 п.1).
     expect(specFor("fal-ai/kling-video/v2.1/standard/image-to-video").billingConfirmed).toBe(false)
     // Цены Replicate взяты из практики стенда, но canary по
-    // docs/operations/replicate.md по ним не проводился (§6.1). Исключение —
-    // p-video-avatar: его тариф опубликован на странице модели ($0.025/с в
-    // 720p, $0.045/с в 1080p), и это единственная включённая модель
-    // speech_to_video (spec 2026-08-14-avatar-pipeline §7 п.2).
+    // docs/operations/replicate.md по ним не проводился (§6.1). Исключения —
+    // модели, чей тариф прочитан со страницы модели (`billingConfig`):
+    // p-video-avatar ($0.025/с в 720p, $0.045/с в 1080p) и три Kontext
+    // ($0.025 / $0.04 / $0.08 за кадр). Публичный API тарифы не отдаёт вовсе.
+    const CONFIRMED_BY_MODEL_PAGE = new Set([
+      "prunaai/p-video-avatar",
+      "black-forest-labs/flux-kontext-dev",
+      "black-forest-labs/flux-kontext-pro",
+      "black-forest-labs/flux-kontext-max",
+    ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue
       if (spec.capability === "lip_sync") continue
-      if (spec.id === "prunaai/p-video-avatar") {
-        expect(spec.billingConfirmed).toBe(true)
-        continue
-      }
-      expect(spec.billingConfirmed).toBe(false)
+      expect(spec.billingConfirmed).toBe(CONFIRMED_BY_MODEL_PAGE.has(spec.id))
     }
     // Тарифы fal подтверждены страницами моделей, lip-sync — обкатан.
     for (const spec of listMediaSpecs("text_to_image")) {
@@ -448,9 +450,10 @@ describe("контракт реестра", () => {
     for (const spec of listMediaSpecs("lip_sync")) expect(spec.billingConfirmed).toBe(true)
   })
 
-  it("Replicate закрывает все шесть способностей, fal остаётся резервом", () => {
+  it("Replicate закрывает все семь способностей, fal остаётся резервом", () => {
     const replicate = listMediaSpecs().filter(spec => spec.provider === "replicate")
     expect([...new Set(replicate.map(spec => spec.capability))].sort()).toEqual([
+      "image_to_image",
       "image_to_video",
       "lip_sync",
       "speech_to_video",
@@ -466,6 +469,7 @@ describe("контракт реестра", () => {
       "text_to_speech",
       "lip_sync",
       "speech_to_video",
+      "image_to_image",
     ] as const
     for (const capability of capabilities) {
       expect(listMediaSpecs(capability).find(spec => spec.integrated)?.provider).toBe("replicate")
