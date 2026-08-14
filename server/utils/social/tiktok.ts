@@ -251,6 +251,7 @@ export function createTikTokAdapter({
             disableDuet: options.disableDuet || creatorInfo.duetDisabled,
             disableStitch: options.disableStitch || creatorInfo.stitchDisabled,
             videoCoverTimestampMs: options.coverTimestampMs,
+            isAiGenerated: params.isAiGenerated ?? true,
           },
           plan,
         })

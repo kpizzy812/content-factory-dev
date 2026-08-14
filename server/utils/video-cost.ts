@@ -5,7 +5,7 @@
  * Зависит от video-models.ts как source of truth для pricing.
  */
 
-import { getModel, getDefaultImageModel, getDefaultVideoModel, getDefaultTtsModel, getDefaultLipSyncModel } from "./video-models"
+import { getModel, getDefaultImageModel, getDefaultVideoModel, getDefaultTtsModel, getDefaultLipSyncModel, recommendModels } from "./video-models"
 import type { ModelMeta } from "./video-models"
 
 // ─── Типы ──────────────────────────────────────────
@@ -401,13 +401,25 @@ export function estimateVideoCost(config: VideoCostConfig): CostEstimate {
 
 // ─── Пресеты оптимизации стоимости ─────────────────
 
+/**
+ * Модель кадра для пресета берётся из рекомендации по той же стратегии, что
+ * применяет пайплайн, а не литералом. Иначе кнопка «Сбалансированный» проставляла
+ * бы в конфиг модель, которой в маршруте способности уже нет, и смета в UI
+ * расходилась бы с фактом с первого дня (спека медиаконтура §3.6).
+ */
+const PRESET_IMAGE_MODELS = {
+  budget: recommendModels("budget").imageModel.id,
+  balanced: recommendModels("balanced").imageModel.id,
+  quality: recommendModels("high_realism").imageModel.id,
+} as const
+
 export const COST_PRESETS: CostPreset[] = [
   {
     key: "budget",
     label: "Минимальный бюджет",
     description: "Самые дешёвые настройки. Быстрая генерация, базовое качество.",
     config: {
-      imageModelId: "fal-ai/flux/schnell",
+      imageModelId: PRESET_IMAGE_MODELS.budget,
       sceneCount: 3,
       clipDuration: 3,
       generateAudio: false,
@@ -421,7 +433,7 @@ export const COST_PRESETS: CostPreset[] = [
     label: "Сбалансированный",
     description: "Хорошее соотношение цены и качества для большинства задач.",
     config: {
-      imageModelId: "fal-ai/flux/dev",
+      imageModelId: PRESET_IMAGE_MODELS.balanced,
       sceneCount: 3,
       clipDuration: 5,
       generateAudio: true,
@@ -435,7 +447,7 @@ export const COST_PRESETS: CostPreset[] = [
     label: "Максимальное качество",
     description: "Лучшее качество, дольше и дороже. Включает AI lip-sync для сцен с диалогом.",
     config: {
-      imageModelId: "fal-ai/flux/dev",
+      imageModelId: PRESET_IMAGE_MODELS.quality,
       sceneCount: 5,
       clipDuration: 10,
       generateAudio: true,
@@ -467,16 +479,19 @@ export function getCostOptimizationTips(config: VideoCostConfig): Array<{
     savingsPercent: number
   }> = []
 
-  // Предложить дешёвую image model
-  if (config.imageModelId !== "fal-ai/flux/schnell") {
-    const cheaper = estimateVideoCost({ ...config, imageModelId: "fal-ai/flux/schnell" })
+  // Предложить дешёвую image model — ту же, что и бюджетный пресет.
+  // Имя модели в тексте подсказки берём из витрины: захардкоженное «FLUX
+  // Schnell» соврало бы, как только бюджетной станет другая модель.
+  if (config.imageModelId !== PRESET_IMAGE_MODELS.budget) {
+    const cheaper = estimateVideoCost({ ...config, imageModelId: PRESET_IMAGE_MODELS.budget })
     const savings = ((current.total - cheaper.total) / current.total) * 100
     if (savings > 1) {
+      const cheapName = getModel(PRESET_IMAGE_MODELS.budget)?.name ?? PRESET_IMAGE_MODELS.budget
       tips.push({
-        tip: "Использовать FLUX Schnell вместо FLUX Dev для изображений",
-        action: "В 8x дешевле, чуть ниже детализация",
+        tip: `Использовать ${cheapName} для изображений`,
+        action: "Заметно дешевле, чуть ниже детализация",
         field: "imageModelId",
-        newValue: "fal-ai/flux/schnell",
+        newValue: PRESET_IMAGE_MODELS.budget,
         savingsPercent: Math.round(savings),
       })
     }

@@ -10,6 +10,7 @@ import {
 } from "~~/shared/types/story"
 import type { AnySubtitlePresetKey } from "~~/shared/types/subtitle-preset"
 import { getPresetByKey } from "./subtitles/preset-registry"
+import { buildShotVariationFilter, pickShotVariationPlan } from "./video-tools/shot-variation"
 import { tryRenderAssFilter } from "./subtitles/render-ass"
 import { chunkSceneSpeech, maxCharsForWidth } from "./subtitles/phrase-chunker"
 import { normalizeSubtitleStyle } from "./subtitle-style"
@@ -558,6 +559,8 @@ async function normalizeClip(
   inputPath: string,
   outputPath: string,
   format: "portrait" | "landscape",
+  /** Индекс сцены для выбора плана. null — смена плана выключена. */
+  sceneIndex: number | null = null,
 ): Promise<void> {
   try {
     const [inputStat, outputStat] = await Promise.all([stat(inputPath), stat(outputPath)])
@@ -571,11 +574,24 @@ async function normalizeClip(
   const target = format === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 }
   const audioPresent = await hasAudioStream(inputPath)
 
+  // Длительность нужна, чтобы движение прошло ровно за сцену. Неизмеримый файл
+  // не повод отказываться от кадрирования — план просто станет статичным.
+  const shotDurationSec = sceneIndex === null ? null : await probeMediaDuration(inputPath)
+  const shotFilter = sceneIndex === null
+    ? null
+    : buildShotVariationFilter(
+      shotDurationSec === null ? "static_tight" : pickShotVariationPlan(sceneIndex),
+      target,
+      shotDurationSec ?? 1,
+    )
+
   return new Promise((resolve, reject) => {
     const stderrTail: string[] = []
     const cmd = ffmpeg().input(inputPath)
 
-    const videoFilter = `[0:v]scale=${target.w}:${target.h}:force_original_aspect_ratio=decrease,pad=${target.w}:${target.h}:-1:-1:color=black,fps=30,setpts=PTS-STARTPTS,format=yuv420p[v]`
+    // Смена плана идёт ПОСЛЕ приведения к формату: движение считается от
+    // готового кадра 1080x1920, а не от произвольного размера исходника.
+    const videoFilter = `[0:v]scale=${target.w}:${target.h}:force_original_aspect_ratio=decrease,pad=${target.w}:${target.h}:-1:-1:color=black${shotFilter ? `,${shotFilter}` : ""},fps=30,setpts=PTS-STARTPTS,format=yuv420p[v]`
     // Silent track — через `anullsrc` КАК FILTER SOURCE внутри filter_complex (часть libavfilter,
     // всегда доступен). Не путать с `-f lavfi -i anullsrc=...` — это input device demuxer,
     // и fluent-ffmpeg криво раскладывает inputOptions по второму input → "Input format lavfi
@@ -633,10 +649,14 @@ export async function normalizeClipsForConcat(
   clips: string[],
   format: "portrait" | "landscape",
 ): Promise<string[]> {
+  // Смена плана внутри сцены: кадрирование и медленное движение по времени.
+  // Выключается `SHOT_VARIATION_ENABLED=false` — тогда клипы нормализуются как
+  // раньше, кадр в кадр с исходником.
+  const shotVariation = process.env.SHOT_VARIATION_ENABLED !== "false"
   const normalized: string[] = []
-  for (const clip of clips) {
+  for (const [index, clip] of clips.entries()) {
     const normPath = clip.replace(/\.mp4$/i, "_norm.mp4")
-    await normalizeClip(clip, normPath, format)
+    await normalizeClip(clip, normPath, format, shotVariation ? index : null)
     normalized.push(normPath)
   }
   return normalized

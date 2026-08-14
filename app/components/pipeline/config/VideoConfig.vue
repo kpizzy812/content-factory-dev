@@ -21,6 +21,14 @@ const imageModels = computed<VideoModelInfo[]>(() => modelsData.value?.image ?? 
 const videoModels = computed<VideoModelInfo[]>(() => modelsData.value?.video ?? [])
 const ttsModels = computed<VideoModelInfo[]>(() => (modelsData.value as { tts?: VideoModelInfo[] } | null)?.tts ?? [])
 
+// Дефолтные модели приходят с сервера тем же ответом, что и списки: реестр спек
+// — единственное место, где они заданы. Литералы «fal-ai/flux/dev» и
+// «kling-video/v3/standard» жили здесь в трёх местах и тихо расходились с тем,
+// какую модель на самом деле запускает нода.
+const defaultImageModelId = computed(() => modelsData.value?.defaults?.image ?? '')
+const defaultVideoModelId = computed(() => modelsData.value?.defaults?.video ?? '')
+const defaultTtsModelId = computed(() => modelsData.value?.defaults?.tts ?? '')
+
 // ─── Upstream scenario context ──────────────────────
 // Если блок видео соединён с upstream scenario, его sceneCountStrategy - источник
 // истины для sceneCount/perSceneDurations. Читаем СИНХРОННО из pipeline editor
@@ -110,8 +118,8 @@ const effectiveClipDuration = computed(() => {
 // ─── Локальные значения для cost computation ───────
 
 const currentConfig = computed(() => ({
-  imageModelId: props.config.imageModelId || 'fal-ai/flux/dev',
-  videoModelId: props.config.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
+  imageModelId: props.config.imageModelId || defaultImageModelId.value,
+  videoModelId: props.config.videoModelId || defaultVideoModelId.value,
   format: props.config.format || 'vertical',
   sceneCount: effectiveSceneCount.value,
   clipDuration: effectiveClipDuration.value,
@@ -141,7 +149,7 @@ const lipSyncGated = computed(() => {
 
 const voiceoverEnabled = computed(() => props.config.voiceoverEnabled === true)
 const selectedTtsModel = computed(() =>
-  ttsModels.value.find(m => m.id === (props.config.voiceoverModelId || ttsModels.value.find(x => x.integrated)?.id)),
+  ttsModels.value.find(m => m.id === (props.config.voiceoverModelId || defaultTtsModelId.value)),
 )
 const pacingOptions = [
   { value: 'slow', label: 'Медленно', hint: '~2 слов/сек' },
@@ -243,10 +251,10 @@ const musicMoods = [
 ]
 
 const selectedImageModel = computed(() =>
-  imageModels.value.find(m => m.id === (props.config.imageModelId || 'fal-ai/flux/dev')),
+  imageModels.value.find(m => m.id === (props.config.imageModelId || defaultImageModelId.value)),
 )
 const selectedVideoModel = computed(() =>
-  videoModels.value.find(m => m.id === (props.config.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video')),
+  videoModels.value.find(m => m.id === (props.config.videoModelId || defaultVideoModelId.value)),
 )
 
 /** Есть ли хотя бы одна модель с проблемой доступа */
@@ -493,7 +501,7 @@ const RANGE = 'h-1 w-full cursor-pointer appearance-none rounded-full bg-neutral
   <!-- ═══ Модель изображений ═══ -->
   <UiField label="Модель изображений">
     <UiSelect
-      :model-value="config.imageModelId || 'fal-ai/flux/dev'"
+      :model-value="config.imageModelId || defaultImageModelId"
       :options="imageModelOptions"
       :invalid="isModelBlocked(selectedImageModel)"
       @update:model-value="(v) => updateField('imageModelId', v)"
@@ -550,7 +558,7 @@ const RANGE = 'h-1 w-full cursor-pointer appearance-none rounded-full bg-neutral
   <!-- ═══ Модель видео ═══ -->
   <UiField label="Модель видео">
     <UiSelect
-      :model-value="config.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video'"
+      :model-value="config.videoModelId || defaultVideoModelId"
       :options="videoModelOptions"
       :invalid="isModelBlocked(selectedVideoModel)"
       @update:model-value="(v) => updateField('videoModelId', v)"
@@ -742,7 +750,7 @@ const RANGE = 'h-1 w-full cursor-pointer appearance-none rounded-full bg-neutral
     <div v-if="voiceoverEnabled" class="mt-2 flex flex-col gap-2">
       <UiField label="TTS-провайдер">
         <UiSelect
-          :model-value="config.voiceoverModelId || (ttsModels.find(m => m.integrated)?.id ?? '')"
+          :model-value="config.voiceoverModelId || defaultTtsModelId"
           :options="ttsModelOptions"
           @update:model-value="(v) => updateField('voiceoverModelId', v || null)"
         />

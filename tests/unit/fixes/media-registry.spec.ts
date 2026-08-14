@@ -53,10 +53,21 @@ describe("resolveMediaRoute — выбор маршрута способност
     expect(resolveMediaRoute("text_to_speech", null, EMPTY_ENV).primary.id)
       .toBe("minimax/speech-02-turbo")
     expect(resolveMediaRoute("lip_sync", null, EMPTY_ENV).primary.id).toBe("kwaivgi/kling-lip-sync")
-    // image_to_video — исключение: маршрут остаётся на fal, его перевод идёт
-    // отдельным этапом со своим canary, поэтому replicate-спека не integrated.
     expect(resolveMediaRoute("image_to_video", null, EMPTY_ENV).primary.id)
-      .toBe("fal-ai/kling-video/v2.1/standard/image-to-video")
+      .toBe("kwaivgi/kling-v1.6-standard")
+  })
+
+  it("image_to_video: fal остаётся резервом, а не основным маршрутом", () => {
+    // AGENTS.md: fal допускается только как явно настроенный fallback. Пустой
+    // MEDIA_PROVIDER_FALLBACK означает «увидеть настоящую ошибку Replicate».
+    const withoutFallback = resolveMediaRoute("image_to_video", null, EMPTY_ENV)
+    expect(withoutFallback.primary.provider).toBe("replicate")
+    expect(withoutFallback.fallback).toBeNull()
+
+    const withFallback = resolveMediaRoute("image_to_video", null, {
+      MEDIA_PROVIDER_FALLBACK: "fal",
+    })
+    expect(withFallback.fallback?.id).toBe("fal-ai/kling-video/v2.1/standard/image-to-video")
   })
 
   it("явный запрос выигрывает у env-дефолта и принимается в трёх формах записи", () => {
@@ -235,7 +246,7 @@ describe("мапперы входа", () => {
     }).effectiveDurationSec).toBe(5)
   })
 
-  it("TTS-мапперы совпадают с прежним buildProviderInput", () => {
+  it("TTS-мапперы совпадают с прежним сборщиком payload в tts.ts", () => {
     const kokoro = specFor("fal-ai/kokoro/russian")
     expect(kokoro.mapInput({ text: "привет", voiceId: "bf_emma", speed: 1, language: "ru", format: "mp3" }))
       .toEqual({ payload: { prompt: "привет", voice: "bf_emma", speed: 1 } })
@@ -417,11 +428,18 @@ describe("контракт реестра", () => {
     // Тариф fal за секунду Kling v2.1 i2v в проекте не зафиксирован (§7 п.1).
     expect(specFor("fal-ai/kling-video/v2.1/standard/image-to-video").billingConfirmed).toBe(false)
     // Цены Replicate взяты из практики стенда, но canary по
-    // docs/operations/replicate.md по ним не проводился (§6.1).
+    // docs/operations/replicate.md по ним не проводился (§6.1). Исключение —
+    // p-video-avatar: его тариф опубликован на странице модели ($0.025/с в
+    // 720p, $0.045/с в 1080p), и это единственная включённая модель
+    // speech_to_video (spec 2026-08-14-avatar-pipeline §7 п.2).
     for (const spec of listMediaSpecs()) {
-      if (spec.provider === "replicate" && spec.capability !== "lip_sync") {
-        expect(spec.billingConfirmed).toBe(false)
+      if (spec.provider !== "replicate") continue
+      if (spec.capability === "lip_sync") continue
+      if (spec.id === "prunaai/p-video-avatar") {
+        expect(spec.billingConfirmed).toBe(true)
+        continue
       }
+      expect(spec.billingConfirmed).toBe(false)
     }
     // Тарифы fal подтверждены страницами моделей, lip-sync — обкатан.
     for (const spec of listMediaSpecs("text_to_image")) {
@@ -430,19 +448,31 @@ describe("контракт реестра", () => {
     for (const spec of listMediaSpecs("lip_sync")) expect(spec.billingConfirmed).toBe(true)
   })
 
-  it("Replicate закрывает кадры, клипы и речь, fal остаётся резервом", () => {
+  it("Replicate закрывает все шесть способностей, fal остаётся резервом", () => {
     const replicate = listMediaSpecs().filter(spec => spec.provider === "replicate")
     expect([...new Set(replicate.map(spec => spec.capability))].sort()).toEqual([
       "image_to_video",
       "lip_sync",
+      "speech_to_video",
       "text_to_image",
       "text_to_speech",
       "text_to_video",
     ])
-    // Все кроме i2v — подключены и стоят первыми в своей способности.
-    for (const capability of ["text_to_image", "text_to_video", "text_to_speech", "lip_sync"] as const) {
+    // У каждой способности первым подключённым идёт Replicate.
+    const capabilities = [
+      "text_to_image",
+      "text_to_video",
+      "image_to_video",
+      "text_to_speech",
+      "lip_sync",
+      "speech_to_video",
+    ] as const
+    for (const capability of capabilities) {
       expect(listMediaSpecs(capability).find(spec => spec.integrated)?.provider).toBe("replicate")
     }
+    // speech_to_video — способность, которой у fal нет вовсе: аватарная сцена
+    // не имеет резервного маршрута, и это осознанно (см. §3.2 спецификации).
+    expect(listMediaSpecs("speech_to_video").every(spec => spec.provider === "replicate")).toBe(true)
   })
 })
 

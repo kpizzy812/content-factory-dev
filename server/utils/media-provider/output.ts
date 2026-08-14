@@ -4,7 +4,7 @@
  * Форматы, которые реально встречаются: строка, массив, `{ url }`,
  * `{ video: { url } }`, `{ audio: { url } }`, `{ images: [{ url }] }`,
  * `{ output: { audio: { url } } }`, `{ audio_url }`. Раньше это жило тремя
- * разными парсерами (`extractAudioUrl` в tts.ts, `result.images[0].url` и
+ * разными парсерами (свой в tts.ts, `result.images[0].url` и
  * `result.video.url` в шагах, `extractOutputUrl` в replicate/client.ts).
  *
  * Инвариант: НИЧЕГО не теряем молча. Функция возвращает ВСЕ найденные url;
@@ -40,7 +40,7 @@ function collect(raw: unknown, priorityKeys: readonly string[]): OutputEntry[] {
   const record = raw as Record<string, unknown>
 
   // Приоритетные ключи способности идут первыми: у TTS это `audio`, у видео —
-  // `video`. Так порядок разбора совпадает с прежним поведением extractAudioUrl,
+  // `video`. Так порядок разбора совпадает с прежним парсером TTS,
   // где `audio.url` выигрывал у верхнеуровневого `url`.
   for (const key of priorityKeys) {
     if (record[key] !== undefined) {

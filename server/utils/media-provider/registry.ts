@@ -36,6 +36,7 @@ export const MEDIA_CAPABILITIES: readonly MediaCapability[] = Object.freeze([
   "text_to_video",
   "image_to_video",
   "text_to_speech",
+  "speech_to_video",
 ])
 
 const CAPABILITY_SET = new Set<string>(MEDIA_CAPABILITIES)
@@ -53,6 +54,7 @@ const ENV_MODEL_KEYS: Record<MediaCapability, readonly string[]> = Object.freeze
   text_to_video: Object.freeze(["MEDIA_MODEL_TEXT_TO_VIDEO"]),
   image_to_video: Object.freeze(["MEDIA_MODEL_IMAGE_TO_VIDEO"]),
   text_to_speech: Object.freeze(["MEDIA_MODEL_TEXT_TO_SPEECH"]),
+  speech_to_video: Object.freeze(["MEDIA_MODEL_SPEECH_TO_VIDEO"]),
 })
 
 /** По-способностный override резерва поверх общего MEDIA_PROVIDER_FALLBACK. */
@@ -62,6 +64,7 @@ const ENV_FALLBACK_KEYS: Record<MediaCapability, string> = Object.freeze({
   text_to_video: "MEDIA_PROVIDER_FALLBACK_TEXT_TO_VIDEO",
   image_to_video: "MEDIA_PROVIDER_FALLBACK_IMAGE_TO_VIDEO",
   text_to_speech: "MEDIA_PROVIDER_FALLBACK_TEXT_TO_SPEECH",
+  speech_to_video: "MEDIA_PROVIDER_FALLBACK_SPEECH_TO_VIDEO",
 })
 
 const BY_REGISTRY_KEY = new Map<string, MediaModelSpec>(
@@ -231,8 +234,8 @@ export function mapMediaInput<S extends MediaModelSpec>(
 
 /**
  * Голос по умолчанию для TTS-спеки. Переменные DEFAULT_TTS_VOICE_EN /
- * DEFAULT_TTS_VOICE_RU сохранены ради совместимости с прежним
- * `resolveDefaultVoice` (`tts.ts:77-97`).
+ * DEFAULT_TTS_VOICE_RU сохранены ради совместимости со стендами, где они
+ * прописаны со времён самодельного выбора голоса в tts.ts.
  */
 export function resolveSpecVoice(
   spec: MediaModelSpec,

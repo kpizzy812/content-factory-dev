@@ -4,12 +4,12 @@
  * Сюда перенесены существующие модели fal (изображения, text-to-video,
  * image-to-video, TTS, lip-sync-резерв) и Replicate-lip-sync. Вместе с моделью
  * в реестре лежат её маппер входа, разбор выхода, цена, ограничения и таймаут —
- * то есть добавление модели это ОДНА запись, а не правки в
- * `buildClipPayload`, инлайн-payload i2v, `buildProviderInput` и `extractAudioUrl`.
+ * то есть добавление модели это ОДНА запись, а не правки в четырёх местах:
+ * сборщик payload клипов, инлайн-payload i2v, сборщик и парсер TTS.
  *
  * Незнакомых моделей здесь быть не может по построению: нет спеки — нет
  * маппера, и раннер честно падает вместо отправки чужого payload в
- * Kling-формате (`video-pipeline-steps.ts:114-123` — так делать нельзя).
+ * Kling-формате (шаг клипов раньше именно так и делал — так делать нельзя).
  *
  * ВАЖНО про порядок: `video-models.ts` собирает витрину из этого массива, а
  * дефолты берутся как «первая integrated модель способности». Порядок записей
@@ -29,6 +29,7 @@ import type {
   ImageToVideoModelSpec,
   LipSyncModelSpec,
   MediaModelSpec,
+  SpeechToVideoModelSpec,
   TextToImageModelSpec,
   TextToSpeechModelSpec,
   TextToVideoModelSpec,
@@ -291,7 +292,7 @@ const IMAGE_TO_VIDEO_TIMEOUT_MS = 40 * 60_000
 
 const KLING_ASPECT_RATIOS = Object.freeze(["9:16", "16:9", "1:1"] as const)
 
-/** Payload Kling text-to-video — как в `buildClipPayload` (`video-pipeline-steps.ts:81-89`). */
+/** Payload Kling text-to-video — как в прежнем сборщике payload шага клипов. */
 function mapKlingTextToVideo(input: {
   prompt: string
   durationSec: number
@@ -585,10 +586,9 @@ const HAILUO_02_STANDARD: TextToVideoModelSpec = Object.freeze<TextToVideoModelS
 })
 
 /**
- * Image-to-video. Endpoint сегодня зашит константой
- * `KLING_IMAGE_TO_VIDEO_ENDPOINT` (`video-pipeline-steps.ts:52`) и в реестре
- * моделей отсутствует вовсе — из-за этого i2v-сцена считается по цене выбранной
- * text-to-video модели.
+ * Image-to-video. Раньше endpoint был зашит константой в шаге клипов и в
+ * реестре моделей отсутствовал вовсе — из-за этого i2v-сцена считалась по цене
+ * выбранной text-to-video модели. Теперь маршрут способности берётся отсюда.
  *
  * ЦЕНА НЕ ПОДТВЕРЖДЕНА (`billingConfirmed: false`): тариф fal за секунду
  * Kling v2.1 standard i2v в проекте нигде не зафиксирован. До подтверждения по
@@ -599,11 +599,11 @@ const HAILUO_02_STANDARD: TextToVideoModelSpec = Object.freeze<TextToVideoModelS
 /**
  * Тот же Kling 1.6 на Replicate, но со стартовым кадром.
  *
- * `integrated: false` осознанно: маршрут сцен со скриншотом приложения сегодня
- * идёт на fal (KLING_V21_IMAGE_TO_VIDEO ниже), и переключать его вместе со
- * слиянием нельзя — это отдельный этап 7 спецификации, у него свой canary и свой
- * ответ на вопрос «как отдавать референсный кадр» (§7 п.11). Спека лежит готовой,
- * включается одной правкой `integrated` или переменной MEDIA_MODEL_IMAGE_TO_VIDEO.
+ * Основной маршрут image-to-video: способность оживляет любой опорный кадр —
+ * портрет ведущего для AI-аватара, референс сцены, кадр приложения. Ставка та
+ * же, что у t2v той же модели (`replicateVideoBilling`), поэтому включение не
+ * ухудшает точность сметы по сравнению с fal, где $0.084/с тоже не подтверждены.
+ * `billingConfirmed: false` снимается canary по `docs/operations/replicate.md`.
  */
 const REPLICATE_KLING_16_I2V: ImageToVideoModelSpec = Object.freeze<ImageToVideoModelSpec>({
   registryKey: "replicate:kling-v1.6-standard-i2v",
@@ -642,17 +642,18 @@ const REPLICATE_KLING_16_I2V: ImageToVideoModelSpec = Object.freeze<ImageToVideo
     name: "Kuaishou",
     note: "Replicate sends this model's inputs to the model provider for processing.",
   }),
-  integrated: false,
+  integrated: true,
   tier: "standard",
   name: "Kling 1.6 Standard (Replicate, image-to-video)",
   vendorLabel: "Replicate / Kuaishou",
   strengths: Object.freeze([
-    "Оживляет скриншот приложения тем же контуром predictions, что и остальные способности",
+    "Оживляет опорный кадр тем же контуром predictions, что и остальные способности",
     "Идемпотентность по отпечатку опорного кадра",
+    "Результат сразу переносится в постоянное хранилище",
   ]),
   tradeoffs: Object.freeze([
     "Длительность только 5 или 10 секунд",
-    "Не включена: маршрут i2v переводится отдельным этапом со своим canary",
+    "Цена за секунду не подтверждена canary",
   ]),
   avgGenerationTime: "3-8 мин",
 })
@@ -675,8 +676,8 @@ const KLING_V21_IMAGE_TO_VIDEO: ImageToVideoModelSpec = Object.freeze<ImageToVid
   timeoutMs: IMAGE_TO_VIDEO_TIMEOUT_MS,
   mapInput(input) {
     const durationSec = requirePositive(input.durationSec, "durationSec")
-    // v2.1 standard принимает только duration "5" или "10" (прежний
-    // clampKlingI2vDuration). Реальная длина клипа в timeline не меняется —
+    // v2.1 standard принимает только duration "5" или "10" (прежнее
+    // квантование в шаге клипов). Реальная длина клипа в timeline не меняется —
     // assemble отрежет по исходной, но платим и планируем по этому числу.
     const quantized = durationSec > 7 ? 10 : 5
     return {
@@ -1113,6 +1114,286 @@ const FAL_SYNC_LIPSYNC: LipSyncModelSpec = Object.freeze<LipSyncModelSpec>({
   avgGenerationTime: "~30-60 сек на сцену",
 })
 
+// ─── speech_to_video: портрет + речь → говорящее видео ──────────
+//
+// Схемы всех четырёх моделей сняты с Replicate 14.08.2026 через
+// `https://replicate.com/api/models/<owner>/<name>/versions`. Имена полей и
+// значения enum — дословные; выход у всех одна строка-URL.
+//
+// Встроенный TTS `p-video-avatar` (voice_script, voice, voice_language)
+// осознанно не используется: голос ведущего задан `voiceoverVoiceId` и
+// синтезируется своим маршрутом, подменять его чужим набором нельзя.
+
+const SPEECH_TO_VIDEO_TIMEOUT_MS = 30 * 60 * 1000
+
+/** Ближайшее разрешение из тех, что модель реально принимает. */
+function pickResolution(supported: readonly string[], requested: string | undefined): string {
+  const normalized = requested?.trim().toLowerCase()
+  if (normalized && supported.includes(normalized)) return normalized
+
+  const height = normalized ? Number.parseInt(normalized, 10) : Number.NaN
+  if (Number.isFinite(height)) {
+    // Просили больше, чем модель умеет — берём её максимум, а не отказываемся:
+    // апскейл дешевле, чем потерянная сцена.
+    const sorted = [...supported].sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))
+    const fit = sorted.filter(value => Number.parseInt(value, 10) <= height).pop()
+    return fit ?? sorted[0]!
+  }
+  return supported[0]!
+}
+
+/**
+ * Общая проверка входа: портрет, аудио и длительность в пределах модели.
+ * Потолок длины проверяется ДО оплаты — узнать о нём после списания денег
+ * плохой размен (spec 2026-08-14-avatar-pipeline §3.4).
+ */
+function requireSpeechToVideoInput(
+  input: { imageUrl: string, audioUrl: string, durationSec: number },
+  maxDurationSec: number,
+  modelLabel: string,
+): { image: string, audio: string, durationSec: number } {
+  const image = requireText(input.imageUrl, "imageUrl")
+  const audio = requireText(input.audioUrl, "audioUrl")
+  const durationSec = requirePositive(input.durationSec, "durationSec")
+  if (durationSec > maxDurationSec) {
+    throw new Error(
+      `${modelLabel}: аудио ${durationSec.toFixed(1)}с длиннее потолка модели ${maxDurationSec}с`,
+    )
+  }
+  return { image, audio, durationSec }
+}
+
+const PORTRAIT_IMAGE_EXTENSIONS = Object.freeze([".jpg", ".jpeg", ".png", ".webp"])
+const SPEECH_AUDIO_EXTENSIONS = Object.freeze([".mp3", ".wav", ".m4a", ".aac"])
+
+/**
+ * Pruna p-video-avatar — основной маршрут аватарных сцен.
+ *
+ * Единственная модель способности с опубликованной ценой: $0.025/с в 720p и
+ * $0.045/с в 1080p (страница модели, 14.08.2026). Для сравнения, прежняя связка
+ * image_to_video + lip_sync стоила $0.059/с и требовала двух predictions.
+ */
+const PRUNA_P_VIDEO_AVATAR: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>({
+  registryKey: "replicate:p-video-avatar",
+  id: "prunaai/p-video-avatar",
+  provider: "replicate",
+  capability: "speech_to_video",
+  execution: "async_prediction",
+  billing: {
+    unit: "output_second",
+    usdPerSecond: 0.025,
+    byResolution: Object.freeze({ "720p": 0.025, "1080p": 0.045 }),
+  },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    resolutions: Object.freeze(["720p", "1080p"]),
+    // Потолка длины модель не объявляет: длительность равна длине аудио.
+    // Держим границу ролика целиком — больше нам и не нужно.
+    maxDurationSec: 120,
+    audioExtensions: SPEECH_AUDIO_EXTENSIONS,
+    imageExtensions: PORTRAIT_IMAGE_EXTENSIONS,
+    supportsPrompt: true,
+  }),
+  timeoutMs: SPEECH_TO_VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const { image, audio, durationSec } = requireSpeechToVideoInput(input, 120, "p-video-avatar")
+    return {
+      payload: {
+        image,
+        audio,
+        resolution: pickResolution(["720p", "1080p"], input.resolution),
+        ...(input.prompt?.trim() ? { video_prompt: input.prompt.trim() } : {}),
+        ...(input.negativePrompt?.trim() ? { negative_prompt: input.negativePrompt.trim() } : {}),
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+      },
+      effectiveDurationSec: durationSec,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "Pruna AI",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "standard",
+  name: "Pruna Avatar (Replicate)",
+  vendorLabel: "Replicate / Pruna AI",
+  strengths: Object.freeze([
+    "Мимика и движения выведены из речи, а не сгенерированы отдельно",
+    "Один платный вызов вместо image-to-video плюс lip-sync",
+    "Цена подтверждена страницей модели: $0.025/с в 720p",
+  ]),
+  tradeoffs: Object.freeze([
+    "Русская артикуляция не проверена canary",
+    "Требует фронтального портрета: ракурс и перекрытия ломают идентичность",
+  ]),
+  avgGenerationTime: "2-6 мин",
+})
+
+/**
+ * VEED Fabric 1.0 — маршрут длинных блоков.
+ *
+ * Держит 60 секунд одним куском, то есть ролик 70-90 секунд собирается двумя
+ * вызовами вместо девяти. Цена не опубликована, поэтому `integrated: false`:
+ * пускать в смету модель с выдуманным тарифом нельзя (§7 п.2 спецификации).
+ * Принимает только image, audio и resolution — промпта у модели нет.
+ */
+const VEED_FABRIC_1: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>({
+  registryKey: "replicate:veed-fabric-1",
+  id: "veed/fabric-1.0",
+  provider: "replicate",
+  capability: "speech_to_video",
+  execution: "async_prediction",
+  billing: { unit: "output_second", usdPerSecond: 0.025 },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    resolutions: Object.freeze(["480p", "720p"]),
+    maxDurationSec: 60,
+    audioExtensions: SPEECH_AUDIO_EXTENSIONS,
+    imageExtensions: Object.freeze([".jpg", ".jpeg", ".png"]),
+    supportsPrompt: false,
+  }),
+  timeoutMs: SPEECH_TO_VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const { image, audio, durationSec } = requireSpeechToVideoInput(input, 60, "fabric-1.0")
+    return {
+      payload: {
+        image,
+        audio,
+        resolution: pickResolution(["480p", "720p"], input.resolution),
+      },
+      effectiveDurationSec: durationSec,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "VEED",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: false,
+  tier: "standard",
+  name: "VEED Fabric 1.0",
+  vendorLabel: "Replicate / VEED",
+  strengths: Object.freeze([
+    "60 секунд одним вызовом — ролик собирается блоками, а не девятью сценами",
+  ]),
+  tradeoffs: Object.freeze([
+    "Цена не опубликована — до подтверждения не включается",
+    "Максимум 720p",
+    "Промпта нет: поведение в кадре не задаётся",
+  ]),
+  avgGenerationTime: "3-8 мин",
+})
+
+/**
+ * ByteDance OmniHuman — принимает портрет, поясной и ростовой кадр.
+ *
+ * Схема минимальная: image и audio, оба обязательны. Цена не опубликована,
+ * поэтому модель лежит выключенной.
+ */
+const BYTEDANCE_OMNI_HUMAN: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>({
+  registryKey: "replicate:omni-human",
+  id: "bytedance/omni-human",
+  provider: "replicate",
+  capability: "speech_to_video",
+  execution: "async_prediction",
+  billing: { unit: "output_second", usdPerSecond: 0.045 },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    resolutions: Object.freeze(["720p"]),
+    maxDurationSec: 60,
+    audioExtensions: SPEECH_AUDIO_EXTENSIONS,
+    imageExtensions: PORTRAIT_IMAGE_EXTENSIONS,
+    supportsPrompt: false,
+  }),
+  timeoutMs: SPEECH_TO_VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const { image, audio, durationSec } = requireSpeechToVideoInput(input, 60, "omni-human")
+    return {
+      // Схема модели знает ровно два поля. Лишнее не отправляем: Replicate
+      // отвергает неизвестные ключи, а платит за отказ всё равно вызывающий.
+      payload: { image, audio },
+      effectiveDurationSec: durationSec,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "ByteDance",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: false,
+  tier: "premium",
+  name: "OmniHuman (Replicate)",
+  vendorLabel: "Replicate / ByteDance",
+  strengths: Object.freeze([
+    "Работает с портретом, поясным и ростовым кадром",
+    "Жестикуляция телом, а не только мимика",
+  ]),
+  tradeoffs: Object.freeze([
+    "Цена не опубликована — до подтверждения не включается",
+    "Ни промпта, ни выбора разрешения",
+  ]),
+  avgGenerationTime: "5-15 мин",
+})
+
+/**
+ * Wan 2.2 S2V — единственная в способности, где промпт обязателен по схеме.
+ *
+ * Тарифицируется временем GPU, поэтому цена известна только после завершения
+ * prediction: единица `hardware_second`, смета — оценка, факт придёт из
+ * `metrics.predict_time` вебхука.
+ */
+const WAN_22_S2V: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>({
+  registryKey: "replicate:wan-2.2-s2v",
+  id: "wan-video/wan-2.2-s2v",
+  provider: "replicate",
+  capability: "speech_to_video",
+  execution: "async_prediction",
+  billing: { unit: "hardware_second", usdPerSecond: 0.001, estimatedSeconds: 300 },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    resolutions: Object.freeze(["480p", "720p"]),
+    maxDurationSec: 60,
+    audioExtensions: SPEECH_AUDIO_EXTENSIONS,
+    imageExtensions: PORTRAIT_IMAGE_EXTENSIONS,
+    supportsPrompt: true,
+  }),
+  timeoutMs: SPEECH_TO_VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const { image, audio, durationSec } = requireSpeechToVideoInput(input, 60, "wan-2.2-s2v")
+    return {
+      payload: {
+        image,
+        audio,
+        // Промпт обязателен по схеме модели. Пустая строка — не вариант:
+        // модель получит задание «ничего» и снимет что угодно.
+        prompt: input.prompt?.trim()
+          || "a person speaking to the camera, natural expression, static framing",
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+      },
+      effectiveDurationSec: durationSec,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "Alibaba Wan",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: false,
+  tier: "standard",
+  name: "Wan 2.2 S2V (Replicate)",
+  vendorLabel: "Replicate / Alibaba",
+  strengths: Object.freeze([
+    "Поведение в кадре задаётся промптом",
+    "Открытые веса, воспроизводимость по seed",
+  ]),
+  tradeoffs: Object.freeze([
+    "Тариф по времени GPU: точная цена известна только после прогона",
+    "480p/720p, 24 кадра в секунду",
+  ]),
+  avgGenerationTime: "5-15 мин",
+})
+
 /**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
@@ -1131,8 +1412,8 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   KLING_V3_PRO,
   WAN_V22,
   HAILUO_02_STANDARD,
-  KLING_V21_IMAGE_TO_VIDEO,
   REPLICATE_KLING_16_I2V,
+  KLING_V21_IMAGE_TO_VIDEO,
   MINIMAX_SPEECH_02_TURBO,
   KOKORO_EN,
   KOKORO_RU,
@@ -1140,4 +1421,8 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   ELEVENLABS_TURBO,
   KLING_LIP_SYNC,
   FAL_SYNC_LIPSYNC,
+  PRUNA_P_VIDEO_AVATAR,
+  VEED_FABRIC_1,
+  BYTEDANCE_OMNI_HUMAN,
+  WAN_22_S2V,
 ])

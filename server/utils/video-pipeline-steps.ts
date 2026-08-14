@@ -36,90 +36,25 @@ import {
   bumpFavoritePromptsUsage,
   type LoadedFavoritePrompt,
 } from "./agents/favorite-prompts-loader"
-import {
-  resolveAppReferenceLocalPath,
-  detectAppReferenceMediaType,
-} from "./agents/screen-tagger-agent"
 import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
+import { renderStillClip } from "./video-tools/still-clip-runner"
+import { planRemotionOverlays } from "./remotion/overlay-plan"
+import { renderRemotionOverlays } from "./remotion/render"
+import {
+  loadReferenceFrames,
+  normalizeSceneReferenceFrame,
+  referenceFrameKey,
+  type ResolvedReferenceFrame,
+  type SceneReferenceFrame,
+} from "./media-provider/reference-frame"
+import {
+  createReferenceFrameDeps,
+  materializeReferenceFrame,
+} from "./media-provider/reference-frame-repository"
 import { StorageKeys } from "./storage/keys"
 import { uploadLocalAsset } from "./storage/persist-asset"
 import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
-
-/** Endpoint для image-to-video Kling (сцены с привязкой к скриншоту приложения). */
-const KLING_IMAGE_TO_VIDEO_ENDPOINT = "fal-ai/kling-video/v2.1/standard/image-to-video"
-
-/** Image-to-video v2.1 standard принимает только duration "5" или "10". */
-function clampKlingI2vDuration(durationSec: number): "5" | "10" {
-  return durationSec > 7 ? "10" : "5"
-}
-
-/**
- * Строит input payload для text-to-video clip generation в зависимости от модели.
- *
- * У каждой модели в fal.ai свой input schema:
- *  - Kling: duration: string, generate_audio: bool, native audio
- *  - Wan: num_frames + frames_per_second, resolution enum, без аудио
- *  - Hailuo: duration: 5|10 (enum), prompt_optimizer, без аудио
- *
- * При расширении реестра новой text-to-video моделью — добавить ветку сюда.
- * Image-to-video (appScreenRef) всегда идёт через KLING_IMAGE_TO_VIDEO_ENDPOINT
- * вне зависимости от выбранной text-to-video модели — Wan T2V не принимает image_url.
- */
-function buildClipPayload(
-  modelId: string,
-  opts: {
-    prompt: string
-    durationSec: number
-    aspectRatio: "9:16" | "16:9" | "1:1"
-    negativePrompt: string
-    generateAudio: boolean
-  },
-): Record<string, unknown> {
-  if (modelId.startsWith("fal-ai/kling-video/")) {
-    return {
-      prompt: opts.prompt,
-      duration: String(opts.durationSec),
-      aspect_ratio: opts.aspectRatio,
-      generate_audio: opts.generateAudio,
-      negative_prompt: opts.negativePrompt,
-    }
-  }
-
-  if (modelId.startsWith("fal-ai/wan/")) {
-    // Wan: длительность = num_frames / frames_per_second.
-    // fps=16 — default, num_frames ∈ [17, 161] → допустимый диапазон 1.06–10.06s.
-    const fps = 16
-    const numFrames = Math.max(17, Math.min(161, Math.round(opts.durationSec * fps)))
-    return {
-      prompt: opts.prompt,
-      num_frames: numFrames,
-      frames_per_second: fps,
-      aspect_ratio: opts.aspectRatio,
-      negative_prompt: opts.negativePrompt,
-      resolution: "720p",
-    }
-  }
-
-  if (modelId.startsWith("fal-ai/minimax/hailuo")) {
-    return {
-      prompt: opts.prompt,
-      duration: opts.durationSec >= 7 ? 10 : 5,
-      prompt_optimizer: true,
-    }
-  }
-
-  // Fallback на Kling-формат для незнакомой kling-совместимой модели — лучше
-  // попробовать, чем падать. Если submit вернёт 422 — log покажет, какая модель.
-  console.warn(`[buildClipPayload] неизвестная модель ${modelId}, использую Kling-payload как fallback`)
-  return {
-    prompt: opts.prompt,
-    duration: String(opts.durationSec),
-    aspect_ratio: opts.aspectRatio,
-    generate_audio: opts.generateAudio,
-    negative_prompt: opts.negativePrompt,
-  }
-}
 
 // ─── Шаг 1: Генерация промптов ─────────────────────────────────
 
@@ -629,6 +564,12 @@ export async function runClipGeneration(
    * text-to-video генерация для них не запускается вовсе.
    */
   presenterSceneIndexes?: ReadonlySet<number>,
+  /**
+   * Сцены-перебивки: снимаются кадром с движением камеры, без платного клипа.
+   * Ключ карты кадров — тот же индекс сцены.
+   */
+  brollSceneIndexes?: ReadonlySet<number>,
+  imagePathsByScene?: ReadonlyMap<number, string>,
 ): Promise<ClipStepResult> {
   const step = await ensureStep(videoId, "clip_generation", 2)
 
@@ -668,23 +609,21 @@ export async function runClipGeneration(
     prompt: string
     durationSec: number
     order: number
-    appScreenRef?: { imageId: string; fileUrl: string } | null
+    referenceFrame?: SceneReferenceFrame | null
     devicesInScene?: DeviceType[]
   }>
 
-  // Pre-load AppReferenceImage записи по imageId сцен — нужны mimeType + локальный
-  // файл для falUploadFile. Если запись удалена — сцена откатится на text-to-video.
-  const screenRefsById = new Map<string, { id: string; appId: number; fileUrl: string; mimeType: string | null }>()
+  // Pre-load записи опорных кадров сцен. Источник — не только скриншот
+  // приложения: тем же маршрутом оживляются портрет ведущего и референс сцены.
+  // Если запись удалена — сцена откатится на text-to-video.
+  const referenceFramesByKey = new Map<string, ResolvedReferenceFrame>()
   if (isStoryDriven && storyPlan?.scenes?.length) {
-    const screenIds = storyPlan.scenes
-      .map(s => s.appScreenRef?.imageId)
-      .filter((x): x is string => !!x)
-    if (screenIds.length > 0) {
-      const records = await prisma.appReferenceImage.findMany({
-        where: { id: { in: screenIds } },
-        select: { id: true, appId: true, fileUrl: true, mimeType: true },
-      })
-      for (const r of records) screenRefsById.set(r.id, r)
+    const sceneRefs = storyPlan.scenes
+      .map(s => normalizeSceneReferenceFrame(s))
+      .filter((x): x is SceneReferenceFrame => !!x)
+    if (sceneRefs.length > 0) {
+      const loaded = await loadReferenceFrames(sceneRefs, createReferenceFrameDeps())
+      for (const [key, frame] of loaded) referenceFramesByKey.set(key, frame)
     }
   }
 
@@ -696,26 +635,22 @@ export async function runClipGeneration(
       const planScene = videoPlan.scenes.find(ps => ps.order === s.order)
       const sceneDuration = planScene?.durationSec ?? clipDuration
 
-      // Сопоставление scene.appScreenRef из storyPlan (Claude order соответствует scenePrompt order).
+      // Сопоставление опорного кадра из storyPlan (Claude order соответствует scenePrompt order).
       const storyScene = storyPlan?.scenes?.find(ps => ps.order === s.order)
-      const ref = storyScene?.appScreenRef
-      const refRecord = ref?.imageId ? screenRefsById.get(ref.imageId) : undefined
-      // Fallback: если imageId был задан, но AppReferenceImage удалён (или
-      // принадлежит другому app) — забываем привязку и идём text-to-video.
-      // WARN остаётся в pipeline log для отладки.
-      if (ref?.imageId && !refRecord) {
-        console.warn(`[video-pipeline] Scene ${s.order}: AppReferenceImage ${ref.imageId} не найдена, fallback на text-to-video`)
+      const ref = storyScene ? normalizeSceneReferenceFrame(storyScene) : null
+      const refRecord = ref ? referenceFramesByKey.get(referenceFrameKey(ref)) : undefined
+      // Fallback: если ссылка была задана, но запись референса удалена — забываем
+      // привязку и идём text-to-video. WARN остаётся в pipeline log для отладки.
+      if (ref && !refRecord) {
+        console.warn(`[video-pipeline] Scene ${s.order}: референс ${referenceFrameKey(ref)} не найден, fallback на text-to-video`)
       }
-      const screenRef = ref && refRecord
-        ? { imageId: ref.imageId, fileUrl: refRecord.fileUrl }
-        : null
 
       return {
         key: `scene_${idx + 1}`,
         prompt: s.prompt,
         durationSec: sceneDuration,
         order: idx,
-        appScreenRef: screenRef,
+        referenceFrame: ref && refRecord ? ref : null,
         // devicesInScene берём из runtime-плана (не из scenePrompts) — там
         // санитизированный массив, который проложил scene-planner.
         devicesInScene: planScene?.devicesInScene && planScene.devicesInScene.length > 0
@@ -756,8 +691,14 @@ export async function runClipGeneration(
 
     // Маршрут text-to-video разрешается один раз на шаг. Спека несёт payload,
     // разбор выхода, квантование длительности и цену — ветвления по префиксу
-    // id (`buildClipPayload`) здесь больше нет.
+    // id шаг больше не делает.
     const clipRoute = resolveMediaRoute("text_to_video", videoModelId)
+    // Маршрут image-to-video тоже приходит из реестра, а не из константы шага.
+    // Разрешаем только когда такие сцены есть: ролик без опорных кадров не
+    // должен падать из-за чужой настройки MEDIA_MODEL_IMAGE_TO_VIDEO.
+    const i2vRoute = scenes.some(s => s.referenceFrame)
+      ? resolveMediaRoute("image_to_video")
+      : null
     const assetsDir = getAssetsDir(videoId)
     // В story-driven режиме runImageGeneration может быть skipped (skipImageGeneration=true),
     // тогда директория не создаётся. Гарантируем её существование здесь — writeFile в
@@ -814,16 +755,36 @@ export async function runClipGeneration(
       // сам решает, prediction это или очередь fal.
       const aspectRatio = format === "portrait" ? "9:16" : "16:9"
 
-      // Image-to-video routing: если сцена привязана к существующему AppReferenceImage,
-      // переключаемся на kling-video v2.1 standard image-to-video. Если запись была
-      // удалена (refRecord === undefined в screenRefsById) — scene.appScreenRef уже
-      // null после mapping, fallback на text-to-video. WARN залогирован отдельно.
-      const useImageToVideo = !!scene.appScreenRef
-      const sceneEndpoint = useImageToVideo ? KLING_IMAGE_TO_VIDEO_ENDPOINT : videoModelId
+      // Image-to-video routing: если сцена привязана к существующему референсу
+      // (кадр приложения, портрет ведущего, референс сцены), переключаемся на
+      // маршрут способности image_to_video. Удалённая запись обнулила
+      // scene.referenceFrame при mapping — fallback на text-to-video, WARN
+      // залогирован отдельно. i2vRoute здесь заведомо не null: он разрешается
+      // ровно тогда, когда среди сцен есть хоть одна с опорным кадром.
+      //
+      // Файл опорного кадра готовится ДО выбора маршрута: запись, которую нечем
+      // доставить, обязана уронить сцену в text-to-video, а не уйти в платную
+      // задачу с пустым входом.
+      const referenceFrame = scene.referenceFrame
+        ? referenceFramesByKey.get(referenceFrameKey(scene.referenceFrame))
+        : undefined
+      const referenceFramePath = referenceFrame
+        ? await materializeReferenceFrame(referenceFrame, assetsDir)
+        : null
+      if (referenceFrame && !referenceFramePath) {
+        await appendStepLog(
+          step.id,
+          `Сцена ${scene.key}: файл референса ${referenceFrameKey(referenceFrame)} недоступен — снимаю text-to-video`,
+        )
+      }
+      const useImageToVideo = !!referenceFrame && !!referenceFramePath
+      const sceneEndpoint = useImageToVideo ? i2vRoute!.primary.id : videoModelId
 
       const sceneNegativePrompt = buildNegativePromptForScene({
         devices: scene.devicesInScene,
-        hasAppScreenRef: useImageToVideo,
+        // Анкер «не ломай интерфейс» относится только к кадру приложения.
+        // Портрету ведущего и референсу сцены он не нужен и вредит.
+        hasAppScreenRef: useImageToVideo && referenceFrame!.source === "app_screen",
       })
 
       if (scene.devicesInScene && scene.devicesInScene.length > 0) {
@@ -838,23 +799,55 @@ export async function runClipGeneration(
         contentType: "video/mp4",
       }
 
+      // Перебивка: сцена без реплики снимается кадром с движением камеры, а не
+      // покупкой клипа. Кадр уже оплачен на шаге изображений ($0.025), тогда
+      // как text-to-video взял бы $0.045 за каждую секунду. Решение от
+      // 14.08.2026, см. docs/superpowers/specs/2026-08-14-avatar-pipeline.md §8.
+      const brollImagePath = brollSceneIndexes?.has(scene.order)
+        ? imagePathsByScene?.get(scene.order) ?? null
+        : null
+      if (brollImagePath) {
+        await renderStillClip({
+          imagePath: brollImagePath,
+          outputPath: clipPath,
+          durationSec: scene.durationSec,
+          sceneIndex: scene.order,
+          format: format === "portrait" ? "portrait" : "landscape",
+        })
+        clipPaths.push(clipPath)
+        const brollStorage = await uploadLocalAsset(clipPath, clipPersist.storageKey, clipPersist.contentType)
+        await prisma.videoAsset.create({
+          data: {
+            videoId,
+            type: "clip" as never,
+            prompt: scene.prompt.slice(0, 500),
+            filePath: clipPath,
+            fileUrl: storageKeyToLegacyUrl(brollStorage.storageKey),
+            order: scene.order,
+            duration: scene.durationSec,
+            ...brollStorage,
+          },
+        })
+        await appendStepLog(
+          step.id,
+          `Сцена ${scene.key}: перебивка собрана из кадра движением камеры — платного клипа нет`,
+        )
+        continue
+      }
+
       // unitKey=scene.key — критично! Без него все 5 клипов получали бы результат
       // первого scene (reattach к одному falRequestId). User потерял $3 на это.
       let task: Awaited<ReturnType<typeof runMediaTask>>
-      if (useImageToVideo && scene.appScreenRef) {
-        const refRecord = screenRefsById.get(scene.appScreenRef.imageId)!
-        const localPath = resolveAppReferenceLocalPath(refRecord.appId, refRecord.fileUrl)
-        const mediaType = detectAppReferenceMediaType(refRecord.mimeType, refRecord.fileUrl)
-        await appendStepLog(step.id, `Сцена ${scene.key}: image-to-video через скриншот ${scene.appScreenRef.imageId}, заливаю в fal storage`)
+      if (useImageToVideo) {
+        await appendStepLog(step.id, `Сцена ${scene.key}: image-to-video через референс ${referenceFrameKey(referenceFrame!)} (${referenceFrame!.source})`)
 
         // Опорный кадр заливается внутри вызова: в ключ идемпотентности идёт
         // sha256 файла, а не временный URL заливки — иначе каждый прогон
         // считался бы новой задачей и оплачивался заново.
-        const i2vRoute = resolveMediaRoute("image_to_video")
         task = await runMediaTask({
           capability: "image_to_video",
-          spec: i2vRoute.primary,
-          fallbackSpec: i2vRoute.fallback,
+          spec: i2vRoute!.primary,
+          fallbackSpec: i2vRoute!.fallback,
           input: {
             prompt: scene.prompt,
             imageUrl: "",
@@ -863,7 +856,7 @@ export async function runClipGeneration(
             withAudio: false,
             negativePrompt: sceneNegativePrompt,
           },
-          inputUploads: [{ field: "imageUrl", path: localPath, contentType: mediaType }],
+          inputUploads: [{ field: "imageUrl", path: referenceFramePath!, contentType: referenceFrame!.mimeType }],
           videoId,
           stepId: step.id,
           unitKey: scene.key,
@@ -871,10 +864,11 @@ export async function runClipGeneration(
           outputPath: clipPath,
           persist: clipPersist,
         })
-        // Длительность после квантования модели (5 или 10) известна из спеки.
-        // Реальная длина клипа в timeline не меняется — assemble отрежет по
-        // originalDurationSec, поэтому perSceneDurations остаются прежними.
-        await appendStepLog(step.id, `Сцена ${scene.key}: kling i2v duration=${task.effectiveDurationSec}s (исходно ${scene.durationSec}s)`)
+        // Длительность после квантования модели известна из спеки: какие
+        // значения допустимы, знает она, а не шаг. Реальная длина клипа в
+        // timeline не меняется — assemble отрежет по originalDurationSec,
+        // поэтому perSceneDurations остаются прежними.
+        await appendStepLog(step.id, `Сцена ${scene.key}: i2v duration=${task.effectiveDurationSec}s (исходно ${scene.durationSec}s)`)
       } else {
         task = await runMediaTask({
           capability: "text_to_video",
@@ -1912,6 +1906,36 @@ export async function runAssembly(
       clipVolumeWithVoiceover: extras?.clipVolumeWithVoiceover,
       voiceoverIntervals: extras?.voiceoverIntervals,
     })
+
+    // Анимационная инфографика (PROJECT_CONTEXT §5) — необязательный слой
+    // поверх готового ролика. Он не имеет права уронить сборку: ролик уже
+    // собран и годен к публикации, а Remotion тянет headless Chrome и может
+    // быть не установлен вовсе.
+    const overlayPlan = planRemotionOverlays({
+      scenes: (videoPlan?.scenes ?? []).map(scene => ({
+        order: scene.order,
+        durationSec: scene.durationSec,
+        spokenLine: scene.spokenLine ?? null,
+        subtitleCopy: scene.subtitleCopy ?? null,
+      })),
+    })
+    const overlaid = join(getVideosDir(), `${videoId}_overlays.mp4`)
+    const overlayOutcome = await renderRemotionOverlays({
+      inputPath: result.filePath,
+      outputPath: overlaid,
+      plan: overlayPlan,
+      format: format === "portrait" ? "portrait" : "landscape",
+    }).catch((error: unknown) => ({
+      status: "skipped" as const,
+      reason: error instanceof Error ? error.message : String(error),
+    }))
+
+    if (overlayOutcome.status === "rendered") {
+      result.filePath = overlayOutcome.outputPath
+      await appendStepLog(step.id, `Инфографика наложена: ${overlayPlan.overlays.length} плашек`)
+    } else if (overlayPlan.overlays.length > 0) {
+      await appendStepLog(step.id, `Инфографика пропущена: ${overlayOutcome.reason}`)
+    }
 
     await updateStep(step.id, {
       status: "completed",

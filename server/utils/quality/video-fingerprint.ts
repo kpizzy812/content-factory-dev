@@ -99,6 +99,12 @@ export interface VideoFingerprint {
   durationSec: number | null
   frames: FingerprintFrame[]
   /**
+   * Последовательность хешей по сетке кадров — то, как отпечаток строят
+   * площадки. Пустая у записей, сделанных до появления сетки: такие продолжают
+   * сравниваться по трём опорным кадрам.
+   */
+  grid: string[]
+  /**
    * Хеш обложки. Отдельным полем, потому что обложка — не обязательно кадр
    * ролика (её генерируют отдельным ассетом), а п.7 требует «разные первые
    * кадры И обложки».
@@ -132,8 +138,116 @@ export function pickFingerprintTimestamps(durationSec: number): FingerprintTimes
   ]
 }
 
+/**
+ * Шаг сетки кадров в секундах.
+ *
+ * ОТКУДА: платформы сэмплируют кадры с интервалом порядка 1-2 секунд и строят
+ * отпечаток как последовательность их хешей. Две секунды — верхняя граница
+ * этого диапазона: она вдвое дешевле по числу кадров и всё ещё ловит смену
+ * плана, ради которой сетка и нужна.
+ */
+export const DEFAULT_FINGERPRINT_GRID_STEP_SEC = 2
+
+/**
+ * Потолок числа кадров сетки на ролик.
+ *
+ * Каждый кадр — это байты в Json чека и работа ffmpeg. Наш формат — 70-90
+ * секунд, то есть штатно выходит 35-45 точек; потолок нужен, чтобы случайно
+ * поданный часовой файл не превратил проверку в отдельную задачу.
+ */
+export const FINGERPRINT_GRID_MAX_FRAMES = 120
+
+/**
+ * Какая доля совпавших кадров сетки означает дубль.
+ *
+ * ОТКУДА: пара совпадений на длинной сетке — это общая заставка и одинаковая
+ * посадка ведущего в той же студии, и блокировать по ним партию нельзя. Две
+ * трети последовательности совпасть случайно уже не могут: это тот самый повтор
+ * «одинаковых пикселей, движений, последовательности сцен» из п.7.
+ */
+export const FINGERPRINT_GRID_DUPLICATE_RATIO = 2 / 3
+
+/**
+ * Минимум сравнимых кадров, ниже которого доля ничего не значит.
+ * На двух кадрах «две трети» вырождаются в «один из двух».
+ */
+export const FINGERPRINT_GRID_MIN_FRAMES = 5
+
+/**
+ * Точки съёма кадров по сетке. Отступ от краёв тот же, что у опорных кадров:
+ * фейд и чёрный кадр совпадут у всех роликов подряд.
+ */
+export function pickFingerprintGridTimestamps(
+  durationSec: number,
+  stepSec: number = DEFAULT_FINGERPRINT_GRID_STEP_SEC,
+): number[] {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return []
+  if (!Number.isFinite(stepSec) || stepSec <= 0) return []
+
+  const margin = Math.min(FINGERPRINT_EDGE_MARGIN_SEC, durationSec / 10)
+  const points: number[] = []
+  for (let at = margin; at < durationSec - margin / 2; at += stepSec) {
+    points.push(Math.round(at * 100) / 100)
+    if (points.length >= FINGERPRINT_GRID_MAX_FRAMES) break
+  }
+  // Ролик короче шага сетки всё равно обязан дать точку: иначе он окажется
+  // «не проверенным» вместо «проверенного по одному кадру».
+  if (points.length === 0) points.push(Math.round(margin * 100) / 100)
+  return points
+}
+
+export interface GridComparison {
+  comparedFrames: number
+  matchedFrames: number
+  /** Доля совпавших среди сравнимых. null — сравнивать было нечего. */
+  ratio: number | null
+  isDuplicate: boolean
+}
+
+/**
+ * Сравнение двух сеток позиция к позиции по общему префиксу.
+ *
+ * ПОЧЕМУ префикс, а не выравнивание по времени: сетка строится одним шагом от
+ * одного отступа, поэтому индекс уже означает «столько-то секунд от начала».
+ * Ролики разной длины сопоставимы ровно там, где оба существуют.
+ *
+ * Негодный хеш пропускается: сетку считает ffmpeg, и один неудачный кадр не
+ * повод отменять проверку остальных.
+ */
+export function compareFingerprintGrids(
+  candidate: readonly string[],
+  previous: readonly string[],
+  options: { thresholdBits?: number, ratio?: number } = {},
+): GridComparison {
+  const threshold = options.thresholdBits ?? FINGERPRINT_FRAME_DISTANCE_BITS
+  const requiredRatio = options.ratio ?? FINGERPRINT_GRID_DUPLICATE_RATIO
+  const length = Math.min(candidate.length, previous.length)
+
+  let comparedFrames = 0
+  let matchedFrames = 0
+  for (let index = 0; index < length; index += 1) {
+    const a = candidate[index]!
+    const b = previous[index]!
+    if (!isFingerprintHash(a) || !isFingerprintHash(b)) continue
+    comparedFrames += 1
+    if (hammingDistance(a, b) <= threshold) matchedFrames += 1
+  }
+
+  const ratio = comparedFrames > 0 ? matchedFrames / comparedFrames : null
+  return {
+    comparedFrames,
+    matchedFrames,
+    ratio,
+    isDuplicate: comparedFrames >= FINGERPRINT_GRID_MIN_FRAMES
+      && ratio !== null
+      && ratio >= requiredRatio,
+  }
+}
+
 export interface BuildFingerprintInput {
   frames: Array<{ label: FingerprintFrameLabel; atSec: number; hash: string }>
+  /** Хеши по сетке, в порядке возрастания времени. */
+  grid?: readonly string[]
   coverHash?: string | null
   durationSec?: number | null
   /** Только для тестов: обычно берётся текущее время. */
@@ -158,6 +272,9 @@ export function buildVideoFingerprint(input: BuildFingerprintInput): VideoFinger
     version: VIDEO_FINGERPRINT_VERSION,
     durationSec: Number.isFinite(duration) && duration > 0 ? Math.round(duration * 100) / 100 : null,
     frames,
+    // Битые хеши отбрасываются так же, как у опорных кадров: попав в историю,
+    // такой хеш навсегда сломал бы сравнение для следующих роликов.
+    grid: (input.grid ?? []).filter(isFingerprintHash),
     coverHash: isFingerprintHash(input.coverHash) ? input.coverHash : null,
     computedAt: input.computedAt ?? new Date().toISOString(),
   }
@@ -182,12 +299,14 @@ export function parseVideoFingerprint(value: unknown): VideoFingerprint | null {
     frames.push({ label, atSec: Number(entry.atSec) || 0, hash: entry.hash })
   }
   const coverHash = isFingerprintHash(raw.coverHash) ? raw.coverHash : null
-  if (frames.length === 0 && !coverHash) return null
+  const grid = Array.isArray(raw.grid) ? raw.grid.filter(isFingerprintHash) : []
+  if (frames.length === 0 && !coverHash && grid.length === 0) return null
   const duration = Number(raw.durationSec)
   return {
     version: typeof raw.version === 'string' && raw.version ? raw.version : VIDEO_FINGERPRINT_VERSION,
     durationSec: Number.isFinite(duration) && duration > 0 ? duration : null,
     frames,
+    grid,
     coverHash,
     computedAt: typeof raw.computedAt === 'string' ? raw.computedAt : '',
   }
@@ -231,6 +350,8 @@ export interface FingerprintComparison {
   comparedFrames: number
   coverMatched: boolean
   firstFrameMatched: boolean
+  /** Результат сравнения по сетке кадров — пустой у записей без сетки. */
+  grid: GridComparison
   isDuplicate: boolean
 }
 
@@ -270,6 +391,12 @@ export function compareFingerprints(
     && hammingDistance(candidate.coverHash, previous.coverHash) <= threshold,
   )
   const values = Object.values(distances) as number[]
+  // Сетка — второй, более близкий к площадке признак: она ловит повтор всей
+  // последовательности, а не только трёх опорных точек. Вердикт объединяется
+  // по «или»: дубль по любому из признаков остаётся дублем.
+  const grid = compareFingerprintGrids(candidate.grid ?? [], previous.grid ?? [], {
+    thresholdBits: threshold,
+  })
   return {
     matchedFrames,
     distances,
@@ -277,7 +404,8 @@ export function compareFingerprints(
     comparedFrames,
     coverMatched,
     firstFrameMatched: matchedFrames.includes('first') || coverMatched,
-    isDuplicate: matchedFrames.length >= quorum,
+    grid,
+    isDuplicate: matchedFrames.length >= quorum || grid.isDuplicate,
   }
 }
 

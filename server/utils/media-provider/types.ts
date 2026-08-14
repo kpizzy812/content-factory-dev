@@ -15,6 +15,7 @@ export type MediaCapability =
   | "text_to_video"
   | "image_to_video"
   | "text_to_speech"
+  | "speech_to_video"
 // b_roll добавляется отдельным решением (P0-16, §7 спецификации)
 
 export type MediaProviderName = "replicate" | "fal"
@@ -86,12 +87,34 @@ export interface LipSyncInput {
   audioUrl: string
 }
 
+/**
+ * Портрет плюс готовая речь — сразу говорящее видео. Отличие от
+ * `image_to_video` + `lip_sync` не в экономии вызова, а в том, что мимика и
+ * движения выводятся из самой речи: модель знает темп, паузы и ударения, а
+ * i2v о них не знает и знать не может (spec 2026-08-14-avatar-pipeline §1).
+ */
+export interface SpeechToVideoInput {
+  /** Публичный URL портрета. */
+  imageUrl: string
+  /** Публичный URL готового TTS-аудио сцены. */
+  audioUrl: string
+  /** Длина аудио: по ней считаются деньги и таймлайн, а не по плану сцены. */
+  durationSec: number
+  /** Спека сводит к ближайшему допустимому значению своей модели. */
+  resolution?: string
+  /** Поведение в кадре. Модели без такого поля промпт игнорируют. */
+  prompt?: string
+  negativePrompt?: string
+  seed?: number
+}
+
 export interface MediaInputMap {
   lip_sync: LipSyncInput
   text_to_image: TextToImageInput
   text_to_video: TextToVideoInput
   image_to_video: ImageToVideoInput
   text_to_speech: TtsInput
+  speech_to_video: SpeechToVideoInput
 }
 
 export type MediaInputFor<C extends MediaCapability> = MediaInputMap[C]
@@ -139,6 +162,17 @@ export interface TtsConstraints {
   maxCharacters: number
   languages: readonly string[]
   formats: readonly string[]
+}
+
+export interface SpeechToVideoConstraints {
+  /** Разрешения, которые модель реально принимает (значения enum её схемы). */
+  resolutions: readonly string[]
+  /** Потолок длины: у fabric-1.0 — 60 секунд. Проверяется ДО оплаты. */
+  maxDurationSec: number
+  audioExtensions: readonly string[]
+  imageExtensions: readonly string[]
+  /** Принимает ли модель текстовое описание поведения в кадре. */
+  supportsPrompt: boolean
 }
 
 // ─── Биллинг ────────────────────────────────────────────────────
@@ -209,8 +243,8 @@ export interface MediaVoices {
   byLanguage?: Readonly<Record<string, string>>
   /**
    * Имя переменной окружения, которая переопределяет голос по умолчанию.
-   * Существует ради обратной совместимости с `resolveDefaultVoice`
-   * (`tts.ts:77-97`): DEFAULT_TTS_VOICE_EN / DEFAULT_TTS_VOICE_RU.
+   * Существует ради обратной совместимости с прежним выбором голоса в tts.ts:
+   * DEFAULT_TTS_VOICE_EN / DEFAULT_TTS_VOICE_RU уже прописаны на стендах.
    */
   envOverrideKey?: string
 }
@@ -258,6 +292,7 @@ export type TextToImageModelSpec = MediaModelSpecBase<"text_to_image", TextToIma
 export type TextToVideoModelSpec = MediaModelSpecBase<"text_to_video", TextToVideoInput, VideoModelConstraints>
 export type ImageToVideoModelSpec = MediaModelSpecBase<"image_to_video", ImageToVideoInput, VideoModelConstraints>
 export type TextToSpeechModelSpec = MediaModelSpecBase<"text_to_speech", TtsInput, TtsConstraints>
+export type SpeechToVideoModelSpec = MediaModelSpecBase<"speech_to_video", SpeechToVideoInput, SpeechToVideoConstraints>
 
 export type MediaModelSpec =
   | LipSyncModelSpec
@@ -265,6 +300,7 @@ export type MediaModelSpec =
   | TextToVideoModelSpec
   | ImageToVideoModelSpec
   | TextToSpeechModelSpec
+  | SpeechToVideoModelSpec
 
 export type MediaSpecFor<C extends MediaCapability> = Extract<MediaModelSpec, { capability: C }>
 

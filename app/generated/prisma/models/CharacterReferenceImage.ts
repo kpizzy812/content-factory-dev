@@ -34,6 +34,7 @@ export type CharacterReferenceImageAvgAggregateOutputType = {
   uploadedById: number | null
   aiAttempts: number | null
   generationCostUsd: runtime.Decimal | null
+  usageCount: number | null
 }
 
 export type CharacterReferenceImageSumAggregateOutputType = {
@@ -44,6 +45,7 @@ export type CharacterReferenceImageSumAggregateOutputType = {
   uploadedById: number | null
   aiAttempts: number | null
   generationCostUsd: runtime.Decimal | null
+  usageCount: number | null
 }
 
 export type CharacterReferenceImageMinAggregateOutputType = {
@@ -69,6 +71,8 @@ export type CharacterReferenceImageMinAggregateOutputType = {
   generationPrompt: string | null
   generationModel: string | null
   generationCostUsd: runtime.Decimal | null
+  usageCount: number | null
+  lastUsedAt: Date | null
 }
 
 export type CharacterReferenceImageMaxAggregateOutputType = {
@@ -94,6 +98,8 @@ export type CharacterReferenceImageMaxAggregateOutputType = {
   generationPrompt: string | null
   generationModel: string | null
   generationCostUsd: runtime.Decimal | null
+  usageCount: number | null
+  lastUsedAt: Date | null
 }
 
 export type CharacterReferenceImageCountAggregateOutputType = {
@@ -120,6 +126,8 @@ export type CharacterReferenceImageCountAggregateOutputType = {
   generationPrompt: number
   generationModel: number
   generationCostUsd: number
+  usageCount: number
+  lastUsedAt: number
   _all: number
 }
 
@@ -132,6 +140,7 @@ export type CharacterReferenceImageAvgAggregateInputType = {
   uploadedById?: true
   aiAttempts?: true
   generationCostUsd?: true
+  usageCount?: true
 }
 
 export type CharacterReferenceImageSumAggregateInputType = {
@@ -142,6 +151,7 @@ export type CharacterReferenceImageSumAggregateInputType = {
   uploadedById?: true
   aiAttempts?: true
   generationCostUsd?: true
+  usageCount?: true
 }
 
 export type CharacterReferenceImageMinAggregateInputType = {
@@ -167,6 +177,8 @@ export type CharacterReferenceImageMinAggregateInputType = {
   generationPrompt?: true
   generationModel?: true
   generationCostUsd?: true
+  usageCount?: true
+  lastUsedAt?: true
 }
 
 export type CharacterReferenceImageMaxAggregateInputType = {
@@ -192,6 +204,8 @@ export type CharacterReferenceImageMaxAggregateInputType = {
   generationPrompt?: true
   generationModel?: true
   generationCostUsd?: true
+  usageCount?: true
+  lastUsedAt?: true
 }
 
 export type CharacterReferenceImageCountAggregateInputType = {
@@ -218,6 +232,8 @@ export type CharacterReferenceImageCountAggregateInputType = {
   generationPrompt?: true
   generationModel?: true
   generationCostUsd?: true
+  usageCount?: true
+  lastUsedAt?: true
   _all?: true
 }
 
@@ -331,6 +347,8 @@ export type CharacterReferenceImageGroupByOutputType = {
   generationPrompt: string | null
   generationModel: string | null
   generationCostUsd: runtime.Decimal | null
+  usageCount: number
+  lastUsedAt: Date | null
   _count: CharacterReferenceImageCountAggregateOutputType | null
   _avg: CharacterReferenceImageAvgAggregateOutputType | null
   _sum: CharacterReferenceImageSumAggregateOutputType | null
@@ -380,6 +398,8 @@ export type CharacterReferenceImageWhereInput = {
   generationPrompt?: Prisma.StringNullableFilter<"CharacterReferenceImage"> | string | null
   generationModel?: Prisma.StringNullableFilter<"CharacterReferenceImage"> | string | null
   generationCostUsd?: Prisma.DecimalNullableFilter<"CharacterReferenceImage"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFilter<"CharacterReferenceImage"> | number
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"CharacterReferenceImage"> | Date | string | null
   character?: Prisma.XOR<Prisma.CharacterScalarRelationFilter, Prisma.CharacterWhereInput>
 }
 
@@ -407,6 +427,8 @@ export type CharacterReferenceImageOrderByWithRelationInput = {
   generationPrompt?: Prisma.SortOrderInput | Prisma.SortOrder
   generationModel?: Prisma.SortOrderInput | Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrderInput | Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   character?: Prisma.CharacterOrderByWithRelationInput
 }
 
@@ -438,6 +460,8 @@ export type CharacterReferenceImageWhereUniqueInput = Prisma.AtLeast<{
   generationPrompt?: Prisma.StringNullableFilter<"CharacterReferenceImage"> | string | null
   generationModel?: Prisma.StringNullableFilter<"CharacterReferenceImage"> | string | null
   generationCostUsd?: Prisma.DecimalNullableFilter<"CharacterReferenceImage"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFilter<"CharacterReferenceImage"> | number
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"CharacterReferenceImage"> | Date | string | null
   character?: Prisma.XOR<Prisma.CharacterScalarRelationFilter, Prisma.CharacterWhereInput>
 }, "id" | "characterId_sha1">
 
@@ -465,6 +489,8 @@ export type CharacterReferenceImageOrderByWithAggregationInput = {
   generationPrompt?: Prisma.SortOrderInput | Prisma.SortOrder
   generationModel?: Prisma.SortOrderInput | Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrderInput | Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.CharacterReferenceImageCountOrderByAggregateInput
   _avg?: Prisma.CharacterReferenceImageAvgOrderByAggregateInput
   _max?: Prisma.CharacterReferenceImageMaxOrderByAggregateInput
@@ -499,6 +525,8 @@ export type CharacterReferenceImageScalarWhereWithAggregatesInput = {
   generationPrompt?: Prisma.StringNullableWithAggregatesFilter<"CharacterReferenceImage"> | string | null
   generationModel?: Prisma.StringNullableWithAggregatesFilter<"CharacterReferenceImage"> | string | null
   generationCostUsd?: Prisma.DecimalNullableWithAggregatesFilter<"CharacterReferenceImage"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntWithAggregatesFilter<"CharacterReferenceImage"> | number
+  lastUsedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"CharacterReferenceImage"> | Date | string | null
 }
 
 export type CharacterReferenceImageCreateInput = {
@@ -524,6 +552,8 @@ export type CharacterReferenceImageCreateInput = {
   generationPrompt?: string | null
   generationModel?: string | null
   generationCostUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: number
+  lastUsedAt?: Date | string | null
   character: Prisma.CharacterCreateNestedOneWithoutReferenceImagesInput
 }
 
@@ -551,6 +581,8 @@ export type CharacterReferenceImageUncheckedCreateInput = {
   generationPrompt?: string | null
   generationModel?: string | null
   generationCostUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: number
+  lastUsedAt?: Date | string | null
 }
 
 export type CharacterReferenceImageUpdateInput = {
@@ -576,6 +608,8 @@ export type CharacterReferenceImageUpdateInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   character?: Prisma.CharacterUpdateOneRequiredWithoutReferenceImagesNestedInput
 }
 
@@ -603,6 +637,8 @@ export type CharacterReferenceImageUncheckedUpdateInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type CharacterReferenceImageCreateManyInput = {
@@ -629,6 +665,8 @@ export type CharacterReferenceImageCreateManyInput = {
   generationPrompt?: string | null
   generationModel?: string | null
   generationCostUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: number
+  lastUsedAt?: Date | string | null
 }
 
 export type CharacterReferenceImageUpdateManyMutationInput = {
@@ -654,6 +692,8 @@ export type CharacterReferenceImageUpdateManyMutationInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type CharacterReferenceImageUncheckedUpdateManyInput = {
@@ -680,6 +720,8 @@ export type CharacterReferenceImageUncheckedUpdateManyInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type CharacterReferenceImageListRelationFilter = {
@@ -721,6 +763,8 @@ export type CharacterReferenceImageCountOrderByAggregateInput = {
   generationPrompt?: Prisma.SortOrder
   generationModel?: Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrder
 }
 
 export type CharacterReferenceImageAvgOrderByAggregateInput = {
@@ -731,6 +775,7 @@ export type CharacterReferenceImageAvgOrderByAggregateInput = {
   uploadedById?: Prisma.SortOrder
   aiAttempts?: Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
 }
 
 export type CharacterReferenceImageMaxOrderByAggregateInput = {
@@ -756,6 +801,8 @@ export type CharacterReferenceImageMaxOrderByAggregateInput = {
   generationPrompt?: Prisma.SortOrder
   generationModel?: Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrder
 }
 
 export type CharacterReferenceImageMinOrderByAggregateInput = {
@@ -781,6 +828,8 @@ export type CharacterReferenceImageMinOrderByAggregateInput = {
   generationPrompt?: Prisma.SortOrder
   generationModel?: Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrder
 }
 
 export type CharacterReferenceImageSumOrderByAggregateInput = {
@@ -791,6 +840,7 @@ export type CharacterReferenceImageSumOrderByAggregateInput = {
   uploadedById?: Prisma.SortOrder
   aiAttempts?: Prisma.SortOrder
   generationCostUsd?: Prisma.SortOrder
+  usageCount?: Prisma.SortOrder
 }
 
 export type CharacterReferenceImageCreateNestedManyWithoutCharacterInput = {
@@ -875,6 +925,8 @@ export type CharacterReferenceImageCreateWithoutCharacterInput = {
   generationPrompt?: string | null
   generationModel?: string | null
   generationCostUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: number
+  lastUsedAt?: Date | string | null
 }
 
 export type CharacterReferenceImageUncheckedCreateWithoutCharacterInput = {
@@ -900,6 +952,8 @@ export type CharacterReferenceImageUncheckedCreateWithoutCharacterInput = {
   generationPrompt?: string | null
   generationModel?: string | null
   generationCostUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: number
+  lastUsedAt?: Date | string | null
 }
 
 export type CharacterReferenceImageCreateOrConnectWithoutCharacterInput = {
@@ -955,6 +1009,8 @@ export type CharacterReferenceImageScalarWhereInput = {
   generationPrompt?: Prisma.StringNullableFilter<"CharacterReferenceImage"> | string | null
   generationModel?: Prisma.StringNullableFilter<"CharacterReferenceImage"> | string | null
   generationCostUsd?: Prisma.DecimalNullableFilter<"CharacterReferenceImage"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFilter<"CharacterReferenceImage"> | number
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"CharacterReferenceImage"> | Date | string | null
 }
 
 export type CharacterReferenceImageCreateManyCharacterInput = {
@@ -980,6 +1036,8 @@ export type CharacterReferenceImageCreateManyCharacterInput = {
   generationPrompt?: string | null
   generationModel?: string | null
   generationCostUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: number
+  lastUsedAt?: Date | string | null
 }
 
 export type CharacterReferenceImageUpdateWithoutCharacterInput = {
@@ -1005,6 +1063,8 @@ export type CharacterReferenceImageUpdateWithoutCharacterInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type CharacterReferenceImageUncheckedUpdateWithoutCharacterInput = {
@@ -1030,6 +1090,8 @@ export type CharacterReferenceImageUncheckedUpdateWithoutCharacterInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type CharacterReferenceImageUncheckedUpdateManyWithoutCharacterInput = {
@@ -1055,6 +1117,8 @@ export type CharacterReferenceImageUncheckedUpdateManyWithoutCharacterInput = {
   generationPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationCostUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -1083,6 +1147,8 @@ export type CharacterReferenceImageSelect<ExtArgs extends runtime.Types.Extensio
   generationPrompt?: boolean
   generationModel?: boolean
   generationCostUsd?: boolean
+  usageCount?: boolean
+  lastUsedAt?: boolean
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["characterReferenceImage"]>
 
@@ -1110,6 +1176,8 @@ export type CharacterReferenceImageSelectCreateManyAndReturn<ExtArgs extends run
   generationPrompt?: boolean
   generationModel?: boolean
   generationCostUsd?: boolean
+  usageCount?: boolean
+  lastUsedAt?: boolean
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["characterReferenceImage"]>
 
@@ -1137,6 +1205,8 @@ export type CharacterReferenceImageSelectUpdateManyAndReturn<ExtArgs extends run
   generationPrompt?: boolean
   generationModel?: boolean
   generationCostUsd?: boolean
+  usageCount?: boolean
+  lastUsedAt?: boolean
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["characterReferenceImage"]>
 
@@ -1164,9 +1234,11 @@ export type CharacterReferenceImageSelectScalar = {
   generationPrompt?: boolean
   generationModel?: boolean
   generationCostUsd?: boolean
+  usageCount?: boolean
+  lastUsedAt?: boolean
 }
 
-export type CharacterReferenceImageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "characterId" | "kind" | "fileUrl" | "storageKey" | "storageProvider" | "sha1" | "mimeType" | "bytes" | "width" | "height" | "order" | "uploadedById" | "createdAt" | "aiTags" | "aiCaption" | "aiVisualDescription" | "aiAnalyzedAt" | "aiError" | "aiAttempts" | "generationPrompt" | "generationModel" | "generationCostUsd", ExtArgs["result"]["characterReferenceImage"]>
+export type CharacterReferenceImageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "characterId" | "kind" | "fileUrl" | "storageKey" | "storageProvider" | "sha1" | "mimeType" | "bytes" | "width" | "height" | "order" | "uploadedById" | "createdAt" | "aiTags" | "aiCaption" | "aiVisualDescription" | "aiAnalyzedAt" | "aiError" | "aiAttempts" | "generationPrompt" | "generationModel" | "generationCostUsd" | "usageCount" | "lastUsedAt", ExtArgs["result"]["characterReferenceImage"]>
 export type CharacterReferenceImageInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   character?: boolean | Prisma.CharacterDefaultArgs<ExtArgs>
 }
@@ -1206,6 +1278,8 @@ export type $CharacterReferenceImagePayload<ExtArgs extends runtime.Types.Extens
     generationPrompt: string | null
     generationModel: string | null
     generationCostUsd: runtime.Decimal | null
+    usageCount: number
+    lastUsedAt: Date | null
   }, ExtArgs["result"]["characterReferenceImage"]>
   composites: {}
 }
@@ -1653,6 +1727,8 @@ export interface CharacterReferenceImageFieldRefs {
   readonly generationPrompt: Prisma.FieldRef<"CharacterReferenceImage", 'String'>
   readonly generationModel: Prisma.FieldRef<"CharacterReferenceImage", 'String'>
   readonly generationCostUsd: Prisma.FieldRef<"CharacterReferenceImage", 'Decimal'>
+  readonly usageCount: Prisma.FieldRef<"CharacterReferenceImage", 'Int'>
+  readonly lastUsedAt: Prisma.FieldRef<"CharacterReferenceImage", 'DateTime'>
 }
     
 

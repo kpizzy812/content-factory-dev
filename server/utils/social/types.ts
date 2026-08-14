@@ -18,6 +18,13 @@ export interface UploadParams {
   isShort: boolean
   /** Настройки конкретных платформ, зафиксированные в Upload. */
   platformOptions?: Record<string, unknown> | null
+  /**
+   * Раскрытие AI-происхождения. По умолчанию считается включённым: ролики
+   * фабрики синтетические по построению, а с 02.08.2026 раскрытие для
+   * EU-аудитории обязательно (EU AI Act). Площадки без штатного поля
+   * (Instagram) параметр игнорируют — см. `social/ai-disclosure.ts`.
+   */
+  isAiGenerated?: boolean
   /** Состояние незавершённой внешней публикации для безопасного retry. */
   resume?: UploadProgress
   /** Сохраняет внешний container/post id сразу после каждого шага. */

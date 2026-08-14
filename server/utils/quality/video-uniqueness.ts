@@ -25,6 +25,7 @@ import {
   buildVideoFingerprint,
   extractFingerprintFromChecks,
   findFingerprintDuplicates,
+  pickFingerprintGridTimestamps,
   pickFingerprintTimestamps,
 } from './video-fingerprint'
 
@@ -106,6 +107,13 @@ async function computeFingerprintWithFfmpeg(input: VideoUniquenessInput): Promis
       throw new Error(`ffmpeg не отдал ни одного кадра: ${errors.join('; ')}`)
     }
 
+    // Сетка кадров — так отпечаток строят площадки. Считается одним вызовом
+    // ffmpeg и не имеет права уронить проверку: три опорных кадра уже есть,
+    // и отпечаток без сетки лучше, чем отсутствие отпечатка.
+    const grid = await hasher
+      .hashVideoFrameGrid(fetched.localPath, pickFingerprintGridTimestamps(durationSec))
+      .catch(() => [] as string[])
+
     // Обложка считается отдельно от кадров: п.7 требует «разные первые кадры
     // И обложки», а обложка — самостоятельный ассет, не обязательно кадр ролика.
     let coverHash: string | null = null
@@ -131,7 +139,7 @@ async function computeFingerprintWithFfmpeg(input: VideoUniquenessInput): Promis
       coverHash = await hasher.hashImageFile(input.cover.filePath).catch(() => null)
     }
 
-    return buildVideoFingerprint({ frames, coverHash, durationSec })
+    return buildVideoFingerprint({ frames, grid, coverHash, durationSec })
   }
   finally {
     await fetched.cleanup()

@@ -1,0 +1,18 @@
+{
+  // Отдельный tsconfig: композиции — это React и JSX, а остальной проект на Vue.
+  // Серверный tsconfig Nuxt их не видит, поэтому проверяются они этой командой:
+  //   bunx tsc --noEmit -p remotion/tsconfig.json
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["react", "react-dom"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

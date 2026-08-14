@@ -41,6 +41,7 @@ import {
   runAssembly,
   loadEnrichmentContext,
 } from "./video-pipeline-steps"
+import { planSceneKinds } from "./broll-plan"
 
 import { runLipSyncStep } from "./lip-sync-runner"
 
@@ -454,6 +455,30 @@ export async function runVideoPipeline(
       })
     }
 
+    // Раскладка на говорящую голову и перебивки. Перебивка снимается кадром с
+    // движением камеры вместо покупки клипа: девятисекундная сцена дешевеет с
+    // $0.41 до стоимости одного кадра ($0.025). Решение от 14.08.2026, см.
+    // docs/superpowers/specs/2026-08-14-avatar-pipeline.md §8.
+    //
+    // Считается ДО шага изображений: перебивке нужен кадр, а по умолчанию
+    // кадры пропускаются как промежуточный артефакт. Теперь они материал сцены.
+    const brollScenePlan = videoPlan.mode !== 'legacy_simple'
+      ? planSceneKinds({
+        scenes: videoPlan.scenes.map((scene, index) => ({
+          order: index,
+          durationSec: scene.durationSec,
+          spokenLine: presenterSceneIndexes.has(index) ? scene.spokenLine ?? "presenter" : null,
+        })),
+      })
+      : null
+    const brollEnabled = process.env.BROLL_STILL_SCENES_ENABLED !== "false"
+    const needsBrollImages = brollEnabled && (brollScenePlan?.needsImages.length ?? 0) > 0
+    if (needsBrollImages) {
+      videoPlan.skipImageGeneration = false
+    }
+    /** Сцены, которые смета не должна считать как платный text-to-video. */
+    const brollEstimateIndexes = new Set(needsBrollImages ? brollScenePlan!.needsImages : [])
+
     // Cost estimation — записываем estimate перед запуском
     const qualityMap: Record<string, "720p" | "1080p"> = { low: "720p", medium: "1080p", high: "1080p" }
     const effectiveSceneCount = videoPlan.mode !== 'legacy_simple'
@@ -470,9 +495,12 @@ export async function runVideoPipeline(
       enableMusic: video.musicEnabled,
       quality: qualityMap[video.renderQuality] ?? "1080p" as "720p" | "1080p",
       skipImageGeneration: videoPlan.skipImageGeneration,
+      // Из сметы клипов уходят и сцены ведущей, и перебивки: первые собирает
+      // lip-sync, вторые — кадр с движением камеры. Платный text-to-video
+      // остаётся только там, где сцена не попала ни в то, ни в другое.
       perSceneDurations: videoPlan.mode !== 'legacy_simple'
         ? videoPlan.scenes
-          .filter((_, index) => !presenterSceneIndexes.has(index))
+          .filter((_, index) => !presenterSceneIndexes.has(index) && !brollEstimateIndexes.has(index))
           .map(s => s.durationSec)
         : undefined,
       // Voiceover config
@@ -643,6 +671,18 @@ export async function runVideoPipeline(
       }))
     }
 
+    // Кадры под перебивки: карта «индекс сцены → файл кадра». Сцена, кадра под
+    // которую нет, снимается прежним путём, а не остаётся без картинки.
+    const imagePathsByScene = new Map<number, string>()
+    if (needsBrollImages) {
+      imgResult.imagePaths.forEach((path, index) => {
+        if (path) imagePathsByScene.set(index, path)
+      })
+    }
+    const brollSceneIndexes = new Set(
+      (brollScenePlan?.needsImages ?? []).filter(index => imagePathsByScene.has(index)),
+    )
+
     let clipResult: Awaited<ReturnType<typeof runClipGeneration>>
     try {
       clipResult = await runClipGeneration(
@@ -650,6 +690,8 @@ export async function runVideoPipeline(
         effectiveVideoModelId, video.generateAudio, videoPlan,
         variant.storyPlan as StoryPlan | null,
         presenterSceneIndexes,
+        brollSceneIndexes,
+        imagePathsByScene,
       )
     } catch (stepError) {
       // Клипы — самый дорогой шаг: три скачанных Kling-клипа из упавшего прогона
@@ -689,6 +731,7 @@ export async function runVideoPipeline(
         voiceoverVoiceId: video.voiceoverVoiceId,
         voiceoverLanguage: video.voiceoverLanguage,
         voiceoverPacing: (video.voiceoverPacing as 'slow' | 'moderate' | 'fast') || 'moderate',
+        format: video.format === 'landscape' ? 'landscape' : 'portrait',
       },
     })
     if (lipSyncResult.status === 'completed' && lipSyncResult.clipPaths.length > 0) {

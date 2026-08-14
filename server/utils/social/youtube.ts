@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises"
+import { buildAiDisclosure } from "./ai-disclosure"
 import type { FollowerCount, FollowerCountProvider } from "./follower-count"
 import { PostUnavailableError } from "./post-availability"
 import type {
@@ -149,6 +150,10 @@ export const youtubeAdapter: SocialPlatformAdapter & FollowerCountProvider = {
         status: {
           privacyStatus: "public",
           selfDeclaredMadeForKids: false,
+          // Раскрытие синтетического контента (EU AI Act, политика YouTube об
+          // altered or synthetic content). Наши ролики синтетические по
+          // построению: речь синтезирована, кадры сгенерированы.
+          ...buildAiDisclosure("youtube", params.isAiGenerated ?? true),
         },
       },
     })

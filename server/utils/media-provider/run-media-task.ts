@@ -3,10 +3,10 @@
  * docs/superpowers/specs/2026-08-07-replicate-media-contour.md).
  *
  * До этого каждая способность звала провайдера по-своему: шаг изображений —
- * `falStepRequest` с инлайн-payload, шаг клипов — `buildClipPayload` плюс
- * отдельный payload image-to-video, TTS — `buildProviderInput` + `extractAudioUrl`,
- * lip-sync — свой асинхронный контур. Провайдер и модель исполнения выбирались
- * подстрокой в id.
+ * `falStepRequest` с инлайн-payload, шаг клипов — свой сборщик payload по
+ * префиксу id плюс отдельный payload image-to-video, TTS — свои сборщик и
+ * парсер выхода, lip-sync — свой асинхронный контур. Провайдер и модель
+ * исполнения выбирались подстрокой в id.
  *
  * Теперь маршрут решает СПЕКА: `spec.execution` выбирает ветку исполнения,
  * `spec.mapInput` собирает payload, `spec.extractOutput` разбирает ответ,

@@ -5,7 +5,15 @@
  * Включает реальную проверку доступности через fal.ai probe.
  * Используется VideoConfig.vue для model selectors.
  */
-import { IMAGE_MODELS, VIDEO_MODELS, MUSIC_MODELS, TTS_MODELS } from "~~/server/utils/video-models"
+import {
+  IMAGE_MODELS,
+  VIDEO_MODELS,
+  MUSIC_MODELS,
+  TTS_MODELS,
+  getDefaultImageModel,
+  getDefaultVideoModel,
+  getDefaultTtsModel,
+} from "~~/server/utils/video-models"
 import type { ModelMeta } from "~~/server/utils/video-models"
 import { falProbeAccessBatch } from "~~/server/utils/fal"
 import type { ModelAccessStatus } from "~~/shared/types/video"
@@ -44,6 +52,15 @@ export default defineEventHandler(async () => {
   ])
 
   return {
+    // Дефолты отдаёт сервер, а не угадывает форма: и создание ролика
+    // (`videos/generate.post.ts`), и исполнитель ноды (`pipeline-executors.ts`)
+    // берут ровно эти модели. Пока фронт держал их литералами, подсветка
+    // выбранной модели и смета расходились с тем, что реально запускалось.
+    defaults: {
+      image: getDefaultImageModel().id,
+      video: getDefaultVideoModel().id,
+      tts: getDefaultTtsModel()?.id ?? null,
+    },
     image: IMAGE_MODELS.map((m: ModelMeta, i: number) => ({
       id: m.id,
       name: m.name,

@@ -51,6 +51,19 @@ export interface AppScreenRef {
   intent: AppScreenRefIntent
 }
 
+/**
+ * Откуда взят опорный кадр сцены. Кадр приложения — лишь один из источников:
+ * тем же маршрутом image-to-video оживляются портрет ведущего (AI-аватар) и
+ * референс сцены. Значения совпадают с `ReferenceFrameSource` на сервере.
+ */
+export type SceneReferenceFrameSource = 'app_screen' | 'character' | 'scene'
+
+export interface SceneReferenceFrameRef {
+  source: SceneReferenceFrameSource
+  /** id записи в таблице источника: AppReferenceImage | CharacterReferenceImage | SceneReferenceImage. */
+  imageId: string
+}
+
 export interface SceneCard {
   order: number
   purpose: string                // зачем эта сцена нужна в драматургии
@@ -60,7 +73,17 @@ export interface SceneCard {
   emotionalState: string         // эмоция героя/зрителя
   appIntegrationBeat: string | null  // как приложение появляется в сцене (null если не появляется)
   visualPromptGuidance: string   // guidance для генерации визуала (для FLUX/Runway)
-  /** Привязка к screenshot приложения для image-to-video генерации (опционально) */
+  /**
+   * Опорный кадр сцены для image-to-video. Общий источник: кадр приложения,
+   * портрет ведущего, референс сцены. Задан — сцена снимается оживлением этого
+   * кадра, а не text-to-video.
+   */
+  referenceFrame?: SceneReferenceFrameRef | null
+  /**
+   * Устаревший алиас `referenceFrame` с источником `app_screen`. Остаётся ради
+   * снапшотов уже запущенных роликов и промпта сценариста; при наличии обоих
+   * полей выигрывает `referenceFrame`.
+   */
   appScreenRef?: AppScreenRef | null
   subtitleCopy: string           // текст субтитров для сцены
   subtitlePlacement: SubtitlePlacement

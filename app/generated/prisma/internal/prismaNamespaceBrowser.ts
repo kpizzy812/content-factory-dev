@@ -282,7 +282,9 @@ export const CharacterReferenceImageScalarFieldEnum = {
   aiAttempts: 'aiAttempts',
   generationPrompt: 'generationPrompt',
   generationModel: 'generationModel',
-  generationCostUsd: 'generationCostUsd'
+  generationCostUsd: 'generationCostUsd',
+  usageCount: 'usageCount',
+  lastUsedAt: 'lastUsedAt'
 } as const
 
 export type CharacterReferenceImageScalarFieldEnum = (typeof CharacterReferenceImageScalarFieldEnum)[keyof typeof CharacterReferenceImageScalarFieldEnum]

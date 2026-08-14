@@ -76,32 +76,6 @@ export async function probeAudioDuration(path: string): Promise<number> {
 }
 
 /**
- * Default voice for a given model + language.
- * Keeps provider quirks isolated here.
- */
-function resolveDefaultVoice(modelId: string, language: string): string {
-  const defaultVoiceEn = process.env.DEFAULT_TTS_VOICE_EN || 'af_heart'
-  const defaultVoiceRu = process.env.DEFAULT_TTS_VOICE_RU || 'bf_emma'
-  const lang = (language || 'en').toLowerCase()
-
-  if (modelId === 'fal-ai/kokoro/american-english') {
-    return defaultVoiceEn
-  }
-  if (modelId === 'fal-ai/kokoro/russian') {
-    return defaultVoiceRu
-  }
-  if (modelId === 'fal-ai/playai/tts/v3') {
-    return lang.startsWith('ru')
-      ? 's3://voice-cloning-zero-shot/baf1ef41-36b6-428c-9bdf-50ba54682bd8/original/manifest.json'
-      : 's3://voice-cloning-zero-shot/820da3f2-2b81-4a43-9ed3-4e1a2b7f2c34/original/manifest.json'
-  }
-  if (modelId === 'fal-ai/elevenlabs/tts/turbo-v2.5') {
-    return 'Rachel'
-  }
-  return defaultVoiceEn
-}
-
-/**
  * Map pacing string to provider-specific speed value.
  */
 function resolveSpeed(pacing: 'slow' | 'moderate' | 'fast' | undefined): number {
@@ -111,89 +85,6 @@ function resolveSpeed(pacing: 'slow' | 'moderate' | 'fast' | undefined): number 
     case 'moderate':
     default: return 1.0
   }
-}
-
-/**
- * Build provider-specific request payload.
- */
-function buildProviderInput(
-  modelId: string,
-  text: string,
-  voiceId: string,
-  pacing: 'slow' | 'moderate' | 'fast' | undefined,
-): Record<string, unknown> {
-  const speed = resolveSpeed(pacing)
-
-  if (modelId.startsWith('fal-ai/kokoro')) {
-    return {
-      prompt: text,
-      voice: voiceId,
-      speed,
-    }
-  }
-  if (modelId === 'fal-ai/playai/tts/v3') {
-    return {
-      input: text,
-      voice: voiceId,
-      response_format: 'mp3',
-      // PlayAI "speed" range: 0.5-2.0
-      speed,
-    }
-  }
-  if (modelId === 'fal-ai/elevenlabs/tts/turbo-v2.5') {
-    return {
-      text,
-      voice: voiceId,
-      stability: 0.5,
-      similarity_boost: 0.75,
-    }
-  }
-  // Generic fallback — best-guess shape
-  return { prompt: text, voice: voiceId, speed }
-}
-
-/**
- * Extract audio URL from a heterogeneous provider response.
- */
-function extractAudioUrl(raw: unknown): string | null {
-  if (!raw || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-
-  // Kokoro / PlayAI / ElevenLabs: { audio: { url } }
-  const audio = r.audio
-  if (audio && typeof audio === 'object') {
-    const a = audio as Record<string, unknown>
-    if (typeof a.url === 'string') return a.url
-  }
-  // Some endpoints: { audio_url }
-  if (typeof r.audio_url === 'string') return r.audio_url
-  // Some endpoints: { output: { audio: { url } } }
-  const output = r.output
-  if (output && typeof output === 'object') {
-    const o = output as Record<string, unknown>
-    const oAudio = o.audio
-    if (oAudio && typeof oAudio === 'object' && typeof (oAudio as Record<string, unknown>).url === 'string') {
-      return (oAudio as Record<string, unknown>).url as string
-    }
-  }
-  // Top-level url
-  if (typeof r.url === 'string') return r.url
-  return null
-}
-
-/**
- * Compute actual cost for a synthesis call based on model pricing unit.
- */
-function computeSynthesisCost(model: ModelMeta, characters: number, durationSec: number): number {
-  const unit = model.pricing.unit
-  if (unit === 'character') {
-    return characters * model.pricing.base
-  }
-  if (unit === 'audio_second') {
-    return durationSec * model.pricing.base
-  }
-  // Fallback: per-call
-  return model.pricing.base
 }
 
 /**
@@ -228,18 +119,22 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
     throw new Error('TTS synthesis: нет доступных TTS моделей в реестре')
   }
 
-  // Спека способности вместо самодельных buildProviderInput / resolveDefaultVoice /
-  // extractAudioUrl: payload, голос по умолчанию, разбор выхода и таймаут лежат
-  // в одной записи реестра. Витрина `ModelMeta` остаётся источником правил
-  // выбора модели (integrated / task), поэтому спека ищется по её id.
+  // Спека способности вместо самодельных помощников этого модуля: payload,
+  // голос по умолчанию, разбор выхода и таймаут лежат в одной записи реестра.
+  // Витрина `ModelMeta` остаётся источником правил выбора модели
+  // (integrated / task), поэтому спека ищется по её id.
   //
   // Ветвления «Replicate идёт своим путём» здесь больше нет: маршрут выбирает
   // `spec.execution`, а не подстрока «replicate» в имени провайдера витрины.
   const spec = resolveMediaModel('text_to_speech', model.id)
   const language = options.language || 'en'
-  const voiceId = options.voiceId
-    || resolveSpecVoice(spec, language)
-    || resolveDefaultVoice(model.id, language)
+  // Голос без явного выбора берётся из спеки. Своего списка голосов по id
+  // модуль больше не держит: спека без `voices` — ошибка реестра, и падаем мы
+  // на ней внятно, а не подставляем чужой английский голос молча.
+  const voiceId = options.voiceId || resolveSpecVoice(spec, language)
+  if (!voiceId) {
+    throw new Error(`TTS ${model.id}: в спеке модели не задан голос по умолчанию, а voiceId не передан`)
+  }
 
   // Ретраи прежние (3 попытки с backoff). Таймаут ОДНОЙ попытки берётся из
   // спеки способности, а не из локальной константы 4 минуты: у TTS собственная

@@ -10,6 +10,8 @@
  * ждёт, что человек опубликует его руками — для автопостинга он бесполезен.
  */
 
+import { buildAiDisclosure } from "./ai-disclosure"
+
 const TIKTOK_API_BASE = "https://open.tiktokapis.com"
 
 /** Минимальный размер чанка по правилам TikTok. */
@@ -143,6 +145,11 @@ export interface TikTokPostInfo {
   disableDuet: boolean
   disableStitch: boolean
   videoCoverTimestampMs: number
+  /**
+   * Раскрытие AI-происхождения (`post_info.is_aigc`). Наши ролики синтетические
+   * по построению; поле обязательно с 02.08.2026 для аудитории в EU.
+   */
+  isAiGenerated?: boolean
 }
 
 export interface TikTokInitResult {
@@ -341,6 +348,7 @@ export function createTikTokApiClient({
             disable_duet: postInfo.disableDuet,
             disable_stitch: postInfo.disableStitch,
             video_cover_timestamp_ms: postInfo.videoCoverTimestampMs,
+            ...buildAiDisclosure("tiktok", postInfo.isAiGenerated ?? true),
           },
           source_info: {
             source: "FILE_UPLOAD",

@@ -39,6 +39,13 @@ import { getStorageDriver } from "./storage"
 import { downloadFile } from "./video-helpers"
 import { probeMediaDuration } from "./render"
 import { reservePresenterSourceClip } from "./presenter-source-selector"
+import {
+  characterHasAvatarPortrait,
+  findSimilarAvatarClip,
+  generateAvatarSourceClip,
+  planPresenterSourceStrategy,
+  type AvatarClipFrameRecord,
+} from "./avatar-source"
 import { logStepCost } from "./balance/cost-ledger"
 import { accumulateStepCost } from "./video-cost-actual"
 import {
@@ -120,6 +127,8 @@ export interface LipSyncStepInput {
     voiceoverVoiceId: string | null
     voiceoverLanguage: string
     voiceoverPacing: "slow" | "moderate" | "fast"
+    /** Нужен аватарной ветке: кадр оживления снимается в формате ролика. */
+    format?: "portrait" | "landscape"
   }
 }
 
@@ -311,6 +320,14 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   let resyncedSceneCount = 0
   let totalCostUsd = 0
   const costByService = new Map<"replicate" | "fal.ai", number>()
+  /**
+   * Ротация портретов внутри одного ролика: счётчик использования в БД растёт
+   * только после снятой сцены, а сцены идут подряд — без этого набора все они
+   * взяли бы один и тот же кадр (PROJECT_CONTEXT §7).
+   */
+  const usedAvatarPortraitIds = new Set<string>()
+  /** Отпечатки аватарных кадров ролика — контроль дублей между его сценами. */
+  const avatarFrameHashes: AvatarClipFrameRecord[] = []
   const sourceCleanup: string[] = []
   const sceneRecords: LipSyncSceneRecord[] = []
   const assetsDir = getAssetsDirFor(videoId)
@@ -463,6 +480,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       const plannedDurationSec = scene.durationSec || 5
       let sourceVideoPath: string | null = resolvedSource.path
       let presenterSourcePath: string | null = null
+      /**
+       * Аватарный маршрут: сцену снимет `speech_to_video` уже ПОСЛЕ синтеза
+       * речи — модели нужен готовый звук, а не только портрет. Поэтому здесь
+       * только решение о маршруте, а сама съёмка ниже, за TTS.
+       */
+      let useAvatarRoute = false
       if (videoConfig.lipSyncCharacterId) {
         const sourceClip = await reservePresenterSourceClip({
           characterId: videoConfig.lipSyncCharacterId,
@@ -484,16 +507,35 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           sourceCleanup.push(localSourcePath)
           await appendStepLog(step.id, `${sceneTag}: presenter source ${sourceClip.id} (${sourceClip.durationSec}s)`)
         } else {
-          await appendStepLog(step.id, `${sceneTag}: нет активного исходника ведущего под сцену ${plannedDurationSec}с (диапазон модели ${minDurationSec}-${maxDurationSec}с), беру сгенерированный клип`)
+          // Библиотека не дала фрагмента. Порядок дальнейшего выбора — в
+          // planPresenterSourceStrategy: портрет есть — сцену снимет аватар,
+          // портрета нет — остаётся прежний путь, сгенерированный клип.
+          const hasPortrait = await characterHasAvatarPortrait(videoConfig.lipSyncCharacterId)
+            .catch(() => false)
+          const strategy = planPresenterSourceStrategy({
+            hasLibraryClip: false,
+            hasPortrait,
+            hasGeneratedClip: !!resolvedSource.path,
+          })
+
+          if (strategy === "avatar") {
+            useAvatarRoute = true
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: библиотека ведущего пуста — сцену снимет AI-аватар из портрета персонажа`,
+            )
+          } else {
+            await appendStepLog(step.id, `${sceneTag}: нет активного исходника ведущего под сцену ${plannedDurationSec}с (диапазон модели ${minDurationSec}-${maxDurationSec}с), беру сгенерированный клип`)
+          }
         }
       }
 
       // Ролик ведущей: сгенерированного клипа под сцену нет и не будет. Без
       // фрагмента ведущей в ролике осталась бы дыра — честнее уронить шаг, чем
       // молча собрать видео без сцены.
-      if (!sourceVideoPath) {
+      if (!sourceVideoPath && !useAvatarRoute) {
         throw new Error(
-          `${sceneTag}: нет ни фрагмента ведущего, ни сгенерированного клипа — собирать нечего`,
+          `${sceneTag}: нет ни фрагмента ведущего, ни портрета, ни сгенерированного клипа — собирать нечего`,
         )
       }
 
@@ -501,7 +543,10 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // и по ней же считается стоимость. Плановая длительность здесь врёт при любом
       // подставленном исходнике ведущего и при клипе, удлинённом под voiceover.
       // Замер строгий (probeMediaDuration): неизмеримый файл даёт null, а не «5 секунд».
-      let measuredDurationSec = await probeMediaDuration(sourceVideoPath)
+      //
+      // У аватарной сцены исходного видео нет вовсе: длину задаёт синтезированная
+      // речь, и она измеряется ниже, после TTS.
+      let measuredDurationSec = useAvatarRoute ? null : await probeMediaDuration(sourceVideoPath!)
 
       // Подменённый исходник ведущего диктует длину сцены в сборке, поэтому его
       // расхождение с планом проверяем отдельно: диапазон модели такое не ловит —
@@ -522,7 +567,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         measuredDurationSec = await probeMediaDuration(sourceVideoPath)
       }
 
-      if (measuredDurationSec === null) {
+      if (measuredDurationSec === null && !useAvatarRoute) {
         // Раньше здесь молча подставлялась плановая длительность (а до неё —
         // дефолтные 5 с из probeClipDurations): битый или отсутствующий файл уезжал
         // в модель с выдуманной длиной, и проверка диапазона ничего не проверяла.
@@ -535,12 +580,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         // spawn EAGAIN/EMFILE под нагрузкой, свежескачанный mp4 держит антивирус):
         // такой отказ кэш НЕ открывает, иначе один неудачный прогон навсегда и молча
         // лишал бы ролик lip-sync по этой сцене.
-        const sourceExists = await fileExists(sourceVideoPath)
+        const sourceExists = await fileExists(sourceVideoPath!)
         await appendStepLog(
           step.id,
           sourceExists
-            ? `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath)} — файл на месте, значит подвела среда (ffprobe недоступен, файл занят, битые метаданные); оставляю оригинальный клип, следующий прогон попробует снова`
-            : `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath)} — файла нет на диске, измерять нечего; оставляю оригинальный клип`,
+            ? `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath!)} — файл на месте, значит подвела среда (ffprobe недоступен, файл занят, битые метаданные); оставляю оригинальный клип, следующий прогон попробует снова`
+            : `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath!)} — файла нет на диске, измерять нечего; оставляю оригинальный клип`,
         )
         recordSkippedScene({
           sceneOrder: scene.order,
@@ -553,10 +598,13 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         continue
       }
 
-      if (!isDurationWithinModelRange(measuredDurationSec, minDurationSec, maxDurationSec)) {
+      // Диапазон длительности — требование модели lip-sync к ИСХОДНОМУ видео.
+      // У аватарной сцены исходного видео нет: длину задаёт речь, а потолок
+      // проверяет спека speech_to_video при сборке payload.
+      if (!useAvatarRoute && !isDurationWithinModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)) {
         await appendStepLog(
           step.id,
-          `${sceneTag}: реальная длительность источника ${measuredDurationSec.toFixed(2)}с вне диапазона модели ${minDurationSec}-${maxDurationSec}с (допуск ±${MODEL_DURATION_TOLERANCE_SEC}с) — оставляю оригинальный клип`,
+          `${sceneTag}: реальная длительность источника ${measuredDurationSec!.toFixed(2)}с вне диапазона модели ${minDurationSec}-${maxDurationSec}с (допуск ±${MODEL_DURATION_TOLERANCE_SEC}с) — оставляю оригинальный клип`,
         )
         recordSkippedScene({
           sceneOrder: scene.order,
@@ -573,7 +621,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // В провайдер уходит длительность, зажатая в диапазон модели: измеренные 10.03 с
       // мы приняли по допуску, но runLipSync валидирует строго и уронил бы вызов.
       // Расхождение с измеренным здесь всегда в пределах допуска, на стоимость не влияет.
-      const providerDurationSec = clampDurationToModelRange(measuredDurationSec, minDurationSec, maxDurationSec)
+      const providerDurationSec = useAvatarRoute
+        ? 0
+        : clampDurationToModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)
 
       // 1. TTS spokenLine — отдельный синтез, не трогает voiceoverPlan (off-screen narrator).
       // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
@@ -624,56 +674,144 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         }
       }
 
-      // 2. Replicate по умолчанию; fal.ai доступен только как явно включённый fallback.
-      const lipSyncedPath = join(assetsDir, `scene_${sceneIndex}_lipsync.mp4`)
-      let lipSyncResult: Awaited<ReturnType<typeof runLipSync>>
-      try {
-        lipSyncResult = await runLipSync({
+      // 2. Картинка сцены. Живую съёмку синхронизирует lip-sync, аватарную
+      // сцену целиком снимает speech_to_video — там речь уже в кадре и в
+      // звуковой дорожке, и второй платный шаг не нужен.
+      const renderedPath = join(assetsDir, `scene_${sceneIndex}_lipsync.mp4`)
+      let renderCostUsd: number
+      let renderProvider: string
+      let renderModelId: string
+
+      if (useAvatarRoute) {
+        // Длину сцены задаёт синтезированная речь: по ней считаются и деньги,
+        // и таймлайн сборки.
+        const audioDurationSec = await probeMediaDuration(audioPath)
+        if (audioDurationSec === null) {
+          await appendStepLog(step.id, `${sceneTag}: длительность синтезированной реплики не измеряется — сцену аватаром не снимаю`)
+          recordSkippedScene({
+            sceneOrder: scene.order,
+            sceneIndex,
+            reason: "source_unmeasurable",
+            sourcePath: resolvedSource.path,
+            reuseKey,
+            spokenLineHash,
+          })
+          continue
+        }
+
+        const avatar = await generateAvatarSourceClip({
+          characterId: videoConfig.lipSyncCharacterId!,
           videoId,
-          videoAssetId: clipAsset?.id ?? null,
-          sceneOrder: scene.order,
-          sourceVideoPath,
+          stepId: step.id,
+          unitKey: `avatar_scene_${sceneIndex}`,
+          // Индекс сцены, а не scene.order: клипы и ассеты ролика адресуются
+          // индексом, а order из плана AI умеет повторяться — на дубле две
+          // сцены делили бы один объект в хранилище.
+          sceneOrder: sceneIndex,
           audioPath,
-          outputPath: lipSyncedPath,
-          durationSec: providerDurationSec,
-          modelId: model.id,
+          durationSec: audioDurationSec,
+          resolution: videoConfig.format === "landscape" ? "1080p" : "1080p",
+          outputPath: renderedPath,
+          workDir: assetsDir,
+          usedPortraitIds: [...usedAvatarPortraitIds],
+        }).catch(async (err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err)
+          await appendStepLog(step.id, `${sceneTag}: аватарная сцена не снята (${msg})`)
+          return null
         })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "lip-sync failed"
-        await appendStepLog(step.id, `${sceneTag}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
-        recordSkippedScene({
-          sceneOrder: scene.order,
-          sceneIndex,
-          reason: "lip_sync_failed",
-          sourcePath: resolvedSource.path,
-          reuseKey,
-          spokenLineHash,
-          durationSec: measuredDurationSec,
-        })
-        continue
+
+        if (!avatar) {
+          recordSkippedScene({
+            sceneOrder: scene.order,
+            sceneIndex,
+            reason: "lip_sync_failed",
+            sourcePath: resolvedSource.path,
+            reuseKey,
+            spokenLineHash,
+            durationSec: audioDurationSec,
+          })
+          continue
+        }
+
+        measuredDurationSec = avatar.effectiveDurationSec
+        renderCostUsd = avatar.costUsd
+        renderProvider = avatar.provider
+        renderModelId = avatar.modelId
+        usedAvatarPortraitIds.add(avatar.portraitId)
+        await appendStepLog(
+          step.id,
+          `${sceneTag}: AI-аватар из портрета ${avatar.portraitId} (${avatar.effectiveDurationSec.toFixed(2)}с, ${avatar.modelId}, $${avatar.costUsd.toFixed(3)}) — lip-sync не нужен, речь уже в кадре`,
+        )
+
+        // Контроль похожести внутри ролика: гейт уникальности сравнивает
+        // готовый ролик с прошлыми публикациями и не видит, что все его сцены
+        // показывают один кадр. Это предупреждение, а не блокировка —
+        // оплаченный клип выбрасывать нельзя, решение принимает гейт.
+        if (avatar.frameHash) {
+          const twin = findSimilarAvatarClip(avatar.frameHash, avatarFrameHashes)
+          if (twin) {
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: WARN кадр аватара повторяет сцену ${twin.sceneIndex} (расстояние ${twin.distance} бит) — ролику не хватает портретов персонажа`,
+            )
+          }
+          avatarFrameHashes.push({ sceneIndex, hash: avatar.frameHash })
+        }
+      } else {
+        // Replicate по умолчанию; fal.ai доступен только как явно включённый fallback.
+        let lipSyncResult: Awaited<ReturnType<typeof runLipSync>>
+        try {
+          lipSyncResult = await runLipSync({
+            videoId,
+            videoAssetId: clipAsset?.id ?? null,
+            sceneOrder: scene.order,
+            sourceVideoPath: sourceVideoPath!,
+            audioPath,
+            outputPath: renderedPath,
+            durationSec: providerDurationSec,
+            modelId: model.id,
+          })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "lip-sync failed"
+          await appendStepLog(step.id, `${sceneTag}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
+          recordSkippedScene({
+            sceneOrder: scene.order,
+            sceneIndex,
+            reason: "lip_sync_failed",
+            sourcePath: resolvedSource.path,
+            reuseKey,
+            spokenLineHash,
+            durationSec: measuredDurationSec,
+          })
+          continue
+        }
+        renderCostUsd = lipSyncResult.costUsd
+        renderProvider = lipSyncResult.provider
+        renderModelId = model.id
       }
 
       // Оплачено — фиксируем ДО заливки в storage: uploadLocalAsset умеет упасть,
       // и без записи прогресса следующий заход оплатил бы эту сцену второй раз.
-      const lipSyncCost = lipSyncResult.costUsd
-      const service = lipSyncResult.provider === "replicate" ? "replicate" : "fal.ai"
-      costByService.set(service, (costByService.get(service) ?? 0) + lipSyncCost + ttsCost)
-      totalCostUsd += lipSyncCost + ttsCost
+      const service = renderProvider === "replicate" ? "replicate" : "fal.ai"
+      costByService.set(service, (costByService.get(service) ?? 0) + renderCostUsd + ttsCost)
+      totalCostUsd += renderCostUsd + ttsCost
       syncedSceneCount++
       resyncedSceneCount++
 
       // Подстановка строго по индексу сцены: сравнение строк ломалось, как только
       // в БД оказывался путь прошлого прогона (findIndex возвращал -1).
-      updatedClipPaths[sceneIndex] = lipSyncedPath
+      updatedClipPaths[sceneIndex] = renderedPath
       sceneRecords.push({
         sceneOrder: scene.order,
         sceneIndex,
-        sourcePath: sourceVideoPath,
-        outputPath: lipSyncedPath,
+        sourcePath: sourceVideoPath ?? renderedPath,
+        outputPath: renderedPath,
         audioPath,
         spokenLineHash,
         reuseKey,
-        durationSec: measuredDurationSec,
+        // К этой точке длительность известна в обоих маршрутах: у съёмки её
+        // дал ffprobe и проверил диапазон, у аватара — длина синтезированной речи.
+        durationSec: measuredDurationSec!,
       })
       await persistProgress()
 
@@ -681,9 +819,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // ассет обязан продолжать указывать на оригинал, иначе повторный заход (и
       // idempotency-ветка runClipGeneration) подсунет уже синхронизированный файл
       // как источник — синхронизация ляжет поверх синхронизации.
-      const lipSyncStorage = await uploadLocalAsset(
-        lipSyncedPath,
-        StorageKeys.videoLipSyncClip(videoId, basename(lipSyncedPath)),
+      const renderStorage = await uploadLocalAsset(
+        renderedPath,
+        StorageKeys.videoLipSyncClip(videoId, basename(renderedPath)),
         "video/mp4",
       )
 
@@ -698,18 +836,18 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
             videoId,
             type: "clip" as never,
             prompt: spokenLine.slice(0, 500),
-            filePath: lipSyncedPath,
-            fileUrl: storageKeyToLegacyUrl(lipSyncStorage.storageKey),
+            filePath: renderedPath,
+            fileUrl: storageKeyToLegacyUrl(renderStorage.storageKey),
             order: sceneIndex,
             duration: measuredDurationSec,
-            ...lipSyncStorage,
+            ...renderStorage,
           },
         })
       }
 
       await appendStepLog(
         step.id,
-        `${sceneTag}: ${lipSyncResult.provider} lip-sync завершён за ${measuredDurationSec.toFixed(2)}s (lip $${lipSyncCost.toFixed(3)} + tts $${ttsCost.toFixed(3)}), storage ${lipSyncStorage.storageKey}`,
+        `${sceneTag}: ${renderProvider} ${useAvatarRoute ? "аватарная сцена" : "lip-sync"} готова за ${measuredDurationSec!.toFixed(2)}s (${renderModelId} $${renderCostUsd.toFixed(3)} + tts $${ttsCost.toFixed(3)}), storage ${renderStorage.storageKey}`,
       )
     }
   } catch (error) {

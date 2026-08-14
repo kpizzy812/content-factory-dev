@@ -13,8 +13,9 @@
 
 import type { GraphNode, GraphEdge } from './pipeline-graph'
 import type { ValidationIssue, ReadinessResult } from '~~/shared/types/workflow'
-import { getModel } from './video-models'
+import { getModel, getDefaultImageModel, getDefaultVideoModel } from './video-models'
 import { falProbeAccessBatch } from './fal'
+import { planFalPreflightTargets } from './fal-preflight-plan'
 import { isKnownNodeType, checkPortCompatibility } from '~~/shared/utils/pipeline-node-registry'
 
 /** Required config fields per node type. */
@@ -1201,20 +1202,28 @@ export async function validatePipeline(
         }
       }
 
-      // Probe real fal.ai access for configured models
-      const modelsToProbe = [
-        imageModelId || 'fal-ai/flux/dev',
-        videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video',
-      ]
+      // Probe real fal.ai access for configured models.
+      // Дефолт — из реестра моделей, как у создания ролика и исполнителя ноды:
+      // валидатор не должен ругаться на доступ к модели, которую прогон не берёт.
+      //
+      // Пробиваем ТОЛЬКО fal-модели: fal-проба про Replicate-эндпоинт ничего не
+      // знает и без FAL_KEY отдаёт no_api_key на любой строке — валидатор ругался
+      // бы «модель недоступна» на маршруте, которому fal вообще не нужен
+      // (PROJECT_CONTEXT §5: Replicate — основной провайдер, fal — резерв).
+      const effectiveImageModelId = imageModelId || getDefaultImageModel().id
+      const effectiveVideoModelId = videoModelId || getDefaultVideoModel().id
+      const modelsToProbe = planFalPreflightTargets([effectiveImageModelId, effectiveVideoModelId])
       try {
-        const accessResults = await falProbeAccessBatch(modelsToProbe)
+        const accessResults = modelsToProbe.length > 0
+          ? await falProbeAccessBatch(modelsToProbe)
+          : new Map()
         for (const [endpoint, result] of accessResults) {
           if (result.status !== 'available') {
             const modelMeta = getModel(endpoint)
             issues.push({
               severity: 'error',
               nodeId: node.id,
-              field: endpoint === modelsToProbe[0] ? 'imageModelId' : 'videoModelId',
+              field: endpoint === effectiveImageModelId ? 'imageModelId' : 'videoModelId',
               message: `Нода "${label}": модель "${modelMeta?.name ?? endpoint}" недоступна — ${result.reason}`,
               code: 'model_access_blocked',
             })

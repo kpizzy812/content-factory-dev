@@ -110,3 +110,43 @@ export async function hashVideoFrames(
 export async function hashImageFile(filePath: string): Promise<string> {
   return dHashFromGrayscale(await grayscaleAt(filePath, null))
 }
+
+/**
+ * Сетка хешей: кадры через равные промежутки одним запуском ffmpeg.
+ *
+ * ПОЧЕМУ одним вызовом, а не циклом по `grayscaleAt`: на ролике 80 секунд с
+ * шагом 2 секунды точек сорок, и сорок запусков процесса стоят секунды
+ * впустую. Фильтр `fps` отдаёт весь поток кадров сразу, а размер каждого
+ * известен заранее — 9×8 байт, — поэтому поток режется на кадры простым срезом.
+ *
+ * `-ss` здесь не нужен: отступ от края задаётся первым кадром сетки, а фильтр
+ * `fps` привязан к началу файла. Смещение вносится `trim`.
+ */
+export async function hashVideoFrameGrid(
+  filePath: string,
+  timestamps: readonly number[],
+): Promise<string[]> {
+  if (timestamps.length === 0) return []
+  const startSec = timestamps[0]!
+  const stepSec = timestamps.length > 1 ? Math.max(0.1, timestamps[1]! - startSec) : 1
+  const frameRate = 1 / stepSec
+
+  const args = [
+    '-hide_banner', '-nostats',
+    '-ss', startSec.toFixed(2),
+    '-i', filePath,
+    '-frames:v', String(timestamps.length),
+    '-an', '-sn',
+    '-vf', `fps=${frameRate.toFixed(6)},scale=${DHASH_WIDTH}:${DHASH_HEIGHT}:flags=area,format=gray`,
+    '-f', 'rawvideo',
+    '-',
+  ]
+
+  const stdout = await runFfmpegCapture(args, FRAME_TIMEOUT_MS)
+  const hashes: string[] = []
+  for (let offset = 0; offset + EXPECTED_BYTES <= stdout.length; offset += EXPECTED_BYTES) {
+    hashes.push(dHashFromGrayscale(new Uint8Array(stdout.subarray(offset, offset + EXPECTED_BYTES))))
+    if (hashes.length >= timestamps.length) break
+  }
+  return hashes
+}

@@ -310,10 +310,16 @@ model CharacterReferenceImage {
   generationPrompt    String?
   generationModel     String?
   generationCostUsd   Decimal?  @db.Decimal(10, 6)
+  // Ротация портретов для AI-аватара (PROJECT_CONTEXT §7): один и тот же кадр,
+  // оживлённый во всех сценах и роликах, — это «меняются только губы».
+  // Считается так же, как использование фрагментов ведущего в PresenterSourceClip.
+  usageCount          Int       @default(0)
+  lastUsedAt          DateTime?
 
   @@unique([characterId, sha1])
   @@index([characterId, kind, order])
   @@index([aiAnalyzedAt])
+  @@index([characterId, usageCount, lastUsedAt])
 }
 
 // Эталонные кадры сцены (по UX зеркалит AppReferenceImage + CharacterReferenceImage).

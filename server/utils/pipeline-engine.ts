@@ -556,11 +556,16 @@ export async function executePipeline(runId: number): Promise<void> {
       : new Set<string>()
     const pendingVideoNodes = videoNodes.filter(n => !doneNodeIds.has(n.id))
 
+    // Дефолт берётся оттуда же, откуда его берёт исполнитель ноды
+    // (`pipeline-executors.ts`), а не литералом: с литералами preflight пробивал
+    // fal-модель, а прогон уходил на модель реестра — проверяли не то, что
+    // запускали.
+    const { getDefaultImageModel, getDefaultVideoModel } = await import('./video-models')
     const modelsToCheck: string[] = []
     for (const vn of pendingVideoNodes) {
       const cfg = (vn.data?.config ?? {}) as Record<string, unknown>
-      modelsToCheck.push(String(cfg.imageModelId || 'fal-ai/flux/dev'))
-      modelsToCheck.push(String(cfg.videoModelId || 'fal-ai/kling-video/v3/standard/text-to-video'))
+      modelsToCheck.push(String(cfg.imageModelId || getDefaultImageModel().id))
+      modelsToCheck.push(String(cfg.videoModelId || getDefaultVideoModel().id))
     }
 
     // Модель на Replicate fal-пробой не проверяется: без FAL_KEY probe отдал бы
