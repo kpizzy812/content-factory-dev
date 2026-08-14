@@ -2,7 +2,8 @@
  * Ручная проверка нарезки на реальном ffmpeg.
  *
  * Запуск:
- *   bun run scripts/ingest-smoke.ts <запись> [--plan-only] [--max-clips=N]
+ *   bun run scripts/ingest-smoke.ts <запись> [--plan-only] [--hash-only]
+ *                                   [--out=<папка>] [--max-clips=N]
  *                                   [--noise-db=-30] [--min-silence=0.4]
  *
  * `--plan-only` останавливается после разметки границ и плана окон: ничего не
@@ -12,7 +13,7 @@
  * В БД и хранилище скрипт не пишет никогда.
  */
 import { spawn } from "node:child_process"
-import { mkdtemp, rm, stat } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -37,7 +38,7 @@ import {
 const args = process.argv.slice(2)
 const recordingPath = args.find(arg => !arg.startsWith("--"))
 if (!recordingPath) {
-  console.error("Usage: bun run scripts/ingest-smoke.ts <recording> [--plan-only] [--max-clips=N] [--noise-db=-30] [--min-silence=0.4]")
+  console.error("Usage: bun run scripts/ingest-smoke.ts <recording> [--plan-only] [--hash-only] [--out=DIR] [--max-clips=N] [--noise-db=-30] [--min-silence=0.4]")
   process.exit(1)
 }
 
@@ -80,6 +81,7 @@ function flagNumber(name: string, fallback: number): number {
 
 const planOnly = args.includes("--plan-only")
 const hashOnly = args.includes("--hash-only")
+const keepDir = args.find(arg => arg.startsWith("--out="))?.slice("--out=".length) || null
 const maxClips = flagNumber("max-clips", Number.POSITIVE_INFINITY)
 const noiseDb = flagNumber("noise-db", DEFAULT_SILENCE_NOISE_DB)
 const minSilenceSec = flagNumber("min-silence", DEFAULT_MIN_SILENCE_SEC)
@@ -161,7 +163,15 @@ if (planOnly) {
 }
 
 console.log("\n— нарезка и хеши —")
-const outputDir = await mkdtemp(join(tmpdir(), "ingest-smoke-"))
+// `--out` оставляет нарезанное на диске: фрагменты заливаются потом через
+// `POST /api/characters/:id/source-clips`. Это на одно поколение сжатия меньше,
+// чем сжимать исходник ради лимита в 2 ГБ на `source-recordings`, и лимит при
+// этом не мешает вовсе — там предел 100 МБ на фрагмент, а они по несколько.
+const outputDir = keepDir ?? await mkdtemp(join(tmpdir(), "ingest-smoke-"))
+if (keepDir) {
+  await mkdir(keepDir, { recursive: true })
+  console.log(`каталог: ${keepDir} (не удаляется)`)
+}
 try {
   const result = await ingestPresenterRecording(
     { recordingPath, outputDir, maxClips: Number.isFinite(maxClips) ? maxClips : undefined },
@@ -185,5 +195,5 @@ try {
   }
 }
 finally {
-  await rm(outputDir, { recursive: true, force: true }).catch(() => {})
+  if (!keepDir) await rm(outputDir, { recursive: true, force: true }).catch(() => {})
 }
