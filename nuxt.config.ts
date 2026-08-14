@@ -18,6 +18,13 @@ export default defineNuxtConfig({
     head: {
       titleTemplate: "%s — Контент-Завод",
       title: "Контент-Завод",
+      link: [
+        // SVG — основной значок: масштабируется без каши на HiDPI-вкладках.
+        // .ico (16/32/48) остаётся для браузеров без поддержки SVG-иконок.
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "alternate icon", type: "image/x-icon", href: "/favicon.ico" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      ],
     },
   },
 
