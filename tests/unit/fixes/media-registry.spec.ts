@@ -427,16 +427,18 @@ describe("контракт реестра", () => {
   it("неподтверждённая цена помечена явно — в деньги такую модель пускать нельзя", () => {
     // Тариф fal за секунду Kling v2.1 i2v в проекте не зафиксирован (§7 п.1).
     expect(specFor("fal-ai/kling-video/v2.1/standard/image-to-video").billingConfirmed).toBe(false)
-    // Цены Replicate взяты из практики стенда, но canary по
-    // docs/operations/replicate.md по ним не проводился (§6.1). Исключения —
-    // модели, чей тариф прочитан со страницы модели (`billingConfig`):
-    // p-video-avatar ($0.025/с в 720p, $0.045/с в 1080p) и три Kontext
-    // ($0.025 / $0.04 / $0.08 за кадр). Публичный API тарифы не отдаёт вовсе.
+    // Подтверждено = тариф прочитан со страницы модели (`billingConfig`);
+    // публичный API цены не отдаёт вовсе, а HTML страницы отдаёт без токена.
+    // Снято 14.08.2026. Не в списке остаётся только minimax speech-02-turbo:
+    // он тарифицируется за input-токены, а мы считаем по символам — это
+    // верхняя граница, а не подтверждённая цена.
     const CONFIRMED_BY_MODEL_PAGE = new Set([
       "prunaai/p-video-avatar",
       "black-forest-labs/flux-kontext-dev",
       "black-forest-labs/flux-kontext-pro",
       "black-forest-labs/flux-kontext-max",
+      "black-forest-labs/flux-dev",
+      "kwaivgi/kling-v1.6-standard",
     ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue

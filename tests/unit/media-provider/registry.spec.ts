@@ -242,14 +242,16 @@ describe("media model registry", () => {
 
   // ─── Цены, которые нельзя пускать в смету без подтверждения ────
 
-  it("marks Replicate prices as unconfirmed until a canary run", () => {
-    // §6.1 спецификации: число из практики стенда — не подтверждённый тариф.
-    // Флаг снимается только вместе с canary по docs/operations/replicate.md.
-    expect(resolveMediaModel("text_to_image").billingConfirmed).toBe(false)
-    expect(resolveMediaModel("text_to_video").billingConfirmed).toBe(false)
-    expect(resolveMediaModel("text_to_speech").billingConfirmed).toBe(false)
-    // Lip-sync обкатан и подтверждён.
+  it("marks a price as confirmed only when the model page states it", () => {
+    // Тариф считается подтверждённым, если прочитан из `billingConfig` на
+    // странице модели (снято 14.08.2026): flux-dev $0.025 за кадр,
+    // kling-v1.6-standard $0.05 за секунду, kling-lip-sync $0.014 за секунду.
+    expect(resolveMediaModel("text_to_image").billingConfirmed).toBe(true)
+    expect(resolveMediaModel("text_to_video").billingConfirmed).toBe(true)
     expect(resolveMediaModel("lip_sync").billingConfirmed).toBe(true)
+    // TTS тарифицируется за input-токены, а мы считаем по символам: это
+    // верхняя граница расхода, а не подтверждённая цена.
+    expect(resolveMediaModel("text_to_speech").billingConfirmed).toBe(false)
   })
 
   it("rejects unsupported capabilities and model ids", () => {

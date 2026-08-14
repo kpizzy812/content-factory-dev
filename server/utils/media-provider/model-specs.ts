@@ -144,9 +144,8 @@ const REPLICATE_FLUX_ASPECT_RATIOS = Object.freeze([
  * достаточно, а сцены снимает text-to-video напрямую, без промежуточной картинки.
  *
  * Цена — за изображение, а не за мегапиксель: тариф $0.025 за кадр
- * переопределяется REPLICATE_IMAGE_PRICE_USD. `billingConfirmed: false` —
- * число подтверждено практикой стенда, но canary по
- * `docs/operations/replicate.md` по этой модели не проводился.
+ * переопределяется REPLICATE_IMAGE_PRICE_USD. Подтверждён страницей модели
+ * 14.08.2026 («or 40 images for $1»).
  */
 const FLUX_DEV_REPLICATE: TextToImageModelSpec = Object.freeze<TextToImageModelSpec>({
   registryKey: "replicate:flux-dev",
@@ -157,7 +156,7 @@ const FLUX_DEV_REPLICATE: TextToImageModelSpec = Object.freeze<TextToImageModelS
   get billing() {
     return { unit: "output_image", usdPerImage: readReplicatePrice("REPLICATE_IMAGE_PRICE_USD", 0.025) } as const
   },
-  billingConfirmed: false,
+  billingConfirmed: true,
   constraints: Object.freeze({
     resolutions: Object.freeze(["1024x1024", "832x1248", "1248x832"]),
     maxImagesPerRequest: 1,
@@ -318,11 +317,17 @@ function mapKlingTextToVideo(input: {
 const REPLICATE_KLING_16_ID = "kwaivgi/kling-v1.6-standard"
 const REPLICATE_KLING_16_DURATIONS = Object.freeze([5, 10])
 
-/** Цена Kling 1.6 на Replicate — за секунду выхода, override через env. */
+/**
+ * Цена Kling 1.6 на Replicate — за секунду выхода, override через env.
+ *
+ * $0.05 подтверждено страницей модели 14.08.2026 («or 20 seconds for $1»).
+ * До этого стояло $0.045 «как оплачивалось на стенде» — смета клипов была
+ * занижена на 11%, а заниженная смета уводит партию за пределы кошелька молча.
+ */
 function replicateVideoBilling() {
   return {
     unit: "output_second",
-    usdPerSecond: readReplicatePrice("REPLICATE_VIDEO_PRICE_USD_PER_SEC", 0.045),
+    usdPerSecond: readReplicatePrice("REPLICATE_VIDEO_PRICE_USD_PER_SEC", 0.05),
   } as const
 }
 
@@ -346,7 +351,7 @@ const REPLICATE_KLING_16_T2V: TextToVideoModelSpec = Object.freeze<TextToVideoMo
   get billing() {
     return replicateVideoBilling()
   },
-  billingConfirmed: false,
+  billingConfirmed: true,
   constraints: Object.freeze({
     aspectRatios: KLING_ASPECT_RATIOS,
     resolutions: Object.freeze(["1080x1920", "1920x1080", "1080x1080"]),
@@ -615,7 +620,7 @@ const REPLICATE_KLING_16_I2V: ImageToVideoModelSpec = Object.freeze<ImageToVideo
   get billing() {
     return replicateVideoBilling()
   },
-  billingConfirmed: false,
+  billingConfirmed: true,
   constraints: Object.freeze({
     aspectRatios: KLING_ASPECT_RATIOS,
     resolutions: Object.freeze(["1080x1920", "1920x1080", "1080x1080"]),
@@ -774,6 +779,17 @@ const MINIMAX_SPEECH_02_TURBO: TextToSpeechModelSpec = Object.freeze<TextToSpeec
   provider: "replicate",
   capability: "text_to_speech",
   execution: "async_prediction",
+  /**
+   * Страница модели: «$0.06 per thousand input tokens». Тарифицируются ТОКЕНЫ,
+   * а мы считаем по символам — токенов в тексте всегда не больше, чем символов,
+   * поэтому счёт по символам это верхняя граница, а не догадка. Занижения он не
+   * даёт, и в этом весь смысл: заниженная смета уводит партию за пределы
+   * кошелька молча.
+   *
+   * `billingConfirmed: false` остаётся: подтвердить можно только фактическим
+   * счётом — сколько токенов даёт русская реплика, мы не знаем, а выдумывать
+   * коэффициент нельзя.
+   */
   get billing() {
     return {
       unit: "character",
