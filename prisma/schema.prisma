@@ -262,6 +262,13 @@ model Character {
   tags            String[]
   emotionDefault  String?
   ageRange        String?
+  // Голос ведущего: клон обучен на ЕГО записи и осмыслен только рядом с его
+  // лицом, поэтому живёт на персонаже, а не на ролике. Ролик наследует
+  // (`resolvePresenterVoice`), явный выбор оператора главнее.
+  // Модель хранится рядом не для симметрии: клон обучается ПОД конкретную
+  // модель, и тот же voiceId в другой модели не существует.
+  voiceId         String?
+  voiceModelId    String?
   archived        Boolean                   @default(false)
   createdById     Int?
   createdAt       DateTime                  @default(now())

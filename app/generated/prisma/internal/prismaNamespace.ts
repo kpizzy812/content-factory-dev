@@ -6691,6 +6691,8 @@ export const CharacterScalarFieldEnum = {
   tags: 'tags',
   emotionDefault: 'emotionDefault',
   ageRange: 'ageRange',
+  voiceId: 'voiceId',
+  voiceModelId: 'voiceModelId',
   archived: 'archived',
   createdById: 'createdById',
   createdAt: 'createdAt',

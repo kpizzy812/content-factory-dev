@@ -45,6 +45,8 @@ export type CharacterMinAggregateOutputType = {
   visualPrompt: string | null
   emotionDefault: string | null
   ageRange: string | null
+  voiceId: string | null
+  voiceModelId: string | null
   archived: boolean | null
   createdById: number | null
   createdAt: Date | null
@@ -60,6 +62,8 @@ export type CharacterMaxAggregateOutputType = {
   visualPrompt: string | null
   emotionDefault: string | null
   ageRange: string | null
+  voiceId: string | null
+  voiceModelId: string | null
   archived: boolean | null
   createdById: number | null
   createdAt: Date | null
@@ -76,6 +80,8 @@ export type CharacterCountAggregateOutputType = {
   tags: number
   emotionDefault: number
   ageRange: number
+  voiceId: number
+  voiceModelId: number
   archived: number
   createdById: number
   createdAt: number
@@ -103,6 +109,8 @@ export type CharacterMinAggregateInputType = {
   visualPrompt?: true
   emotionDefault?: true
   ageRange?: true
+  voiceId?: true
+  voiceModelId?: true
   archived?: true
   createdById?: true
   createdAt?: true
@@ -118,6 +126,8 @@ export type CharacterMaxAggregateInputType = {
   visualPrompt?: true
   emotionDefault?: true
   ageRange?: true
+  voiceId?: true
+  voiceModelId?: true
   archived?: true
   createdById?: true
   createdAt?: true
@@ -134,6 +144,8 @@ export type CharacterCountAggregateInputType = {
   tags?: true
   emotionDefault?: true
   ageRange?: true
+  voiceId?: true
+  voiceModelId?: true
   archived?: true
   createdById?: true
   createdAt?: true
@@ -237,6 +249,8 @@ export type CharacterGroupByOutputType = {
   tags: string[]
   emotionDefault: string | null
   ageRange: string | null
+  voiceId: string | null
+  voiceModelId: string | null
   archived: boolean
   createdById: number | null
   createdAt: Date
@@ -276,6 +290,8 @@ export type CharacterWhereInput = {
   tags?: Prisma.StringNullableListFilter<"Character">
   emotionDefault?: Prisma.StringNullableFilter<"Character"> | string | null
   ageRange?: Prisma.StringNullableFilter<"Character"> | string | null
+  voiceId?: Prisma.StringNullableFilter<"Character"> | string | null
+  voiceModelId?: Prisma.StringNullableFilter<"Character"> | string | null
   archived?: Prisma.BoolFilter<"Character"> | boolean
   createdById?: Prisma.IntNullableFilter<"Character"> | number | null
   createdAt?: Prisma.DateTimeFilter<"Character"> | Date | string
@@ -296,6 +312,8 @@ export type CharacterOrderByWithRelationInput = {
   tags?: Prisma.SortOrder
   emotionDefault?: Prisma.SortOrderInput | Prisma.SortOrder
   ageRange?: Prisma.SortOrderInput | Prisma.SortOrder
+  voiceId?: Prisma.SortOrderInput | Prisma.SortOrder
+  voiceModelId?: Prisma.SortOrderInput | Prisma.SortOrder
   archived?: Prisma.SortOrder
   createdById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -319,6 +337,8 @@ export type CharacterWhereUniqueInput = Prisma.AtLeast<{
   tags?: Prisma.StringNullableListFilter<"Character">
   emotionDefault?: Prisma.StringNullableFilter<"Character"> | string | null
   ageRange?: Prisma.StringNullableFilter<"Character"> | string | null
+  voiceId?: Prisma.StringNullableFilter<"Character"> | string | null
+  voiceModelId?: Prisma.StringNullableFilter<"Character"> | string | null
   archived?: Prisma.BoolFilter<"Character"> | boolean
   createdById?: Prisma.IntNullableFilter<"Character"> | number | null
   createdAt?: Prisma.DateTimeFilter<"Character"> | Date | string
@@ -339,6 +359,8 @@ export type CharacterOrderByWithAggregationInput = {
   tags?: Prisma.SortOrder
   emotionDefault?: Prisma.SortOrderInput | Prisma.SortOrder
   ageRange?: Prisma.SortOrderInput | Prisma.SortOrder
+  voiceId?: Prisma.SortOrderInput | Prisma.SortOrder
+  voiceModelId?: Prisma.SortOrderInput | Prisma.SortOrder
   archived?: Prisma.SortOrder
   createdById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -363,6 +385,8 @@ export type CharacterScalarWhereWithAggregatesInput = {
   tags?: Prisma.StringNullableListFilter<"Character">
   emotionDefault?: Prisma.StringNullableWithAggregatesFilter<"Character"> | string | null
   ageRange?: Prisma.StringNullableWithAggregatesFilter<"Character"> | string | null
+  voiceId?: Prisma.StringNullableWithAggregatesFilter<"Character"> | string | null
+  voiceModelId?: Prisma.StringNullableWithAggregatesFilter<"Character"> | string | null
   archived?: Prisma.BoolWithAggregatesFilter<"Character"> | boolean
   createdById?: Prisma.IntNullableWithAggregatesFilter<"Character"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Character"> | Date | string
@@ -378,6 +402,8 @@ export type CharacterCreateInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -398,6 +424,8 @@ export type CharacterUncheckedCreateInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -416,6 +444,8 @@ export type CharacterUpdateInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -436,6 +466,8 @@ export type CharacterUncheckedUpdateInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -455,6 +487,8 @@ export type CharacterCreateManyInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -470,6 +504,8 @@ export type CharacterUpdateManyMutationInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -486,6 +522,8 @@ export type CharacterUncheckedUpdateManyInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -512,6 +550,8 @@ export type CharacterCountOrderByAggregateInput = {
   tags?: Prisma.SortOrder
   emotionDefault?: Prisma.SortOrder
   ageRange?: Prisma.SortOrder
+  voiceId?: Prisma.SortOrder
+  voiceModelId?: Prisma.SortOrder
   archived?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -532,6 +572,8 @@ export type CharacterMaxOrderByAggregateInput = {
   visualPrompt?: Prisma.SortOrder
   emotionDefault?: Prisma.SortOrder
   ageRange?: Prisma.SortOrder
+  voiceId?: Prisma.SortOrder
+  voiceModelId?: Prisma.SortOrder
   archived?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -547,6 +589,8 @@ export type CharacterMinOrderByAggregateInput = {
   visualPrompt?: Prisma.SortOrder
   emotionDefault?: Prisma.SortOrder
   ageRange?: Prisma.SortOrder
+  voiceId?: Prisma.SortOrder
+  voiceModelId?: Prisma.SortOrder
   archived?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -672,6 +716,8 @@ export type CharacterCreateWithoutAppInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -690,6 +736,8 @@ export type CharacterUncheckedCreateWithoutAppInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -738,6 +786,8 @@ export type CharacterScalarWhereInput = {
   tags?: Prisma.StringNullableListFilter<"Character">
   emotionDefault?: Prisma.StringNullableFilter<"Character"> | string | null
   ageRange?: Prisma.StringNullableFilter<"Character"> | string | null
+  voiceId?: Prisma.StringNullableFilter<"Character"> | string | null
+  voiceModelId?: Prisma.StringNullableFilter<"Character"> | string | null
   archived?: Prisma.BoolFilter<"Character"> | boolean
   createdById?: Prisma.IntNullableFilter<"Character"> | number | null
   createdAt?: Prisma.DateTimeFilter<"Character"> | Date | string
@@ -753,6 +803,8 @@ export type CharacterCreateWithoutReferenceImagesInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -772,6 +824,8 @@ export type CharacterUncheckedCreateWithoutReferenceImagesInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -805,6 +859,8 @@ export type CharacterUpdateWithoutReferenceImagesInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -824,6 +880,8 @@ export type CharacterUncheckedUpdateWithoutReferenceImagesInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -841,6 +899,8 @@ export type CharacterCreateWithoutSourceClipsInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -860,6 +920,8 @@ export type CharacterUncheckedCreateWithoutSourceClipsInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -893,6 +955,8 @@ export type CharacterUpdateWithoutSourceClipsInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -912,6 +976,8 @@ export type CharacterUncheckedUpdateWithoutSourceClipsInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -929,6 +995,8 @@ export type CharacterCreateWithoutLipSyncVideosInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -948,6 +1016,8 @@ export type CharacterUncheckedCreateWithoutLipSyncVideosInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -981,6 +1051,8 @@ export type CharacterUpdateWithoutLipSyncVideosInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1000,6 +1072,8 @@ export type CharacterUncheckedUpdateWithoutLipSyncVideosInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1017,6 +1091,8 @@ export type CharacterCreateManyAppInput = {
   tags?: Prisma.CharacterCreatetagsInput | string[]
   emotionDefault?: string | null
   ageRange?: string | null
+  voiceId?: string | null
+  voiceModelId?: string | null
   archived?: boolean
   createdById?: number | null
   createdAt?: Date | string
@@ -1032,6 +1108,8 @@ export type CharacterUpdateWithoutAppInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1050,6 +1128,8 @@ export type CharacterUncheckedUpdateWithoutAppInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1068,6 +1148,8 @@ export type CharacterUncheckedUpdateManyWithoutAppInput = {
   tags?: Prisma.CharacterUpdatetagsInput | string[]
   emotionDefault?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ageRange?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  voiceModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1133,6 +1215,8 @@ export type CharacterSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   tags?: boolean
   emotionDefault?: boolean
   ageRange?: boolean
+  voiceId?: boolean
+  voiceModelId?: boolean
   archived?: boolean
   createdById?: boolean
   createdAt?: boolean
@@ -1154,6 +1238,8 @@ export type CharacterSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   tags?: boolean
   emotionDefault?: boolean
   ageRange?: boolean
+  voiceId?: boolean
+  voiceModelId?: boolean
   archived?: boolean
   createdById?: boolean
   createdAt?: boolean
@@ -1171,6 +1257,8 @@ export type CharacterSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   tags?: boolean
   emotionDefault?: boolean
   ageRange?: boolean
+  voiceId?: boolean
+  voiceModelId?: boolean
   archived?: boolean
   createdById?: boolean
   createdAt?: boolean
@@ -1188,13 +1276,15 @@ export type CharacterSelectScalar = {
   tags?: boolean
   emotionDefault?: boolean
   ageRange?: boolean
+  voiceId?: boolean
+  voiceModelId?: boolean
   archived?: boolean
   createdById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type CharacterOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "description" | "role" | "visualPrompt" | "tags" | "emotionDefault" | "ageRange" | "archived" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["character"]>
+export type CharacterOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "description" | "role" | "visualPrompt" | "tags" | "emotionDefault" | "ageRange" | "voiceId" | "voiceModelId" | "archived" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["character"]>
 export type CharacterInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
   referenceImages?: boolean | Prisma.Character$referenceImagesArgs<ExtArgs>
@@ -1227,6 +1317,8 @@ export type $CharacterPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     tags: string[]
     emotionDefault: string | null
     ageRange: string | null
+    voiceId: string | null
+    voiceModelId: string | null
     archived: boolean
     createdById: number | null
     createdAt: Date
@@ -1667,6 +1759,8 @@ export interface CharacterFieldRefs {
   readonly tags: Prisma.FieldRef<"Character", 'String[]'>
   readonly emotionDefault: Prisma.FieldRef<"Character", 'String'>
   readonly ageRange: Prisma.FieldRef<"Character", 'String'>
+  readonly voiceId: Prisma.FieldRef<"Character", 'String'>
+  readonly voiceModelId: Prisma.FieldRef<"Character", 'String'>
   readonly archived: Prisma.FieldRef<"Character", 'Boolean'>
   readonly createdById: Prisma.FieldRef<"Character", 'Int'>
   readonly createdAt: Prisma.FieldRef<"Character", 'DateTime'>

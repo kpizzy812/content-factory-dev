@@ -1,5 +1,9 @@
 import { evaluateFalPreflight, planFalPreflightTargets } from "~~/server/utils/fal-preflight-plan"
 import { getDefaultImageModel, getDefaultVideoModel } from "~~/server/utils/video-models"
+import {
+  presenterVoiceMissingMessage,
+  resolvePresenterVoice,
+} from "~~/server/utils/presenter/voice-defaults"
 
 const VALID_FORMATS = ["portrait", "landscape"] as const
 const VALID_QUALITIES = ["low", "medium", "high"] as const
@@ -209,6 +213,26 @@ export default defineEventHandler(async (event) => {
       resolvedLipSyncCharacterId = protagonist?.id ?? fallback?.id ?? null
     }
   }
+
+  // Голос принадлежит персонажу: клон обучен на его записи и осмыслен только
+  // рядом с его лицом. Ролик наследует, явный выбор оператора главнее.
+  const voicePresenter = resolvedLipSyncCharacterId
+    ? await prisma.character.findUnique({
+      where: { id: resolvedLipSyncCharacterId },
+      select: { id: true, name: true, voiceId: true, voiceModelId: true },
+    })
+    : null
+  const presenterVoice = resolvePresenterVoice({
+    requestedVoiceId: body.voiceoverVoiceId,
+    requestedModelId: body.voiceoverModelId,
+    character: voicePresenter,
+  })
+  // Ведущий в кадре есть, а голоса нет ни у ролика, ни у персонажа — отказ, а
+  // не тихая подмена стоковым пресетом. Ролики без ведущего это не касается:
+  // там нет лица, с которым голос мог бы разойтись.
+  if (voicePresenter && presenterVoice.source === "none") {
+    throw createError({ statusCode: 422, message: presenterVoiceMissingMessage(voicePresenter.name) })
+  }
   const activeStatuses = ["pending", "configuring", "generating_prompts", "generating_images", "generating_clips", "generating_music", "assembling"]
   const activeVideo = await prisma.video.findFirst({
     where: {
@@ -327,8 +351,8 @@ export default defineEventHandler(async (event) => {
       generateAudio: body.generateAudio ?? true,
       // Voiceover
       voiceoverEnabled: resolvedVoiceoverEnabled,
-      voiceoverModelId: body.voiceoverModelId || null,
-      voiceoverVoiceId: body.voiceoverVoiceId || null,
+      voiceoverModelId: presenterVoice.modelId,
+      voiceoverVoiceId: presenterVoice.voiceId,
       voiceoverLanguage: body.voiceoverLanguage || scenarioApp?.language || 'en',
       voiceoverPacing: body.voiceoverPacing || 'moderate',
       voiceoverReconciliation: body.voiceoverReconciliation || 'compress_audio',
