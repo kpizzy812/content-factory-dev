@@ -142,6 +142,11 @@ export default defineEventHandler(async (event) => {
         recordingName,
         durationSec: result.durationSec,
         sceneDetectionFailed: result.sceneDetectionFailed,
+        // Чем размечены границы: `silence` — паузами речи, `scene` — склейками,
+        // `none` — ничем, запись поделена по таймеру и резы попали в середину
+        // слов. Последнее оператор обязан видеть.
+        boundarySource: result.boundarySource,
+        similarClips: result.similarClips,
         createdIds: created,
         acceptedCount: created.length,
         skipped: result.skipped,

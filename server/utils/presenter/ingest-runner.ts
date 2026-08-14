@@ -24,12 +24,31 @@ export interface IngestPresenterInput {
   sceneThreshold?: number
   /** Порог похожести в битах. Меньше — строже. */
   similarityThreshold?: number
+  /**
+   * Отбрасывать ли фрагмент, чей первый кадр похож на уже принятый.
+   *
+   * Не задано — решает способ разметки границ: при резке по паузам отбор
+   * выключен, при резке по склейкам оставлен. Причина в измерении на реальной
+   * записи ведущей: 10 минут одним дублем на одном фоне дали 106 фрагментов,
+   * из которых дедуп по dHash первого кадра оставил 6. dHash сжимает кадр до
+   * 9x8 серых пикселей, и у говорящей головы на статичном фоне все кадры там
+   * одинаковы — разные фразы и жесты в этот сигнал не попадают.
+   *
+   * Точный повтор (одна запись, залитая дважды) ловится не хешом, а
+   * `@@unique([characterId, sha1])` в схеме.
+   */
+  dropSimilarClips?: boolean
   maxClips?: number
 }
 
 export interface IngestPresenterDependencies {
   probeDuration(recordingPath: string): Promise<number>
   detectScenes(recordingPath: string, threshold: number): Promise<number[]>
+  /**
+   * Точки реза по речевым паузам. Необязательна: вызывающие, которые её не
+   * передали, работают по прежнему пути (разметка склеек).
+   */
+  detectSilence?(recordingPath: string, durationSec: number): Promise<number[]>
   cutSegment(
     recordingPath: string,
     startSec: number,
@@ -54,12 +73,26 @@ export interface SkippedSegment {
   message?: string
 }
 
+/** Чем размечены границы: паузами речи, видеосклейками или ничем. */
+export type IngestBoundarySource = "silence" | "scene" | "none"
+
 export interface IngestPresenterResult {
   durationSec: number
   clips: IngestedClip[]
   skipped: SkippedSegment[]
   /** true, если ffmpeg не смог разметить сцены и запись поделена равномерно. */
   sceneDetectionFailed: boolean
+  /**
+   * `none` означает, что запись поделена равными кусками по таймеру — границы
+   * попадут в середину слова, и это видно в логе, а не втихую.
+   */
+  boundarySource: IngestBoundarySource
+  /**
+   * Сколько фрагментов оказались похожи на уже принятые по первому кадру.
+   * При выключенном отборе они всё равно приняты — но молчать об этом нельзя:
+   * если материал реально дублируется, оператор должен это видеть.
+   */
+  similarClips: number
 }
 
 const DEFAULT_SCENE_THRESHOLD = 0.4
@@ -76,15 +109,36 @@ export async function ingestPresenterRecording(
 
   let sceneBoundaries: number[] = []
   let sceneDetectionFailed = false
-  try {
-    sceneBoundaries = await deps.detectScenes(
-      input.recordingPath,
-      input.sceneThreshold ?? DEFAULT_SCENE_THRESHOLD,
-    )
+  let boundarySource: IngestBoundarySource = "none"
+
+  // Паузы речи первыми: съёмка ведущей — один непрерывный дубль, склеек в ней
+  // нет, а границы фраз есть. Заодно это дёшево — детектор не декодирует видео,
+  // тогда как разметка склеек проходит каждый кадр (на 4K60 это десятки минут).
+  if (deps.detectSilence) {
+    try {
+      const speechCuts = await deps.detectSilence(input.recordingPath, durationSec)
+      if (speechCuts.length > 0) {
+        sceneBoundaries = speechCuts
+        boundarySource = "silence"
+      }
+    }
+    catch {
+      // Отказ детектора пауз не отменяет нарезку: ниже пробуем склейки.
+    }
   }
-  catch {
-    // Разметка сцен — оптимизация, а не обязательный шаг: без неё режем равномерно.
-    sceneDetectionFailed = true
+
+  if (boundarySource === "none") {
+    try {
+      sceneBoundaries = await deps.detectScenes(
+        input.recordingPath,
+        input.sceneThreshold ?? DEFAULT_SCENE_THRESHOLD,
+      )
+      if (sceneBoundaries.length > 0) boundarySource = "scene"
+    }
+    catch {
+      // Разметка сцен — оптимизация, а не обязательный шаг: без неё режем равномерно.
+      sceneDetectionFailed = true
+    }
   }
 
   const planned = planPresenterSegments({
@@ -98,6 +152,10 @@ export async function ingestPresenterRecording(
   const clips: IngestedClip[] = []
   const skipped: SkippedSegment[] = []
   const seenHashes = [...(input.existingHashes ?? [])]
+  // Границы дали паузы — фрагменты по построению разные фразы, и отбор по
+  // первому кадру выкосил бы почти весь материал (см. dropSimilarClips).
+  const dropSimilar = input.dropSimilarClips ?? boundarySource !== "silence"
+  let similarClips = 0
 
   for (const [index, segment] of planned.entries()) {
     if (input.maxClips !== undefined && clips.length >= input.maxClips) break
@@ -114,8 +172,11 @@ export async function ingestPresenterRecording(
       const duplicate = seenHashes.some(known =>
         areFramesSimilar(known, perceptualHash, input.similarityThreshold))
       if (duplicate) {
-        skipped.push({ startSec: segment.startSec, endSec: segment.endSec, reason: "duplicate" })
-        continue
+        similarClips += 1
+        if (dropSimilar) {
+          skipped.push({ startSec: segment.startSec, endSec: segment.endSec, reason: "duplicate" })
+          continue
+        }
       }
 
       seenHashes.push(perceptualHash)
@@ -138,5 +199,5 @@ export async function ingestPresenterRecording(
     }
   }
 
-  return { durationSec, clips, skipped, sceneDetectionFailed }
+  return { durationSec, clips, skipped, sceneDetectionFailed, boundarySource, similarClips }
 }

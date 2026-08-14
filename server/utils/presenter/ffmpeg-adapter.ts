@@ -8,6 +8,11 @@
 import { spawn } from "node:child_process"
 
 import { detectSceneBoundaries } from "../video-tools/scene-detect"
+import {
+  DEFAULT_MIN_SILENCE_SEC,
+  DEFAULT_SILENCE_NOISE_DB,
+  detectSpeechCutPoints,
+} from "../video-tools/silence-detect"
 import { getVideoDuration } from "../video-tools/ffmpeg"
 import { DHASH_HEIGHT, DHASH_WIDTH } from "./perceptual-hash"
 import type { IngestPresenterDependencies } from "./ingest-runner"
@@ -55,22 +60,48 @@ function runFfmpeg(args: string[], timeoutMs: number, collectStdout: boolean): P
 }
 
 /**
+ * Кадр фрагмента приводится к пределам lip-sync модели: `kling-lip-sync`
+ * принимает 720-1080 по ширине и 720-1920 по высоте (LIP_SYNC_CONSTRAINTS).
+ * Телефон снимает 4K, после поворота это 2160x3840 — такой фрагмент модель
+ * отвергнет, а узнали бы мы об этом на первом платном прогоне.
+ *
+ * `force_original_aspect_ratio=decrease` вписывает кадр в рамку, а не растягивает:
+ * растяжение изменило бы лицо. Второй scale выравнивает стороны до чётных —
+ * `yuv420p` нечётные не кодирует.
+ */
+const CLIP_MAX_WIDTH = 1080
+const CLIP_MAX_HEIGHT = 1920
+const CLIP_MAX_FPS = 30
+const CLIP_SCALE_FILTER
+  = `scale=${CLIP_MAX_WIDTH}:${CLIP_MAX_HEIGHT}:force_original_aspect_ratio=decrease`
+  + ",scale=trunc(iw/2)*2:trunc(ih/2)*2"
+
+/**
+ * Аргументы нарезки. Вынесены отдельно от вызова процесса, чтобы проверить их
+ * без ffmpeg: ошибка в порядке `-ss`/`-i` не видна глазами, а стоит десятков
+ * минут чтения записи целиком вместо быстрого поиска.
+ *
  * Режем с перекодированием, а не `-c copy`: копирование выравнивается по
  * ключевым кадрам и даёт клип не той длины, а Kling принимает строго 2-10 секунд.
  */
-async function cutSegment(
+export function buildPresenterCutArgs(
   recordingPath: string,
   startSec: number,
   durationSec: number,
   outputPath: string,
-): Promise<void> {
-  await runFfmpeg([
+): string[] {
+  return [
     "-hide_banner",
     "-nostats",
     "-y",
+    // Поиск ДО входа — по ключевым кадрам и мгновенно. После входа ffmpeg
+    // декодировал бы запись от нуля до нужной секунды на каждый фрагмент.
     "-ss", startSec.toFixed(2),
     "-i", recordingPath,
     "-t", durationSec.toFixed(2),
+    "-vf", CLIP_SCALE_FILTER,
+    // 60 к/с исходника удваивают вес файла, а предел модели — 100 МБ.
+    "-r", String(CLIP_MAX_FPS),
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-crf", "20",
@@ -78,7 +109,20 @@ async function cutSegment(
     "-c:a", "aac",
     "-movflags", "+faststart",
     outputPath,
-  ], CUT_TIMEOUT_MS, false)
+  ]
+}
+
+async function cutSegment(
+  recordingPath: string,
+  startSec: number,
+  durationSec: number,
+  outputPath: string,
+): Promise<void> {
+  await runFfmpeg(
+    buildPresenterCutArgs(recordingPath, startSec, durationSec, outputPath),
+    CUT_TIMEOUT_MS,
+    false,
+  )
 }
 
 /**
@@ -103,12 +147,28 @@ async function grayscaleThumbnail(clipPath: string): Promise<Uint8Array> {
   return new Uint8Array(stdout.subarray(0, expected))
 }
 
+/**
+ * Пороги разметки пауз выведены в окружение: у разных микрофонов и помещений
+ * «тишина» разная, и подбирать её приходится на материале, а не в коде.
+ * Проверять пороги удобно `bun run scripts/ingest-smoke.ts` — он не пишет в БД.
+ */
+function readNumberEnv(key: string, fallback: number): number {
+  const raw = process.env[key]?.trim()
+  if (!raw) return fallback
+  const value = Number.parseFloat(raw)
+  return Number.isFinite(value) ? value : fallback
+}
+
 export const ffmpegIngestDependencies: IngestPresenterDependencies = {
   probeDuration: getVideoDuration,
   detectScenes: async (recordingPath, threshold) => {
     const boundaries = await detectSceneBoundaries(recordingPath, threshold)
     return boundaries.map(boundary => boundary.timestampSec)
   },
+  detectSilence: (recordingPath, durationSec) => detectSpeechCutPoints(recordingPath, durationSec, {
+    noiseDb: readNumberEnv("PRESENTER_SILENCE_NOISE_DB", DEFAULT_SILENCE_NOISE_DB),
+    minSilenceSec: readNumberEnv("PRESENTER_SILENCE_MIN_SEC", DEFAULT_MIN_SILENCE_SEC),
+  }),
   cutSegment,
   grayscaleThumbnail,
 }
