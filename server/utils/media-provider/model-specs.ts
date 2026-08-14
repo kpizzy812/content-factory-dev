@@ -780,15 +780,13 @@ const MINIMAX_SPEECH_02_TURBO: TextToSpeechModelSpec = Object.freeze<TextToSpeec
   capability: "text_to_speech",
   execution: "async_prediction",
   /**
-   * Страница модели: «$0.06 per thousand input tokens». Тарифицируются ТОКЕНЫ,
-   * а мы считаем по символам — токенов в тексте всегда не больше, чем символов,
-   * поэтому счёт по символам это верхняя граница, а не догадка. Занижения он не
-   * даёт, и в этом весь смысл: заниженная смета уводит партию за пределы
-   * кошелька молча.
+   * Страница модели: «$0.06 per thousand input tokens». Тарифицируются токены,
+   * а мы считаем по символам — и для русского это одно и то же.
    *
-   * `billingConfirmed: false` остаётся: подтвердить можно только фактическим
-   * счётом — сколько токенов даёт русская реплика, мы не знаем, а выдумывать
-   * коэффициент нельзя.
+   * Измерено на оплаченных прогонах 06.08.2026: пять реплик, у всех
+   * `token_input_count` в метриках Replicate совпал с длиной текста ровно
+   * (113→113, 109→109, 102→102, 99→99, 95→95). Соотношение 1:1, поэтому счёт
+   * по символам — не оценка сверху, а точная цена.
    */
   get billing() {
     return {
@@ -796,7 +794,7 @@ const MINIMAX_SPEECH_02_TURBO: TextToSpeechModelSpec = Object.freeze<TextToSpeec
       usdPerCharacter: readReplicatePrice("REPLICATE_TTS_PRICE_USD_PER_1K_CHARS", 0.06) / 1000,
     } as const
   },
-  billingConfirmed: false,
+  billingConfirmed: true,
   constraints: Object.freeze({
     maxCharacters: 5000,
     languages: Object.freeze(["ru", "en"]),

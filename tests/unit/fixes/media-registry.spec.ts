@@ -429,9 +429,8 @@ describe("контракт реестра", () => {
     expect(specFor("fal-ai/kling-video/v2.1/standard/image-to-video").billingConfirmed).toBe(false)
     // Подтверждено = тариф прочитан со страницы модели (`billingConfig`);
     // публичный API цены не отдаёт вовсе, а HTML страницы отдаёт без токена.
-    // Снято 14.08.2026. Не в списке остаётся только minimax speech-02-turbo:
-    // он тарифицируется за input-токены, а мы считаем по символам — это
-    // верхняя граница, а не подтверждённая цена.
+    // Снято 14.08.2026. minimax speech-02-turbo подтверждён иначе — счётом:
+    // token_input_count оплаченных прогонов совпал с длиной русского текста.
     const CONFIRMED_BY_MODEL_PAGE = new Set([
       "prunaai/p-video-avatar",
       "black-forest-labs/flux-kontext-dev",
@@ -439,6 +438,7 @@ describe("контракт реестра", () => {
       "black-forest-labs/flux-kontext-max",
       "black-forest-labs/flux-dev",
       "kwaivgi/kling-v1.6-standard",
+      "minimax/speech-02-turbo",
     ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue

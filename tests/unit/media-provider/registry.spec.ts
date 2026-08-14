@@ -249,9 +249,9 @@ describe("media model registry", () => {
     expect(resolveMediaModel("text_to_image").billingConfirmed).toBe(true)
     expect(resolveMediaModel("text_to_video").billingConfirmed).toBe(true)
     expect(resolveMediaModel("lip_sync").billingConfirmed).toBe(true)
-    // TTS тарифицируется за input-токены, а мы считаем по символам: это
-    // верхняя граница расхода, а не подтверждённая цена.
-    expect(resolveMediaModel("text_to_speech").billingConfirmed).toBe(false)
+    // TTS: для русского токен равен символу — измерено на оплаченных
+    // прогонах, token_input_count совпал с длиной текста ровно.
+    expect(resolveMediaModel("text_to_speech").billingConfirmed).toBe(true)
   })
 
   it("rejects unsupported capabilities and model ids", () => {
