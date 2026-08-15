@@ -12,6 +12,7 @@
  * - video-pipeline-db.ts (DB helpers, lock, fal request)
  */
 
+import { sceneOrdersByIndexes } from "./presenter/presenter-scenes"
 import { falProbeAccessBatch } from "./fal"
 import { estimateVideoCost } from "./video-cost"
 import { getModel, getDefaultImageModel, getDefaultVideoModel } from "./video-models"
@@ -685,12 +686,17 @@ export async function runVideoPipeline(
 
     let clipResult: Awaited<ReturnType<typeof runClipGeneration>>
     try {
+      // Граница пространств: внутри пайплайна наборы держатся ПОЗИЦИЯМИ (по ним
+      // же считаются длительности и сметы), а шаг клипов адресует сцены
+      // `scene.order`. Раньше позиции уходили в него как есть, и он пропускал
+      // чужие сцены, а для настоящих сцен ведущей платно генерировал клипы,
+      // которые тут же выбрасывались.
       clipResult = await runClipGeneration(
         videoId, prompts, video.format, video.clipDuration,
         effectiveVideoModelId, video.generateAudio, videoPlan,
         variant.storyPlan as StoryPlan | null,
-        presenterSceneIndexes,
-        brollSceneIndexes,
+        sceneOrdersByIndexes(videoPlan.scenes, presenterSceneIndexes),
+        sceneOrdersByIndexes(videoPlan.scenes, brollSceneIndexes),
         imagePathsByScene,
       )
     } catch (stepError) {
