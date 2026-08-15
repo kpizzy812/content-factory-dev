@@ -40,17 +40,60 @@ export function extractClipSceneOrders(snapshot: unknown): number[] | null {
 }
 
 /**
+ * Order'ы сцен, отданных ведущей: под них клип не генерировался.
+ * Мусор в списке пропускается поштучно — из-за одного кривого элемента терять
+ * карту целиком незачем, в отличие от дырявого снапшота промптов.
+ */
+function extractPresenterOrders(snapshot: unknown): Set<number> {
+  const raw = snapshot && typeof snapshot === "object"
+    ? (snapshot as { presenterSceneIndexes?: unknown }).presenterSceneIndexes
+    : null
+  if (!Array.isArray(raw)) return new Set()
+  const orders = new Set<number>()
+  for (const value of raw) {
+    if (typeof value === "number" && Number.isFinite(value)) orders.add(value)
+  }
+  return orders
+}
+
+/**
+ * Фактический порядок клипов: сцены из промптов МИНУС отданные ведущей.
+ *
+ * Раньше брался только снапшот промптов, где перечислены все сцены. Но
+ * `clip_generation` сцены ведущей пропускает, и карта «сцена → индекс клипа»
+ * указывала за пределы массива: «индекс клипа 6 вне списка из 5 путей». Сцена
+ * при этом молча выпадала из сборки — на ролике 21 так потерялись четыре из
+ * девяти.
+ */
+export function clipSceneOrdersFrom(
+  promptSnapshot: unknown,
+  clipSnapshot: unknown,
+): number[] | null {
+  const promptOrders = extractClipSceneOrders(promptSnapshot)
+  if (!promptOrders) return null
+  const presenter = extractPresenterOrders(clipSnapshot)
+  if (presenter.size === 0) return promptOrders
+  return promptOrders.filter(order => !presenter.has(order))
+}
+
+/**
  * Читает порядок клипов из завершённого шага prompt_generation.
  * Никогда не бросает: если снапшота нет или БД недоступна — null, и сопоставление
  * сцен с клипами останется на прежнем (позиционном) фолбэке.
  */
 export async function loadClipSceneOrders(videoId: number): Promise<number[] | null> {
   try {
-    const step = await prisma.videoGenerationStep.findFirst({
-      where: { videoId, stepKey: "prompt_generation" as never },
-      select: { outputSnapshot: true },
-    })
-    return extractClipSceneOrders(step?.outputSnapshot)
+    const [promptStep, clipStep] = await Promise.all([
+      prisma.videoGenerationStep.findFirst({
+        where: { videoId, stepKey: "prompt_generation" as never },
+        select: { outputSnapshot: true },
+      }),
+      prisma.videoGenerationStep.findFirst({
+        where: { videoId, stepKey: "clip_generation" as never },
+        select: { outputSnapshot: true },
+      }),
+    ])
+    return clipSceneOrdersFrom(promptStep?.outputSnapshot, clipStep?.outputSnapshot)
   } catch {
     return null
   }
