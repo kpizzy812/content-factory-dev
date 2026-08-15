@@ -127,3 +127,41 @@ export async function measureLoudness(audioPath: string): Promise<LoudnormMeasur
     proc.on("close", () => resolve(parseLoudnormMeasurement(stderr)))
   })
 }
+
+/**
+ * Двухпроходное приведение громкости ГОТОВОГО файла.
+ *
+ * Однопроходный `loudnorm` внутри filter_complex работает потоково и на
+ * реальном материале промахивается: ролик 22 вышел на −12.7 LUFS при цели −14,
+ * хотя фильтр в графе стоял. Точно попадает только замер по готовому звуку и
+ * второй проход с измеренными значениями.
+ *
+ * Видеопоток копируется, поэтому проход дешёвый: перекодируется только звук.
+ * Отказ на любом шаге возвращает false и оставляет исходный файл нетронутым —
+ * ролик с неидеальной громкостью лучше, чем испорченный ролик.
+ */
+export async function normalizeFileLoudness(
+  inputPath: string,
+  outputPath: string,
+): Promise<boolean> {
+  const { spawn } = await import("node:child_process")
+  const bin = process.env.FFMPEG_PATH || process.env.FFMPEG_BIN || "ffmpeg"
+
+  const measured = await measureLoudness(inputPath)
+  const args = [
+    "-hide_banner", "-nostats", "-y",
+    "-i", inputPath,
+    "-af", buildLoudnormApplyFilter(measured),
+    // Картинку не трогаем: она уже собрана и перекодировать её незачем.
+    "-c:v", "copy",
+    "-c:a", "aac", "-b:a", "192k",
+    "-movflags", "+faststart",
+    outputPath,
+  ]
+
+  return new Promise((resolve) => {
+    const proc = spawn(bin, args, { stdio: ["ignore", "ignore", "ignore"] })
+    proc.on("error", () => resolve(false))
+    proc.on("close", code => resolve(code === 0))
+  })
+}

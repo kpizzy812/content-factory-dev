@@ -2,6 +2,7 @@ import {
   LIMITER_CEILING,
   buildLoudnormApplyFilter,
   measureLoudness,
+  normalizeFileLoudness,
 } from "./video-tools/loudness"
 import ffmpeg from "fluent-ffmpeg"
 import { writeFile, mkdir, access, unlink, stat } from "node:fs/promises"
@@ -1145,6 +1146,25 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       .on("end", async () => {
         // Удалить временные файлы
         try { await unlink(concatListPath) } catch { /* ignore */ }
+
+        // Громкость приводится ВТОРЫМ проходом по готовому файлу. Фильтр внутри
+        // filter_complex работает потоково и промахивается: ролик 22 вышел на
+        // −12.7 LUFS при цели −14, хотя loudnorm в графе стоял. Замер по
+        // собранному звуку плюс проход с измеренными значениями дают ровно −14.
+        // Видеопоток копируется, поэтому проход стоит секунды.
+        const normalizedPath = outputPath.replace(/\.mp4$/, "_ln.mp4")
+        if (await normalizeFileLoudness(outputPath, normalizedPath)) {
+          try {
+            await unlink(outputPath)
+            const { rename } = await import("node:fs/promises")
+            await rename(normalizedPath, outputPath)
+          } catch {
+            // Подменить не удалось — остаётся собранный ролик как есть.
+            try { await unlink(normalizedPath) } catch { /* ignore */ }
+          }
+        } else {
+          try { await unlink(normalizedPath) } catch { /* ignore */ }
+        }
 
         // Получить длительность
         ffmpeg.ffprobe(outputPath, (err, metadata) => {
