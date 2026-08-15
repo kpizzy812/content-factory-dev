@@ -353,6 +353,49 @@ export function presenterTargetDuration(
 }
 
 /**
+ * Предел ускорения синтезированной речи. Тот же 1.2x, которым шаг озвучки
+ * укладывает закадровую реплику в сцену: до него голос звучит естественно,
+ * дальше начинается скороговорка.
+ */
+export const MAX_SPEECH_SPEEDUP = 1.2
+
+/** Зазор до потолка модели: контейнерная погрешность длительности mp3. */
+const SPEECH_FIT_GAP_SEC = 0.15
+
+export interface SpeechFitPlan {
+  /** Во сколько раз ускорить речь. 1 — ускорять нечего. */
+  speedFactor: number
+  /** Влезает ли речь в потолок модели в пределах допустимого ускорения. */
+  fits: boolean
+}
+
+/**
+ * Как уложить реплику в кадре в потолок длительности lip-sync модели.
+ *
+ * kwaivgi/kling-lip-sync принимает исходник максимум 10 с, а фрагмент ведущей
+ * подбирается под длину РЕЧИ. Реплика на 24 слова звучит 11.55 с — фрагмента
+ * такой длины в библиотеке нет и быть не может, и шаг падал целиком, унося с
+ * собой весь ролик. Ускорение сохраняет фразу целиком: обрезать её нельзя, это
+ * ровно тот обрыв на середине, из-за которого всё и затевалось.
+ *
+ * Неизмеримая (или нулевая) речь ускорения не требует: решать не по чему.
+ */
+export function planSpeechFitToModel(
+  speechDurationSec: number,
+  maxSourceDurationSec: number,
+): SpeechFitPlan {
+  if (!Number.isFinite(speechDurationSec) || speechDurationSec <= 0) {
+    return { speedFactor: 1, fits: true }
+  }
+  const target = Math.max(0.1, maxSourceDurationSec - SPEECH_FIT_GAP_SEC)
+  if (speechDurationSec <= target) return { speedFactor: 1, fits: true }
+
+  const required = speechDurationSec / target
+  if (required <= MAX_SPEECH_SPEEDUP) return { speedFactor: required, fits: true }
+  return { speedFactor: MAX_SPEECH_SPEEDUP, fits: false }
+}
+
+/**
  * Годится ли реально измеренный исходник под плановую длину сцены.
  *
  * Проверка диапазона модели этого не ловит: 2.5-секундный клип ведущего для сцены

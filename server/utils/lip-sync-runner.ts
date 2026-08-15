@@ -37,7 +37,7 @@ import { uploadLocalAsset } from "./storage/persist-asset"
 import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
 import { getStorageDriver } from "./storage"
 import { downloadFile } from "./video-helpers"
-import { probeMediaDuration } from "./render"
+import { adjustAudioTempo, probeMediaDuration } from "./render"
 import { reservePresenterSourceClip } from "./presenter-source-selector"
 import {
   characterHasAvatarPortrait,
@@ -60,7 +60,9 @@ import {
   isAssignableClipIndex,
   isDurationWithinModelRange,
   isSourceDurationCloseToScene,
+  planSpeechFitToModel,
   resolveSceneSourcePath,
+  MAX_SPEECH_SPEEDUP,
   MODEL_DURATION_TOLERANCE_SEC,
 } from "./presenter/scene-clip-mapping"
 import { loadClipSceneOrders } from "./presenter/clip-scene-orders"
@@ -513,6 +515,13 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         voiceoverPacing: videoConfig.voiceoverPacing,
       })
       const audioPath = join(assetsDir, `scene_${sceneIndex}_spoken_${speechHash.slice(0, 12)}.mp3`)
+      /**
+       * Файл речи, который реально уедет в модель. Совпадает с синтезированным,
+       * пока реплика влезает в исходник; длинную укладываем ускорением (см. ниже),
+       * и тогда сюда встаёт ускоренная копия. Сам `audioPath` не трогаем — по нему
+       * работает переиспользование синтеза между прогонами.
+       */
+      let speechPath = audioPath
       let ttsCost = 0
       const ensureSpeech = async (): Promise<boolean> => {
         if (speechReady) return true
@@ -564,9 +573,25 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         // немой хвост, где ведущая говорит без звука (ролик 21: 20 с из 50).
         if (!(await ensureSpeech())) continue
         const speechDurationSec = await probeMediaDuration(audioPath)
-        presenterTargetSec = presenterTargetDuration(speechDurationSec, plannedDurationSec)
+        // Реплика может звучать дольше, чем модель готова принять исходник
+        // (kling-lip-sync — 10 с). Фрагмента такой длины в библиотеке нет и быть
+        // не может, поэтому фрагмент ищем под УСКОРЕННУЮ речь: 11.55 с при 1.2x
+        // это 9.6 с, и фраза остаётся целой. Сам файл ускоряем ниже, когда
+        // известен фактический исходник.
+        const preFit = planSpeechFitToModel(speechDurationSec ?? 0, maxDurationSec)
+        const fittedSpeechSec = speechDurationSec === null
+          ? null
+          : speechDurationSec / preFit.speedFactor
+        presenterTargetSec = presenterTargetDuration(fittedSpeechSec, plannedDurationSec)
         if (speechDurationSec === null) {
           await appendStepLog(step.id, `${sceneTag}: длительность реплики не измеряется — ищу фрагмент по плану ${plannedDurationSec}с`)
+        } else if (preFit.speedFactor > 1) {
+          await appendStepLog(
+            step.id,
+            `${sceneTag}: реплика ${speechDurationSec.toFixed(2)}с длиннее потолка модели ${maxDurationSec}с — `
+            + `ищу фрагмент под ускоренную речь ${fittedSpeechSec!.toFixed(2)}с (${preFit.speedFactor.toFixed(2)}x)`
+            + (preFit.fits ? "" : `; даже ${MAX_SPEECH_SPEEDUP}x не хватает, часть фразы не поместится`),
+          )
         }
 
         const sourceClip = await reservePresenterSourceClip({
@@ -714,6 +739,36 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // пропустим.
       if (!(await ensureSpeech())) continue
 
+      /**
+       * Речь длиннее исходника: lip-sync отдаёт ролик длиной ИСХОДНИКА, и всё,
+       * что не поместилось, просто пропадает — фраза обрывается на середине.
+       * Укладываем ускорением до 1.2x, как это делает шаг озвучки с закадровой
+       * репликой. Аватарной сцены это не касается: там длину задаёт сама речь.
+       */
+      if (!useAvatarRoute) {
+        const speechSec = await probeMediaDuration(audioPath)
+        const fit = planSpeechFitToModel(speechSec ?? 0, providerDurationSec)
+        if (fit.speedFactor > 1) {
+          try {
+            const fittedPath = audioPath.replace(/\.mp3$/i, "_fit.mp3")
+            const fitted = await adjustAudioTempo(audioPath, fittedPath, fit.speedFactor)
+            speechPath = fitted.outputPath
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: реплика ${speechSec!.toFixed(2)}с не влезает в исходник ${providerDurationSec.toFixed(2)}с — `
+              + `ускоряю в ${fit.speedFactor.toFixed(2)}x до ${fitted.durationSec.toFixed(2)}с`
+              + (fit.fits ? "" : `; предел ${MAX_SPEECH_SPEEDUP}x, хвост фразы модель всё же срежет`),
+            )
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: ускорить реплику не удалось (${msg.slice(0, 160)}) — модель срежет её по длине исходника`,
+            )
+          }
+        }
+      }
+
       // 2. Картинка сцены. Живую съёмку синхронизирует lip-sync, аватарную
       // сцену целиком снимает speech_to_video — там речь уже в кадре и в
       // звуковой дорожке, и второй платный шаг не нужен.
@@ -806,7 +861,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
             videoAssetId: clipAsset?.id ?? null,
             sceneOrder: scene.order,
             sourceVideoPath: sourceVideoPath!,
-            audioPath,
+            audioPath: speechPath,
             outputPath: renderedPath,
             durationSec: providerDurationSec,
             modelId: model.id,
@@ -851,7 +906,9 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         // что увидит resolveSceneSourcePath, и якорь останется синтетическим.
         sourcePath: (presenterSourcePath || useAvatarRoute) ? "" : (sourceVideoPath ?? renderedPath),
         outputPath: renderedPath,
-        audioPath,
+        // Тот файл, который реально ушёл в модель: у длинной реплики это её
+        // ускоренная копия.
+        audioPath: speechPath,
         spokenLineHash,
         reuseKey,
         // К этой точке длительность известна в обоих маршрутах: у съёмки её

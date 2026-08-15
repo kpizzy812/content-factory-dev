@@ -28,7 +28,10 @@ const h = vi.hoisted(() => ({
   synthesizeSpeech: vi.fn(),
   runLipSync: vi.fn(),
   probeMediaDuration: vi.fn(),
+  adjustAudioTempo: vi.fn(),
   reservePresenterSourceClip: vi.fn(),
+  /** Длительность речи, которую «намерил» ffprobe у синтезированного файла. */
+  speechDurationSec: 5,
 }))
 
 vi.mock("../../../server/utils/prisma", () => ({
@@ -60,7 +63,10 @@ vi.mock("../../../server/utils/video-pipeline-db", () => ({
 
 vi.mock("../../../server/utils/tts", () => ({ synthesizeSpeech: h.synthesizeSpeech }))
 vi.mock("../../../server/utils/media-provider/lip-sync", () => ({ runLipSync: h.runLipSync }))
-vi.mock("../../../server/utils/render", () => ({ probeMediaDuration: h.probeMediaDuration }))
+vi.mock("../../../server/utils/render", () => ({
+  probeMediaDuration: h.probeMediaDuration,
+  adjustAudioTempo: h.adjustAudioTempo,
+}))
 vi.mock("../../../server/utils/presenter-source-selector", () => ({
   reservePresenterSourceClip: h.reservePresenterSourceClip,
 }))
@@ -122,10 +128,24 @@ beforeEach(async () => {
     return { costUsd: 0.07, provider: "replicate", outputPath: req.outputPath }
   })
 
+  h.speechDurationSec = 5
   h.probeMediaDuration.mockReset()
   // Речь и фрагмент ведущей одной длины — иначе фрагмент отбраковывается как
   // разошедшийся с длиной реплики.
-  h.probeMediaDuration.mockImplementation(async (path: string) => h.durationByPath.get(path) ?? 5)
+  h.probeMediaDuration.mockImplementation(async (path: string) => {
+    const known = h.durationByPath.get(path)
+    if (known !== undefined) return known
+    // Синтезированная реплика и её ускоренная версия узнаются по имени файла.
+    if (path.includes("_fit.mp3")) return h.speechDurationSec / 1.2
+    if (path.includes("_spoken_")) return h.speechDurationSec
+    return 5
+  })
+
+  h.adjustAudioTempo.mockReset()
+  h.adjustAudioTempo.mockImplementation(async (input: string, output: string, speed: number) => {
+    await writeFile(output, "tts-fit")
+    return { outputPath: output, durationSec: h.speechDurationSec / speed }
+  })
 
   h.reservePresenterSourceClip.mockReset()
   h.reservePresenterSourceClip.mockResolvedValue({
@@ -215,6 +235,39 @@ describe("runLipSyncStep: пустая ячейка сцены — это мар
     expect(h.runLipSync).not.toHaveBeenCalled()
     expect(second.clipPaths).toEqual(first.clipPaths)
     expect(second.totalCostUsd).toBe(0)
+  })
+
+  it("реплика длиннее потолка модели ускоряется, а не роняет шаг", async () => {
+    // Ролик 24, сцена 4: Fish прочитал реплику за 11.55 с при потолке модели 10 с.
+    h.speechDurationSec = 11.55
+    h.reservePresenterSourceClip.mockResolvedValue({
+      id: "frag-long",
+      name: "frag.mp4",
+      fileUrl: "https://storage/frag.mp4",
+      storageKey: "presenter/frag.mp4",
+      durationSec: 9.6,
+    })
+    h.durationByPath.set(join(ASSETS_DIR, "presenter_1_frag-long.mp4"), 9.6)
+
+    const result = await runLipSyncStep({
+      videoId: 23,
+      clipPaths: [join(ASSETS_DIR, "scene_1_clip.mp4"), "", join(ASSETS_DIR, "scene_3_clip.mp4")],
+      videoPlan: mixedPlan(),
+      clipSceneOrders: [1, 2, 3],
+      videoConfig: VIDEO_CONFIG,
+    })
+
+    // Фрагмент ищем под УСКОРЕННУЮ речь: под 11.55 с в библиотеке нет ничего,
+    // и раньше шаг падал целиком, унося весь ролик.
+    const reserved = h.reservePresenterSourceClip.mock.calls[0]![0] as { durationSec: number }
+    expect(reserved.durationSec).toBeLessThanOrEqual(10)
+    expect(reserved.durationSec).toBeGreaterThan(9)
+
+    // В модель уходит ускоренная реплика — целая, а не обрезанная по длине исходника.
+    expect(h.adjustAudioTempo).toHaveBeenCalled()
+    const lipSyncCall = h.runLipSync.mock.calls[0]![0] as { audioPath: string; durationSec: number }
+    expect(lipSyncCall.audioPath).toContain("_fit.mp3")
+    expect(result.clipPaths[1]).toBe(join(ASSETS_DIR, "scene_1_lipsync.mp4"))
   })
 
   it("ролик целиком из сцен ведущей узнаётся по пустым ячейкам, а не по пустому списку", async () => {
