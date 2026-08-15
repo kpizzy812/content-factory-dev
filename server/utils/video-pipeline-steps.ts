@@ -1997,13 +1997,37 @@ export async function runAssembly(
     // поверх готового ролика. Он не имеет права уронить сборку: ролик уже
     // собран и годен к публикации, а Remotion тянет headless Chrome и может
     // быть не установлен вовсе.
+    //
+    // Сцены отдаём В ПОРЯДКЕ СКЛЕЙКИ и с ФАКТИЧЕСКИМИ длительностями: плашка
+    // стоит по абсолютному времени от начала ролика, а план у ролика 24 обещал
+    // девять сцен по десять секунд при фактических 82.7. Композиция получалась
+    // на 90 секунд — семь секунд немого хвоста, а плашки вставали на чужие сцены.
+    const assemblyClipDurations = assemblyClips.length > 0
+      ? await probeSceneClipDurations(assemblyClips)
+      : []
+    type PlanScene = NonNullable<StoryDrivenVideoPlan["scenes"]>[number]
+    const planSceneBySlot = new Map<number, PlanScene>()
+    if (isStoryDriven && videoPlan) {
+      const slotByOrder = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
+        allowPositionalFallback: false,
+      })
+      videoPlan.scenes.forEach((scene, idx) => {
+        const slot = slotByOrder.size > 0 ? slotByOrder.get(scene.order) : idx
+        if (slot === undefined) return
+        const position = compacted.positionBySceneIndex.get(slot)
+        if (position !== undefined) planSceneBySlot.set(position, scene)
+      })
+    }
     const overlayPlan = planRemotionOverlays({
-      scenes: (videoPlan?.scenes ?? []).map(scene => ({
-        order: scene.order,
-        durationSec: scene.durationSec,
-        spokenLine: scene.spokenLine ?? null,
-        subtitleCopy: scene.subtitleCopy ?? null,
-      })),
+      scenes: assemblyClips.map((_, position) => {
+        const scene = planSceneBySlot.get(position)
+        return {
+          order: scene?.order ?? position + 1,
+          durationSec: assemblyClipDurations[position] ?? 0,
+          spokenLine: scene?.spokenLine ?? null,
+          subtitleCopy: scene?.subtitleCopy ?? null,
+        }
+      }),
     })
     const overlaid = join(getVideosDir(), `${videoId}_overlays.mp4`)
     const overlayOutcome = await renderRemotionOverlays({
