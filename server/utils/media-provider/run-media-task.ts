@@ -158,6 +158,8 @@ export interface PersistedPredictionRef {
 export interface SavedPredictionInput {
   /** null — задача вне ролика (вариации портрета); колонка в схеме nullable. */
   videoId: number | null
+  /** null — результат в постоянное хранилище не переносили (его не просили). */
+  storage: AssetStorageColumns | null
   videoAssetId?: number | null
   provider: MediaProviderName
   capability: MediaCapability
@@ -166,7 +168,6 @@ export interface SavedPredictionInput {
   externalId: string | null
   input: Record<string, unknown>
   outputUrl: string | null
-  storage: AssetStorageColumns
 }
 
 export interface ReplicatePredictionExecution {
@@ -377,8 +378,12 @@ async function runSyncBytesTask<C extends MediaCapability>(
   await write(request.outputPath, bytes)
 
   const storage = await persistOutput(request, dependencies)
-  if (storage && identity) {
-    await savePrediction(request, spec, identity, null, mapped.payload, null, storage, dependencies)
+  // Запись учёта не ждёт `persist`: у провайдера байтов нет prediction-service,
+  // который завёл бы строку сам, и без неё платный вызов невидим в аудите, а
+  // повтор оплачивается второй раз. Ключа идемпотентности нет — записывать
+  // нечего: строка без ключа не найдётся при повторе и только засорит таблицу.
+  if (identity) {
+    await savePrediction(request, spec, identity, null, mapped.payload, null, storage ?? null, dependencies)
   }
 
   return {
@@ -670,7 +675,7 @@ async function savePrediction<C extends MediaCapability>(
   externalId: string | null,
   payload: Record<string, unknown>,
   remoteUrl: string | null,
-  storage: AssetStorageColumns,
+  storage: AssetStorageColumns | null,
   dependencies: RunMediaTaskDependencies,
 ): Promise<void> {
   const save = dependencies.savePrediction ?? defaultSavePrediction
@@ -880,16 +885,24 @@ async function defaultFindPersistedPrediction(
 async function defaultSavePrediction(record: SavedPredictionInput): Promise<string | null> {
   const { sanitizePredictionSnapshot } = await import("../replicate/prediction-state")
   const now = new Date()
-  const saved = await prisma.mediaPrediction.upsert({
-    where: { idempotencyKey: record.idempotencyKey },
-    update: {
-      status: "succeeded",
+  // Хранилища может не быть вовсе: провайдер байтов пишет файл сам, и переноса
+  // в постоянное хранилище никто не просил. Врать «persisted» с пустым ключом
+  // нельзя — recovery пошёл бы забирать несуществующий объект.
+  const persistence = record.storage
+    ? {
       persistenceStatus: "persisted",
       persistedStorageKey: record.storage.storageKey,
       persistedStorageProvider: record.storage.storageProvider,
       persistedFileSizeBytes: record.storage.fileSizeBytes,
       persistedFileSha256: record.storage.fileSha256,
       persistedContentType: record.storage.contentType,
+    }
+    : { persistenceStatus: "not_stored" as const }
+  const saved = await prisma.mediaPrediction.upsert({
+    where: { idempotencyKey: record.idempotencyKey },
+    update: {
+      status: "succeeded",
+      ...persistence,
       outputUrl: record.outputUrl,
       completedAt: now,
       terminalAt: now,
@@ -905,12 +918,7 @@ async function defaultSavePrediction(record: SavedPredictionInput): Promise<stri
       status: "succeeded",
       inputSnapshot: sanitizePredictionSnapshot(record.input) as never,
       outputUrl: record.outputUrl,
-      persistenceStatus: "persisted",
-      persistedStorageKey: record.storage.storageKey,
-      persistedStorageProvider: record.storage.storageProvider,
-      persistedFileSizeBytes: record.storage.fileSizeBytes,
-      persistedFileSha256: record.storage.fileSha256,
-      persistedContentType: record.storage.contentType,
+      ...persistence,
       submittedAt: now,
       completedAt: now,
       terminalAt: now,

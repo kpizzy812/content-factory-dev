@@ -258,6 +258,28 @@ export function pickClosestPresenterCandidate<T extends PresenterCandidateLike>(
 }
 
 /**
+ * Под какую длительность подбирать фрагмент ведущей.
+ *
+ * План сцены — намерение сценариста, а не факт. Факт создаёт TTS: реплика на
+ * 77 символов звучит 5.9 с, а сцена может быть запланирована на 9-10. Фрагмент,
+ * взятый под план, длиннее речи, и `kling-lip-sync` синхронизирует губы только
+ * на длину аудио — остаток идёт исходным видео, где человек говорит, а звука
+ * уже нет. На ролике 21 таких дыр набралось 20 секунд из 50.
+ *
+ * Поэтому целью служит измеренная речь, и только пока её нет — план.
+ * Негодный замер (ноль, NaN, отрицательное) планом НЕ подменяется молча:
+ * ноль означал бы поиск фрагмента нулевой длины, то есть сцену без ведущей.
+ */
+export function presenterTargetDuration(
+  speechDurationSec: number | null | undefined,
+  plannedDurationSec: number,
+): number {
+  if (typeof speechDurationSec !== "number") return plannedDurationSec
+  if (!Number.isFinite(speechDurationSec) || speechDurationSec <= 0) return plannedDurationSec
+  return speechDurationSec
+}
+
+/**
  * Годится ли реально измеренный исходник под плановую длину сцены.
  *
  * Проверка диапазона модели этого не ловит: 2.5-секундный клип ведущего для сцены

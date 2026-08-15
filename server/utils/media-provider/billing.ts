@@ -98,6 +98,21 @@ export function estimateMediaCost(spec: MediaModelSpec, usage: MediaUsage | numb
   }
 }
 
+/**
+ * Потребление для реплики TTS — сразу во всех единицах, какие бывают у
+ * способности. MiniMax тарифицируется за символ, ElevenLabs за секунду звука,
+ * Fish за UTF-8 байт, и для кириллицы это три разных числа. Считать их в
+ * вызывающем коде значило бы уронить шаг озвучки на первой же спеке с другой
+ * единицей — так и вышло, когда добавился Fish.
+ */
+export function ttsUsageFor(text: string, audioSeconds: number): MediaUsage {
+  return {
+    characters: text.length,
+    audioSeconds,
+    utf8Bytes: Buffer.byteLength(text, "utf8"),
+  }
+}
+
 /** Цена, по которой смета показывается пользователю: точная или оценочная. */
 export function isEstimatedBilling(billing: MediaBilling): boolean {
   return billing.unit === "hardware_second"

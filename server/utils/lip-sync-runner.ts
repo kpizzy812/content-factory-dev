@@ -51,6 +51,7 @@ import { accumulateStepCost } from "./video-cost-actual"
 import {
   buildLipSyncReuseKey,
   buildSceneClipIndexMap,
+  presenterTargetDuration,
   clampDurationToModelRange,
   findEmptyClipPathIndexes,
   hashSpeechIdentity,
@@ -478,6 +479,62 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       }
 
       const plannedDurationSec = scene.durationSec || 5
+
+      // Синтез речи как функция, а не как место в потоке: маршруту ведущей
+      // длина речи нужна ДО подбора фрагмента, всем остальным — после проверок
+      // источника. Повторный вызов ничего не делает и ничего не стоит.
+      // Цель подбора фрагмента: по умолчанию план, для ведущей — измеренная речь.
+      let presenterTargetSec = plannedDurationSec
+      let speechReady = false
+      // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
+      // снапшота шага, который жёсткий рестарт воркера записать не успевает. Файл на
+      // месте — значит эта же фраза ТЕМ ЖЕ голосом уже синтезирована и оплачена.
+      // Только хэша текста было мало: смена голоса/модели/языка/темпа давала другой
+      // звук, а файл считался подходящим.
+      const speechHash = hashSpeechIdentity({
+        spokenLine,
+        voiceoverModelId: videoConfig.voiceoverModelId,
+        voiceoverVoiceId: videoConfig.voiceoverVoiceId,
+        voiceoverLanguage: videoConfig.voiceoverLanguage,
+        voiceoverPacing: videoConfig.voiceoverPacing,
+      })
+      const audioPath = join(assetsDir, `scene_${sceneIndex}_spoken_${speechHash.slice(0, 12)}.mp3`)
+      let ttsCost = 0
+      const ensureSpeech = async (): Promise<boolean> => {
+        if (speechReady) return true
+        if (await fileExists(audioPath)) {
+          await appendStepLog(step.id, `${sceneTag}: переиспользую синтезированную реплику ${basename(audioPath)}`)
+          speechReady = true
+          return true
+        }
+        try {
+          const tts = await synthesizeSpeech({
+            text: spokenLine,
+            outputPath: audioPath,
+            modelId: videoConfig.voiceoverModelId,
+            voiceId: videoConfig.voiceoverVoiceId,
+            language: videoConfig.voiceoverLanguage,
+            pacing: videoConfig.voiceoverPacing,
+            videoId,
+          })
+          ttsCost = tts.costUsd
+          speechReady = true
+          return true
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "TTS failed"
+          await appendStepLog(step.id, `${sceneTag}: TTS ошибка (${msg}) — оставляю оригинальный клип`)
+          recordSkippedScene({
+            sceneOrder: scene.order,
+            sceneIndex,
+            reason: "tts_failed",
+            sourcePath: resolvedSource.path,
+            reuseKey,
+            spokenLineHash,
+          })
+          return false
+        }
+      }
+
       let sourceVideoPath: string | null = resolvedSource.path
       let presenterSourcePath: string | null = null
       /**
@@ -487,9 +544,20 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
        */
       let useAvatarRoute = false
       if (videoConfig.lipSyncCharacterId) {
+        // Длина речи известна только после синтеза, и именно она — цель
+        // подбора. План сцены это намерение сценариста: реплика на 77 символов
+        // звучит 5.9 с, а сцена планируется на 9-10. Фрагмент под план оставлял
+        // немой хвост, где ведущая говорит без звука (ролик 21: 20 с из 50).
+        if (!(await ensureSpeech())) continue
+        const speechDurationSec = await probeMediaDuration(audioPath)
+        presenterTargetSec = presenterTargetDuration(speechDurationSec, plannedDurationSec)
+        if (speechDurationSec === null) {
+          await appendStepLog(step.id, `${sceneTag}: длительность реплики не измеряется — ищу фрагмент по плану ${plannedDurationSec}с`)
+        }
+
         const sourceClip = await reservePresenterSourceClip({
           characterId: videoConfig.lipSyncCharacterId,
-          durationSec: plannedDurationSec,
+          durationSec: presenterTargetSec,
           minDurationSec,
           maxDurationSec,
         })
@@ -525,7 +593,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
               `${sceneTag}: библиотека ведущего пуста — сцену снимет AI-аватар из портрета персонажа`,
             )
           } else {
-            await appendStepLog(step.id, `${sceneTag}: нет активного исходника ведущего под сцену ${plannedDurationSec}с (диапазон модели ${minDurationSec}-${maxDurationSec}с), беру сгенерированный клип`)
+            await appendStepLog(step.id, `${sceneTag}: нет активного исходника ведущего под речь ${presenterTargetSec.toFixed(2)}с (диапазон модели ${minDurationSec}-${maxDurationSec}с), беру сгенерированный клип`)
           }
         }
       }
@@ -555,12 +623,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // Неизмеримый исходник ведущего тоже отбрасываем — доверять ему нечем.
       // Откатываться есть куда только там, где сгенерированный клип существует:
       // у ролика ведущей запасного исходника нет вовсе, и подменять его нечем.
-      if (presenterSourcePath && resolvedSource.path && (measuredDurationSec === null || !isSourceDurationCloseToScene(measuredDurationSec, plannedDurationSec))) {
+      if (presenterSourcePath && resolvedSource.path && (measuredDurationSec === null || !isSourceDurationCloseToScene(measuredDurationSec, presenterTargetSec))) {
         await appendStepLog(
           step.id,
           measuredDurationSec === null
             ? `${sceneTag}: длительность исходника ведущего не измеряется (нет файла или ffprobe) — возвращаюсь на сгенерированный клип`
-            : `${sceneTag}: исходник ведущего ${measuredDurationSec.toFixed(2)}с расходится с плановой длиной сцены ${plannedDurationSec}с — возвращаюсь на сгенерированный клип`,
+            : `${sceneTag}: исходник ведущего ${measuredDurationSec.toFixed(2)}с расходится с длиной речи ${presenterTargetSec.toFixed(2)}с — возвращаюсь на сгенерированный клип`,
         )
         sourceVideoPath = resolvedSource.path
         presenterSourcePath = null
@@ -625,54 +693,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         ? 0
         : clampDurationToModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)
 
-      // 1. TTS spokenLine — отдельный синтез, не трогает voiceoverPlan (off-screen narrator).
-      // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
-      // снапшота шага, который жёсткий рестарт воркера записать не успевает. Файл на
-      // месте — значит эта же фраза ТЕМ ЖЕ голосом уже синтезирована и оплачена.
-      // Только хэша текста было мало: смена голоса/модели/языка/темпа давала другой
-      // звук, а файл считался подходящим.
-      const speechHash = hashSpeechIdentity({
-        spokenLine,
-        voiceoverModelId: videoConfig.voiceoverModelId,
-        voiceoverVoiceId: videoConfig.voiceoverVoiceId,
-        voiceoverLanguage: videoConfig.voiceoverLanguage,
-        voiceoverPacing: videoConfig.voiceoverPacing,
-      })
-      const audioPath = join(assetsDir, `scene_${sceneIndex}_spoken_${speechHash.slice(0, 12)}.mp3`)
-      let ttsCost = 0
-      if (await fileExists(audioPath)) {
-        await appendStepLog(step.id, `${sceneTag}: переиспользую синтезированную реплику ${basename(audioPath)}`)
-      } else {
-        try {
-          const tts = await synthesizeSpeech({
-            text: spokenLine,
-            outputPath: audioPath,
-            modelId: videoConfig.voiceoverModelId,
-            voiceId: videoConfig.voiceoverVoiceId,
-            language: videoConfig.voiceoverLanguage,
-            pacing: videoConfig.voiceoverPacing,
-            // Без videoId у задачи на Replicate нет ключа идемпотентности, и
-            // prediction не привяжется к ролику: повтор оплатил бы реплику снова.
-            videoId,
-          })
-          ttsCost = tts.costUsd
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "TTS failed"
-          await appendStepLog(step.id, `${sceneTag}: TTS ошибка (${msg}) — оставляю оригинальный клип`)
-          // Отказ провайдера кэш не открывает (см. DETERMINISTIC_SKIP_REASONS) —
-          // пишем его ради диагностики, следующий прогон попробует ещё раз.
-          recordSkippedScene({
-            sceneOrder: scene.order,
-            sceneIndex,
-            reason: "tts_failed",
-            sourcePath: resolvedSource.path,
-            reuseKey,
-            spokenLineHash,
-            durationSec: measuredDurationSec,
-          })
-          continue
-        }
-      }
+      // Речь синтезируется ровно один раз за сцену — где бы её ни попросили
+      // первой. Маршруту ведущей она нужна РАНЬШЕ подбора фрагмента (длина
+      // речи и есть цель подбора), остальным — как прежде, после проверок
+      // источника, чтобы не платить за синтез сцены, которую всё равно
+      // пропустим.
+      if (!(await ensureSpeech())) continue
 
       // 2. Картинка сцены. Живую съёмку синхронизирует lip-sync, аватарную
       // сцену целиком снимает speech_to_video — там речь уже в кадре и в

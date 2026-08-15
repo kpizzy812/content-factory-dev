@@ -427,7 +427,7 @@ describe("runLipSyncStep: диапазон длительности модели
     expect(calls[0]!.durationSec).toBeCloseTo(9, 5)
   })
 
-  it("границы модели передаются в подбор исходника ведущего", async () => {
+  it("фрагмент ищется по длине речи, а границы модели передаются вместе с ней", async () => {
     const clipPaths = [clipPath(0)]
     h.clipAssets.set(0, { id: "asset-0", filePath: clipPath(0) })
     h.clipAssets.set(1, { id: "asset-0", filePath: clipPath(0) })
@@ -439,10 +439,15 @@ describe("runLipSyncStep: диапазон длительности модели
       videoConfig: { ...VIDEO_CONFIG, lipSyncCharacterId: "char-1" },
     })
 
-    // Без этих границ селектор возвращал клип любой длины (см. presenter-source-duration-range).
+    // Сцена запланирована на 6 с, а синтезированная реплика по замеру — 5 с.
+    // Ищем под РЕЧЬ: фрагмент под план длиннее её, и `kling-lip-sync`
+    // синхронизирует губы только на длину аудио — остаток пошёл бы немым
+    // хвостом, где ведущая говорит без звука.
+    // Границы модели без этого вызова селектор игнорировал (см.
+    // presenter-source-duration-range).
     expect(h.reservePresenterSourceClip).toHaveBeenCalledWith({
       characterId: "char-1",
-      durationSec: 6,
+      durationSec: 5,
       minDurationSec: 2,
       maxDurationSec: 10,
     })

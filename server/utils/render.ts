@@ -1087,10 +1087,19 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
         mixLabels.push('[vo]')
       }
 
-      // Лимитер после сведения: пики дорожек складываются, и без потолка микс
+      // Нормализация ФИНАЛЬНОГО микса, а не только голоса. Ролик 21 вышел на
+      // −12.6 LUFS при цели −14: закадровая дорожка была приведена, но звук
+      // клипов лёг поверх и поднял сумму. Площадки всё равно приводят к своим
+      // ~−14, и лучше прийти туда самим.
+      //
+      // Однопроходный режим: второго прохода по готовому миксу здесь нет —
+      // фильтр строится до того, как звук существует. Он «дышит» слабее, чем
+      // ошибка в полтора децибела, которую исправляет.
+      //
+      // Лимитер последним: пики дорожек складываются, и без потолка микс
       // клиппится там, где голос совпал с акцентом музыки.
       const amixLine = `${mixLabels.join('')}amix=inputs=${mixLabels.length}:duration=first:normalize=0,`
-        + `alimiter=limit=${LIMITER_CEILING}[aout]`
+        + `${buildLoudnormApplyFilter(null)},alimiter=limit=${LIMITER_CEILING}[aout]`
 
       const complexFilterStr = [
         `[0:v]${videoFilterStr}[vout]`,

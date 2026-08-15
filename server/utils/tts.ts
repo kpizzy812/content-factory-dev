@@ -19,7 +19,7 @@
 
 import { join } from 'node:path'
 import ffmpeg from 'fluent-ffmpeg'
-import { estimateMediaCost, resolveMediaModel, resolveSpecVoice } from './media-provider/registry'
+import { ttsUsageFor, estimateMediaCost, resolveMediaModel, resolveSpecVoice } from './media-provider/registry'
 import { runMediaTask } from './media-provider/run-media-task'
 import { getModel, getDefaultTtsModel } from './video-models'
 import type { ModelMeta } from './video-models'
@@ -176,7 +176,7 @@ export async function synthesizeSpeech(options: TtsSynthesisOptions): Promise<Tt
   // Цена по спеке того, кто реально исполнял: audio_second — по фактической
   // длительности, character — по числу символов. Числа те же, что и раньше,
   // но живут они теперь в одном месте с моделью.
-  const costUsd = estimateMediaCost(spec, { characters, audioSeconds: durationSec })
+  const costUsd = estimateMediaCost(spec, ttsUsageFor(text, durationSec))
 
   return {
     audioPath: options.outputPath,

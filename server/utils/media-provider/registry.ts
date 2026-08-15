@@ -12,6 +12,7 @@
  */
 
 import { estimateMediaCost } from "./billing"
+export { ttsUsageFor } from "./billing"
 import { MEDIA_MODEL_SPECS } from "./model-specs"
 import type {
   MapContext,
