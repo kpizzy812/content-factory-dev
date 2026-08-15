@@ -16,8 +16,16 @@ RUN bun run build
 
 # Install media runtime only after the Nuxt build so BuildKit cannot run both
 # memory-heavy steps in parallel on the development builder.
+# ffmpeg — сборка ролика. Остальное — системные библиотеки headless Chrome,
+# который Remotion скачивает себе сам, но запустить без них не может:
+# «libnspr4.so: cannot open shared object file». Ролик при этом собирался, а
+# инфографика молча пропускалась — дефект был виден только в логе шага сборки.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates curl ffmpeg \
+      libnspr4 libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+      libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+      libgbm1 libasound2 libpango-1.0-0 libcairo2 fonts-liberation \
  && rm -rf /var/lib/apt/lists/*
 
 # Claude Code CLI — транспорт LLM через OAuth-подписку (LLM_TRANSPORT=claude_cli).
