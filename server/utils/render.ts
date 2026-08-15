@@ -1,3 +1,8 @@
+import {
+  LIMITER_CEILING,
+  buildLoudnormApplyFilter,
+  measureLoudness,
+} from "./video-tools/loudness"
 import ffmpeg from "fluent-ffmpeg"
 import { writeFile, mkdir, access, unlink, stat } from "node:fs/promises"
 import { join, dirname } from "node:path"
@@ -996,6 +1001,17 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
   const hasMusic = musicUsable
   const hasVoiceover = voiceoverUsable
 
+  // Замер громкости озвучки до сборки. Двухпроходный loudnorm точнее
+  // однопроходного и не «дышит»: он сдвигает усиление ровно, а не подгоняет
+  // на ходу. Отказ замера — не потерянная сборка: второй проход уйдёт в
+  // однопроходный режим (см. video-tools/loudness.ts).
+  const voiceoverLoudness = hasVoiceover && voiceoverPath
+    ? await measureLoudness(voiceoverPath)
+    : null
+  if (hasVoiceover) {
+    console.log(`[render] громкость озвучки: ${voiceoverLoudness ? `замерена (${voiceoverLoudness.inputI} LUFS)` : "замер не удался, однопроходный режим"}`)
+  }
+
   console.log(
     `[render] audio mix: music=${hasMusic ? 'on' : 'off'}, voiceover=${hasVoiceover ? 'on' : 'off'}, clipNativeAudio=normalized`,
   )
@@ -1061,13 +1077,20 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
         mixLabels.push('[ma]')
       }
 
-      // Voiceover lane (главный голос)
+      // Voiceover lane (главный голос).
+      //
+      // Громкость приводится к цели, а не берётся «как отдала модель»: MiniMax
+      // отдаёт −25.8 LUFS, Fish −17.4, разброс 8 LU. Без этого смена модели
+      // озвучки уводила громкость всей партии (см. video-tools/loudness.ts).
       if (voiceoverInputIdx !== null) {
-        audioFilters.push(`[${voiceoverInputIdx}:a]volume=1.0[vo]`)
+        audioFilters.push(`[${voiceoverInputIdx}:a]${buildLoudnormApplyFilter(voiceoverLoudness)}[vo]`)
         mixLabels.push('[vo]')
       }
 
-      const amixLine = `${mixLabels.join('')}amix=inputs=${mixLabels.length}:duration=first:normalize=0[aout]`
+      // Лимитер после сведения: пики дорожек складываются, и без потолка микс
+      // клиппится там, где голос совпал с акцентом музыки.
+      const amixLine = `${mixLabels.join('')}amix=inputs=${mixLabels.length}:duration=first:normalize=0,`
+        + `alimiter=limit=${LIMITER_CEILING}[aout]`
 
       const complexFilterStr = [
         `[0:v]${videoFilterStr}[vout]`,
