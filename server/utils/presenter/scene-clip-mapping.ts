@@ -201,6 +201,79 @@ export function findEmptyClipPathIndexes(paths: readonly unknown[]): number[] {
   return empty
 }
 
+/** Есть ли в ячейке путь клипа (пробельная строка — та же дыра, что и пустая). */
+export function hasClipPath(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0
+}
+
+/**
+ * Разворачивает ПЛОТНЫЙ список клипов (снапшот старого формата) в список по сценам.
+ *
+ * До 15.08.2026 `runClipGeneration` складывал пути подряд и пропускал сцены ведущей:
+ * на девять сцен приходило шесть путей, а адресовались они индексом сцены. Новый
+ * контракт — длина по числу сцен и пустая ячейка там, где своего клипа нет.
+ *
+ * Возвращает null, когда арифметика не сходится (путей + сцен ведущей ≠ числу сцен):
+ * достроить такую карту можно только догадкой, а догадка здесь означает клип чужой
+ * сцены. Вызывающий обязан пересобрать список сам — это дешевле, чем ошибиться:
+ * шаг поднимает готовые клипы с диска по order ассета и повторно за них не платит.
+ */
+export function restoreSceneIndexedClipPaths(
+  storedPaths: readonly string[],
+  sceneCount: number,
+  presenterSceneIndexes: readonly number[],
+): string[] | null {
+  if (!Number.isInteger(sceneCount) || sceneCount < 0) return null
+  // Длина уже по сценам — список либо новый, либо у ролика вовсе нет сцен ведущей.
+  if (storedPaths.length === sceneCount) return [...storedPaths]
+
+  const presenter = new Set(presenterSceneIndexes.filter(i => Number.isInteger(i) && i >= 0 && i < sceneCount))
+  if (storedPaths.length + presenter.size !== sceneCount) return null
+
+  const restored = new Array<string>(sceneCount).fill("")
+  let cursor = 0
+  for (let sceneIndex = 0; sceneIndex < sceneCount; sceneIndex++) {
+    if (presenter.has(sceneIndex)) continue
+    restored[sceneIndex] = storedPaths[cursor] ?? ""
+    cursor++
+  }
+  return restored
+}
+
+/** Список клипов под склейку плюс карта «индекс сцены → позиция в склейке». */
+export interface CompactedSceneClips {
+  /** Пути в порядке склейки — без пустых ячеек. */
+  clips: string[]
+  /** Индекс сцены → её позиция в `clips`. Сцены без клипа в карте нет. */
+  positionBySceneIndex: Map<number, number>
+  /** Сцены, у которых клипа нет: в ролик они не попадут. */
+  missingSceneIndexes: number[]
+}
+
+/**
+ * Схлопывает список «по сценам» в список под ffmpeg concat.
+ *
+ * Это ЕДИНСТВЕННОЕ место, где пустые ячейки исчезают: дальше по потоку индексы
+ * снова означают позицию в склейке, и субтитры обязаны переехать вместе с ними.
+ */
+export function compactSceneClipPaths(paths: readonly string[]): CompactedSceneClips {
+  const clips: string[] = []
+  const positionBySceneIndex = new Map<number, number>()
+  const missingSceneIndexes: number[] = []
+
+  for (let sceneIndex = 0; sceneIndex < paths.length; sceneIndex++) {
+    const path = paths[sceneIndex]
+    if (!hasClipPath(path)) {
+      missingSceneIndexes.push(sceneIndex)
+      continue
+    }
+    positionBySceneIndex.set(sceneIndex, clips.length)
+    clips.push(path.trim())
+  }
+
+  return { clips, positionBySceneIndex, missingSceneIndexes }
+}
+
 export interface PresenterCandidateLike {
   durationSec: number
 }

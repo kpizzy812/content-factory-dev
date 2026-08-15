@@ -192,6 +192,10 @@ vi.mock("../../../server/utils/tts", () => ({
 /** ffmpeg-обёртки: реальных вызовов быть не должно. */
 vi.mock("../../../server/utils/render", () => ({
   probeClipDurations: vi.fn(async (paths: string[]) => paths.map((_, i) => [8, 9, 10][i] ?? 5)),
+  // Замер по ячейкам сцен: пустая ячейка — дыра, а не файл (см.
+  // probe-scene-clip-durations.spec.ts).
+  probeSceneClipDurations: vi.fn(async (paths: string[]) =>
+    paths.map((p, i) => (p.trim().length === 0 ? null : [8, 9, 10][i] ?? 5))),
   adjustAudioTempo: vi.fn(async () => ({ outputPath: "sped.mp3", durationSec: 4 })),
   trimAudio: vi.fn(async () => ({ outputPath: "trim.mp3", durationSec: 4 })),
   extendVideoClip: vi.fn(async (source: string) => ({ outputPath: `${source}_ext.mp4`, durationSec: 12 })),

@@ -716,6 +716,27 @@ export async function probeClipDurations(clips: string[]): Promise<number[]> {
 }
 
 /**
+ * Замер списка клипов, адресуемого ПОЗИЦИЕЙ СЦЕНЫ: пустая ячейка даёт null.
+ *
+ * Отличие от probeClipDurations принципиальное. Там любая неудача — это 5 секунд,
+ * и пустая ячейка сцены ведущей (клипа нет вовсе) занимала на таймлайне пять
+ * секунд, которых в ролике не существует: старт каждой следующей реплики уезжал
+ * вперёд, речь ложилась на чужой кадр. Здесь дыра остаётся дырой, а дефолт
+ * достаётся только реальному файлу, который не удалось измерить.
+ */
+export async function probeSceneClipDurations(clips: readonly string[]): Promise<Array<number | null>> {
+  const durations: Array<number | null> = []
+  for (const clip of clips) {
+    if (typeof clip !== "string" || clip.trim().length === 0) {
+      durations.push(null)
+      continue
+    }
+    durations.push(await probeMediaDuration(clip) ?? FALLBACK_CLIP_DURATION_SEC)
+  }
+  return durations
+}
+
+/**
  * Adjust audio tempo (speed) without pitch change using FFmpeg atempo.
  * Writes result to newPath. Returns probed duration.
  * atempo supports 0.5-2.0 range — we clamp and chain if needed.

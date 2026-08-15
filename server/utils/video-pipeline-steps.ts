@@ -22,9 +22,13 @@ import {
 import { getAccountStyleContext, formatAccountStyleForPrompt } from "./account-style-context"
 import { getAppScenarioContext, formatAppContextForPrompt } from "./app-context"
 import { synthesizeSpeech, buildVoiceoverTrack } from "./tts"
-import { adjustAudioTempo, trimAudio, probeClipDurations, extendVideoClip, planClipExtension } from "./render"
+import { adjustAudioTempo, trimAudio, probeSceneClipDurations, extendVideoClip, planClipExtension } from "./render"
 import { buildSceneClipTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
-import { buildSceneClipIndexMap } from "./presenter/scene-clip-mapping"
+import {
+  buildSceneClipIndexMap,
+  compactSceneClipPaths,
+  restoreSceneIndexedClipPaths,
+} from "./presenter/scene-clip-mapping"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import { runSubtitleKeywordAgent } from "./agents/subtitle-keyword-agent"
 import { pickTtsModel, getModel } from "./video-models"
@@ -542,7 +546,17 @@ export async function runImageGeneration(
 
 // ─── Шаг 3: Генерация видеоклипов ──────────────────────────────
 
-/** Итог шага клипов. generatedCount — сколько клипов реально оплачено В ЭТОМ прогоне. */
+/**
+ * Итог шага клипов.
+ *
+ * `clipPaths` адресуется ПОЗИЦИЕЙ СЦЕНЫ в порядке нарезки: длина равна числу сцен,
+ * у сцены без собственного клипа (её играет живая ведущая) — пустая ячейка, которую
+ * заполняет lip-sync. Раньше список был плотным (6 путей на 9 сцен), а потребители
+ * адресовали его индексом сцены — клип одной сцены вставал на место другой, а хвост
+ * сцен выпадал с логом «индекс клипа вне списка».
+ *
+ * generatedCount — сколько клипов реально оплачено В ЭТОМ прогоне.
+ */
 export interface ClipStepResult {
   clipPaths: string[]
   generatedCount: number
@@ -577,20 +591,42 @@ export async function runClipGeneration(
     const output = step.outputSnapshot as {
       clipPaths?: string[]
       perSceneDurations?: Array<{ key: string, order?: number, durationSec: number }>
+      presenterSceneIndexes?: number[]
     }
     // Пустой массив — законный результат: ролик целиком снят ведущей, генерировать
     // было нечего. Поэтому проверяем сам факт массива, а не его длину.
     if (Array.isArray(output.clipPaths)) {
-      // Шаг уже выполнен — новых оплаченных генераций нет.
-      return {
-        clipPaths: output.clipPaths,
-        generatedCount: 0,
-        scenes: (output.perSceneDurations ?? []).map((s, idx) => ({
-          key: s.key,
-          order: s.order ?? idx,
-          durationSec: s.durationSec,
-        })),
+      const snapshotScenes = output.perSceneDurations ?? []
+      // Сколько сцен у ролика на самом деле. Снапшот перечисляет их все (включая
+      // отданные ведущей), но у старых записей поля может не быть — тогда считаем
+      // по промптам, из которых шаг и нарезает клипы.
+      const sceneCount = snapshotScenes.length || prompts.scenePrompts?.scenes?.length || output.clipPaths.length
+      // Снапшоты до 15.08.2026 плотные: сцены ведущей в них пропущены. Разворачиваем
+      // их обратно по сценам — иначе кэш вернул бы ровно ту раскладку, из-за которой
+      // клип одной сцены вставал на место другой.
+      const restored = restoreSceneIndexedClipPaths(
+        output.clipPaths,
+        sceneCount,
+        output.presenterSceneIndexes ?? [...(presenterSceneIndexes ?? [])],
+      )
+      if (restored) {
+        // Шаг уже выполнен — новых оплаченных генераций нет.
+        return {
+          clipPaths: restored,
+          generatedCount: 0,
+          scenes: snapshotScenes.map((s, idx) => ({
+            key: s.key,
+            order: s.order ?? idx,
+            durationSec: s.durationSec,
+          })),
+        }
       }
+      await appendStepLog(
+        step.id,
+        `Снапшот шага не раскладывается по сценам (${output.clipPaths.length} путей, `
+        + `${snapshotScenes.length} сцен, ${(output.presenterSceneIndexes ?? []).length} у ведущей) — `
+        + `пересобираю список; готовые клипы поднимаются с диска и повторно не оплачиваются`,
+      )
     }
   }
 
@@ -684,7 +720,10 @@ export async function runClipGeneration(
   }
 
   try {
-    const clipPaths: string[] = []
+    // Ячейка на КАЖДУЮ сцену: индекс в этом массиве — это позиция сцены в порядке
+    // нарезки, и по нему же её ищут lip-sync, озвучка и субтитры. Сцена ведущей
+    // остаётся пустой ячейкой — её заполнит lip-sync из библиотеки исходников.
+    const clipPaths = new Array<string>(scenes.length).fill("")
     // Только реально сгенерированные (оплаченные) клипы — переиспользованные
     // с диска в стоимость шага попадать не должны.
     let generatedCount = 0
@@ -742,7 +781,7 @@ export async function runClipGeneration(
         const { access: fsAccess } = await import("node:fs/promises")
         try {
           await fsAccess(existingClip.filePath)
-          clipPaths.push(existingClip.filePath)
+          clipPaths[scene.order] = existingClip.filePath
           await appendStepLog(step.id, `Клип для ${scene.key} уже существует, пропускаю`)
           continue
         } catch {
@@ -814,7 +853,7 @@ export async function runClipGeneration(
           sceneIndex: scene.order,
           format: format === "portrait" ? "portrait" : "landscape",
         })
-        clipPaths.push(clipPath)
+        clipPaths[scene.order] = clipPath
         const brollStorage = await uploadLocalAsset(clipPath, clipPersist.storageKey, clipPersist.contentType)
         await prisma.videoAsset.create({
           data: {
@@ -890,7 +929,7 @@ export async function runClipGeneration(
         })
       }
 
-      clipPaths.push(task.localPath)
+      clipPaths[scene.order] = task.localPath
       // Только новые оплаченные задачи: клип, вытянутый из нашего хранилища по
       // ключу идемпотентности, второй раз провайдеру не оплачивается.
       if (task.source === "generated") generatedCount++
@@ -948,9 +987,12 @@ export async function runClipGeneration(
     const generatedSeconds = scenes
       .filter(s => !presenterSceneIndexes?.has(s.order))
       .reduce((sum, sc) => sum + sc.durationSec, 0)
+    // Считаем заполненные ячейки, а не длину массива: длина теперь всегда равна
+    // числу сцен, и «клипов столько же, сколько сцен» перестало бы что-то значить.
+    const filledClipCount = clipPaths.filter(p => p.length > 0).length
     await appendStepLog(step.id, presenterSceneIndexes?.size
-      ? `Клипы готовы: ${clipPaths.length} шт (${generatedSeconds}s), сгенерировано в этом прогоне ${generatedCount}; ${presenterSceneIndexes.size} сцен отданы ведущей`
-      : `Все клипы готовы: ${clipPaths.length} шт, сгенерировано в этом прогоне ${generatedCount} (total: ${generatedSeconds}s)`)
+      ? `Клипы готовы: ${filledClipCount} из ${clipPaths.length} ячеек сцен (${generatedSeconds}s), сгенерировано в этом прогоне ${generatedCount}; ${presenterSceneIndexes.size} сцен отданы ведущей (их ячейки заполнит lip-sync)`
+      : `Все клипы готовы: ${filledClipCount} шт, сгенерировано в этом прогоне ${generatedCount} (total: ${generatedSeconds}s)`)
 
     return { clipPaths, generatedCount, scenes: sceneSummary }
   } catch (error) {
@@ -1005,6 +1047,12 @@ export interface VoiceoverStepResult {
   /** Обновлённые пути клипов, если политика extend_scene удлинила сцены.
    * Отсутствует, если ничего не менялось — caller делает `clipPaths ?? effectiveClipPaths`. */
   clipPaths?: string[]
+  /**
+   * Отрезки финального таймлайна, на которых звучит закадровый голос — по
+   * ФАКТИЧЕСКОМУ миксу, а не по плану. По ним сборка глушит звук клипов.
+   * Отсутствует у снапшотов, записанных до 15.08.2026.
+   */
+  voicedIntervals?: Array<{ startSec: number; endSec: number }>
 }
 
 /**
@@ -1179,8 +1227,11 @@ export async function runVoiceoverGeneration(
 
   await appendStepLog(step.id, `TTS модель: ${ttsModel.name} (${ttsModel.id}), язык: ${videoConfig.voiceoverLanguage}, pacing: ${videoConfig.voiceoverPacing}`)
 
-  // 4. Build scene timeline из реальных clip durations
-  const clipDurations = clipPaths.length > 0 ? await probeClipDurations(clipPaths) : []
+  // 4. Build scene timeline из реальных clip durations.
+  // Замер по ячейкам сцен: пустая ячейка (сцену снимает ведущая, а lip-sync её не
+  // закрыл) обязана остаться дырой. Массовый probeClipDurations превращал её в
+  // 5 секунд, и весь хвост реплик уезжал вперёд относительно картинки.
+  const clipDurations = clipPaths.length > 0 ? await probeSceneClipDurations(clipPaths) : []
   const scenes = videoPlan!.scenes
   const voiceoverLines = voiceoverPlan!.lines
 
@@ -1539,7 +1590,20 @@ export async function runVoiceoverGeneration(
     }
   })
 
-  const totalDurationSec = effectiveClipDurations.reduce((sum, d) => sum + d, 0)
+  /**
+   * Где на таймлайне ФАКТИЧЕСКИ звучит закадровый голос.
+   *
+   * Считается ровно из того, что уходит в микс, и отдаётся наружу: раньше
+   * оркестратор строил эти отрезки сам, складывая плановые длительности сцен
+   * (`durationSec: 10` у всех девяти), и глушил звук клипов не там, где идёт речь.
+   * Реплика не может звучать дольше своей сцены — микс её туда и не положит.
+   */
+  const voicedIntervals = mixScenes.map(s => ({
+    startSec: s.sceneStartSec,
+    endSec: s.sceneStartSec + Math.min(s.voiceoverDurationSec, s.sceneDurationSec),
+  }))
+
+  const totalDurationSec = effectiveClipDurations.reduce<number>((sum, d) => sum + (d ?? 0), 0)
     || scenes.reduce((sum, s) => sum + s.durationSec, 0)
   const mixPath = join(assetsDir, 'voiceover_mix.mp3')
 
@@ -1596,6 +1660,7 @@ export async function runVoiceoverGeneration(
     provider: ttsModel.provider,
     modelId: ttsModel.id,
     voiceId: resolvedVoiceId,
+    voicedIntervals,
     // Поле появляется ТОЛЬКО если extend_scene реально удлинила клипы — иначе
     // caller продолжает работать со своим массивом путей.
     ...(clipsExtended ? { clipPaths: effectiveClipPaths } : {}),
@@ -1765,6 +1830,13 @@ export async function runAssembly(
 
   const isStoryDriven = videoPlan && videoPlan.mode !== 'legacy_simple'
 
+  // Список приходит адресованным ПОЗИЦИЕЙ СЦЕНЫ: у сцены, которой в ролике не
+  // будет, ячейка пуста. Уплотняем здесь и только здесь — дальше индексы снова
+  // означают позицию в склейке, и субтитры обязаны переехать вместе с ними.
+  // Пустая строка в concat-листе уронила бы ffmpeg без внятного следа в шаге.
+  const compacted = compactSceneClipPaths(clipPaths)
+  const assemblyClips = compacted.clips
+
   let sceneSubtitles: SceneSubtitleInput[] | undefined
   // subtitleStyle: приоритет override (Video.subtitlesStyle) > videoPlan (storyPlan).
   // Это позволяет editor'у править Video.subtitlesStyle и видеть изменения в render
@@ -1795,14 +1867,19 @@ export async function runAssembly(
     // кадре произносится совсем другая фраза. Берём произносимое: реплику ведущей
     // в кадре или закадровую строку, а пересказ оставляем на случай немой сцены.
     sceneSubtitles = videoPlan.scenes
-      .map((s, idx) => ({
-        // Сцена, для которой клипа нет вовсе, отсеивается ниже: класть её субтитр
-        // на чужой клип хуже, чем не показать его.
-        sceneIndex: clipOrderKnown ? clipIndexByOrder.get(s.order) : idx,
-        text: (s.spokenLine?.trim() || s.voiceoverLine?.trim() || s.subtitleCopy || '').trim(),
-        placement: s.subtitlePlacement,
-        durationSec: s.durationSec,
-      }))
+      .map((s, idx) => {
+        const sceneIndex = clipOrderKnown ? clipIndexByOrder.get(s.order) : idx
+        return {
+          // Индекс сцены переводим в позицию склейки: сцена без клипа из ролика
+          // выпала, и все, кто идёт за ней, сдвинулись на её место.
+          // Сцена, для которой клипа нет вовсе, отсеивается ниже: класть её субтитр
+          // на чужой клип хуже, чем не показать его.
+          sceneIndex: sceneIndex === undefined ? undefined : compacted.positionBySceneIndex.get(sceneIndex),
+          text: (s.spokenLine?.trim() || s.voiceoverLine?.trim() || s.subtitleCopy || '').trim(),
+          placement: s.subtitlePlacement,
+          durationSec: s.durationSec,
+        }
+      })
       .filter((s): s is SceneSubtitleInput => s.sceneIndex !== undefined && s.text.length > 0)
   }
 
@@ -1832,7 +1909,7 @@ export async function runAssembly(
     startedAt: new Date(),
     attemptCount: step.attemptCount + 1,
     inputSnapshot: {
-      clipPaths,
+      clipPaths: assemblyClips,
       musicPath,
       subtitlesEnabled,
       format,
@@ -1846,7 +1923,16 @@ export async function runAssembly(
     },
   })
   const hasVoiceover = !!extras?.voiceoverPath
-  await appendStepLog(step.id, `Собираю видео: ${clipPaths.length} клипов, музыка: ${musicPath ? "да" : "нет"}, voiceover: ${hasVoiceover ? "да" : "нет"}, субтитры: ${subtitlesEnabled}${hasSceneSubs ? ` (${sceneSubtitles!.length} per-scene subs)` : ""}${subtitleStyle ? " (styled)" : ""}`)
+  await appendStepLog(step.id, `Собираю видео: ${assemblyClips.length} клипов, музыка: ${musicPath ? "да" : "нет"}, voiceover: ${hasVoiceover ? "да" : "нет"}, субтитры: ${subtitlesEnabled}${hasSceneSubs ? ` (${sceneSubtitles!.length} per-scene subs)` : ""}${subtitleStyle ? " (styled)" : ""}`)
+  if (compacted.missingSceneIndexes.length > 0) {
+    // Сцена без клипа — это дыра в сценарии, а не деталь реализации: её надо
+    // видеть в шаге, иначе «ролик короче ожидаемого» останется без объяснения.
+    await appendStepLog(
+      step.id,
+      `Сцены без клипа (позиции ${compacted.missingSceneIndexes.join(", ")}) в ролик не попадут — `
+      + `собираю ${assemblyClips.length} из ${clipPaths.length} сцен`,
+    )
+  }
   if (clipOrderWarning && hasSceneSubs) await appendStepLog(step.id, clipOrderWarning)
   if (legacyFallbackUsed) {
     await appendStepLog(step.id, "WARN: субтитры включены, но ни у одной сцены нет текста — накладываю legacy hook/CTA. Проверьте тексты сцен в редакторе субтитров.")
@@ -1890,7 +1976,7 @@ export async function runAssembly(
     // per-scene субтитры; hookText/ctaText там дублировали бы их поверх всего ролика
     // (и всплывали в ASS-ветке, где legacy-сегменты идут на всю длину).
     const result = await assembleVideo({
-      clips: clipPaths,
+      clips: assemblyClips,
       topText: legacyTexts ? hookText : "",
       bottomText: legacyTexts ? ctaText : "",
       musicPath,

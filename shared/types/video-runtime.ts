@@ -171,18 +171,10 @@ export function buildVoiceoverAudioPlan(
     }
   }
 
-  // Estimate speaking rate based on pacing
-  const wordsPerSecond: Record<string, number> = {
-    slow: 2.0,
-    moderate: 2.8,
-    fast: 3.5,
-  }
-  const wps = wordsPerSecond[voiceoverPlan.pacing] ?? 2.8
   const pauseMap: Record<string, number> = { none: 0, short: 0.5, long: 1.5 }
 
   const scenes: SceneVoiceoverAudio[] = voiceoverPlan.lines.map((line: VoiceoverLine) => {
-    const wordCount = line.text.split(/\s+/).length
-    const estimatedDuration = Math.max(1, wordCount / wps)
+    const estimatedDuration = Math.max(1, estimateSpeechDurationSec(line.text, voiceoverPlan.pacing))
     const pauseAfterSec = pauseMap[line.pauseAfter] ?? 0
 
     return {
@@ -211,6 +203,73 @@ export function buildVoiceoverAudioPlan(
 }
 
 // ─── Duration Helpers ─────────────────────────────────
+
+/** Темп речи в словах в секунду. Единственный источник для всех оценок длины реплики. */
+export const SPEECH_WORDS_PER_SECOND: Record<string, number> = {
+  slow: 2.0,
+  moderate: 2.8,
+  fast: 3.5,
+}
+
+/**
+ * Запас, который сцена обязана иметь сверх речи.
+ *
+ * Реконсиляция озвучки оставляет 0.1 с зазора и при нехватке места УСКОРЯЕТ или
+ * РЕЖЕТ реплику — это и есть оборванная фраза, на которую жалуется заказчик.
+ * Оценка по словам всегда приблизительна (Fish на русском читает медленнее
+ * табличных 2.8 слова в секунду), поэтому округляем в сторону сцены подлиннее:
+ * лишняя секунда кадра стоит $0.045, обрезанная фраза — переснятого ролика.
+ */
+export const SPEECH_HEADROOM_SEC = 1
+
+/**
+ * Сколько секунд примерно звучит реплика. Пустой текст — ноль секунд:
+ * «минимум одна секунда» здесь означал бы сцену под несуществующую речь.
+ */
+export function estimateSpeechDurationSec(
+  text: string | null | undefined,
+  pacing: string | null | undefined,
+): number {
+  const trimmed = (text ?? '').trim()
+  if (!trimmed) return 0
+  const wps = SPEECH_WORDS_PER_SECOND[pacing ?? 'moderate'] ?? SPEECH_WORDS_PER_SECOND.moderate!
+  return trimmed.split(/\s+/).length / wps
+}
+
+/** Ограничения модели на длину клипа — либо фиксированный набор, либо диапазон. */
+export interface ModelDurationConstraints {
+  durationRange?: [number, number] | readonly [number, number]
+  durationOptions?: number[] | readonly number[]
+}
+
+/**
+ * Наименьшая длительность сцены, в которую речь укладывается с запасом.
+ *
+ * Отличие от `clampDurationToModel` принципиальное: тот берёт БЛИЖАЙШИЙ вариант и
+ * потому умеет округлить вниз — речь на 5.9 с получила бы пятисекундную сцену и
+ * была бы обрезана. Здесь округление всегда вверх, а если речь не влезает даже в
+ * максимум модели — берётся максимум: удлинить сцену нечем, но и молча резать
+ * реплику под меньший вариант незачем.
+ */
+export function pickSceneDurationForSpeech(
+  speechDurationSec: number,
+  constraints: ModelDurationConstraints,
+): number {
+  const needed = Math.max(0, speechDurationSec) + SPEECH_HEADROOM_SEC
+
+  const options = constraints.durationOptions
+  if (options?.length) {
+    const sorted = [...options].sort((a, b) => a - b)
+    return sorted.find(option => option >= needed) ?? sorted[sorted.length - 1]!
+  }
+
+  if (constraints.durationRange) {
+    const [min, max] = constraints.durationRange
+    return Math.min(max, Math.max(min, needed))
+  }
+
+  return needed
+}
 
 /**
  * Parse scene duration string ("3s", "5s", "10") into seconds.

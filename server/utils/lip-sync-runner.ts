@@ -54,6 +54,7 @@ import {
   presenterTargetDuration,
   clampDurationToModelRange,
   findEmptyClipPathIndexes,
+  hasClipPath,
   hashSpeechIdentity,
   hashSpokenLine,
   isAssignableClipIndex,
@@ -175,16 +176,29 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   })
 
   /**
+   * Есть ли у ролика маршрут ведущей: сцену без сгенерированного клипа снимает
+   * фрагмент из библиотеки персонажа (или, если библиотека пуста, его портрет).
+   *
+   * Именно по этому признаку сцена с ПУСТОЙ ячейкой в clipPaths не считается
+   * потерянной: с 15.08.2026 список клипов идёт по сценам, и пустая ячейка —
+   * не «клип не нашёлся», а «клип этой сцены делает как раз этот шаг».
+   */
+  const presenterRouteAvailable = !!videoConfig.lipSyncCharacterId
+
+  /**
    * Ролик, снятый целиком живой ведущей.
    *
    * Такому ролику text-to-video не запускали ни разу (см. presenterSceneIndexes в
-   * runClipGeneration): clipPaths пуст, снапшота prompt_generation нет, и
-   * сопоставлять сцену не с чем. Позиция сцены в плане здесь не догадка, а
-   * единственный возможный порядок — чужих клипов, на которые могла бы уехать
-   * реплика, просто не существует. Клип каждой сцены создаёт этот шаг.
+   * runClipGeneration): своего клипа нет НИ У ОДНОЙ сцены, снапшота
+   * prompt_generation нет, и сопоставлять сцену не с чем. Позиция сцены в плане
+   * здесь не догадка, а единственный возможный порядок — чужих клипов, на которые
+   * могла бы уехать реплика, просто не существует. Клип каждой сцены создаёт этот шаг.
+   *
+   * Проверяем именно заполненность ячеек, а не длину массива: шаг клипов теперь
+   * отдаёт ячейку на каждую сцену, и у ролика ведущей все они пусты.
    */
-  const presenterOnlyVideo = !!videoConfig.lipSyncCharacterId
-    && clipPaths.length === 0
+  const presenterOnlyVideo = presenterRouteAvailable
+    && !clipPaths.some(hasClipPath)
     && sceneUnits.length > 0
     && lipSyncTargets.length === sceneUnits.length
 
@@ -248,7 +262,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         clipPaths,
         snapshotSourcePath: previousByIndex.get(sceneIndex)?.sourcePath,
       }).path
-      if (!resolvedPath && !presenterOnlyVideo) continue
+      if (!resolvedPath && !presenterRouteAvailable) continue
       expectedKeys.set(sceneIndex, await reuseKeyFor(scene.spokenLine!.trim(), sourceAnchorFor(sceneIndex, resolvedPath)))
     }
     const covered = areAllScenesCovered(targetIndexes, previousByIndex)
@@ -441,7 +455,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       })
       // Сцену снимает ведущая — сгенерированного клипа под неё нет и быть не должно.
       // Исходником станет фрагмент из библиотеки, он резервируется ниже.
-      if (!resolvedSource.path && !presenterOnlyVideo) {
+      if (!resolvedSource.path && !presenterRouteAvailable) {
         await appendStepLog(step.id, `${sceneTag}: исходный клип не найден ни в clipPaths (${clipPaths.length} шт.), ни в БД — пропускаю`)
         recordSkippedScene({ sceneOrder: scene.order, sceneIndex, reason: "no_clip" })
         continue
@@ -830,7 +844,12 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       sceneRecords.push({
         sceneOrder: scene.order,
         sceneIndex,
-        sourcePath: sourceVideoPath ?? renderedPath,
+        // Исходник ведущей (и аватарной сцены) в снапшот НЕ пишем: фрагмент
+        // резервируется заново на каждом прогоне и удаляется в finally. Его путь
+        // сделал бы отпечаток сцены нестабильным — следующий заход не узнал бы
+        // уже готовую сцену и оплатил бы её второй раз. Пустая строка — ровно то,
+        // что увидит resolveSceneSourcePath, и якорь останется синтетическим.
+        sourcePath: (presenterSourcePath || useAvatarRoute) ? "" : (sourceVideoPath ?? renderedPath),
         outputPath: renderedPath,
         audioPath,
         spokenLineHash,
@@ -894,17 +913,21 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     await Promise.allSettled(sourceCleanup.map(p => unlink(p).catch(() => {})))
   }
 
-  // Последний рубеж: список путей обязан остаться плотным. Пустой элемент уедет в
-  // сборку как «путь клипа» и упадёт уже в ffmpeg, без внятного следа в шаге.
+  // Последний рубеж: где сцену синхронизировать не удалось, возвращаем её исходный
+  // клип. Ячейка, оставшаяся пустой и после этого, — сцена без видео вообще: она не
+  // попадёт в ролик, и сказать об этом надо здесь, а не молча уронить ffmpeg.
   const emptyClipIndexes = findEmptyClipPathIndexes(updatedClipPaths)
   if (emptyClipIndexes.length > 0) {
     for (const index of emptyClipIndexes) {
-      const original = clipPaths[index]
-      if (typeof original === "string" && original.trim().length > 0) updatedClipPaths[index] = original
+      if (hasClipPath(clipPaths[index])) updatedClipPaths[index] = clipPaths[index]!
     }
+    const stillEmpty = findEmptyClipPathIndexes(updatedClipPaths)
     await appendStepLog(
       step.id,
-      `Пустые пути клипов на позициях ${emptyClipIndexes.join(", ")} — восстановлены исходники из clip_generation где они есть`,
+      `Пустые ячейки клипов на позициях ${emptyClipIndexes.join(", ")} — восстановлены исходники clip_generation где они есть`
+      + (stillEmpty.length > 0
+        ? `; сцены ${stillEmpty.join(", ")} остались без видео и в ролик не попадут`
+        : ""),
     )
   }
 

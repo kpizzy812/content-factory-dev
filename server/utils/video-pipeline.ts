@@ -829,25 +829,14 @@ export async function runVideoPipeline(
 
     // Отрезки таймлайна с закадровым голосом. Сцены ведущей сюда не попадают:
     // их звук — это её собственная речь, и глушить его нельзя.
-    const voiceoverIntervals: Array<{ startSec: number; endSec: number }> = []
-    if (videoPlan.mode !== 'legacy_simple' && voiceoverResult.mixedPath) {
-      const voicedScenes = new Map(
-        voiceoverResult.sceneResults
-          .filter(scene => scene.audioPath && scene.durationSec > 0)
-          .map(scene => [scene.sceneOrder, scene.durationSec]),
-      )
-      let cursorSec = 0
-      for (const scene of videoPlan.scenes) {
-        const voiceDuration = voicedScenes.get(scene.order)
-        if (voiceDuration) {
-          voiceoverIntervals.push({
-            startSec: cursorSec,
-            endSec: cursorSec + Math.min(voiceDuration, scene.durationSec),
-          })
-        }
-        cursorSec += scene.durationSec
-      }
-    }
+    //
+    // Считает их сам шаг озвучки — по длительностям клипов, которые он измерил,
+    // сводя микс. Раньше оркестратор пересчитывал их сам, складывая ПЛАНОВЫЕ
+    // длительности сцен, а план у ролика 23 ставил всем девяти по 10 секунд: звук
+    // клипов приглушался не там, где идёт речь. Снапшоты, записанные до этой
+    // правки, поля не знают — тогда интервалов нет вовсе и сборка глушит клипы на
+    // всём ролике, как делала всегда; выдумывать их из плана нельзя.
+    const voiceoverIntervals = voiceoverResult.voicedIntervals ?? []
 
     const result = await runAssembly(
       videoId,

@@ -11,6 +11,8 @@ import {
   clampDurationToModel,
   buildVoiceoverAudioPlan,
   detectRuntimeMode,
+  estimateSpeechDurationSec,
+  pickSceneDurationForSpeech,
 } from '~~/shared/types/video-runtime'
 import type {
   StoryDrivenVideoPlan,
@@ -56,21 +58,56 @@ export function buildStoryVideoPlan(input: PlannerInput): StoryDrivenVideoPlan {
     }
   }
 
+  const pacing = storyPlan.voiceoverPlan?.pacing ?? 'moderate'
+
   const scenes: SceneRuntimeUnit[] = storyPlan.scenes.map((scene) => {
     const rawDuration = parseSceneDuration(scene.duration)
-    const { duration, clamped } = clampDurationToModel(
-      rawDuration,
-      videoModel.durationRange,
-      videoModel.durationOptions,
-    )
-    if (clamped) {
-      warnings.push(
-        `Сцена ${scene.order}: длительность ${scene.duration} скорректирована до ${duration}s `
-        + `(ограничения модели ${videoModel.name}: ${videoModel.durationRange?.join('-') || videoModel.durationOptions?.join('/')}s)`,
-      )
-    }
-
     const voLine = voLinesByScene.get(scene.order)
+
+    /**
+     * Что в этой сцене звучит. Реплика ведущей в кадре важнее закадровой: если
+     * человек говорит на экране, длину сцены задаёт именно она.
+     */
+    const sceneSpeech = scene.spokenLine?.trim()
+      || voLine?.text?.trim()
+      || scene.voiceoverLine?.trim()
+      || ''
+    const speechSec = estimateSpeechDurationSec(sceneSpeech, pacing)
+
+    // Сцена с репликой живёт столько, сколько эта реплика звучит (с запасом и с
+    // округлением к поддерживаемой моделью длительности). Строка `duration` из
+    // storyPlan — намерение сценариста: у ролика 23 она давала всем девяти
+    // сценам по 10 секунд при речи в 4-6, а там, где реплика оказывалась длиннее
+    // плана, реконсиляция ускоряла и резала её. Сцена без реплики живёт по плану:
+    // считать её не от чего.
+    let duration: number
+    let clamped: boolean
+    if (speechSec > 0) {
+      duration = pickSceneDurationForSpeech(speechSec, {
+        durationRange: videoModel.durationRange,
+        durationOptions: videoModel.durationOptions,
+      })
+      clamped = false
+      if (Math.abs(duration - rawDuration) >= 0.5) {
+        warnings.push(
+          `Сцена ${scene.order}: длительность ${scene.duration} заменена на ${duration}s — `
+          + `столько звучит реплика (~${speechSec.toFixed(1)}s речи + запас), `
+          + `ограничения модели ${videoModel.name}: ${videoModel.durationRange?.join('-') || videoModel.durationOptions?.join('/')}s`,
+        )
+      }
+    } else {
+      ({ duration, clamped } = clampDurationToModel(
+        rawDuration,
+        videoModel.durationRange,
+        videoModel.durationOptions,
+      ))
+      if (clamped) {
+        warnings.push(
+          `Сцена ${scene.order}: длительность ${scene.duration} скорректирована до ${duration}s `
+          + `(ограничения модели ${videoModel.name}: ${videoModel.durationRange?.join('-') || videoModel.durationOptions?.join('/')}s)`,
+        )
+      }
+    }
 
     return {
       order: scene.order,

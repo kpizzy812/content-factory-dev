@@ -114,19 +114,21 @@ export interface SceneClipSlot {
  * озвучка уезжала относительно картинки. Теперь отсутствие клипа видно явно.
  */
 export function buildSceneClipTimeline(
-  clipDurations: number[],
+  clipDurations: readonly (number | null | undefined)[],
   sceneCount: number,
 ): SceneClipSlot[] {
   const slots: SceneClipSlot[] = []
   let acc = 0
   for (let i = 0; i < sceneCount; i++) {
     const clipDur = clipDurations[i]
+    const measured = typeof clipDur === "number" && Number.isFinite(clipDur) ? clipDur : null
     slots.push({
       sceneIndex: i,
       startSec: acc,
-      clipDurationSec: clipDur ?? null,
+      clipDurationSec: measured,
     })
-    if (clipDur !== undefined) acc += clipDur
+    // Сцена без клипа времени на таймлайне не занимает: в ролике её попросту нет.
+    if (measured !== null) acc += measured
   }
   return slots
 }
