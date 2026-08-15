@@ -496,12 +496,17 @@ describe("витрина video-models собирается из спек", () =>
       "fal-ai/wan/v2.2-a14b/text-to-video",
       "fal-ai/minimax/hailuo-02/standard/text-to-video",
     ])
+    // Fish идёт последним: маршрут по умолчанию остаётся на Replicate
+    // (PROJECT_CONTEXT §5), а Fish включается персонажу через
+    // Character.voiceModelId, а не подменой дефолта у всех роликов разом.
     expect(TTS_MODELS.map(m => m.id)).toEqual([
       "minimax/speech-02-turbo",
       "fal-ai/kokoro/american-english",
       "fal-ai/kokoro/russian",
       "fal-ai/playai/tts/v3",
       "fal-ai/elevenlabs/tts/turbo-v2.5",
+      "s2.1-pro-free",
+      "s2.1-pro",
     ])
     expect(LIP_SYNC_MODELS.map(m => m.id)).toEqual(["kwaivgi/kling-lip-sync", "fal-ai/sync-lipsync"])
   })

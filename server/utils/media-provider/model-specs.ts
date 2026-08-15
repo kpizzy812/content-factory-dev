@@ -1691,6 +1691,141 @@ const BYTEDANCE_FLUX_PULID: ImageToImageModelSpec = Object.freeze<ImageToImageMo
   avgGenerationTime: "~15 сек",
 })
 
+// ─── Fish Audio: третий провайдер, третий транспорт ─────────────
+//
+// Взят ради двух измеренных вещей: на русском вдвое дешевле MiniMax
+// ($0.03 против $0.06 за 1000 символов) и звучит живее — сравнивали на одной
+// реплике голосом ведущей.
+//
+// Транспорт отличается от обоих прежних: Replicate отдаёт prediction, fal —
+// ссылку на выход, Fish — БАЙТЫ аудио прямо в теле ответа. Отсюда
+// `execution: "sync_bytes"`.
+//
+// Схема снята с `https://api.fish.audio/openapi.json` 15.08.2026:
+//   POST /v1/tts, обязателен только `text`; модель выбирается ЗАГОЛОВКОМ
+//   `model`; голос — `reference_id`; темп — `prosody.speed` (0.5–2.0).
+// Поля языка в схеме НЕТ: модель определяет его сама.
+
+const FISH_LANGUAGES = Object.freeze(["en", "ru", "de", "fr", "es", "it", "pt", "pl", "zh", "ja", "ko"])
+const FISH_SPEED_RANGE = Object.freeze([0.5, 2] as const)
+
+/** Аудио приходит байтами — разбирать ссылку нечего. */
+function extractFishOutput() {
+  return { urls: [] as string[], contentType: "audio/mpeg" }
+}
+
+function mapFishInput(
+  input: { text: string, voiceId: string, speed: number },
+  maxCharacters: number,
+) {
+  const text = requireText(input.text, "text")
+  if (text.length > maxCharacters) {
+    throw new Error(`Fish Audio: текст ${text.length} символов, предел тарифа ${maxCharacters}`)
+  }
+  const speed = Math.min(FISH_SPEED_RANGE[1], Math.max(FISH_SPEED_RANGE[0], input.speed))
+  return {
+    payload: {
+      text,
+      reference_id: requireText(input.voiceId, "voiceId"),
+      format: "mp3",
+      mp3_bitrate: 128,
+      prosody: { speed },
+    },
+  }
+}
+
+/**
+ * S2.1 Pro в бесплатном режиме. Работает без пополнения API-кошелька —
+ * проверено прогоном 15.08.2026, когда платные модели отвечали 402
+ * «Insufficient API credit» (кошелёк API у них отдельный от тарифа платформы).
+ *
+ * Предел 500 символов на генерацию — с бесплатного тарифа их страницы цен.
+ * Реплика сцены в него укладывается с запасом.
+ */
+const FISH_S21_PRO_FREE: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>({
+  registryKey: "fish:s2.1-pro-free",
+  id: "s2.1-pro-free",
+  provider: "fish",
+  capability: "text_to_speech",
+  execution: "sync_bytes",
+  billing: { unit: "flat", usd: 0 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    maxCharacters: 500,
+    languages: FISH_LANGUAGES,
+    formats: Object.freeze(["mp3"]),
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    return mapFishInput(input, this.constraints.maxCharacters)
+  },
+  extractOutput: extractFishOutput,
+  dataProcessor: Object.freeze({
+    name: "Fish Audio",
+    note: "Текст и голосовая модель обрабатываются на стороне Fish Audio.",
+  }),
+  integrated: true,
+  tier: "budget",
+  name: "Fish Audio S2.1 Pro (free)",
+  vendorLabel: "Fish Audio",
+  strengths: Object.freeze([
+    "Бесплатно: платит только за клонирование голоса, синтез ноль",
+    "Живее MiniMax на русском — сравнивали на одной реплике",
+    "Знак ударения U+0301 отрабатывает",
+  ]),
+  tradeoffs: Object.freeze([
+    "500 символов за генерацию",
+    "Третий провайдер в контуре: свой ключ и своя точка отказа",
+  ]),
+  avgGenerationTime: "~3 сек",
+})
+
+/**
+ * S2.1 Pro платный. Тариф $15 за 1 млн UTF-8 БАЙТ; кириллица это два байта на
+ * букву, то есть $0.03 за 1000 русских символов.
+ *
+ * `billingConfirmed: false` — официальная страница тарифов отдала 404, число
+ * взято из обзоров. `integrated: false` — API-кошелёк не пополнен, модель
+ * отвечает 402.
+ */
+const FISH_S21_PRO: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>({
+  registryKey: "fish:s2.1-pro",
+  id: "s2.1-pro",
+  provider: "fish",
+  capability: "text_to_speech",
+  execution: "sync_bytes",
+  billing: { unit: "utf8_byte", usdPerByte: 15 / 1_000_000 },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    // Предел тарифа Plus с их страницы цен, не документированный предел API.
+    maxCharacters: 15000,
+    languages: FISH_LANGUAGES,
+    formats: Object.freeze(["mp3"]),
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    return mapFishInput(input, this.constraints.maxCharacters)
+  },
+  extractOutput: extractFishOutput,
+  dataProcessor: Object.freeze({
+    name: "Fish Audio",
+    note: "Текст и голосовая модель обрабатываются на стороне Fish Audio.",
+  }),
+  integrated: false,
+  tier: "standard",
+  name: "Fish Audio S2.1 Pro",
+  vendorLabel: "Fish Audio",
+  strengths: Object.freeze([
+    "Вдвое дешевле MiniMax на русском: $0.03 против $0.06 за 1000 символов",
+    "Без предела в 500 символов",
+  ]),
+  tradeoffs: Object.freeze([
+    "Требует пополнения API-кошелька Fish — он отдельный от тарифа платформы",
+    "Цена из обзоров: официальная страница тарифов недоступна",
+  ]),
+  avgGenerationTime: "~3 сек",
+})
+
 /**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
@@ -1716,6 +1851,8 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   KOKORO_RU,
   PLAYAI_V3,
   ELEVENLABS_TURBO,
+  FISH_S21_PRO_FREE,
+  FISH_S21_PRO,
   KLING_LIP_SYNC,
   FAL_SYNC_LIPSYNC,
   PRUNA_P_VIDEO_AVATAR,

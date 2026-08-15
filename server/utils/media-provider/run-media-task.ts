@@ -197,6 +197,13 @@ export interface RunMediaTaskDependencies {
   deleteReplicateInput?: (id: string) => Promise<void>
   requirePaidApis?: (service: string) => void
   sleep?: (ms: number) => Promise<void>
+  /** Провайдер, отдающий байты в теле ответа (Fish Audio). */
+  synthesizeBytes?: (
+    modelId: string,
+    payload: Record<string, unknown>,
+    timeoutMs: number,
+  ) => Promise<{ bytes: Buffer, contentType: string }>
+  writeBytes?: (path: string, bytes: Buffer) => Promise<void>
 }
 
 export async function runMediaTask<C extends MediaCapability>(
@@ -227,9 +234,9 @@ export async function runMediaTask<C extends MediaCapability>(
     }
   }
 
-  return spec.execution === "async_prediction"
-    ? runAsyncPredictionTask(request, spec, dependencies)
-    : runSyncQueueTask(request, spec, dependencies)
+  if (spec.execution === "async_prediction") return runAsyncPredictionTask(request, spec, dependencies)
+  if (spec.execution === "sync_bytes") return runSyncBytesTask(request, spec, dependencies)
+  return runSyncQueueTask(request, spec, dependencies)
 }
 
 // ─── Ветка sync_queue (fal): точка вызова прежняя ────────────────
@@ -325,6 +332,84 @@ async function callFal<C extends MediaCapability>(
       console.warn(`[media-task] ${spec.id} attempt ${attempt} failed: ${message}. Retry in ${delayMs}ms`)
     },
   })
+}
+
+// ─── Ветка sync_bytes (Fish Audio): аудио в теле ответа ──────────
+
+/**
+ * Провайдер отдаёт БАЙТЫ, а не ссылку.
+ *
+ * Прежние две ветки скачивают результат по URL — здесь скачивать нечего, файл
+ * пишется сразу. Всё остальное общее: те же три уровня переиспользования, тот
+ * же ключ идемпотентности, та же запись prediction.
+ */
+async function runSyncBytesTask<C extends MediaCapability>(
+  request: MediaTaskRequest<C>,
+  spec: MediaModelSpec,
+  dependencies: RunMediaTaskDependencies,
+): Promise<MediaTaskResult> {
+  const prepared = await prepareInputs(request, dependencies, async () => {
+    throw new Error(`${spec.registryKey}: заливка входных файлов этой веткой не поддерживается`)
+  })
+  const mapped = spec.mapInput(prepared.input as never, {
+    unitKey: request.unitKey,
+    sceneOrder: request.sceneOrder,
+  })
+  const identity = buildIdentity(request, spec, prepared)
+
+  const reused = await reuseFromStorage(request, spec, identity, dependencies)
+  if (reused) return reused
+
+  // Гейт платных вызовов — только там, где вызов действительно платный.
+  // Бесплатная модель (`flat`, $0) под него не подпадает: блокировать её
+  // значило бы запрещать то, что денег не стоит.
+  const costsMoney = spec.billing.unit !== "flat" || spec.billing.usd > 0
+  if (costsMoney) {
+    const requirePaid = dependencies.requirePaidApis
+      ?? (await import("../paid-guard")).requirePaidApisEnabled
+    requirePaid(spec.vendorLabel)
+  }
+
+  const synthesize = dependencies.synthesizeBytes ?? defaultSynthesizeBytes
+  const { bytes, contentType } = await synthesize(spec.id, mapped.payload, spec.timeoutMs)
+
+  const write = dependencies.writeBytes ?? defaultWriteBytes
+  await write(request.outputPath, bytes)
+
+  const storage = await persistOutput(request, dependencies)
+  if (storage && identity) {
+    await savePrediction(request, spec, identity, null, mapped.payload, null, storage, dependencies)
+  }
+
+  return {
+    localPath: request.outputPath,
+    provider: spec.provider,
+    modelId: spec.id,
+    externalRef: null,
+    idempotencyKey: identity?.idempotencyKey ?? null,
+    costUsd: safeCost(spec, request, prepared.input, mapped.effectiveDurationSec),
+    source: "generated",
+    // Промежуточной ссылки у провайдера нет — врать про неё нельзя.
+    remoteUrl: null,
+    contentType,
+    storage,
+  }
+}
+
+async function defaultSynthesizeBytes(
+  modelId: string,
+  payload: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<{ bytes: Buffer, contentType: string }> {
+  const { readFishConfig, synthesizeFishSpeech } = await import("../fish/client")
+  return synthesizeFishSpeech(modelId, payload, readFishConfig(), timeoutMs)
+}
+
+async function defaultWriteBytes(path: string, bytes: Buffer): Promise<void> {
+  const { mkdir, writeFile } = await import("node:fs/promises")
+  const { dirname } = await import("node:path")
+  await mkdir(dirname(path), { recursive: true }).catch(() => {})
+  await writeFile(path, bytes)
 }
 
 // ─── Ветка async_prediction (Replicate): обобщённый runLipSync ────
@@ -671,7 +756,12 @@ function deriveUsage(
     }
     case "text_to_speech": {
       const value = input as unknown as TtsInput
-      return { characters: value.text.length }
+      // Оба счётчика сразу: MiniMax берёт за символ, Fish — за UTF-8 байт,
+      // и для кириллицы это разные числа (два байта на букву).
+      return {
+        characters: value.text.length,
+        utf8Bytes: Buffer.byteLength(value.text, "utf8"),
+      }
     }
     default:
       return {}

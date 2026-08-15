@@ -83,6 +83,11 @@ export function estimateMediaCost(spec: MediaModelSpec, usage: MediaUsage | numb
     case "character":
       return requireAmount(normalized.characters, billing.unit, "characters") * billing.usdPerCharacter
 
+    case "utf8_byte":
+      // Байты, а не символы: у Fish Audio кириллица это два байта на букву,
+      // и счёт по длине строки занизил бы смету вдвое.
+      return requireAmount(normalized.utf8Bytes, billing.unit, "utf8Bytes") * billing.usdPerByte
+
     case "hardware_second":
       // Факт — из metrics.predict_time вебхука; пока его нет, смета идёт по
       // оценке из спеки, и в UI такая сумма показывается как «≈».

@@ -32,6 +32,9 @@ export type BillingUnit =
   | "image"
   | "hardware_second"
   | "flat"
+  // Fish Audio считает по UTF-8 байтам: кириллица это два байта на букву,
+  // и показывать её цену «за символ» значило бы занижать вдвое.
+  | "utf8_byte"
 
 export interface ModelPricing {
   unit: BillingUnit
@@ -104,6 +107,8 @@ function toPricing(billing: MediaBilling): ModelPricing {
       return { unit: "audio_second", base: billing.usdPerSecond }
     case "character":
       return { unit: "character", base: billing.usdPerCharacter }
+    case "utf8_byte":
+      return { unit: "utf8_byte", base: billing.usdPerByte }
     case "output_image":
       return { unit: "image", base: billing.usdPerImage }
     case "hardware_second":

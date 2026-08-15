@@ -19,16 +19,18 @@ export type MediaCapability =
   | "image_to_image"
 // b_roll добавляется отдельным решением (P0-16, §7 спецификации)
 
-export type MediaProviderName = "replicate" | "fal"
+export type MediaProviderName = "replicate" | "fal" | "fish"
 
 /**
  * Модель исполнения задачи у провайдера.
  *  - async_prediction — Replicate: prediction + webhook + recovery + перенос
  *    выхода в наше хранилище (устойчиво к перезапуску процесса);
- *  - sync_queue — fal: сабмит и поллинг внутри одного вызова шага.
+ *  - sync_queue — fal: сабмит и поллинг внутри одного вызова шага;
+ *  - sync_bytes — Fish Audio: аудио приходит БАЙТАМИ в теле ответа, ссылки на
+ *    выход нет вовсе, поэтому и разбирать нечего.
  * Ветку выбирает спека модели, а не глобальный флаг и не подстрока в id.
  */
-export type MediaExecution = "async_prediction" | "sync_queue"
+export type MediaExecution = "async_prediction" | "sync_queue" | "sync_bytes"
 
 export type MediaTier = "budget" | "standard" | "premium"
 
@@ -235,6 +237,9 @@ export type MediaBilling =
   }
   | { unit: "audio_second", usdPerSecond: number }
   | { unit: "character", usdPerCharacter: number }
+  // Fish Audio считает по UTF-8 байтам, а не символам: кириллица это два
+  // байта на букву, то есть вдвое дороже, чем кажется по длине строки.
+  | { unit: "utf8_byte", usdPerByte: number }
   | { unit: "hardware_second", usdPerSecond: number, estimatedSeconds: number }
   | { unit: "flat", usd: number }
 
@@ -249,6 +254,8 @@ export interface MediaUsage {
   outputSeconds?: number
   audioSeconds?: number
   characters?: number
+  /** Длина текста в UTF-8 байтах — единица Fish Audio. */
+  utf8Bytes?: number
   /** Секунды железа из `metrics.predict_time` вебхука (факт для hardware_second). */
   hardwareSeconds?: number
   withAudio?: boolean
