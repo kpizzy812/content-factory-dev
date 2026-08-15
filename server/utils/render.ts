@@ -1,6 +1,6 @@
 import {
   LIMITER_CEILING,
-  buildLoudnormApplyFilter,
+  buildVoiceGainFilter,
   measureLoudness,
   normalizeFileLoudness,
 } from "./video-tools/loudness"
@@ -1104,24 +1104,26 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       // Громкость приводится к цели, а не берётся «как отдала модель»: MiniMax
       // отдаёт −25.8 LUFS, Fish −17.4, разброс 8 LU. Без этого смена модели
       // озвучки уводила громкость всей партии (см. video-tools/loudness.ts).
+      //
+      // Именно УСИЛЕНИЕМ, а не фильтром loudnorm: тот буферизует три секунды и
+      // отдаёт их с нулевым PTS, из-за чего его дорожка уезжает вперёд
+      // относительно картинки. Ролик 24: голос звучал на 3 секунды раньше, фраза
+      // начиналась на чужой сцене — ровно та жалоба, из-за которой всё и
+      // затевалось. Общий уровень доводит второй проход по готовому файлу.
       if (voiceoverInputIdx !== null) {
-        audioFilters.push(`[${voiceoverInputIdx}:a]${buildLoudnormApplyFilter(voiceoverLoudness)}[vo]`)
+        audioFilters.push(`[${voiceoverInputIdx}:a]${buildVoiceGainFilter(voiceoverLoudness)}[vo]`)
         mixLabels.push('[vo]')
       }
 
-      // Нормализация ФИНАЛЬНОГО микса, а не только голоса. Ролик 21 вышел на
-      // −12.6 LUFS при цели −14: закадровая дорожка была приведена, но звук
-      // клипов лёг поверх и поднял сумму. Площадки всё равно приводят к своим
-      // ~−14, и лучше прийти туда самим.
+      // Нормализации микса ЗДЕСЬ нет по той же причине: loudnorm в графе сдвигает
+      // звук относительно картинки. Уровень всего ролика приводит второй проход по
+      // готовому файлу (normalizeFileLoudness ниже) — он и точнее, потому что
+      // меряет уже сведённый звук, а не строит фильтр до того, как тот существует.
       //
-      // Однопроходный режим: второго прохода по готовому миксу здесь нет —
-      // фильтр строится до того, как звук существует. Он «дышит» слабее, чем
-      // ошибка в полтора децибела, которую исправляет.
-      //
-      // Лимитер последним: пики дорожек складываются, и без потолка микс
-      // клиппится там, где голос совпал с акцентом музыки.
+      // Лимитер остаётся: пики дорожек складываются, и без потолка микс
+      // клиппится там, где голос совпал с акцентом музыки. Задержки у него нет.
       const amixLine = `${mixLabels.join('')}amix=inputs=${mixLabels.length}:duration=first:normalize=0,`
-        + `${buildLoudnormApplyFilter(null)},alimiter=limit=${LIMITER_CEILING}[aout]`
+        + `alimiter=limit=${LIMITER_CEILING}[aout]`
 
       const complexFilterStr = [
         `[0:v]${videoFilterStr}[vout]`,

@@ -70,6 +70,38 @@ export function buildLoudnormApplyFilter(measured: LoudnormMeasurement | null): 
 }
 
 /**
+ * Предел усиления одной дорожки. Замер бывает мусорным (пустой файл, битые
+ * метаданные), и без предела «−70 LUFS» превратилось бы в +56 дБ — вместо голоса
+ * в ролике оказался бы усиленный шум.
+ */
+export const MAX_VOICE_GAIN_DB = 12
+
+/**
+ * Приведение громкости ОДНОЙ дорожки внутри микса — чистым усилением.
+ *
+ * `loudnorm` внутрь filter_complex ставить нельзя: он буферизует три секунды
+ * входа и отдаёт их с нулевым PTS. На файле целиком это незаметно (уезжает всё
+ * сразу), а на одной дорожке микса — уводит её вперёд относительно остальных.
+ * Ролик 24: закадровый голос звучал на 3 секунды раньше картинки, фраза
+ * начиналась на чужой сцене и обрывалась. Проверено на стенде тем же графом с
+ * фильтром и без него.
+ *
+ * Линейный режим `loudnorm` — это и есть постоянное усиление, так что считаем
+ * его сами: (цель − измеренное). У `volume` задержки нет.
+ *
+ * Без замера дорожка идёт как есть: выдумывать усиление не из чего, а общий
+ * уровень ролика всё равно доводит второй проход по готовому файлу.
+ */
+export function buildVoiceGainFilter(measured: LoudnormMeasurement | null): string {
+  const measuredI = measured ? Number.parseFloat(measured.inputI) : Number.NaN
+  if (!Number.isFinite(measuredI)) return "volume=1.000"
+
+  const raw = LOUDNESS_TARGET.integratedLufs - measuredI
+  const gainDb = Math.max(-MAX_VOICE_GAIN_DB, Math.min(MAX_VOICE_GAIN_DB, raw))
+  return `volume=${gainDb.toFixed(2)}dB`
+}
+
+/**
  * Разбор вывода первого прохода.
  *
  * Незаполненный или обрезанный замер даёт null, и вызывающий уходит на
