@@ -93,15 +93,22 @@ import {
   type LipSyncSceneRecord,
   type LipSyncSkipReason,
 } from "./presenter/lip-sync-progress"
-import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
+import { TIMELINE_FPS, type StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 
 const STEP_KEY: StepKey = "lip_sync_generation"
 const STEP_ORDER_INDEX = 5
 /** Фолбэк-границы длительности источника, если модели нет в media-provider реестре. */
 const FALLBACK_MIN_DURATION_SEC = 2
 const FALLBACK_MAX_DURATION_SEC = 10
-/** Частота кадров сборки: к её сетке притягиваются границы куска трека. */
-const DEFAULT_TIMELINE_FPS = 30
+/**
+ * Частота кадров сборки: к её сетке притягиваются границы куска трека.
+ *
+ * Берётся из общей константы таймлайна: своё число здесь совпадало с сеткой
+ * нормализации клипов по совпадению, и правка одного молча уводила бы звук от
+ * картинки. Оркестратор всё равно передаёт fps явно (см. LipSyncAudioFirstInput);
+ * это фолбэк для вызовов, которые его не знают.
+ */
+const DEFAULT_TIMELINE_FPS = TIMELINE_FPS
 
 export type { LipSyncSceneRecord, LipSyncSkipReason }
 

@@ -5,7 +5,7 @@
  * Each function runs one stage of the video generation pipeline.
  */
 
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import type { StoryPlan, SubtitleStyleProfile } from "~~/shared/types/story"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import {
@@ -18,6 +18,7 @@ import { type DeviceType, buildDeviceNegativesForScene } from "~~/shared/utils/v
 import {
   type StepKey,
   type PromptGenerationResult,
+  STEP_ORDER,
   ensureStep,
   updateStep,
   appendStepLog,
@@ -32,7 +33,9 @@ import { mergeScriptLines } from "./voiceover/script-merge"
 import { buildTrackRequest, type TrackPause } from "./voiceover/track-builder"
 import { insertVoiceoverPauses } from "./voiceover/insert-pauses"
 import { presenterVoiceMissingMessage } from "./presenter/voice-defaults"
-import type { AlignScene } from "./transcription/align"
+import type { AlignedScene, AlignScene } from "./transcription/align"
+import { runTranscriptionStep, type TranscriptionStepDeps } from "./transcription/runner"
+import { requestTranscription } from "./transcription/media-task"
 import { buildSceneClipTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 import {
   buildSceneClipIndexMap,
@@ -69,6 +72,7 @@ import {
 import { StorageKeys } from "./storage/keys"
 import { uploadLocalAsset } from "./storage/persist-asset"
 import { storageKeyToLegacyUrl } from "./storage/download-to-storage"
+import { getStorageDriver } from "./storage"
 
 // ─── Шаг 1: Генерация промптов ─────────────────────────────────
 
@@ -1122,6 +1126,13 @@ export async function runVoiceoverGeneration(
     voiceoverPacing: 'slow' | 'moderate' | 'fast'
     voiceoverReconciliation: 'extend_scene' | 'compress_audio' | 'trim_audio'
     modelStrategy: string
+    /**
+     * Маршрут производства ролика. На audio-first этот шаг вообще не
+     * вызывается (речь синтезирует `runAudioFirstVoiceover` до картинки), но
+     * маршрут обязан доезжать сюда явно: следующая задача выключает по нему
+     * подгон реплик под клипы — на маршруте от звука подгонять нужно наоборот.
+     */
+    editPipeline: boolean
   },
   videoPlan?: StoryDrivenVideoPlan | null,
   /**
@@ -1840,6 +1851,482 @@ export async function runSingleTrackVoiceover(
   }
 }
 
+// ─── Шаг 3 (audio-first): шаг озвучки целиком ──────────────────
+//
+// `runSingleTrackVoiceover` выше — только синтез. Здесь вокруг него собран сам
+// ШАГ: гейты, переиспользование уже оплаченного трека, ассет в хранилище, деньги
+// и снапшот. Отдельной функцией, потому что старый посценный шаг
+// (`runVoiceoverGeneration`) остаётся нетронутым: у роликов без `editPipeline`
+// не должно поменяться ни одного вызова.
+
+/** Готовый трек ролика и всё, что о нём нужно знать дальнейшим шагам. */
+export interface AudioFirstVoiceoverResult {
+  status: "completed" | "skipped"
+  trackPath: string | null
+  /** ИЗМЕРЕННАЯ длительность финального файла (после вставки пауз). */
+  durationSec: number
+  /**
+   * sha256 ФИНАЛЬНОГО файла — того, что получился после вставки пауз.
+   *
+   * Именно из него lip-sync режет куски, поэтому и ключи переиспользования сцен
+   * обязаны считаться по нему. Отпечаток синтеза «до пауз» дал бы ключи по
+   * одному файлу при звуке из другого.
+   */
+  trackFingerprint: string | null
+  /** Ключ трека в хранилище: по нему транскрипция получает ссылку для провайдера. */
+  storageKey: string | null
+  /** Сцены с ОЧИЩЕННЫМ от маркеров пауз текстом — вход выравнивания. */
+  scenes: AlignScene[]
+  totalCostUsd: number
+  modelId: string | null
+  voiceId: string | null
+  /** Почему трека нет. Заполняется только при status: "skipped". */
+  reason?: string
+}
+
+/** Снапшот шага озвучки на маршруте audio-first. */
+interface AudioFirstVoiceoverSnapshot {
+  route: "audio_first"
+  trackPath: string
+  durationSec: number
+  trackFingerprint: string
+  storageKey: string | null
+  scenes: AlignScene[]
+  totalCostUsd: number
+  modelId: string | null
+  voiceId: string | null
+}
+
+function readAudioFirstSnapshot(snapshot: unknown): AudioFirstVoiceoverSnapshot | null {
+  const value = snapshot as Partial<AudioFirstVoiceoverSnapshot> | null
+  if (!value || value.route !== "audio_first") return null
+  if (!value.trackPath || !value.trackFingerprint) return null
+  return {
+    route: "audio_first",
+    trackPath: value.trackPath,
+    durationSec: value.durationSec ?? 0,
+    trackFingerprint: value.trackFingerprint,
+    storageKey: value.storageKey ?? null,
+    scenes: Array.isArray(value.scenes) ? value.scenes : [],
+    totalCostUsd: value.totalCostUsd ?? 0,
+    modelId: value.modelId ?? null,
+    voiceId: value.voiceId ?? null,
+  }
+}
+
+async function fileIsReadable(path: string): Promise<boolean> {
+  try {
+    const { access: fsAccess } = await import("node:fs/promises")
+    await fsAccess(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Возвращает уже оплаченный трек на диск.
+ *
+ * Локальный диск переживает не каждый рестарт (на Saturn его нет вовсе), а
+ * повторный синтез — это не только второй платный вызов TTS: у модели нет seed,
+ * новый трек звучит ИНАЧЕ, и все аватарные кадры, снятые под старый, становятся
+ * губами под чужой звук. Поэтому сначала тянем файл из хранилища.
+ */
+async function restoreTrackFile(trackPath: string, storageKey: string | null): Promise<boolean> {
+  if (await fileIsReadable(trackPath)) return true
+  if (!storageKey) return false
+  try {
+    // Каталога ассетов после рестарта может не быть вовсе, а GCS-драйвер пишет
+    // потоком в готовый путь и своей папки не создаёт.
+    await ensureDir(dirname(trackPath))
+    await getStorageDriver().downloadToFile(storageKey, trackPath)
+  } catch {
+    return false
+  }
+  return fileIsReadable(trackPath)
+}
+
+/** sha256 файла. Фолбэк на случай драйвера, который не считает его при заливке. */
+async function sha256OfFile(path: string): Promise<string> {
+  const { createHash } = await import("node:crypto")
+  const { createReadStream } = await import("node:fs")
+  const hash = createHash("sha256")
+  await new Promise<void>((resolve, reject) => {
+    const stream = createReadStream(path)
+    stream.on("data", chunk => hash.update(chunk))
+    stream.on("error", reject)
+    stream.on("end", () => resolve())
+  })
+  return hash.digest("hex")
+}
+
+export async function runAudioFirstVoiceover(
+  videoId: number,
+  videoConfig: {
+    /** Закадровый нарратор. Реплики ведущего в кадре от этого флага не зависят. */
+    voiceoverEnabled: boolean
+    voiceoverModelId: string | null
+    voiceoverVoiceId: string | null
+    voiceoverLanguage: string
+    voiceoverPacing: 'slow' | 'moderate' | 'fast'
+    /** Персонаж ведущего — нужен только ради внятного текста отказа без голоса. */
+    lipSyncCharacterId: string | null
+  },
+  videoPlan?: StoryDrivenVideoPlan | null,
+  deps: SingleTrackDeps = {},
+): Promise<AudioFirstVoiceoverResult> {
+  const step = await ensureStep(videoId, "voiceover_generation", STEP_ORDER.indexOf("voiceover_generation"))
+
+  const isStoryDriven = !!videoPlan && videoPlan.mode !== 'legacy_simple'
+  const planScenes = isStoryDriven ? videoPlan!.scenes : []
+  const voiceoverPlan = videoPlan?.voiceoverPlan
+  // Закадровые строки берём только если нарратор включён и планом, и настройкой
+  // ролика. Реплики в кадре идут в трек всегда: это речь ведущего, а не озвучка.
+  const narrationLines = videoConfig.voiceoverEnabled && voiceoverPlan?.enabled
+    ? (voiceoverPlan.lines ?? [])
+      .map(line => ({ sceneOrder: line.sceneOrder, text: line.text ?? "" }))
+      .filter(line => line.text.trim().length > 0)
+    : []
+  const scenesForTrack = planScenes.map(scene => ({
+    order: scene.order,
+    spokenLine: scene.spokenLine ?? null,
+  }))
+  const hasScript = scenesForTrack.some(scene => (scene.spokenLine ?? "").trim().length > 0)
+    || narrationLines.length > 0
+
+  const empty: AudioFirstVoiceoverResult = {
+    status: "skipped",
+    trackPath: null,
+    durationSec: 0,
+    trackFingerprint: null,
+    storageKey: null,
+    scenes: [],
+    totalCostUsd: 0,
+    modelId: null,
+    voiceId: null,
+  }
+
+  if (!isStoryDriven || !hasScript) {
+    const reason = !isStoryDriven ? "legacy_mode_no_single_track" : "empty_script"
+    const message = !isStoryDriven
+      ? "Legacy mode (без StoryPlan) — единый трек собирать не из чего"
+      : "В сценарии нет ни реплик в кадре, ни закадровых строк — озвучивать нечего"
+    await updateStep(step.id, {
+      status: "skipped",
+      finishedAt: new Date(),
+      outputSnapshot: { route: "audio_first", reason, userMessage: message },
+    })
+    await appendStepLog(step.id, `${message} (reason=${reason})`)
+    return { ...empty, reason }
+  }
+
+  const cached = isStepCompleted(step) ? readAudioFirstSnapshot(step.outputSnapshot) : null
+  if (cached) {
+    if (await restoreTrackFile(cached.trackPath, cached.storageKey)) {
+      await appendStepLog(
+        step.id,
+        `Единый трек уже синтезирован (${cached.durationSec} с, ${cached.scenes.length} сцен) — повторной оплаты нет`,
+      )
+      return { status: "completed", ...cached, totalCostUsd: 0 }
+    }
+    await appendStepLog(
+      step.id,
+      `Трека ${cached.trackPath} нет ни на диске, ни в хранилище — синтезирую заново`,
+    )
+  }
+
+  // Номер попытки нужен ledger'у: повторный синтез — это реальное повторное
+  // списание, и оно обязано быть отдельной строкой расхода (см. cost-ledger).
+  const attempt = stepAttemptForLedger(step.attemptCount + 1)
+  const costBefore = step.actualCost
+
+  await updateStep(step.id, {
+    status: "running",
+    startedAt: new Date(),
+    attemptCount: attempt,
+  })
+  await updateVideoStatus(videoId, "generating_voiceover", { currentStep: "voiceover_generation" })
+
+  const assetsDir = getAssetsDir(videoId)
+  await ensureDir(assetsDir)
+  const trackOutputPath = join(assetsDir, "voiceover_track.mp3")
+
+  // Имя персонажа читаем ТОЛЬКО когда голоса нет: это путь отказа, и лишний
+  // запрос в БД на каждом прогоне ради текста ошибки не нужен.
+  const characterName = !videoConfig.voiceoverVoiceId && videoConfig.lipSyncCharacterId
+    ? (await prisma.character.findUnique({
+      where: { id: videoConfig.lipSyncCharacterId },
+      select: { name: true },
+    }))?.name ?? null
+    : null
+
+  try {
+    const track = await runSingleTrackVoiceover({
+      videoId,
+      stepId: step.id,
+      scenes: scenesForTrack,
+      voiceoverLines: narrationLines,
+      voiceId: videoConfig.voiceoverVoiceId,
+      language: videoConfig.voiceoverLanguage,
+      outputPath: trackOutputPath,
+      characterName,
+    }, {
+      // Модель синтеза выбирает прогон, а не дефолт реестра: клон голоса
+      // существует только в СВОЕЙ модели, и чужая просто не найдёт voice_id.
+      synthesize: deps.synthesize ?? (options => synthesizeSpeech({
+        ...options,
+        modelId: videoConfig.voiceoverModelId,
+        pacing: videoConfig.voiceoverPacing,
+      })),
+      insertPauses: deps.insertPauses,
+      log: deps.log,
+    })
+
+    // Заливаем ФИНАЛЬНЫЙ файл (после пауз) — и отпечаток берём с него же.
+    const storage = await uploadLocalAsset(
+      track.trackPath,
+      StorageKeys.videoVoiceoverMix(videoId),
+      "audio/mpeg",
+    )
+    const trackFingerprint = storage.fileSha256 ?? await sha256OfFile(track.trackPath)
+    const fileUrl = storageKeyToLegacyUrl(storage.storageKey)
+
+    const existingAsset = await prisma.videoAsset.findFirst({
+      where: { videoId, type: "voiceover_mix" as never },
+    })
+    if (existingAsset) {
+      await prisma.videoAsset.update({
+        where: { id: existingAsset.id },
+        data: {
+          filePath: track.trackPath,
+          fileUrl,
+          duration: Math.round(track.durationSec),
+          ...storage,
+        },
+      })
+    } else {
+      await prisma.videoAsset.create({
+        data: {
+          videoId,
+          type: "voiceover_mix" as never,
+          filePath: track.trackPath,
+          fileUrl,
+          order: 98,
+          duration: Math.round(track.durationSec),
+          ...storage,
+        },
+      })
+    }
+
+    const snapshot: AudioFirstVoiceoverSnapshot = {
+      route: "audio_first",
+      trackPath: track.trackPath,
+      durationSec: track.durationSec,
+      trackFingerprint,
+      storageKey: storage.storageKey,
+      scenes: track.scenes,
+      totalCostUsd: track.costUsd,
+      modelId: videoConfig.voiceoverModelId,
+      voiceId: videoConfig.voiceoverVoiceId,
+    }
+    await updateStep(step.id, {
+      status: "completed",
+      finishedAt: new Date(),
+      outputSnapshot: snapshot as unknown as Record<string, unknown>,
+      actualCost: accumulateStepCost(costBefore, track.costUsd),
+    })
+    await logStepCost(
+      step.id,
+      "voiceover_generation",
+      mapStepKeyToService("voiceover_generation", videoConfig.voiceoverModelId),
+      track.costUsd,
+      videoId,
+      videoConfig.voiceoverModelId,
+      { attempt },
+    )
+    await appendStepLog(
+      step.id,
+      `Единый трек готов: ${track.durationSec} с, ${track.scenes.length} сцен, пауз ${track.pauses.length}, `
+      + `стоимость $${track.costUsd.toFixed(3)}`,
+    )
+
+    return { status: "completed", ...snapshot, totalCostUsd: track.costUsd }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Неизвестная ошибка"
+    await updateStep(step.id, {
+      status: "failed",
+      finishedAt: new Date(),
+      errorMessage: message.slice(0, 500),
+    })
+    await appendStepLog(step.id, `Единый трек не синтезирован: ${message}`)
+    throw error
+  }
+}
+
+// ─── Шаг 3b (audio-first): транскрипция готового трека ─────────
+
+export interface VideoTranscriptionResult {
+  status: "completed" | "degraded" | "skipped"
+  /** Сцены с фактическими границами. Пусто — монтаж идёт по плановым длительностям. */
+  scenes: AlignedScene[]
+  costUsd: number
+  warning: string | null
+}
+
+/**
+ * Ассет транскрипта.
+ *
+ * Сырой ответ модели уже лежит в хранилище (его кладёт туда `runMediaTask` по
+ * ключу `StorageKeys.videoTranscript`), поэтому здесь только запись в БД: без
+ * неё файл не попадёт ни в каскад удаления ролика, ни в orphan-scan. Сами
+ * ВЫРОВНЕННЫЕ сцены живут в снапшоте шага — их читают дальнейшие шаги.
+ */
+async function persistTranscriptAsset(payload: {
+  videoId: number
+  localPath: string
+}): Promise<void> {
+  const storageKey = StorageKeys.videoTranscript(payload.videoId)
+  const data = {
+    filePath: payload.localPath,
+    fileUrl: storageKeyToLegacyUrl(storageKey),
+    storageKey,
+    storageProvider: getStorageDriver().providerName,
+    contentType: "application/json",
+  }
+  const existing = await prisma.videoAsset.findFirst({
+    where: { videoId: payload.videoId, type: "transcript" as never },
+  })
+  if (existing) {
+    await prisma.videoAsset.update({ where: { id: existing.id }, data })
+  } else {
+    await prisma.videoAsset.create({
+      data: { videoId: payload.videoId, type: "transcript" as never, order: 0, ...data },
+    })
+  }
+}
+
+/**
+ * Шаг транскрипции: границы слов НАШЕЙ ЖЕ озвучки.
+ *
+ * Отказ провайдера ролик не роняет (spec §10): шаг помечается пропущенным,
+ * сцены возвращаются пустыми, и монтаж дальше идёт по плановым длительностям —
+ * хуже, но собирается.
+ */
+export async function runVideoTranscription(
+  input: {
+    videoId: number
+    /** Готовый трек: локальный файл, отпечаток и ключ в хранилище. */
+    track: { path: string, fingerprint: string, storageKey: string | null }
+    /** Сцены с очищенным текстом — их отдаёт шаг озвучки. */
+    scenes: AlignScene[]
+    language: string
+  },
+  deps: Partial<TranscriptionStepDeps> = {},
+): Promise<VideoTranscriptionResult> {
+  const { videoId } = input
+  const step = await ensureStep(videoId, "transcription", STEP_ORDER.indexOf("transcription"))
+
+  const skipStep = async (reason: string, message: string): Promise<VideoTranscriptionResult> => {
+    await updateStep(step.id, {
+      status: "skipped",
+      finishedAt: new Date(),
+      outputSnapshot: { trackFingerprint: input.track.fingerprint, reason, userMessage: message, scenes: [] },
+    })
+    await appendStepLog(step.id, message)
+    return { status: "skipped", scenes: [], costUsd: 0, warning: message }
+  }
+
+  if (input.scenes.length === 0) {
+    return skipStep("empty_script", "Сцен с текстом нет — выравнивать нечего")
+  }
+
+  // Кэш привязан к ОТПЕЧАТКУ ТРЕКА: перезаписанный трек звучит иначе при том же
+  // тексте, и старые границы слов относились бы к другому звуку.
+  if (isStepCompleted(step) && step.outputSnapshot) {
+    const cached = step.outputSnapshot as { trackFingerprint?: string, scenes?: AlignedScene[], warning?: string | null }
+    if (cached.trackFingerprint === input.track.fingerprint && Array.isArray(cached.scenes) && cached.scenes.length > 0) {
+      await appendStepLog(step.id, `Транскрипт этого трека уже готов (${cached.scenes.length} сцен) — повторной оплаты нет`)
+      return { status: "completed", scenes: cached.scenes, costUsd: 0, warning: cached.warning ?? null }
+    }
+  }
+
+  // Провайдер читает трек по ссылке. Нет ключа в хранилище или ссылка не
+  // выдалась — платить не за что, но и ролик из-за этого не роняем.
+  if (!input.track.storageKey) {
+    return skipStep("track_not_in_storage", "Трек не залит в хранилище — транскрипция без ссылки невозможна, тайминги останутся плановыми")
+  }
+  let audioUrl: string
+  try {
+    audioUrl = await getStorageDriver().getSignedDownloadUrl(input.track.storageKey)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return skipStep("signed_url_failed", `Ссылку на трек выдать не удалось (${message}) — тайминги останутся плановыми`)
+  }
+
+  const attempt = stepAttemptForLedger(step.attemptCount + 1)
+  const costBefore = step.actualCost
+  await updateStep(step.id, {
+    status: "running",
+    startedAt: new Date(),
+    attemptCount: attempt,
+  })
+  await updateVideoStatus(videoId, "generating_voiceover", { currentStep: "transcription" })
+
+  const assetsDir = getAssetsDir(videoId)
+  await ensureDir(assetsDir)
+
+  let matchedRatio: number | null = null
+  const result = await runTranscriptionStep({
+    videoId,
+    stepId: step.id,
+    audioPath: input.track.path,
+    audioUrl,
+    scenes: input.scenes,
+    language: input.language,
+    outputPath: join(assetsDir, "transcript.json"),
+  }, {
+    runTask: deps.runTask ?? requestTranscription,
+    saveTranscript: deps.saveTranscript ?? (async (payload) => {
+      matchedRatio = payload.matchedRatio
+      await persistTranscriptAsset({ videoId: payload.videoId, localPath: payload.localPath })
+    }),
+    log: deps.log ?? appendStepLog,
+  })
+
+  const paid = result.costUsd > 0
+  const snapshot = {
+    trackFingerprint: input.track.fingerprint,
+    status: result.status,
+    scenes: result.scenes,
+    matchedRatio,
+    warning: result.warning,
+  }
+
+  await updateStep(step.id, {
+    // Пустой результат — это пропуск, а не успех: следующий заход обязан
+    // попробовать ещё раз (за уже оплаченную задачу Replicate второй раз не
+    // возьмёт — её отдаст уровень переиспользования MediaPrediction).
+    status: result.scenes.length > 0 ? "completed" : "skipped",
+    finishedAt: new Date(),
+    errorMessage: result.warning ? result.warning.slice(0, 500) : null,
+    outputSnapshot: snapshot as unknown as Record<string, unknown>,
+    ...(paid ? { actualCost: accumulateStepCost(costBefore, result.costUsd) } : {}),
+  })
+  if (paid) {
+    await logStepCost(
+      step.id,
+      "transcription",
+      mapStepKeyToService("transcription", null),
+      result.costUsd,
+      videoId,
+      null,
+      { attempt },
+    )
+  }
+
+  return result
+}
+
 // ─── Шаг 4: Генерация музыки ───────────────────────────────────
 
 export async function runMusicGeneration(
@@ -1978,9 +2465,24 @@ export async function runAssembly(
     clipSceneOrders?: readonly number[] | null
     /** Отрезки, где звучит закадровый голос — только там глушится звук клипов. */
     voiceoverIntervals?: Array<{ startSec: number, endSec: number }>
+    /**
+     * Сцены с ФАКТИЧЕСКИМИ границами слов (маршрут «монтаж от звука»).
+     *
+     * Субтитры по ним рисует следующая задача плана; здесь наличие данных
+     * только фиксируется в логе шага, чтобы по ролику было видно, доехало
+     * выравнивание до сборки или монтаж шёл по плановым длительностям.
+     */
+    alignedScenes?: readonly AlignedScene[]
   },
 ): Promise<{ filePath: string; duration: number }> {
   const step = await ensureStep(videoId, "assembly", 5)
+
+  if (extras?.alignedScenes?.length) {
+    await appendStepLog(
+      step.id,
+      `Сборка получила выравнивание по звуку: ${extras.alignedScenes.length} сцен с фактическими границами слов`,
+    )
+  }
 
   const isStoryDriven = videoPlan && videoPlan.mode !== 'legacy_simple'
 

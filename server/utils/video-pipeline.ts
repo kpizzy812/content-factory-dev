@@ -14,6 +14,7 @@
 
 import { falProbeAccessBatch } from "./fal"
 import { normalizeSceneClips } from "./render"
+import { TIMELINE_FPS } from "~~/shared/types/video-runtime"
 import { estimateVideoCost } from "./video-cost"
 import { getModel, getDefaultImageModel, getDefaultVideoModel } from "./video-models"
 import type { StoryPlan } from "~~/shared/types/story"
@@ -38,13 +39,17 @@ import {
   runImageGeneration,
   runClipGeneration,
   runVoiceoverGeneration,
+  runAudioFirstVoiceover,
+  runVideoTranscription,
   runMusicGeneration,
   runAssembly,
   loadEnrichmentContext,
+  type VoiceoverStepResult,
 } from "./video-pipeline-steps"
 import { planSceneKinds } from "./broll-plan"
 
-import { runLipSyncStep } from "./lip-sync-runner"
+import { runLipSyncStep, type LipSyncAudioFirstInput } from "./lip-sync-runner"
+import type { AlignedScene } from "./transcription/align"
 
 import { throwIfAborted, CancellationError } from "./pipeline-cancel-registry"
 
@@ -75,12 +80,25 @@ import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
 import { mapStepKeyToService, type CostService } from "./balance/cost-attribution"
 import {
   didLipSyncProduceNewClips,
+  executionOrderFor,
   generatedUnitsFromAssetDelta,
   shouldApplyVoiceoverClipPaths,
   snapshotInvalidationPatch,
   stepsInvalidatedByFreshClips,
   stepsToRerunFrom,
 } from "./video-pipeline-run-policy"
+
+/**
+ * Порядок, в котором оркестратор ведёт прогон КОНКРЕТНОГО ролика.
+ *
+ * Тонкая обёртка над `executionOrderFor`: маршрут — свойство ролика
+ * (`Video.editPipeline`), а не глобальный флаг, и весь пайплайн обязан читать
+ * его из одного места. По этому же порядку считается каскад перезапуска шага,
+ * поэтому расходиться им нельзя.
+ */
+export function planPipelineRun(editPipeline: boolean): readonly StepKey[] {
+  return executionOrderFor(editPipeline)
+}
 
 /**
  * Номер попытки шага на текущий момент (0 — шаг ещё ни разу не стартовал).
@@ -598,6 +616,76 @@ export async function runVideoPipeline(
       await chargeStep(videoId, "prompt_generation", "anthropic", null, prompts.scenePrompts ? 0.02 : 0.01)
     }
 
+    // ── 2b. Маршрут «монтаж от звука»: озвучка и транскрипция ДО картинки ──
+    //
+    // Порядок здесь не косметика: на этом маршруте звук — эталон времени, и
+    // границы слов из транскрипции задают, какой длины снимать каждый кадр.
+    // Ролики без editPipeline через этот блок не проходят вовсе: у них порядок
+    // вызовов остаётся прежним (planPipelineRun(false)).
+    let audioFirstTrack: Awaited<ReturnType<typeof runAudioFirstVoiceover>> | null = null
+    let audioFirst: LipSyncAudioFirstInput | null = null
+    /** Сцены с фактическими границами. Пусто — монтаж идёт по плановым длительностям. */
+    let alignedScenes: readonly AlignedScene[] = []
+    if (video.editPipeline) {
+      // ── Cancel checkpoint: до платного синтеза трека ──
+      throwIfAborted(signal)
+      audioFirstTrack = await runAudioFirstVoiceover(
+        videoId,
+        {
+          voiceoverEnabled: video.voiceoverEnabled,
+          voiceoverModelId: effectiveTtsModelId,
+          voiceoverVoiceId: video.voiceoverVoiceId,
+          voiceoverLanguage: video.voiceoverLanguage,
+          voiceoverPacing: (video.voiceoverPacing as 'slow' | 'moderate' | 'fast') || 'moderate',
+          lipSyncCharacterId: video.lipSyncCharacterId,
+        },
+        videoPlan,
+      )
+
+      if (audioFirstTrack.status === 'completed' && audioFirstTrack.trackPath && audioFirstTrack.trackFingerprint) {
+        // ── Cancel checkpoint: до транскрипции ──
+        throwIfAborted(signal)
+        const transcription = await runVideoTranscription({
+          videoId,
+          track: {
+            path: audioFirstTrack.trackPath,
+            fingerprint: audioFirstTrack.trackFingerprint,
+            storageKey: audioFirstTrack.storageKey,
+          },
+          scenes: audioFirstTrack.scenes,
+          language: video.voiceoverLanguage,
+        })
+        alignedScenes = transcription.scenes
+
+        audioFirst = {
+          trackPath: audioFirstTrack.trackPath,
+          trackDurationSec: audioFirstTrack.durationSec,
+          // Отпечаток ФИНАЛЬНОГО файла — того, из которого lip-sync и режет
+          // куски. Считай мы его по треку до вставки пауз, ключи сцен
+          // относились бы к одному файлу, а звук брался из другого.
+          trackFingerprint: audioFirstTrack.trackFingerprint,
+          scenes: alignedScenes,
+          // fps ролика, а не дефолт шага: к этой же сетке нормализация
+          // притягивает каждый клип перед склейкой (TIMELINE_FPS).
+          fps: TIMELINE_FPS,
+        }
+
+        if (alignedScenes.length === 0) {
+          await logAgent('video-pipeline', 'warn',
+            `Video ${videoId}: транскрипция не дала границ (${transcription.warning ?? 'причина не указана'}) — `
+            + `сцены ведущего останутся без lip-sync, ролик собирается по плановым длительностям`,
+            { videoId },
+          ).catch(() => {})
+        }
+      } else {
+        await logAgent('video-pipeline', 'warn',
+          `Video ${videoId}: единого трека нет (${audioFirstTrack.reason ?? 'причина не указана'}) — `
+          + `прогон продолжается посценным маршрутом озвучки`,
+          { videoId },
+        ).catch(() => {})
+      }
+    }
+
     // 3. Генерация изображений — story-driven может пропустить этот шаг
     const effectiveImageCount = videoPlan.mode !== 'legacy_simple'
       ? videoPlan.scenes.length
@@ -724,6 +812,8 @@ export async function runVideoPipeline(
       clipPaths,
       videoPlan,
       clipSceneOrders,
+      // null на старом маршруте — шаг работает ровно как раньше, посценным синтезом.
+      audioFirst,
       videoConfig: {
         lipSyncEnabled: video.lipSyncEnabled,
         lipSyncModelId: video.lipSyncModelId,
@@ -762,7 +852,12 @@ export async function runVideoPipeline(
     // Свежие файлы губ обесценивают кэш озвучки ЦЕЛИКОМ: её микс сведён по
     // длительностям клипов прошлого прогона. Сбрасываем ДО вызова шага, иначе он
     // вернёт снапшот с чужим таймлайном и в сборку уедет разъехавшийся звук.
-    if (video.voiceoverEnabled) {
+    //
+    // На audio-first сброса НЕТ и быть не может: там кэш озвучки — это единый
+    // оплаченный трек, посчитанный не от клипов, а наоборот. Выбросив его, мы
+    // синтезировали бы другой звук (у TTS нет seed) и обесценили бы каждый уже
+    // снятый аватарный кадр ролика (§4.4).
+    if (!video.editPipeline && video.voiceoverEnabled) {
       await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips)
     }
 
@@ -770,38 +865,58 @@ export async function runVideoPipeline(
     throwIfAborted(signal)
 
     // 5. Voiceover (TTS) — идёт ПЕРЕД music чтобы cost/ducking были известны заранее
-    const voiceoverAttemptBefore = await loadStepAttempt(videoId, "voiceover_generation")
-    const voiceoverResult = await runVoiceoverGeneration(
-      videoId,
-      effectiveClipPaths,
-      {
-        voiceoverEnabled: video.voiceoverEnabled,
-        voiceoverModelId: effectiveTtsModelId,
-        voiceoverVoiceId: video.voiceoverVoiceId,
-        voiceoverLanguage: video.voiceoverLanguage,
-        voiceoverPacing: (video.voiceoverPacing as 'slow' | 'moderate' | 'fast') || 'moderate',
-        voiceoverReconciliation: (video.voiceoverReconciliation as 'extend_scene' | 'compress_audio' | 'trim_audio') || 'compress_audio',
-        modelStrategy: video.modelStrategy || 'auto',
-      },
-      videoPlan,
-      clipSceneOrders,
-    )
+    let voiceoverResult: VoiceoverStepResult
+    if (audioFirstTrack && audioFirstTrack.status === 'completed') {
+      // На audio-first речь уже синтезирована ДО картинки, шаг озвучки здесь
+      // отработал и оплачен. Переносим его результат в форму, которую ждут
+      // сборка и итоговый лог: сцен в нём нет — трек единый и не режется на
+      // реплики, а `clipPaths` отсутствуют, потому что подгонять клипы под
+      // звук этому маршруту не нужно.
+      voiceoverResult = {
+        status: 'completed',
+        mixedPath: audioFirstTrack.trackPath,
+        mixedDurationSec: audioFirstTrack.durationSec,
+        sceneResults: [],
+        totalCostUsd: audioFirstTrack.totalCostUsd,
+        provider: null,
+        modelId: audioFirstTrack.modelId,
+        voiceId: audioFirstTrack.voiceId,
+      }
+    } else {
+      const voiceoverAttemptBefore = await loadStepAttempt(videoId, "voiceover_generation")
+      voiceoverResult = await runVoiceoverGeneration(
+        videoId,
+        effectiveClipPaths,
+        {
+          voiceoverEnabled: video.voiceoverEnabled,
+          voiceoverModelId: effectiveTtsModelId,
+          voiceoverVoiceId: video.voiceoverVoiceId,
+          voiceoverLanguage: video.voiceoverLanguage,
+          voiceoverPacing: (video.voiceoverPacing as 'slow' | 'moderate' | 'fast') || 'moderate',
+          voiceoverReconciliation: (video.voiceoverReconciliation as 'extend_scene' | 'compress_audio' | 'trim_audio') || 'compress_audio',
+          modelStrategy: video.modelStrategy || 'auto',
+          editPipeline: video.editPipeline,
+        },
+        videoPlan,
+        clipSceneOrders,
+      )
 
-    // Политика extend_scene могла удлинить клипы — дальше собираем из обновлённых
-    // файлов, иначе в сборку уедут исходные (короткие) клипы и озвучка обрежется.
-    // Но кэшу озвучки доверяем не всегда: её outputSnapshot хранит пути клипов
-    // ТОГО прогона, и если lip-sync только что переигрался, старые *_ext.mp4
-    // выбросили бы свежий (оплаченный) результат губ.
-    const voiceoverRegenerated = (await loadStepAttempt(videoId, "voiceover_generation")) > voiceoverAttemptBefore
-    if (voiceoverResult.clipPaths) {
-      if (shouldApplyVoiceoverClipPaths({ voiceoverRegenerated, lipSyncProducedNewClips })) {
-        effectiveClipPaths = voiceoverResult.clipPaths
-      } else {
-        await logAgent('video-pipeline', 'warn',
-          `Video ${videoId}: клипы из кэша озвучки не применены — lip-sync выдал новые файлы в этом прогоне, `
-          + `удлинённые файлы относятся к прошлым клипам`,
-          { videoId },
-        ).catch(() => {})
+      // Политика extend_scene могла удлинить клипы — дальше собираем из обновлённых
+      // файлов, иначе в сборку уедут исходные (короткие) клипы и озвучка обрежется.
+      // Но кэшу озвучки доверяем не всегда: её outputSnapshot хранит пути клипов
+      // ТОГО прогона, и если lip-sync только что переигрался, старые *_ext.mp4
+      // выбросили бы свежий (оплаченный) результат губ.
+      const voiceoverRegenerated = (await loadStepAttempt(videoId, "voiceover_generation")) > voiceoverAttemptBefore
+      if (voiceoverResult.clipPaths) {
+        if (shouldApplyVoiceoverClipPaths({ voiceoverRegenerated, lipSyncProducedNewClips })) {
+          effectiveClipPaths = voiceoverResult.clipPaths
+        } else {
+          await logAgent('video-pipeline', 'warn',
+            `Video ${videoId}: клипы из кэша озвучки не применены — lip-sync выдал новые файлы в этом прогоне, `
+            + `удлинённые файлы относятся к прошлым клипам`,
+            { videoId },
+          ).catch(() => {})
+        }
       }
     }
 
@@ -869,6 +984,11 @@ export async function runVideoPipeline(
         subtitleStyleOverride,
         clipSceneOrders,
         voiceoverIntervals: voiceoverIntervals.length > 0 ? voiceoverIntervals : undefined,
+        // Границы слов из транскрипции. Сегодня сборка только фиксирует их в
+        // логе шага, субтитры по ним рисует следующая задача плана — но данные
+        // обязаны доезжать сюда уже сейчас, иначе доказать сквозной проход
+        // маршрута нечем.
+        alignedScenes: alignedScenes.length > 0 ? alignedScenes : undefined,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })
@@ -1034,7 +1154,15 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
   // lip_sync стоит после озвучки ради исторического stepIndex). Иначе перезапуск
   // озвучки заставлял заново оплачивать lip-sync, а перезапуск lip-sync оставлял
   // озвучке кэш с путями клипов прошлого прогона.
-  const stepsToReset = stepsToRerunFrom(stepKey)
+  //
+  // Порядок берём МАРШРУТОМ РОЛИКА: на audio-first озвучка идёт до клипов, и
+  // каскад по старому порядку сбросил бы совсем другие шаги — например, оставил
+  // бы транскрипт от выброшенного трека.
+  const routed = await prisma.video.findUnique({
+    where: { id: videoId },
+    select: { editPipeline: true },
+  })
+  const stepsToReset = stepsToRerunFrom(stepKey, routed?.editPipeline ?? false)
   if (stepsToReset.length === 0) throw new Error(`Неизвестный шаг: ${stepKey}`)
 
   const assetTypes = assetTypesForSteps(stepsToReset)

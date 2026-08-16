@@ -14,6 +14,7 @@ import {
   SUBTITLE_WORDS_PER_LINE_MAX,
   SUBTITLE_WORDS_PER_LINE_DEFAULT,
 } from "~~/shared/types/story"
+import { TIMELINE_FPS } from "~~/shared/types/video-runtime"
 import type { AnySubtitlePresetKey } from "~~/shared/types/subtitle-preset"
 import { getPresetByKey } from "./subtitles/preset-registry"
 import {
@@ -602,7 +603,7 @@ async function normalizeClip(
 
     // Смена плана идёт ПОСЛЕ приведения к формату: движение считается от
     // готового кадра 1080x1920, а не от произвольного размера исходника.
-    const videoFilter = `[0:v]scale=${target.w}:${target.h}:force_original_aspect_ratio=decrease,pad=${target.w}:${target.h}:-1:-1:color=black${shotFilter ? `,${shotFilter}` : ""},fps=30,setpts=PTS-STARTPTS,format=yuv420p[v]`
+    const videoFilter = `[0:v]scale=${target.w}:${target.h}:force_original_aspect_ratio=decrease,pad=${target.w}:${target.h}:-1:-1:color=black${shotFilter ? `,${shotFilter}` : ""},fps=${TIMELINE_FPS},setpts=PTS-STARTPTS,format=yuv420p[v]`
     // Silent track — через `anullsrc` КАК FILTER SOURCE внутри filter_complex (часть libavfilter,
     // всегда доступен). Не путать с `-f lavfi -i anullsrc=...` — это input device demuxer,
     // и fluent-ffmpeg криво раскладывает inputOptions по второму input → "Input format lavfi
