@@ -81,6 +81,7 @@ import {
 import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
 import { mapStepKeyToService, type CostService } from "./balance/cost-attribution"
 import {
+  clipVolumeWithVoiceoverFor,
   didLipSyncProduceNewClips,
   executionOrderFor,
   generatedUnitsFromAssetDelta,
@@ -1043,7 +1044,10 @@ export async function runVideoPipeline(
         voiceoverPath: voiceoverResult.mixedPath,
         musicVolume: video.musicVolume ?? 0.3,
         musicVolumeWithVoiceover: video.musicVolumeWithVoiceover ?? 0.12,
-        clipVolumeWithVoiceover: 0.3,
+        // На audio-first родная дорожка клипа — тот же кусок трека, что уже
+        // звучит на 1.0 из voiceoverPath: 0.3 дали бы двойную речь с эхом
+        // (spec §6.4). На старом маршруте прежние 0.3 сохраняются.
+        clipVolumeWithVoiceover: clipVolumeWithVoiceoverFor(audioFirstRoute),
         subtitlePreset: (video.subtitlePreset as import('./render').SubtitlePresetId | null) ?? undefined,
         subtitleStyleOverride,
         clipSceneOrders,
@@ -1053,6 +1057,8 @@ export async function runVideoPipeline(
         // обязаны доезжать сюда уже сейчас, иначе доказать сквозной проход
         // маршрута нечем.
         alignedScenes: alignedScenes.length > 0 ? alignedScenes : undefined,
+        // Верхняя граница подгона длины последнего клипа под трек (Task 10).
+        voiceoverDurationSec: audioFirstRoute ? voiceoverResult.mixedDurationSec : undefined,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })

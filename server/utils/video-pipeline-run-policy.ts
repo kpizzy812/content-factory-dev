@@ -7,6 +7,98 @@
  */
 
 import type { StepKey } from "./video-pipeline-db"
+import type { AlignedScene } from "./transcription/align"
+
+/** Допуск, в пределах которого расхождение длин не стоит правки. */
+const DURATION_TOLERANCE_SEC = 0.05
+/** Расхождение больше этого — не подгон, а сбой генерации. */
+const DURATION_FAILURE_SEC = 1
+
+export interface DurationFit {
+  action: "none" | "trim" | "hold_last_frame" | "fail"
+  deltaSec: number
+}
+
+/**
+ * Что делать, если клип оказался не той длины, что заказана.
+ *
+ * Правится ВИДЕО. Звук на audio-first не трогается никогда: он эталон
+ * таймлайна, и любая правка звука сдвинула бы субтитры и границы всех
+ * последующих кадров (spec §8).
+ */
+export function planDurationFit(input: {
+  expectedSec: number
+  actualSec: number
+  toleranceSec?: number
+}): DurationFit {
+  const tolerance = input.toleranceSec ?? DURATION_TOLERANCE_SEC
+  const deltaSec = input.actualSec - input.expectedSec
+  const magnitude = Math.abs(deltaSec)
+
+  if (magnitude <= tolerance) return { action: "none", deltaSec }
+  if (magnitude > DURATION_FAILURE_SEC) return { action: "fail", deltaSec }
+  return { action: deltaSec > 0 ? "trim" : "hold_last_frame", deltaSec }
+}
+
+/** Громкость родных дорожек клипов под озвучкой — зависит от маршрута. */
+export function clipVolumeWithVoiceoverFor(editPipeline: boolean): number {
+  return editPipeline ? 0 : 0.3
+}
+
+/**
+ * Нужно ли мирить длину реплики с длиной клипа.
+ *
+ * На старом маршруте политика `voiceoverReconciliation` сжимает звук, режет его
+ * или растягивает сцену. На audio-first мирить нечего: кадр нарезан по речи, а
+ * подмена клипов файлами `*_ext.mp4` разошлась бы с таймлайном транскрипта.
+ */
+export function shouldReconcileVoiceover(editPipeline: boolean): boolean {
+  return !editPipeline
+}
+
+/**
+ * Ожидаемая (по треку) длительность каждого клипа в СКЛЕЙКЕ — маршрут «монтаж
+ * от звука».
+ *
+ * Клипу отдаётся отрезок трека от старта ЕГО сцены до старта СЛЕДУЮЩЕЙ, а не
+ * интервал самой сцены (`endSec - startSec`): интервал не включает паузу перед
+ * следующей репликой, и подгонка клипа только под него оставила бы паузу
+ * ничьей — сумма клипов не дотянула бы до длины трека, и рассинхрон копился бы
+ * на паузах точно так же, как раньше копился на плановых длительностях
+ * (вход ревью Task 9: «перебивки между кусками ведущего встают в таймлайн с
+ * ПЛАНОВЫМИ длительностями»). Первому клипу достаётся всё от начала трека,
+ * последнему — всё до его конца, поэтому сумма результата всегда равна
+ * `trackDurationSec` — если каждая сцена ролика узнана выравниванием.
+ *
+ * Сцена, которой в `alignedScenes` нет (в тексте ролика её не было — ни
+ * реплики в кадре, ни закадровой строки), в карту не попадает: подгонять её
+ * не к чему, и `render.ts` пропустит такой клип без правки.
+ */
+export function computeAlignedClipTargetsSec(input: {
+  alignedScenes: readonly AlignedScene[]
+  trackDurationSec: number
+  /** order сцены → её позиция в ИТОГОВОЙ (уплотнённой) склейке. */
+  positionByOrder: ReadonlyMap<number, number>
+  /** Сколько клипов в склейке — под этот размер строится результат. */
+  clipCount: number
+}): Array<number | null> {
+  const result = new Array<number | null>(input.clipCount).fill(null)
+  if (input.alignedScenes.length === 0 || !(input.trackDurationSec > 0)) return result
+
+  const ordered = [...input.alignedScenes].sort((a, b) => a.startSec - b.startSec)
+
+  for (let i = 0; i < ordered.length; i += 1) {
+    const scene = ordered[i]!
+    const position = input.positionByOrder.get(scene.order)
+    if (position === undefined || position < 0 || position >= input.clipCount) continue
+
+    const startBoundary = i === 0 ? 0 : scene.startSec
+    const endBoundary = i === ordered.length - 1 ? input.trackDurationSec : ordered[i + 1]!.startSec
+    result[position] = Math.max(0, endBoundary - startBoundary)
+  }
+
+  return result
+}
 
 /**
  * РЕАЛЬНЫЙ порядок выполнения шагов в runVideoPipeline.

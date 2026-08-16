@@ -55,6 +55,7 @@ import {
 } from "./agents/favorite-prompts-loader"
 import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
+import { computeAlignedClipTargetsSec, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
 import { planRemotionOverlays } from "./remotion/overlay-plan"
 import { renderRemotionOverlays } from "./remotion/render"
@@ -1420,102 +1421,108 @@ export async function runVoiceoverGeneration(
     // нормализованные клипы, а они короче исходных на несколько сотых.
     const maxAllowedSec = Math.max(0.5, sceneDurationSec - VOICE_LEAD_IN_SEC - VOICE_TAIL_SEC)
 
-    if (finalDuration > maxAllowedSec) {
-      const overshoot = finalDuration - maxAllowedSec
-      const requiredSpeed = finalDuration / maxAllowedSec
+    // На audio-first сводить нечего: кадр и так нарезан по границам речи, а
+    // подмена клипов файлами `*_ext.mp4` разошлась бы с таймлайном транскрипта.
+    // Расхождение длины клипа с речью на этом маршруте закрывает render.ts
+    // (planDurationFit) правкой ВИДЕО, а не эта ветка правкой звука.
+    if (shouldReconcileVoiceover(videoConfig.editPipeline ?? false)) {
+      if (finalDuration > maxAllowedSec) {
+        const overshoot = finalDuration - maxAllowedSec
+        const requiredSpeed = finalDuration / maxAllowedSec
 
-      // Политика extend_scene: удлиняем СЦЕНУ, а не режем голос. Раньше ветки не было
-      // вовсе, и выбор оператора «растянуть сцену» молча работал как compress_audio.
-      let resolvedByExtend = false
-      if (videoConfig.voiceoverReconciliation === 'extend_scene') {
-        const extension = planClipExtension({
-          clipDurationSec: sceneDurationSec,
-          voiceoverDurationSec: finalDuration,
-          gapSec: 0.1,
-        })
-        const clipPathForScene = effectiveClipPaths[clipIndex]
+        // Политика extend_scene: удлиняем СЦЕНУ, а не режем голос. Раньше ветки не было
+        // вовсе, и выбор оператора «растянуть сцену» молча работал как compress_audio.
+        let resolvedByExtend = false
+        if (videoConfig.voiceoverReconciliation === 'extend_scene') {
+          const extension = planClipExtension({
+            clipDurationSec: sceneDurationSec,
+            voiceoverDurationSec: finalDuration,
+            gapSec: 0.1,
+          })
+          const clipPathForScene = effectiveClipPaths[clipIndex]
 
-        if (!clipPathForScene) {
-          warning = `Scene ${scene.order}: нет файла клипа для удлинения — деградирую в ускорение/обрезку`
-          await appendStepLog(step.id, warning)
-        } else if (!extension.allowed) {
-          warning = `Scene ${scene.order}: нужно +${extension.neededSec}s, но лимит удлинения ${extension.limitSec}s (max +50% и не более 5s) — деградирую в ускорение/обрезку`
-          await appendStepLog(step.id, warning)
-        } else {
-          try {
-            const extPath = clipPathForScene.replace(/\.mp4$/i, '_ext.mp4')
-            const extended = await extendVideoClip(clipPathForScene, extPath, extension.neededSec)
-            const newDuration = extended.durationSec > 0
-              ? extended.durationSec
-              : sceneDurationSec + extension.neededSec
-
-            effectiveClipPaths[clipIndex] = extended.outputPath
-            effectiveClipDurations[clipIndex] = newDuration
-            sceneDurationSec = newDuration
-            clipsExtended = true
-            resolvedByExtend = true
-            reconciliation = 'scene_extended'
-
-            // Ассет клипа лежит под order = индекс клипа (runClipGeneration пишет idx),
-            // поэтому перепривязываем именно clipIndex, а не позицию сцены в плане.
-            const persisted = await persistExtendedClipAsset(videoId, clipIndex, extended.outputPath, newDuration)
-            await appendStepLog(step.id, `Scene ${scene.order}: клип удлинён на +${extension.neededSec}s (было ${originalClipDurationSec}s, стало ${newDuration}s)${persisted ? '' : ' — VideoAsset клипа не найден, обновлён только файл'}`)
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            warning = `Scene ${scene.order}: удлинение клипа не удалось (${msg.slice(0, 160)}) — деградирую в ускорение/обрезку`
+          if (!clipPathForScene) {
+            warning = `Scene ${scene.order}: нет файла клипа для удлинения — деградирую в ускорение/обрезку`
             await appendStepLog(step.id, warning)
+          } else if (!extension.allowed) {
+            warning = `Scene ${scene.order}: нужно +${extension.neededSec}s, но лимит удлинения ${extension.limitSec}s (max +50% и не более 5s) — деградирую в ускорение/обрезку`
+            await appendStepLog(step.id, warning)
+          } else {
+            try {
+              const extPath = clipPathForScene.replace(/\.mp4$/i, '_ext.mp4')
+              const extended = await extendVideoClip(clipPathForScene, extPath, extension.neededSec)
+              const newDuration = extended.durationSec > 0
+                ? extended.durationSec
+                : sceneDurationSec + extension.neededSec
+
+              effectiveClipPaths[clipIndex] = extended.outputPath
+              effectiveClipDurations[clipIndex] = newDuration
+              sceneDurationSec = newDuration
+              clipsExtended = true
+              resolvedByExtend = true
+              reconciliation = 'scene_extended'
+
+              // Ассет клипа лежит под order = индекс клипа (runClipGeneration пишет idx),
+              // поэтому перепривязываем именно clipIndex, а не позицию сцены в плане.
+              const persisted = await persistExtendedClipAsset(videoId, clipIndex, extended.outputPath, newDuration)
+              await appendStepLog(step.id, `Scene ${scene.order}: клип удлинён на +${extension.neededSec}s (было ${originalClipDurationSec}s, стало ${newDuration}s)${persisted ? '' : ' — VideoAsset клипа не найден, обновлён только файл'}`)
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err)
+              warning = `Scene ${scene.order}: удлинение клипа не удалось (${msg.slice(0, 160)}) — деградирую в ускорение/обрезку`
+              await appendStepLog(step.id, warning)
+            }
           }
         }
-      }
 
-      if (resolvedByExtend) {
-        // Сцена стала длиннее озвучки — ни ускорять, ни резать не нужно.
-        await appendStepLog(step.id, `Scene ${scene.order}: озвучка ${finalDuration}s уместилась в удлинённую сцену без ускорения`)
-      } else if (videoConfig.voiceoverReconciliation === 'trim_audio') {
-        // Политика: обрезать без изменения темпа
-        const trimmedPath = join(assetsDir, `voiceover_scene_${scene.order}_trim.mp3`)
-        const trimmed = await trimAudio(finalPath, trimmedPath, maxAllowedSec)
-        finalPath = trimmed.outputPath
-        finalDuration = trimmed.durationSec
-        reconciliation = 'trimmed'
-        warning = `Voiceover был ${synthResult.durationSec}s, обрезан до ${maxAllowedSec}s (overshoot ${overshoot.toFixed(1)}s)`
-      } else if (requiredSpeed <= 1.2) {
-        // Ускоряем до 20% — естественно звучит
-        const spedPath = join(assetsDir, `voiceover_scene_${scene.order}_sped.mp3`)
-        const sped = await adjustAudioTempo(finalPath, spedPath, requiredSpeed)
-        finalPath = sped.outputPath
-        finalDuration = sped.durationSec
-        reconciliation = 'sped_up'
-        speedFactor = requiredSpeed
-      } else {
-        // Сначала ускорение max 1.2, затем trim
-        const spedPath = join(assetsDir, `voiceover_scene_${scene.order}_sped.mp3`)
-        const sped = await adjustAudioTempo(finalPath, spedPath, 1.2)
-        if (sped.durationSec > maxAllowedSec) {
-          const trimPath = join(assetsDir, `voiceover_scene_${scene.order}_sped_trim.mp3`)
-          const trimmed = await trimAudio(sped.outputPath, trimPath, maxAllowedSec)
+        if (resolvedByExtend) {
+          // Сцена стала длиннее озвучки — ни ускорять, ни резать не нужно.
+          await appendStepLog(step.id, `Scene ${scene.order}: озвучка ${finalDuration}s уместилась в удлинённую сцену без ускорения`)
+        } else if (videoConfig.voiceoverReconciliation === 'trim_audio') {
+          // Политика: обрезать без изменения темпа
+          const trimmedPath = join(assetsDir, `voiceover_scene_${scene.order}_trim.mp3`)
+          const trimmed = await trimAudio(finalPath, trimmedPath, maxAllowedSec)
           finalPath = trimmed.outputPath
           finalDuration = trimmed.durationSec
           reconciliation = 'trimmed'
-          speedFactor = 1.2
-          warning = `Voiceover ${synthResult.durationSec}s даже после 1.2x speed не влез в ${maxAllowedSec}s — trim`
-        } else {
+          warning = `Voiceover был ${synthResult.durationSec}s, обрезан до ${maxAllowedSec}s (overshoot ${overshoot.toFixed(1)}s)`
+        } else if (requiredSpeed <= 1.2) {
+          // Ускоряем до 20% — естественно звучит
+          const spedPath = join(assetsDir, `voiceover_scene_${scene.order}_sped.mp3`)
+          const sped = await adjustAudioTempo(finalPath, spedPath, requiredSpeed)
           finalPath = sped.outputPath
           finalDuration = sped.durationSec
           reconciliation = 'sped_up'
-          speedFactor = 1.2
+          speedFactor = requiredSpeed
+        } else {
+          // Сначала ускорение max 1.2, затем trim
+          const spedPath = join(assetsDir, `voiceover_scene_${scene.order}_sped.mp3`)
+          const sped = await adjustAudioTempo(finalPath, spedPath, 1.2)
+          if (sped.durationSec > maxAllowedSec) {
+            const trimPath = join(assetsDir, `voiceover_scene_${scene.order}_sped_trim.mp3`)
+            const trimmed = await trimAudio(sped.outputPath, trimPath, maxAllowedSec)
+            finalPath = trimmed.outputPath
+            finalDuration = trimmed.durationSec
+            reconciliation = 'trimmed'
+            speedFactor = 1.2
+            warning = `Voiceover ${synthResult.durationSec}s даже после 1.2x speed не влез в ${maxAllowedSec}s — trim`
+          } else {
+            finalPath = sped.outputPath
+            finalDuration = sped.durationSec
+            reconciliation = 'sped_up'
+            speedFactor = 1.2
+          }
         }
-      }
-    } else if (finalDuration < maxAllowedSec * 0.6 && videoConfig.voiceoverPacing !== 'slow') {
-      // Если озвучка слишком короткая (< 60% сцены) — можно замедлить для naturalism
-      const requiredSlow = finalDuration / Math.min(maxAllowedSec * 0.85, finalDuration * 1.2)
-      if (requiredSlow < 1.0 && requiredSlow > 0.85) {
-        const slowPath = join(assetsDir, `voiceover_scene_${scene.order}_slow.mp3`)
-        const slow = await adjustAudioTempo(finalPath, slowPath, requiredSlow)
-        finalPath = slow.outputPath
-        finalDuration = slow.durationSec
-        reconciliation = 'slowed_down'
-        speedFactor = requiredSlow
+      } else if (finalDuration < maxAllowedSec * 0.6 && videoConfig.voiceoverPacing !== 'slow') {
+        // Если озвучка слишком короткая (< 60% сцены) — можно замедлить для naturalism
+        const requiredSlow = finalDuration / Math.min(maxAllowedSec * 0.85, finalDuration * 1.2)
+        if (requiredSlow < 1.0 && requiredSlow > 0.85) {
+          const slowPath = join(assetsDir, `voiceover_scene_${scene.order}_slow.mp3`)
+          const slow = await adjustAudioTempo(finalPath, slowPath, requiredSlow)
+          finalPath = slow.outputPath
+          finalDuration = slow.durationSec
+          reconciliation = 'slowed_down'
+          speedFactor = requiredSlow
+        }
       }
     }
 
@@ -2545,6 +2552,13 @@ export async function runAssembly(
      * выравнивание до сборки или монтаж шёл по плановым длительностям.
      */
     alignedScenes?: readonly AlignedScene[]
+    /**
+     * Измеренная длительность единого трека (audio-first) — верхняя граница
+     * подгона длины последнего клипа (`computeAlignedClipTargetsSec`). Без неё
+     * подгон по выравниванию не считается вовсе: закрывать сдвиг НЕЧЕМ, если
+     * неизвестно, до какой секунды тянуть последний кадр.
+     */
+    voiceoverDurationSec?: number
   },
 ): Promise<{ filePath: string; duration: number }> {
   const step = await ensureStep(videoId, "assembly", 5)
@@ -2609,6 +2623,28 @@ export async function runAssembly(
         }
       })
       .filter((s): s is SceneSubtitleInput => s.sceneIndex !== undefined && s.text.length > 0)
+  }
+
+  // Ожидаемая длина каждого клипа склейки — только на маршруте «монтаж от
+  // звука» (extras.alignedScenes появляется исключительно там, см. Task 9).
+  // На старом маршруте extras.alignedScenes нет вовсе, и render.ts получает
+  // undefined — подгон длины клипов не исполняется, поведение прежнее.
+  let clipExpectedDurationsSec: Array<number | null> | undefined
+  if (isStoryDriven && extras?.alignedScenes?.length && typeof extras.voiceoverDurationSec === 'number' && extras.voiceoverDurationSec > 0) {
+    const clipIndexByOrderForFit = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
+      allowPositionalFallback: false,
+    })
+    const positionByOrder = new Map<number, number>()
+    for (const [order, sceneIndex] of clipIndexByOrderForFit.entries()) {
+      const position = compacted.positionBySceneIndex.get(sceneIndex)
+      if (position !== undefined) positionByOrder.set(order, position)
+    }
+    clipExpectedDurationsSec = computeAlignedClipTargetsSec({
+      alignedScenes: extras.alignedScenes,
+      trackDurationSec: extras.voiceoverDurationSec,
+      positionByOrder,
+      clipCount: assemblyClips.length,
+    })
   }
 
   const hasSceneSubs = subtitlesEnabled && sceneSubtitles && sceneSubtitles.length > 0
@@ -2719,6 +2755,7 @@ export async function runAssembly(
       musicVolumeWithVoiceover: extras?.musicVolumeWithVoiceover,
       clipVolumeWithVoiceover: extras?.clipVolumeWithVoiceover,
       voiceoverIntervals: extras?.voiceoverIntervals,
+      clipExpectedDurationsSec,
     })
 
     // Анимационная инфографика (PROJECT_CONTEXT §5) — необязательный слой
