@@ -48,3 +48,35 @@ describe("раскладка выровненных слов по чанкам �
     expect(words).toEqual([])
   })
 })
+
+describe("защита от переполнения окна чанка", () => {
+  // chunkSceneSpeech режет окно ПРОПОРЦИОНАЛЬНО числу символов — это оценка,
+  // не факт речи. Сцена звучит неровно: "пауза" — 0.3с, "потом" — 1.8с,
+  // суммарно 2.1с звука не влезают в доставшееся чанку окно в 1.0с.
+  const UNEVEN_SCENE_WORDS = [
+    { text: "пауза", startSec: 0, endSec: 0.3, matched: true },
+    { text: "потом", startSec: 0.3, endSec: 2.1, matched: true },
+  ]
+
+  it("сжимает длительности в окно чанка, когда их сумма больше окна", () => {
+    const words = wordsForChunk({
+      words: UNEVEN_SCENE_WORDS,
+      chunkText: "пауза потом",
+      chunkStartSec: 0,
+      chunkEndSec: 1.0,
+    })
+
+    const durations = words.map(w => w.endSec - w.startSec)
+    const total = durations.reduce((a, b) => a + b, 0)
+
+    // Подсветка укладывается в окно строки целиком — последнее слово гаснет
+    // не позже конца чанка, иначе ASS переключит субтитр до конца \k-тега.
+    expect(total).toBeLessThanOrEqual(1.0 + 1e-9)
+    expect(words[words.length - 1]!.endSec).toBeCloseTo(1.0, 5)
+
+    // Относительная неравномерность сохраняется: "потом" звучал в 6 раз
+    // дольше "паузы" в реальном звуке — во столько же раз дольше он остаётся
+    // и после сжатия в окно.
+    expect(durations[1]! / durations[0]!).toBeCloseTo(6, 5)
+  })
+})

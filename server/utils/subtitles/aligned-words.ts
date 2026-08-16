@@ -14,6 +14,21 @@
  * Не нашли непрерывного совпадения — возвращаем пустой список. Это не ошибка,
  * а явный сигнал вызывающему коду: подставлять «примерно похожие» слова
  * нельзя, лучше равномерная оценка, чем подсветка чужого слова.
+ *
+ * Окно чанка при этом — не факт, а ОЦЕНКА: chunkSceneSpeech режет фразу
+ * пропорционально числу символов, независимо от реального темпа речи. Если
+ * сцена звучит неровно (пауза внутри фразы, рывок в конце), сумма реальных
+ * длительностей найденных слов может оказаться БОЛЬШЕ окна чанка. Karaoke-тег
+ * `\k` в ASS-билдере (dialogue.ts) кумулятивен от начала строки — если сумма
+ * длительностей превышает длительность самой строки, подсветка не успевает
+ * дойти до последних слов раньше, чем ASS переключит субтитр, и эффект рвётся
+ * на середине. Слова при этом остаются верными — портится сам эффект,
+ * который у равномерной оценки по построению всегда укладывался в окно.
+ * Поэтому длительности, не влезающие в окно, сжимаются в него пропорционально
+ * (относительная неравномерность сохраняется), а не отбрасываются: ни один
+ * потребитель (dialogue.ts, keyword-emphasis.ts) не читает абсолютное
+ * положение слова — только разницу `endSec - startSec`, так что сжатие ничего
+ * не искажает и гарантирует, что сумма уложится в строку.
  */
 
 import { normalizeToken } from '../transcription/align'
@@ -68,7 +83,41 @@ export function wordsForChunk(input: {
     }
   }
 
-  return input.words
-    .slice(best, best + chunkTokens.length)
-    .map(word => ({ text: word.text, startSec: word.startSec, endSec: word.endSec }))
+  const slice = input.words.slice(best, best + chunkTokens.length)
+  return fitWithinWindow(slice, input.chunkStartSec, input.chunkEndSec)
+}
+
+/**
+ * Гарантирует, что сумма длительностей слов не превышает окно чанка (см.
+ * комментарий модуля). В пределах окна — тайминги отдаются как есть. Не
+ * влезли — сжимаем длительности одним общим коэффициентом и раскладываем их
+ * друг за другом от chunkStartSec: относительные пропорции (кто звучал
+ * дольше, кто короче) сохраняются, только исчезает исходный зазор между
+ * словами — karaoke эту паузу и так не рисует (см. dialogue.ts:153).
+ */
+function fitWithinWindow(
+  words: readonly AlignedWord[],
+  chunkStartSec: number,
+  chunkEndSec: number,
+): AlignedChunkWord[] {
+  const totalDuration = words.reduce((sum, word) => sum + Math.max(0, word.endSec - word.startSec), 0)
+  const windowDuration = Math.max(0, chunkEndSec - chunkStartSec)
+
+  if (totalDuration <= windowDuration) {
+    return words.map(word => ({ text: word.text, startSec: word.startSec, endSec: word.endSec }))
+  }
+
+  // Окна без длины (chunkEndSec <= chunkStartSec) сжимать некуда — честнее
+  // отдать пустой список и уйти на равномерную оценку, чем схлопнуть все слова
+  // в одну точку.
+  if (windowDuration === 0) return []
+
+  const scale = windowDuration / totalDuration
+  let cursor = chunkStartSec
+  return words.map((word) => {
+    const duration = Math.max(0, word.endSec - word.startSec) * scale
+    const scaled: AlignedChunkWord = { text: word.text, startSec: cursor, endSec: cursor + duration }
+    cursor += duration
+    return scaled
+  })
 }
