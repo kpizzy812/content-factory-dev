@@ -16,7 +16,11 @@ import {
 } from "~~/shared/types/story"
 import type { AnySubtitlePresetKey } from "~~/shared/types/subtitle-preset"
 import { getPresetByKey } from "./subtitles/preset-registry"
-import { buildShotVariationFilter, pickShotVariationPlan } from "./video-tools/shot-variation"
+import {
+  buildShotVariationFilter,
+  planShotVariationForClip,
+  type ShotVariationPlan,
+} from "./video-tools/shot-variation"
 import { tryRenderAssFilter } from "./subtitles/render-ass"
 import { chunkSceneSpeech, maxCharsForWidth } from "./subtitles/phrase-chunker"
 import { normalizeSubtitleStyle } from "./subtitle-style"
@@ -566,8 +570,8 @@ async function normalizeClip(
   inputPath: string,
   outputPath: string,
   format: "portrait" | "landscape",
-  /** Индекс сцены для выбора плана. null — смена плана выключена. */
-  sceneIndex: number | null = null,
+  /** План смены кадра. null — клип нормализуется кадр в кадр с исходником. */
+  shotPlan: ShotVariationPlan | null = null,
 ): Promise<void> {
   try {
     const [inputStat, outputStat] = await Promise.all([stat(inputPath), stat(outputPath)])
@@ -583,11 +587,11 @@ async function normalizeClip(
 
   // Длительность нужна, чтобы движение прошло ровно за сцену. Неизмеримый файл
   // не повод отказываться от кадрирования — план просто станет статичным.
-  const shotDurationSec = sceneIndex === null ? null : await probeMediaDuration(inputPath)
-  const shotFilter = sceneIndex === null
+  const shotDurationSec = shotPlan === null ? null : await probeMediaDuration(inputPath)
+  const shotFilter = shotPlan === null
     ? null
     : buildShotVariationFilter(
-      shotDurationSec === null ? "static_tight" : pickShotVariationPlan(sceneIndex),
+      shotDurationSec === null ? "static_tight" : shotPlan,
       target,
       shotDurationSec ?? 1,
     )
@@ -669,7 +673,7 @@ export async function normalizeClipsForConcat(
       continue
     }
     const normPath = clip.replace(/\.mp4$/i, "_norm.mp4")
-    await normalizeClip(clip, normPath, format, shotVariation ? index : null)
+    await normalizeClip(clip, normPath, format, planShotVariationForClip(clip, index, shotVariation))
     normalized.push(normPath)
   }
   return normalized
@@ -703,7 +707,7 @@ export async function normalizeSceneClips(
       continue
     }
     const normPath = clip.replace(/\.mp4$/i, "_norm.mp4")
-    await normalizeClip(clip, normPath, format, shotVariation ? index : null)
+    await normalizeClip(clip, normPath, format, planShotVariationForClip(clip, index, shotVariation))
     normalized.push(normPath)
   }
   return normalized

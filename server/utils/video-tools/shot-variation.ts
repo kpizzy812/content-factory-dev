@@ -16,6 +16,8 @@
  * кадра и на видео даёт рывки. Здесь движение привязано к `t` — секундам сцены.
  */
 
+import { isLipSyncOutputPath } from "../presenter/scene-clip-mapping"
+
 /** Насколько исходник берётся крупнее кадра: запас, из которого идёт движение. */
 const OVERSCAN = 1.12
 
@@ -42,6 +44,26 @@ export const SHOT_VARIATION_PLANS: readonly ShotVariationPlan[] = Object.freeze(
 export function pickShotVariationPlan(sceneIndex: number): ShotVariationPlan {
   const normalized = Number.isFinite(sceneIndex) ? Math.trunc(Math.abs(sceneIndex)) : 0
   return SHOT_VARIATION_PLANS[normalized % SHOT_VARIATION_PLANS.length]!
+}
+
+/**
+ * План для КОНКРЕТНОГО клипа. null — клип остаётся как есть.
+ *
+ * Сцену ведущей смена плана только портит. Движение здесь покупается ценой
+ * масштабирования на 12% и кропа: рот, который lip-sync только что перерисовал,
+ * растягивается ещё раз (это самое мягкое место кадра), а окно кропа срезает
+ * макушку — на ролике 24 голова оказалась обрезана. Ради чего затевалась смена
+ * плана — оживить статичную перебивку — говорящая голова делает сама.
+ */
+export function planShotVariationForClip(
+  clipPath: string,
+  sceneIndex: number,
+  enabled: boolean,
+): ShotVariationPlan | null {
+  if (!enabled) return null
+  if (typeof clipPath !== "string" || clipPath.trim().length === 0) return null
+  if (isLipSyncOutputPath(clipPath)) return null
+  return pickShotVariationPlan(sceneIndex)
 }
 
 /**
