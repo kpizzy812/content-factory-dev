@@ -8,9 +8,14 @@
  * Поэтому звук сцены не синтезируется, а ВЫРЕЗАЕТСЯ из готового трека по
  * границам выравнивания (`transcription/align.ts`).
  *
- * Планирование границ — чистая функция без ffmpeg (по образцу
- * `planPauseSplit` в `insert-pauses.ts`): её видно тестом, и никакой процесс
- * для проверки арифметики запускать не нужно.
+ * Интервал сцены при этом не раздвигается ни вперёд, ни назад: соседняя секунда
+ * трека — это чужая реплика, и губы, произносящие чужие слова, брак худший, чем
+ * короткий кадр. Кусок короче минимума модели добивается ТИШИНОЙ (`apad`):
+ * молчащие в хвосте губы выглядят естественно.
+ *
+ * Планирование границ и сборка аргументов ffmpeg — чистые функции без запуска
+ * процесса (по образцу `planPauseSplit` в `insert-pauses.ts`, `buildStillClipArgs`
+ * и `parseSilenceRangesFromStderr` в `video-tools/`): их видно тестом.
  *
  * Ключ переиспользования куска строится от ИНТЕРВАЛА и ОТПЕЧАТКА ТРЕКА, а не от
  * текста реплики (spec §4.4). Текст может не измениться при полностью
@@ -22,16 +27,28 @@ import { createHash } from "node:crypto"
 import ffmpeg from "fluent-ffmpeg"
 import type { AlignedScene } from "../transcription/align"
 
+/** Куда пришлось подвинуть длительность ради требований модели. */
+export type SegmentClamp = "min" | "max" | false
+
 export interface SegmentCut {
+  /** Начало куска В ТРЕКЕ. */
   startSec: number
+  /** Конец куска В ТРЕКЕ: реального звука дальше этой точки в куске нет. */
   endSec: number
-  durationSec: number
   /**
-   * Интервал пришлось подогнать под требования модели по длительности.
-   * Вызывающий обязан написать об этом в лог: модель получит кусок не той
-   * длины, что дало выравнивание, и молчать об этом нельзя.
+   * Длительность ФАЙЛА, который получит модель: интервал плюс добивка тишиной.
+   * Совпадает с `endSec - startSec`, пока добивки нет.
    */
-  clampedToModel: boolean
+  durationSec: number
+  /** Сколько тишины добавлено в хвост, чтобы добрать минимум модели. */
+  silencePadSec: number
+  /**
+   * Длительность подогнана под требования модели: `"max"` — интервал обрезан по
+   * потолку, `"min"` — добит тишиной до минимума. Вызывающий обязан написать об
+   * этом в лог, причём РАЗНЫМ текстом: обрезанный хвост речи и добитая тишина —
+   * это разные новости.
+   */
+  clampedToModel: SegmentClamp
 }
 
 export interface SegmentCutInput {
@@ -49,8 +66,15 @@ function usableFps(fps: number): boolean {
   return Number.isFinite(fps) && fps > 0
 }
 
-/** Ближайшая граница кадра. */
-function snapToFrame(sec: number, fps: number): number {
+/**
+ * Ближайшая граница кадра.
+ *
+ * Экспортируется не только ради вырезки: по притянутым границам считается и ключ
+ * переиспользования сцены. Дрожание выравнивания в единицы миллисекунд даёт тот
+ * же кадр и тот же байт в байт mp3 — менять из-за него ключ значит переоплачивать
+ * lip-sync всего ролика на пустом месте.
+ */
+export function snapSecToFrame(sec: number, fps: number): number {
   return usableFps(fps) ? Math.round(sec * fps) / fps : sec
 }
 
@@ -59,23 +83,18 @@ function floorToFrame(sec: number, fps: number): number {
   return usableFps(fps) ? Math.floor(sec * fps) / fps : sec
 }
 
-/** Граница кадра НЕ РАНЬШЕ заданной секунды — для нижних порогов. */
-function ceilToFrame(sec: number, fps: number): number {
-  return usableFps(fps) ? Math.ceil(sec * fps) / fps : sec
-}
-
 /**
  * Границы куска: от выравнивания, притянутые к кадру, обрезанные длиной трека и
- * зажатые в диапазон длительности модели.
+ * подогнанные под диапазон длительности модели.
  *
  * Порядок именно такой. Сначала кадр — сборка режет видео по кадрам, и звук,
  * начатый в середине кадра, уезжает от картинки на полкадра уже на старте.
- * Потом трек — за его конец звука просто нет. И только потом модель: её
+ * Потом трек — за его концом звука просто нет. И только потом модель: её
  * диапазон это ограничение инструмента, а не факт материала.
  *
- * Короткий кусок удлиняется сначала вперёд, а упершись в конец трека — назад:
- * иначе сцена в самом конце ролика (последние 1.5 с трека) не набрала бы
- * минимума модели никогда.
+ * Короткий кусок НЕ раздвигается по треку (см. шапку модуля) — недостающее
+ * добирается тишиной. Пустой интервал не добивается вовсе: файл из одной тишины
+ * это оплаченная съёмка молчащих губ, и вызывающий обязан такую сцену отклонить.
  */
 export function planSegmentCut(input: SegmentCutInput): SegmentCut {
   const { fps, model, trackDurationSec } = input
@@ -83,31 +102,32 @@ export function planSegmentCut(input: SegmentCutInput): SegmentCut {
     ? floorToFrame(trackDurationSec, fps)
     : Number.POSITIVE_INFINITY
 
-  let startSec = Math.max(0, snapToFrame(input.scene.startSec, fps))
-  let endSec = Math.min(snapToFrame(input.scene.endSec, fps), trackEnd)
+  let startSec = Math.max(0, snapSecToFrame(input.scene.startSec, fps))
+  let endSec = Math.min(snapSecToFrame(input.scene.endSec, fps), trackEnd)
   if (startSec > trackEnd) startSec = Math.max(0, trackEnd)
   if (endSec < startSec) endSec = startSec
 
-  let clampedToModel = false
-  const duration = endSec - startSec
+  let clampedToModel: SegmentClamp = false
+  let silencePadSec = 0
+  const intervalSec = endSec - startSec
 
-  if (Number.isFinite(model.maxDurationSec) && duration > model.maxDurationSec) {
+  if (Number.isFinite(model.maxDurationSec) && intervalSec > model.maxDurationSec) {
     // Вниз до кадра: округление вверх дало бы кусок длиннее потолка модели,
     // и провайдер отбил бы вызов уже после оплаты подготовки.
     endSec = floorToFrame(startSec + model.maxDurationSec, fps)
-    clampedToModel = true
-  } else if (Number.isFinite(model.minDurationSec) && duration < model.minDurationSec) {
-    clampedToModel = true
-    endSec = Math.min(ceilToFrame(startSec + model.minDurationSec, fps), trackEnd)
-    // Трек кончился раньше, чем набрался минимум — забираем недостающее слева.
-    // Если и слева не хватило (весь трек короче минимума), отдаём что есть:
-    // выдумывать звук, которого нет, хуже, чем честно короткий кусок.
-    if (endSec - startSec < model.minDurationSec) {
-      startSec = Math.max(0, floorToFrame(endSec - model.minDurationSec, fps))
-    }
+    clampedToModel = "max"
+  } else if (Number.isFinite(model.minDurationSec) && intervalSec > 0 && intervalSec < model.minDurationSec) {
+    silencePadSec = model.minDurationSec - intervalSec
+    clampedToModel = "min"
   }
 
-  return { startSec, endSec, durationSec: endSec - startSec, clampedToModel }
+  return {
+    startSec,
+    endSec,
+    durationSec: endSec - startSec + silencePadSec,
+    silencePadSec,
+    clampedToModel,
+  }
 }
 
 export interface SegmentIdentityInput {
@@ -138,23 +158,45 @@ export function segmentIdentity(input: SegmentIdentityInput): string {
     .digest("hex")
 }
 
-export interface CutTrackSegmentResult {
-  path: string
-  /** Измерено на готовом файле, а не взято из плана: перекодировка даёт свой хвост. */
-  durationSec: number
+export interface SegmentCutArgs {
+  /** Опции ВХОДА: перемотка к началу куска. */
+  inputOptions: string[]
+  /** Аудиофильтры: добивка тишиной, если она нужна. Иначе пусто. */
+  audioFilters: string[]
+  /** Опции выхода: длина файла и кодек. */
+  outputOptions: string[]
 }
 
 /**
- * Вырезает кусок трека в отдельный файл.
+ * Аргументы ffmpeg для вырезки куска. Чистая функция: процесс не запускается,
+ * поэтому проверяется тестом целиком.
  *
  * `-ss` ставится ВХОДНЫМ параметром (быстрая перемотка), длина задаётся `-t`, а
  * не `-to`: после входной перемотки таймстемпы сбрасываются, и `-to` в разных
  * сборках ffmpeg считается то от начала файла, то от точки реза — на платном
  * шаге такой лотереи быть не должно.
  *
+ * Добивка тишиной — `apad=whole_dur`, тот же приём тишины, что `anullsrc` в
+ * `insert-pauses.ts`, но без склейки: хвост дополняется на месте.
+ *
  * Поток перекодируется (libmp3lame), а не копируется: mp3-фрейм длится ~26 мс,
  * и копия резалась бы по границе фрейма, а не по границе кадра видео.
  */
+export function buildSegmentCutArgs(cut: SegmentCut): SegmentCutArgs {
+  return {
+    inputOptions: ["-ss", cut.startSec.toFixed(3)],
+    audioFilters: cut.silencePadSec > 0 ? [`apad=whole_dur=${cut.durationSec.toFixed(3)}`] : [],
+    outputOptions: ["-t", cut.durationSec.toFixed(3), "-c:a", "libmp3lame", "-b:a", "192k", "-y"],
+  }
+}
+
+export interface CutTrackSegmentResult {
+  path: string
+  /** Измерено на готовом файле, а не взято из плана: перекодировка даёт свой хвост. */
+  durationSec: number
+}
+
+/** Вырезает кусок трека в отдельный файл по плану `buildSegmentCutArgs`. */
 export async function cutTrackSegment(input: {
   trackPath: string
   outputPath: string
@@ -162,13 +204,14 @@ export async function cutTrackSegment(input: {
   probeDuration: (path: string) => Promise<number | null>
 }): Promise<CutTrackSegmentResult> {
   const { cut, outputPath, trackPath } = input
+  const args = buildSegmentCutArgs(cut)
 
   await new Promise<void>((resolve, reject) => {
     const stderrTail: string[] = []
-    ffmpeg(trackPath)
-      .seekInput(cut.startSec)
-      .duration(cut.durationSec)
-      .outputOptions(["-c:a", "libmp3lame", "-b:a", "192k", "-y"])
+    const command = ffmpeg(trackPath).inputOptions(args.inputOptions)
+    if (args.audioFilters.length > 0) command.audioFilters(args.audioFilters)
+    command
+      .outputOptions(args.outputOptions)
       .output(outputPath)
       .on("stderr", (line: string) => {
         stderrTail.push(line)

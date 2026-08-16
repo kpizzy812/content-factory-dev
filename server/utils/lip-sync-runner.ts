@@ -80,6 +80,7 @@ import {
   cutTrackSegment,
   planSegmentCut,
   segmentIdentity,
+  snapSecToFrame,
   type SegmentCut,
 } from "./voiceover/segment-cut"
 import type { AlignedScene } from "./transcription/align"
@@ -279,14 +280,33 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
    * ниже про трек даже не спросит, и шаг работает ровно как раньше.
    */
   const audioFirst = input.audioFirst ?? null
-  const alignedSceneByOrder = new Map<number, AlignedScene>(
-    (audioFirst?.scenes ?? []).map(scene => [scene.order, scene] as const),
-  )
+  const timelineFps = audioFirst?.fps ?? DEFAULT_TIMELINE_FPS
+  const alignedSceneByOrder = new Map<number, AlignedScene>()
+  const duplicateAlignedOrders: number[] = []
+  for (const aligned of audioFirst?.scenes ?? []) {
+    // order из плана AI умеет повторяться (см. аватарную ветку ниже), и молча
+    // схлопнутый дубль отдал бы двум сценам один и тот же кусок трека.
+    if (alignedSceneByOrder.has(aligned.order)) duplicateAlignedOrders.push(aligned.order)
+    alignedSceneByOrder.set(aligned.order, aligned)
+  }
+  if (duplicateAlignedOrders.length > 0) {
+    await appendStepLog(
+      step.id,
+      `WARN в выравнивании повторяются order сцен: ${duplicateAlignedOrders.join(", ")} — `
+      + `беру последние границы, но сцены с одинаковым order получат один кусок трека`,
+    )
+  }
 
   /**
-   * Отпечаток куска трека для КЛЮЧА СЦЕНЫ — по сырым границам выравнивания, без
-   * поправки на диапазон модели: модель уже учтена в ключе своим id, а границы
-   * нужны здесь, в ранней ветке идемпотентности, где модель ещё не разрешена.
+   * Отпечаток куска трека для КЛЮЧА СЦЕНЫ — по границам выравнивания, притянутым
+   * к кадру, но БЕЗ зажатия в диапазон модели: модель уже учтена в ключе своим id,
+   * а границы нужны здесь, в ранней ветке идемпотентности, где модель ещё не
+   * разрешена.
+   *
+   * Притяжка к кадру обязательна: без неё дрожание выравнивания в единицы
+   * миллисекунд при том же треке меняло бы ключ, хотя кусок вырезается тот же
+   * байт в байт — ролик из двух десятков сцен переоплачивал бы lip-sync на пустом
+   * месте. fps ролика — константа сборки, и здесь она известна.
    *
    * Имя файла куска считается отдельно и от ЗАЖАТЫХ границ (см. цикл): там
    * важна фактическая длина вырезанного звука.
@@ -298,8 +318,8 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     return segmentIdentity({
       videoId,
       sceneOrder,
-      startSec: aligned.startSec,
-      endSec: aligned.endSec,
+      startSec: snapSecToFrame(aligned.startSec, timelineFps),
+      endSec: snapSecToFrame(aligned.endSec, timelineFps),
       trackFingerprint: audioFirst.trackFingerprint,
     })
   }
@@ -409,7 +429,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     const cut = planSegmentCut({
       scene: aligned,
       trackDurationSec: track.trackDurationSec,
-      fps: track.fps ?? DEFAULT_TIMELINE_FPS,
+      fps: timelineFps,
       model: { minDurationSec, maxDurationSec },
     })
     return {
@@ -594,25 +614,34 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         )
       }
 
+      const spokenLine = scene.spokenLine!.trim()
+      const spokenLineHash = hashSpokenLine(spokenLine)
+      const sourceAnchor = sourceAnchorFor(sceneIndex, resolvedSource.path)
+      const reuseKey = await reuseKeyFor(spokenLine, sourceAnchor, trackSegmentKeyFor(scene.order))
+
       // Маршрут «монтаж от звука»: сцене нужен её кусок общего трека, а границы
       // куска даёт выравнивание. Сцены в выравнивании нет — синтезировать речь
       // заново нельзя: она прозвучит иначе трека под таймлайном, и губы уедут от
-      // звука. Записи-отказа тоже не делаем: причина живёт в данных выравнивания,
-      // а не в отпечатке исходника, и такой записью сцену можно заморозить навсегда.
+      // звука. Отказ пишем ДО ветки переиспользования и обязательно записью:
+      // без неё в снапшоте остался бы outputPath прошлого (посценного) прогона,
+      // а в путях клипов — сырой клип, и снапшот разошёлся бы с фактом.
       const alignedScene = audioFirst ? alignedSceneByOrder.get(scene.order) : undefined
       if (audioFirst && !alignedScene) {
         await appendStepLog(
           step.id,
           `${sceneTag}: в выравнивании нет границ этой сцены в общем треке — вырезать нечего, синхронизацию пропускаю (посценный синтез дал бы звук мимо трека)`,
         )
+        recordSkippedScene({
+          sceneOrder: scene.order,
+          sceneIndex,
+          reason: "track_segment_missing",
+          sourcePath: resolvedSource.path,
+          reuseKey,
+          spokenLineHash,
+        })
         continue
       }
       const segmentPlan = audioFirst && alignedScene ? planTrackSegment(alignedScene, audioFirst) : null
-
-      const spokenLine = scene.spokenLine!.trim()
-      const spokenLineHash = hashSpokenLine(spokenLine)
-      const sourceAnchor = sourceAnchorFor(sceneIndex, resolvedSource.path)
-      const reuseKey = await reuseKeyFor(spokenLine, sourceAnchor, trackSegmentKeyFor(scene.order))
 
       // Переиспользование готового результата сцены: совпал ВЕСЬ отпечаток (текст,
       // исходник, персонаж, параметры синтеза) и файл на месте — повторно платить
@@ -641,25 +670,26 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // Цель подбора фрагмента: по умолчанию план, для ведущей — измеренная речь.
       let presenterTargetSec = plannedDurationSec
       let speechReady = false
-      // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
-      // снапшота шага, который жёсткий рестарт воркера записать не успевает. Файл на
-      // месте — значит эта же фраза ТЕМ ЖЕ голосом уже синтезирована и оплачена.
-      // Только хэша текста было мало: смена голоса/модели/языка/темпа давала другой
-      // звук, а файл считался подходящим.
-      const speechHash = hashSpeechIdentity({
-        spokenLine,
-        voiceoverModelId: videoConfig.voiceoverModelId,
-        voiceoverVoiceId: videoConfig.voiceoverVoiceId,
-        voiceoverLanguage: videoConfig.voiceoverLanguage,
-        voiceoverPacing: videoConfig.voiceoverPacing,
-      })
       // Звук сцены лежит в той же папке ассетов на обоих маршрутах, а различает их
       // отпечаток в имени: кусок трека — интервал и сам трек, посценный синтез —
       // текст и параметры голоса. Новый трек даёт новое имя, и старый кусок не
       // подставится под свежий звук.
+      //
+      // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
+      // снапшота шага, который жёсткий рестарт воркера записать не успевает. Файл на
+      // месте — значит эта же фраза ТЕМ ЖЕ голосом уже синтезирована и оплачена.
+      // Только хэша текста было мало: смена голоса/модели/языка/темпа давала другой
+      // звук, а файл считался подходящим. На маршруте трека этот хэш не считается
+      // вовсе — синтеза там нет.
       const audioPath = segmentPlan
         ? join(assetsDir, `scene_${sceneIndex}_track_${segmentPlan.identity.slice(0, 12)}.mp3`)
-        : join(assetsDir, `scene_${sceneIndex}_spoken_${speechHash.slice(0, 12)}.mp3`)
+        : join(assetsDir, `scene_${sceneIndex}_spoken_${hashSpeechIdentity({
+          spokenLine,
+          voiceoverModelId: videoConfig.voiceoverModelId,
+          voiceoverVoiceId: videoConfig.voiceoverVoiceId,
+          voiceoverLanguage: videoConfig.voiceoverLanguage,
+          voiceoverPacing: videoConfig.voiceoverPacing,
+        }).slice(0, 12)}.mp3`)
       /**
        * Файл речи, который реально уедет в модель. Совпадает с синтезированным,
        * пока реплика влезает в исходник; длинную укладываем ускорением (см. ниже),
@@ -713,7 +743,8 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         if (speechReady) return true
         const { cut } = segmentPlan!
         // Пустой интервал (выравнивание отдало нулевую сцену) — это тишина.
-        // Отдать её в lip-sync значит оплатить съёмку молчащих губ.
+        // Отдать её в lip-sync значит оплатить съёмку молчащих губ. Причина
+        // детерминированная: пока выравнивание то же, ответ будет тот же.
         if (!(cut.durationSec > 0)) {
           await appendStepLog(
             step.id,
@@ -722,22 +753,30 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           recordSkippedScene({
             sceneOrder: scene.order,
             sceneIndex,
-            reason: "track_segment_failed",
+            reason: "track_segment_empty",
             sourcePath: resolvedSource.path,
             reuseKey,
             spokenLineHash,
           })
           return false
         }
-        if (cut.clampedToModel) {
-          // Молчать нельзя: модель получит кусок не той длины, что дало
-          // выравнивание. Ускорять звук под потолок модели мы на этом маршруте
-          // не имеем права — под таймлайном лежит трек, и он эталон.
+        // Молчать про подгонку нельзя: модель получит кусок не той длины, что дало
+        // выравнивание. Новости при этом РАЗНЫЕ, и текст у них разный.
+        if (cut.clampedToModel === "max") {
+          // Ускорять звук под потолок модели мы на этом маршруте не имеем права —
+          // под таймлайном лежит трек, и он эталон.
           await appendStepLog(
             step.id,
-            `${sceneTag}: WARN интервал сцены зажат в диапазон модели ${minDurationSec}-${maxDurationSec}с — `
-            + `беру ${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с (${cut.durationSec.toFixed(2)}с); `
-            + `кадр сцены выйдет короче реплики, звук остаётся эталоном`,
+            `${sceneTag}: WARN интервал сцены длиннее потолка модели ${maxDurationSec}с — `
+            + `беру ${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с (${cut.durationSec.toFixed(2)}с), `
+            + `хвост реплики в кадр не попадёт; звук остаётся эталоном`,
+          )
+        } else if (cut.clampedToModel === "min") {
+          await appendStepLog(
+            step.id,
+            `${sceneTag}: интервал сцены ${(cut.endSec - cut.startSec).toFixed(2)}с короче минимума модели ${minDurationSec}с — `
+            + `добиваю тишиной на ${cut.silencePadSec.toFixed(2)}с до ${cut.durationSec.toFixed(2)}с `
+            + `(сдвигать границы в соседнюю сцену нельзя: губы произносили бы чужие слова)`,
           )
         }
         if (await fileExists(audioPath)) {
@@ -987,6 +1026,19 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // источника, чтобы не платить за синтез сцены, которую всё равно
       // пропустим.
       if (!(await ensureSceneAudio())) continue
+
+      // Кусок трека длиннее картинки, в которую его вкладывают: lip-sync отдаст
+      // ролик длиной ИСХОДНИКА и хвост речи срежет. Ускорить кусок мы не имеем
+      // права (см. ниже), но и молчать нельзя — на прежнем маршруте об этом
+      // говорила ветка ускорения, и без этой строки сигнал пропал бы совсем.
+      if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec) {
+        await appendStepLog(
+          step.id,
+          `${sceneTag}: WARN кусок трека ${segmentPlan.cut.durationSec.toFixed(2)}с длиннее исходника `
+          + `${providerDurationSec.toFixed(2)}с — модель срежет речь по длине картинки; `
+          + `исходник под звук нарезает план 2`,
+        )
+      }
 
       /**
        * Речь длиннее исходника: lip-sync отдаёт ролик длиной ИСХОДНИКА, и всё,

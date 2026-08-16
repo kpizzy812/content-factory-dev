@@ -39,6 +39,15 @@ export type LipSyncSkipReason =
   /** Синтез реплики упал у провайдера. */
   | "tts_failed"
   /**
+   * Маршрут «монтаж от звука»: в выравнивании нет границ этой сцены в общем
+   * треке — вырезать нечего. Свойство данных, а не среды: пока выравнивание то
+   * же, ответ будет тот же, а появится сцена — сменится ключ (в него входит
+   * отпечаток куска), и отказ перестанет её закрывать.
+   */
+  | "track_segment_missing"
+  /** Границы сцены в треке есть, но интервал нулевой: вырезать нечего. */
+  | "track_segment_empty"
+  /**
    * Не удалось вырезать кусок общего трека под сцену (маршрут «монтаж от звука»).
    * Причина среды — упавший ffmpeg, занятый файл: сцена обязана получить вторую
    * попытку, а не остаться без lip-sync навсегда.
@@ -76,6 +85,10 @@ export type LipSyncSkipReason =
  *                           один spawn EAGAIN или заблокированный антивирусом mp4
  *                           иначе навсегда лишал сцену lip-sync, причём молча.
  *   tts_failed              СРЕДА: провайдер синтеза.
+ *   track_segment_missing   материал: выравнивание не знает границ этой сцены. Ключ
+ *                           сцены на этом маршруте включает отпечаток куска, поэтому
+ *                           появившееся выравнивание снимает отказ само.
+ *   track_segment_empty     материал: интервал сцены в треке нулевой.
  *   track_segment_failed    СРЕДА: ffmpeg не вырезал кусок трека (файл занят, процесс
  *                           не запустился). Сам трек при этом на месте.
  *   lip_sync_failed         СРЕДА: провайдер lip-sync.
@@ -85,6 +98,8 @@ const DETERMINISTIC_SKIP_REASONS: ReadonlySet<LipSyncSkipReason> = new Set<LipSy
   "clip_index_out_of_range",
   "source_missing",
   "duration_out_of_range",
+  "track_segment_missing",
+  "track_segment_empty",
 ])
 
 /**
@@ -99,6 +114,8 @@ const KNOWN_SKIP_REASONS: ReadonlySet<string> = new Set<LipSyncSkipReason>([
   "source_unmeasurable",
   "duration_out_of_range",
   "tts_failed",
+  "track_segment_missing",
+  "track_segment_empty",
   "track_segment_failed",
   "lip_sync_failed",
 ])
