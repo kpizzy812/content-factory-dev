@@ -55,3 +55,37 @@ describe("planPresenterSourceStrategy", () => {
     })).toBe("none")
   })
 })
+
+describe("planPresenterSourceStrategy: принудительный аватарный маршрут", () => {
+  /**
+   * Библиотека Лианы — съёмка в полный рост: лицо занимает восьмую часть кадра,
+   * рот около 50 пикселей из 1080. Липсинку такого входа мало по построению, и
+   * сравнивать маршруты надо на одном и том же сценарии. Переключатель нужен
+   * ровно для этого: живая съёмка остаётся выбором по умолчанию.
+   */
+  it("с preferAvatar портрет побеждает живую съёмку", () => {
+    expect(planPresenterSourceStrategy({
+      hasLibraryClip: true,
+      hasPortrait: true,
+      hasGeneratedClip: true,
+      preferAvatar: true,
+    })).toBe("avatar")
+  })
+
+  it("портрета нет — переключатель ничего не меняет", () => {
+    expect(planPresenterSourceStrategy({
+      hasLibraryClip: true,
+      hasPortrait: false,
+      hasGeneratedClip: true,
+      preferAvatar: true,
+    })).toBe("library")
+  })
+
+  it("без переключателя порядок прежний", () => {
+    expect(planPresenterSourceStrategy({
+      hasLibraryClip: true,
+      hasPortrait: true,
+      hasGeneratedClip: true,
+    })).toBe("library")
+  })
+})

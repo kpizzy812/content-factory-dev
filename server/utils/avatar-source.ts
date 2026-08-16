@@ -87,11 +87,33 @@ export function planPresenterSourceStrategy(input: {
   hasLibraryClip: boolean
   hasPortrait: boolean
   hasGeneratedClip: boolean
+  /**
+   * Снимать сцену аватаром, даже когда живой фрагмент есть.
+   *
+   * Живая съёмка выигрывает не всегда: библиотека может быть снята общим планом,
+   * и тогда липсинку достаётся рот в полсотни пикселей — перерисовывать нечего
+   * ни одной модели. Аватар в такой ситуации задаёт кадрирование сам, портретом.
+   * Выбор по умолчанию не меняется: без явного «да» живой человек впереди.
+   */
+  preferAvatar?: boolean
 }): PresenterSourceStrategy {
+  if (input.preferAvatar && input.hasPortrait) return "avatar"
   if (input.hasLibraryClip) return "library"
   if (input.hasPortrait) return "avatar"
   if (input.hasGeneratedClip) return "generated"
   return "none"
+}
+
+/**
+ * Просит ли окружение снимать сцены ведущей аватаром, а не живой съёмкой.
+ *
+ * Нужен, чтобы сравнить маршруты на ОДНОМ сценарии: по умолчанию живой
+ * фрагмент выигрывает всегда, и аватарная ветка не запускается, пока
+ * библиотека не пуста. Значение читается из окружения, а не из настроек
+ * ролика: это переключатель стенда, а не продуктовая опция.
+ */
+export function presenterRoutePrefersAvatar(env: NodeJS.ProcessEnv): boolean {
+  return (env.PRESENTER_ROUTE ?? "").trim().toLowerCase() === "avatar"
 }
 
 /**

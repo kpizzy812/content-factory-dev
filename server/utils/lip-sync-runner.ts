@@ -44,6 +44,7 @@ import {
   findSimilarAvatarClip,
   generateAvatarSourceClip,
   planPresenterSourceStrategy,
+  presenterRoutePrefersAvatar,
   type AvatarClipFrameRecord,
 } from "./avatar-source"
 import { logStepCost } from "./balance/cost-ledger"
@@ -594,7 +595,24 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           )
         }
 
-        const sourceClip = await reservePresenterSourceClip({
+        // Переключатель маршрута стенда: сравнить липсинк по живой съёмке с
+        // аватаром можно только на одном сценарии, а по умолчанию живой
+        // фрагмент выигрывает всегда и аватарная ветка не запускается вовсе.
+        if (presenterRoutePrefersAvatar(process.env)) {
+          const hasPortrait = await characterHasAvatarPortrait(videoConfig.lipSyncCharacterId)
+            .catch(() => false)
+          useAvatarRoute = planPresenterSourceStrategy({
+            hasLibraryClip: true,
+            hasPortrait,
+            hasGeneratedClip: !!resolvedSource.path,
+            preferAvatar: true,
+          }) === "avatar"
+          await appendStepLog(step.id, useAvatarRoute
+            ? `${sceneTag}: PRESENTER_ROUTE=avatar — сцену снимает AI-аватар из портрета персонажа`
+            : `${sceneTag}: PRESENTER_ROUTE=avatar, но портрета у персонажа нет — иду прежним маршрутом`)
+        }
+
+        const sourceClip = useAvatarRoute ? null : await reservePresenterSourceClip({
           characterId: videoConfig.lipSyncCharacterId,
           durationSec: presenterTargetSec,
           minDurationSec,
@@ -613,7 +631,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           presenterSourcePath = localSourcePath
           sourceCleanup.push(localSourcePath)
           await appendStepLog(step.id, `${sceneTag}: presenter source ${sourceClip.id} (${sourceClip.durationSec}s)`)
-        } else {
+        } else if (!useAvatarRoute) {
           // Библиотека не дала фрагмента. Порядок дальнейшего выбора — в
           // planPresenterSourceStrategy: портрет есть — сцену снимет аватар,
           // портрета нет — остаётся прежний путь, сгенерированный клип.
