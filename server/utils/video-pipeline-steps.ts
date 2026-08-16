@@ -1917,6 +1917,27 @@ function readAudioFirstSnapshot(snapshot: unknown): AudioFirstVoiceoverSnapshot 
   }
 }
 
+/**
+ * Начинали ли ролик собирать ОТ ЗВУКА.
+ *
+ * Признак — снапшот шага озвучки в формате audio-first: единый трек уже
+ * синтезирован, оплачен и залит, а куски под lip-sync и аватарные кадры
+ * нарезаны по НЕМУ. Досбирать такой ролик прежним маршрутом нельзя: посценный
+ * синтез оплатит речь второй раз и положит под уже снятые губы другой звук
+ * (у TTS нет seed). Поэтому оркестратор по этому признаку не деградирует на
+ * старый маршрут, а честно падает.
+ *
+ * Снапшот-отказ (`{ route: "audio_first", reason }`) сюда не считается: там
+ * ничего не синтезировано и терять нечего.
+ */
+export async function hasAudioFirstTrack(videoId: number): Promise<boolean> {
+  const step = await prisma.videoGenerationStep.findFirst({
+    where: { videoId, stepKey: "voiceover_generation" as never },
+    select: { outputSnapshot: true },
+  })
+  return readAudioFirstSnapshot(step?.outputSnapshot) !== null
+}
+
 async function fileIsReadable(path: string): Promise<boolean> {
   try {
     const { access: fsAccess } = await import("node:fs/promises")
@@ -2135,6 +2156,9 @@ export async function runAudioFirstVoiceover(
     await updateStep(step.id, {
       status: "completed",
       finishedAt: new Date(),
+      // Ошибка прошлой попытки (например, синтез упал на таймауте) не должна
+      // оставаться на успешном шаге: перезапуск бывает и без сброса полей.
+      errorMessage: null,
       outputSnapshot: snapshot as unknown as Record<string, unknown>,
       actualCost: accumulateStepCost(costBefore, track.costUsd),
     })
@@ -2348,6 +2372,10 @@ export async function runVideoTranscription(
   await updateStep(step.id, {
     status: "completed",
     finishedAt: new Date(),
+    // Чистим явно: шаг мог падать на прошлой попытке, и текст той ошибки на
+    // успешном шаге читается в UI как сбой. Полагаться на то, что кто-то
+    // сбросил поле раньше, нельзя — перезапуск бывает и без сброса.
+    errorMessage: null,
     outputSnapshot: {
       trackFingerprint: input.track.fingerprint,
       status: result.status,

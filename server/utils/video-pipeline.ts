@@ -43,6 +43,7 @@ import {
   runVideoTranscription,
   runMusicGeneration,
   runAssembly,
+  hasAudioFirstTrack,
   loadEnrichmentContext,
   type VoiceoverStepResult,
 } from "./video-pipeline-steps"
@@ -105,12 +106,28 @@ export function planPipelineRun(editPipeline: boolean): readonly StepKey[] {
  * Маршрут, по которому ролик пойдёт НА САМОМ ДЕЛЕ.
  *
  * Флага на ролике мало: audio-first держится на транскрипции, и без модели для
- * неё маршрут неисполним — ролик собирается прежним, посценным способом. Решение
- * принимается ДО первой оплаты (см. runVideoPipeline) и по этому же правилу
- * считается каскад перезапуска шага: сбрасывать шаги чужого порядка нельзя.
+ * неё маршрут неисполним. Решение принимается ДО первой оплаты (см.
+ * runVideoPipeline) и по этому же правилу считается каскад перезапуска шага:
+ * сбрасывать шаги чужого порядка нельзя.
+ *
+ * Деградация на прежний маршрут допустима ТОЛЬКО пока ролик не начали собирать
+ * от звука. Начатый ролик менять маршрут не имеет права: единый трек уже
+ * оплачен, клипы и аватарные кадры синхронизированы под него, а прежний шаг
+ * озвучки его кэш не узнает (он ищет `mixedPath`) — синтез оплатится второй раз
+ * и ляжет под готовые губы ДРУГИМ звуком, причём ролик получит статус «готов».
+ * Поэтому здесь честное падение, а не тихий переход.
  */
-function usesAudioFirstRoute(editPipeline: boolean): boolean {
-  return editPipeline && isTranscriptionRouteAvailable()
+async function resolveVideoRoute(videoId: number, editPipeline: boolean): Promise<boolean> {
+  if (!editPipeline) return false
+  if (isTranscriptionRouteAvailable()) return true
+
+  if (await hasAudioFirstTrack(videoId)) {
+    throw new Error(
+      `Видео ${videoId} собрано от звука (единый трек уже синтезирован), но модель транскрипции отключена: `
+      + `включите MEDIA_MODEL_TRANSCRIPTION или пересоберите ролик с нуля`,
+    )
+  }
+  return false
 }
 
 /**
@@ -649,10 +666,12 @@ export async function runVideoPipeline(
      * lip-sync пропускает каждую сцену ведущего, своих клипов у них нет, и
      * «собранный» ролик оказывается склейкой перебивок под непрерывную речь.
      * Поэтому ролик, которому транскрипция недоступна в принципе (модель не
-     * настроена), уходит прежним маршрутом ЦЕЛИКОМ — ни трек, ни куски, ни
-     * аватарные кадры не оплачены впустую.
+     * настроена) и который от звука ещё не собирали, уходит прежним маршрутом
+     * ЦЕЛИКОМ — ни трек, ни куски, ни аватарные кадры не оплачены впустую.
+     * Ролик, у которого трек уже есть, вместо этого честно падает (см.
+     * resolveVideoRoute).
      */
-    const audioFirstRoute = usesAudioFirstRoute(video.editPipeline)
+    const audioFirstRoute = await resolveVideoRoute(videoId, video.editPipeline)
     if (video.editPipeline && !audioFirstRoute) {
       await logAgent('video-pipeline', 'warn',
         `Video ${videoId}: EDIT_PIPELINE включён, но модель транскрипции не настроена `
@@ -1209,7 +1228,10 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
     where: { id: videoId },
     select: { editPipeline: true },
   })
-  const stepsToReset = stepsToRerunFrom(stepKey, usesAudioFirstRoute(routed?.editPipeline ?? false))
+  // Ролик, начатый от звука, при отключённой транскрипции сюда не пройдёт:
+  // каскад старого порядка снёс бы оплаченный единый трек (ассет voiceover_mix),
+  // оставив шаг транскрипции completed с отпечатком уже несуществующего файла.
+  const stepsToReset = stepsToRerunFrom(stepKey, await resolveVideoRoute(videoId, routed?.editPipeline ?? false))
   if (stepsToReset.length === 0) throw new Error(`Неизвестный шаг: ${stepKey}`)
 
   const assetTypes = assetTypesForSteps(stepsToReset)

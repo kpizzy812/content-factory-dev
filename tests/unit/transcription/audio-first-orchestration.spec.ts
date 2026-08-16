@@ -31,6 +31,8 @@ const calls = vi.hoisted(() => ({
 
 /** Настроена ли модель транскрипции. Гейт маршрута читает это ДО оплаты. */
 const transcriptionRoute = vi.hoisted(() => ({ available: true }))
+/** Начинали ли ролик собирать от звука: такому маршрут менять нельзя. */
+const startedAudioFirst = vi.hoisted(() => ({ value: false }))
 /** Чем отвечает шаг транскрипции: сценами или отказом. */
 const transcriptionFails = vi.hoisted(() => ({ value: false }))
 
@@ -77,6 +79,7 @@ vi.mock("../../../server/utils/video-pipeline-steps", async (importOriginal) => 
       calls.order.push("voiceover_generation")
       return track.value
     }),
+    hasAudioFirstTrack: vi.fn(async () => startedAudioFirst.value),
     runVideoTranscription: vi.fn(async () => {
       calls.order.push("transcription")
       // Шаг обязан ПАДАТЬ, когда границ нет: ролик без сцен ведущего не должен
@@ -312,6 +315,7 @@ beforeEach(() => {
   routeHolder.editPipeline = true
   transcriptionRoute.available = true
   transcriptionFails.value = false
+  startedAudioFirst.value = false
   track.value = { ...TRACK }
 })
 
@@ -407,6 +411,22 @@ describe("оркестратор на маршруте audio-first", () => {
     expect(calls.voiceoverConfigs[0]).toMatchObject({ editPipeline: false })
   })
 
+  it("НАЧАТЫЙ от звука ролик не деградирует на старый маршрут, а честно падает", async () => {
+    // Между прогонами сняли MEDIA_MODEL_TRANSCRIPTION (деплой, откат настройки),
+    // а единый трек уже синтезирован и под него нарезаны губы. Прежний шаг
+    // озвучки его кэш не узнает (ищет mixedPath) — оплатил бы синтез второй раз
+    // и положил под готовые кадры ДРУГОЙ звук, выдав ролик как готовый.
+    transcriptionRoute.available = false
+    startedAudioFirst.value = true
+    const steps = await import("../../../server/utils/video-pipeline-steps")
+    const runVideoPipeline = await loadPipeline()
+
+    await expect(runVideoPipeline(44)).rejects.toThrow(/MEDIA_MODEL_TRANSCRIPTION/)
+
+    expect(steps.runVoiceoverGeneration).not.toHaveBeenCalled()
+    expect(calls.assembly).toHaveLength(0)
+  })
+
   it("отказ транскрипции ПОСЛЕ оплаты роняет прогон — ролик не помечается готовым", async () => {
     transcriptionFails.value = true
     const runVideoPipeline = await loadPipeline()
@@ -438,6 +458,9 @@ describe("оркестратор на маршруте audio-first", () => {
       "assembly",
     ])
     expect(calls.lipSync[0]!.audioFirst).toBeNull()
+    // Маршрут ролика состоялся (модель транскрипции есть) — прежний шаг озвучки
+    // обязан узнать об этом: по флагу он выключает подгон реплик под клипы.
+    expect(calls.voiceoverConfigs[0]).toMatchObject({ editPipeline: true })
   })
 })
 
@@ -514,11 +537,15 @@ describe("перезапуск шага считает каскад маршру
    * (`snapshotInvalidationPatch`). Иначе фоновый прогон, который `rerunVideoStep`
    * запускает следом, подсунул бы свой updateMany.
    */
-  function resetSteps(): string[] {
-    const patch = calls.stepUpdateMany.find(call => {
+  function rerunResetPatch(): Record<string, unknown> | undefined {
+    return calls.stepUpdateMany.find(call => {
       const data = call.data as Record<string, unknown> | undefined
       return data !== undefined && "actualCost" in data && data.actualCost === null
     })
+  }
+
+  function resetSteps(): string[] {
+    const patch = rerunResetPatch()
     if (!patch) throw new Error("перезапуск не сбросил ни одного шага")
     return (patch.where as { stepKey: { in: string[] } }).stepKey.in
   }
@@ -545,7 +572,7 @@ describe("перезапуск шага считает каскад маршру
     expect(resetSteps()).toEqual(["voiceover_generation", "music_generation", "assembly"])
   })
 
-  it("ролик с флагом, но без модели транскрипции сбрасывается по старому порядку", async () => {
+  it("ролик с флагом, но без модели и БЕЗ трека сбрасывается по старому порядку", async () => {
     routeHolder.editPipeline = true
     transcriptionRoute.available = false
     installGlobals()
@@ -556,5 +583,19 @@ describe("перезапуск шага считает каскад маршру
     // Прогон всё равно пойдёт прежним маршрутом — сбрасывать шаги чужого
     // порядка (и заново оплачивать клипы) не за что.
     expect(resetSteps()).toEqual(["voiceover_generation", "music_generation", "assembly"])
+  })
+
+  it("начатый от звука ролик без модели транскрипции не перезапускается вовсе", async () => {
+    routeHolder.editPipeline = true
+    transcriptionRoute.available = false
+    startedAudioFirst.value = true
+    installGlobals()
+    const { rerunVideoStep } = await import("../../../server/utils/video-pipeline")
+
+    // Каскад старого порядка снёс бы оплаченный трек (ассет voiceover_mix),
+    // оставив шаг транскрипции completed с отпечатком несуществующего файла.
+    await expect(rerunVideoStep(44, "voiceover_generation")).rejects.toThrow(/MEDIA_MODEL_TRANSCRIPTION/)
+    // Ни один шаг не сброшен: отказ случился до сноса ассетов и статусов.
+    expect(rerunResetPatch()).toBeUndefined()
   })
 })

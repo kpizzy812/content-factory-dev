@@ -24,8 +24,12 @@ const h = vi.hoisted(() => ({
   uploads: [] as string[],
   downloads: [] as string[],
   logs: [] as string[],
+  /** Строки расхода: по ним видно, попали ли деньги упавшей попытки в отчёт. */
+  ledger: [] as Array<{ stepKey: string, costUsd: number }>,
   /** Файл, который «скачивается» из хранилища, и его содержимое. */
   downloadWrites: null as null | (() => Promise<void>),
+  /** Что лежит в снапшоте шага озвучки этого ролика. */
+  voiceoverSnapshot: null as unknown,
   // Ответ провайдера по умолчанию совпадает со сценарием сцены (см. SCENES):
   // выравнивание сходится, и тест кэша проверяет кэш, а не отказ.
   transcriptionTask: vi.fn(async () => ({
@@ -82,7 +86,11 @@ vi.mock("../../../server/utils/storage", () => ({
   }),
 }))
 
-vi.mock("../../../server/utils/balance/cost-ledger", () => ({ logStepCost: async () => {} }))
+vi.mock("../../../server/utils/balance/cost-ledger", () => ({
+  logStepCost: async (_stepId: number, stepKey: string, _service: unknown, costUsd: number) => {
+    h.ledger.push({ stepKey, costUsd })
+  },
+}))
 vi.mock("../../../server/utils/transcription/media-task", () => ({
   requestTranscription: h.transcriptionTask,
 }))
@@ -97,6 +105,8 @@ function installGlobals() {
   g.prisma = {
     videoAsset: { findFirst: async () => null, create: async () => ({}), update: async () => ({}) },
     character: { findUnique: async () => ({ name: "Ведущая" }) },
+    // Снапшот шага озвучки — по нему видно, начинали ли ролик собирать от звука.
+    videoGenerationStep: { findFirst: async () => ({ outputSnapshot: h.voiceoverSnapshot }) },
   }
 }
 
@@ -131,8 +141,38 @@ beforeEach(async () => {
   h.uploads.length = 0
   h.downloads.length = 0
   h.logs.length = 0
+  h.ledger.length = 0
   h.downloadWrites = null
+  h.voiceoverSnapshot = null
   h.transcriptionTask.mockClear()
+})
+
+describe("признак «ролик уже начали собирать от звука»", () => {
+  it("готовый трек в снапшоте — да, маршрут менять нельзя", async () => {
+    h.voiceoverSnapshot = {
+      route: "audio_first",
+      trackPath: "/tmp/voiceover_track.mp3",
+      trackFingerprint: "sha-трека",
+      scenes: [],
+    }
+    const { hasAudioFirstTrack } = await loadSteps()
+
+    expect(await hasAudioFirstTrack(44)).toBe(true)
+  })
+
+  it("снапшот-отказ (трек не синтезировался) — нет, терять нечего", async () => {
+    h.voiceoverSnapshot = { route: "audio_first", reason: "empty_script" }
+    const { hasAudioFirstTrack } = await loadSteps()
+
+    expect(await hasAudioFirstTrack(44)).toBe(false)
+  })
+
+  it("снапшот прежнего маршрута — нет", async () => {
+    h.voiceoverSnapshot = { mixedPath: "/tmp/voiceover_mix.mp3", sceneResults: [] }
+    const { hasAudioFirstTrack } = await loadSteps()
+
+    expect(await hasAudioFirstTrack(44)).toBe(false)
+  })
 })
 
 describe("шаг единого трека", () => {
@@ -259,6 +299,39 @@ describe("шаг транскрипции", () => {
     expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
   })
 
+  it("провайдер ответил и списал деньги, а ответ не разобрался — шаг падает, но расход записан", async () => {
+    // Ровно та причина, по которой учёт денег стоит ДО броска: платёж уже
+    // состоялся, и падение шага не повод потерять его в отчёте и в burn-rate.
+    h.transcriptionTask.mockImplementationOnce(async () => ({ costUsd: 0.02, raw: { words: [] } }))
+    const { runVideoTranscription } = await loadSteps()
+
+    await expect(runVideoTranscription({
+      videoId: 44,
+      track: TRACK,
+      scenes: SCENES,
+      language: "ru",
+    })).rejects.toThrow(/границ/i)
+
+    expect(h.ledger).toEqual([{ stepKey: "transcription", costUsd: 0.02 }])
+    // actualCost накоплен ДО отказа, иначе упавшая попытка обнулила бы траты.
+    expect(h.updates.some(update => update.actualCost === 0.02)).toBe(true)
+    expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
+  })
+
+  it("отказ провайдера без ответа денег не пишет — списывать нечего", async () => {
+    h.transcriptionTask.mockImplementationOnce(async () => { throw new Error("provider is down") })
+    const { runVideoTranscription } = await loadSteps()
+
+    await expect(runVideoTranscription({
+      videoId: 44,
+      track: TRACK,
+      scenes: SCENES,
+      language: "ru",
+    })).rejects.toThrow()
+
+    expect(h.ledger).toEqual([])
+  })
+
   it("частичное выравнивание — успех с предупреждением в логе, а не шаг с ошибкой", async () => {
     // Слова провайдера совпадают со сценарием лишь отчасти: границы есть,
     // монтаж возможен. errorMessage у такого шага читался бы в UI как сбой.
@@ -282,8 +355,9 @@ describe("шаг транскрипции", () => {
     expect(result.status).toBe("degraded")
     expect(result.scenes.length).toBeGreaterThan(0)
     const final = h.updates.at(-1)!
-    expect(final).toMatchObject({ status: "completed" })
-    expect(final.errorMessage).toBeUndefined()
+    // Не просто «не записали ошибку», а СНЯЛИ её: шаг мог падать на прошлой
+    // попытке, и текст той ошибки на успешном шаге читается в UI как сбой.
+    expect(final).toMatchObject({ status: "completed", errorMessage: null })
     expect(h.logs.some(message => /предупреждение/i.test(message))).toBe(true)
   })
 
