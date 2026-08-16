@@ -102,6 +102,42 @@ describe("fitClipsToTrack — подгон с инъецированными з�
     expect(result.clips).toEqual(["c0_fit.mp4", "c1_fit.mp4", "c2.mp4"])
   })
 
+  // Фикс-раунд 2 (ревью Task 10): телескопия проверена на уровне ФОРМУЛЫ
+  // (planAlignedClipTargets.spec), но не на уровне ПРИМЕНЁННОГО результата —
+  // здесь ловим фактические аргументы trim/holdLastFrame и суммируем то, что
+  // реально станет длиной каждого клипа после подгона.
+  it("сумма ПРИМЕНЁННЫХ длин (не только заказанных) точно равна длине трека", async () => {
+    const probeMap: Record<string, number> = { "c0.mp4": 5.5, "c1.mp4": 2.0, "c2.mp4": 6.0 }
+    const appliedDurationSec: Record<string, number> = {}
+    const deps = {
+      probeDuration: vi.fn(async (p: string) => probeMap[p] ?? null),
+      trim: vi.fn(async (input: string, _output: string, target: number) => {
+        appliedDurationSec[input] = target
+      }),
+      holdLastFrame: vi.fn(async (input: string, _output: string, extraSec: number) => {
+        appliedDurationSec[input] = (probeMap[input] ?? 0) + extraSec
+      }),
+    }
+
+    const result = await fitClipsToTrack(
+      ["c0.mp4", "c1.mp4", "c2.mp4"],
+      {
+        alignedScenes: [scene(1, 0), scene(2, 4), scene(3, 8)],
+        positionByOrder: new Map([[1, 0], [2, 1], [3, 2]]),
+        trackDurationSec: 12,
+      },
+      deps,
+    )
+
+    expect(result.summary.applied).toBe(true)
+    // Все три клипа далеко за допуском (0.05с) — ни один не остался "как есть",
+    // поэтому сумма ПРИМЕНЁННЫХ длин обязана сойтись с треком без остатка от
+    // допуска, который дал бы неполное совпадение в предыдущем тесте.
+    expect(result.summary.trimmedCount + result.summary.heldCount).toBe(3)
+    const total = Object.values(appliedDurationSec).reduce((a, b) => a + b, 0)
+    expect(total).toBeCloseTo(12, 6)
+  })
+
   it("путь без .mp4 получает суффикс, а не совпадает со входом", async () => {
     const deps = makeDeps({ c0: 4.5 })
 
@@ -174,5 +210,30 @@ describe("fitClipsToTrack — подгон с инъецированными з�
 
     expect(result.summary.applied).toBe(false)
     expect(result.summary.reason).toMatch(/не сопоставилась/)
+  })
+
+  // Фикс-раунд 2 (ревью Task 10, Important): деградированное выравнивание может
+  // схлопнуть соседнюю пару сцен в одну точку трека — раньше эти клипы молча
+  // уходили БЕЗ подгона (target=0 → expectedSec<=0 → пропуск) с applied:true и
+  // бодрым логом, хотя фактически шли своей исходной длиной сверх трека.
+  it("схлопнутый бакет отключает подгон целиком: файлы не тронуты, applied:false", async () => {
+    const deps = makeDeps({ "a.mp4": 3, "b.mp4": 2, "c.mp4": 4 })
+
+    const result = await fitClipsToTrack(
+      ["a.mp4", "b.mp4", "c.mp4"],
+      {
+        // order2 и order3 звучат в ОДНУ и ту же точку трека (3.0с).
+        alignedScenes: [scene(1, 1.0), scene(2, 3.0), scene(3, 3.0)],
+        positionByOrder: new Map([[1, 0], [2, 1], [3, 2]]),
+        trackDurationSec: 8.0,
+      },
+      deps,
+    )
+
+    expect(result.summary.applied).toBe(false)
+    expect(result.summary.reason).toMatch(/нулев|схлопн/)
+    expect(deps.trim).not.toHaveBeenCalled()
+    expect(deps.holdLastFrame).not.toHaveBeenCalled()
+    expect(result.clips).toEqual(["a.mp4", "b.mp4", "c.mp4"])
   })
 })

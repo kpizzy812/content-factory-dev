@@ -211,6 +211,26 @@ describe("заказанная длина клипов по выравниван
     expect(plan.targets.reduce((a, b) => a! + b!, 0)).toBeCloseTo(12.4, 6)
   })
 
+  // Фикс-раунд 2 (ревью Task 10, Important): деградированное выравнивание может
+  // схлопнуть соседнюю пару сцен в одну точку времени (span=0 при интерполяции
+  // в align.ts) — раньше бакет между ними молча получал target=0, клип уходил
+  // в fitClipsToTrack БЕЗ подгона (expectedSec<=0), а summary.applied оставался
+  // true — лог рапортовал успех при фактически разъехавшемся ролике.
+  it("схлопнутый бакет (две сцены с одинаковым startSec) отключает подгон целиком, а не отдаёт target=0", () => {
+    const plan = planAlignedClipTargets({
+      // order2 и order3 звучат в ОДНУ и ту же точку трека (3.0с) — деградация.
+      alignedScenes: [scene(1, 1.0, 2.0), scene(2, 3.0, 3.0), scene(3, 3.0, 3.0)],
+      trackDurationSec: 8.0,
+      positionByOrder: new Map([[1, 0], [2, 1], [3, 2]]),
+      actualDurationsSec: [3, 2, 4],
+      clipCount: 3,
+    })
+
+    expect(plan.ok).toBe(false)
+    expect(plan.reason).toMatch(/нулев|схлопн/)
+    expect(plan.targets).toEqual([null, null, null])
+  })
+
   it("нарушение порядка (сцена раньше по треку, но позже по клипам) отключает подгон целиком", () => {
     const plan = planAlignedClipTargets({
       alignedScenes: [scene(1, 5.0, 8.0), scene(2, 1.0, 4.0)], // сцена 2 звучит РАНЬШЕ сцены 1

@@ -147,6 +147,16 @@ export interface AlignedClipTargetsPlan {
  * либо модель переставила сцены при нарезке клипов сильнее, чем при синтезе
  * трека, либо входные данные испорчены — считать бакеты по чужому порядку
  * значило бы подогнать клипы под ЧУЖИЕ границы.
+ *
+ * И тот же отказ (фикс-раунд 2 ревью Task 10) — если у непустого бакета
+ * `bucketTotal <= 0` (схлопнутый интервал). Деградированное выравнивание
+ * может дать двум соседним сценам ОДИНАКОВЫЙ `startSec` (интерполяция с
+ * нулевым span в `align.ts`), либо первый анкор начинается ровно в `0`, хотя
+ * перед ним в склейке стоит немой клип ведущего. Раньше такой бакет молча
+ * раздавал всем своим клипам `target: 0`, `fitClipsToTrack` пропускал их
+ * (`expectedSec <= 0`) БЕЗ ПРАВКИ, а `summary.applied` оставался `true` —
+ * лог рапортовал об успешном подгоне, хотя эти клипы шли своей исходной
+ * длиной СВЕРХ трека. Ровно тот класс дыры, что и чинил RULING 2.
  */
 export function planAlignedClipTargets(input: {
   alignedScenes: readonly AlignedScene[]
@@ -213,9 +223,27 @@ export function planAlignedClipTargets(input: {
     const timeEnd = boundaries[b + 1]!
     if (to <= from) continue // пустой бакет — соседние анкоры на смежных позициях, timeStart не продвигаем
 
-    const bucketTotal = Math.max(0, timeEnd - timeStart)
     const members: number[] = []
     for (let p = from; p < to; p += 1) members.push(p)
+
+    // Схлопнутый бакет (bucketTotal<=0) непустым по позиции быть не должен:
+    // деградированное выравнивание может дать двум соседним сценам один и тот
+    // же startSec (span=0 при интерполяции — align.ts) либо первый анкор со
+    // startSec=0 при немом клипе ведущего перед ним. Молчаливое target=0
+    // выбросило бы клип из подгона (`expectedSec<=0` в fitClipsToTrack) с его
+    // ИСХОДНОЙ длиной СВЕРХ трека — ровно тот класс дыры, что чинил RULING 2:
+    // applied:true и бодрый лог при фактически разъехавшемся ролике. Честный
+    // отказ целиком, а не по одному клипу.
+    const bucketTotal = timeEnd - timeStart
+    if (bucketTotal <= 0) {
+      return {
+        ok: false,
+        reason: `нулевой или отрицательный интервал трека между анкорами (${timeStart.toFixed(3)}с..`
+          + `${timeEnd.toFixed(3)}с, позиции ${from}..${to - 1}) — вероятно, деградированное выравнивание `
+          + `схлопнуло сцены в одну точку времени`,
+        targets: empty,
+      }
+    }
 
     const weights = members.map(p => input.actualDurationsSec[p])
     const badIndex = weights.findIndex(w => !(typeof w === "number" && Number.isFinite(w) && w > 0))
