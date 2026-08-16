@@ -1131,8 +1131,11 @@ export async function runVoiceoverGeneration(
      * вызывается (речь синтезирует `runAudioFirstVoiceover` до картинки), но
      * маршрут обязан доезжать сюда явно: следующая задача выключает по нему
      * подгон реплик под клипы — на маршруте от звука подгонять нужно наоборот.
+     *
+     * Необязательное: не переданный маршрут читается как прежний (посценный),
+     * и вызывающие, которые о нём не знают, работают как раньше.
      */
-    editPipeline: boolean
+    editPipeline?: boolean
   },
   videoPlan?: StoryDrivenVideoPlan | null,
   /**
@@ -2166,8 +2169,13 @@ export async function runAudioFirstVoiceover(
 // ─── Шаг 3b (audio-first): транскрипция готового трека ─────────
 
 export interface VideoTranscriptionResult {
-  status: "completed" | "degraded" | "skipped"
-  /** Сцены с фактическими границами. Пусто — монтаж идёт по плановым длительностям. */
+  /**
+   * `degraded` — границы есть, но сошлись меньше чем на половине слов: монтаж
+   * возможен, точность хуже. Статуса «пропущено» тут нет намеренно: шаг либо
+   * отдаёт границы, либо падает (см. шапку `runVideoTranscription`).
+   */
+  status: "completed" | "degraded"
+  /** Сцены с фактическими границами. Пустыми не бывают — иначе шаг бросает. */
   scenes: AlignedScene[]
   costUsd: number
   warning: string | null
@@ -2208,9 +2216,15 @@ async function persistTranscriptAsset(payload: {
 /**
  * Шаг транскрипции: границы слов НАШЕЙ ЖЕ озвучки.
  *
- * Отказ провайдера ролик не роняет (spec §10): шаг помечается пропущенным,
- * сцены возвращаются пустыми, и монтаж дальше идёт по плановым длительностям —
- * хуже, но собирается.
+ * Шаг ОБЯЗАТЕЛЕН для маршрута «монтаж от звука» и при отказе бросает. Это
+ * сознательная замена деградации, обещанной spec §10: собрать такой ролик «по
+ * плановым длительностям» нельзя — без границ lip-sync пропускает каждую сцену
+ * ведущего (`track_segment_missing`), своих клипов у этих сцен нет, и на выходе
+ * получается склейка перебивок под непрерывную речь со статусом «готово».
+ *
+ * Ролик, у которого транскрипция недоступна В ПРИНЦИПЕ (модель не настроена),
+ * до этого шага не доходит: маршрут выбирается ДО оплаты трека, см.
+ * `isTranscriptionRouteAvailable`.
  */
 export async function runVideoTranscription(
   input: {
@@ -2226,18 +2240,23 @@ export async function runVideoTranscription(
   const { videoId } = input
   const step = await ensureStep(videoId, "transcription", STEP_ORDER.indexOf("transcription"))
 
-  const skipStep = async (reason: string, message: string): Promise<VideoTranscriptionResult> => {
+  /** Отказ шага: снимок причины, запись в лог и исключение наверх. */
+  const failStep = async (reason: string, message: string): Promise<never> => {
     await updateStep(step.id, {
-      status: "skipped",
+      status: "failed",
       finishedAt: new Date(),
+      errorMessage: message.slice(0, 500),
       outputSnapshot: { trackFingerprint: input.track.fingerprint, reason, userMessage: message, scenes: [] },
     })
     await appendStepLog(step.id, message)
-    return { status: "skipped", scenes: [], costUsd: 0, warning: message }
+    throw new Error(message)
   }
 
   if (input.scenes.length === 0) {
-    return skipStep("empty_script", "Сцен с текстом нет — выравнивать нечего")
+    return failStep(
+      "empty_script",
+      "Транскрипция ролика: трек синтезирован, а сцен с текстом нет — выравнивать нечего",
+    )
   }
 
   // Кэш привязан к ОТПЕЧАТКУ ТРЕКА: перезаписанный трек звучит иначе при том же
@@ -2250,17 +2269,20 @@ export async function runVideoTranscription(
     }
   }
 
-  // Провайдер читает трек по ссылке. Нет ключа в хранилище или ссылка не
-  // выдалась — платить не за что, но и ролик из-за этого не роняем.
+  // Провайдер читает трек по ссылке. Нет ключа или ссылка не выдалась —
+  // платного вызова не делаем, но и ролик «готовым» не объявляем.
   if (!input.track.storageKey) {
-    return skipStep("track_not_in_storage", "Трек не залит в хранилище — транскрипция без ссылки невозможна, тайминги останутся плановыми")
+    return failStep(
+      "track_not_in_storage",
+      "Транскрипция ролика: трек не залит в хранилище — провайдеру нечего скачивать",
+    )
   }
   let audioUrl: string
   try {
     audioUrl = await getStorageDriver().getSignedDownloadUrl(input.track.storageKey)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return skipStep("signed_url_failed", `Ссылку на трек выдать не удалось (${message}) — тайминги останутся плановыми`)
+    return failStep("signed_url_failed", `Транскрипция ролика: ссылку на трек выдать не удалось (${message})`)
   }
 
   const attempt = stepAttemptForLedger(step.attemptCount + 1)
@@ -2293,26 +2315,12 @@ export async function runVideoTranscription(
     log: deps.log ?? appendStepLog,
   })
 
+  // Деньги записываем ДО ветвления на успех и отказ: если провайдер ответил, а
+  // разобрать ответ не вышло, платёж уже состоялся, и падение шага не повод
+  // потерять его в отчёте.
   const paid = result.costUsd > 0
-  const snapshot = {
-    trackFingerprint: input.track.fingerprint,
-    status: result.status,
-    scenes: result.scenes,
-    matchedRatio,
-    warning: result.warning,
-  }
-
-  await updateStep(step.id, {
-    // Пустой результат — это пропуск, а не успех: следующий заход обязан
-    // попробовать ещё раз (за уже оплаченную задачу Replicate второй раз не
-    // возьмёт — её отдаст уровень переиспользования MediaPrediction).
-    status: result.scenes.length > 0 ? "completed" : "skipped",
-    finishedAt: new Date(),
-    errorMessage: result.warning ? result.warning.slice(0, 500) : null,
-    outputSnapshot: snapshot as unknown as Record<string, unknown>,
-    ...(paid ? { actualCost: accumulateStepCost(costBefore, result.costUsd) } : {}),
-  })
   if (paid) {
+    await updateStep(step.id, { actualCost: accumulateStepCost(costBefore, result.costUsd) })
     await logStepCost(
       step.id,
       "transcription",
@@ -2324,7 +2332,43 @@ export async function runVideoTranscription(
     )
   }
 
-  return result
+  // Границ нет — шаг падает. Трек к этому моменту уже синтезирован и оплачен,
+  // а без выравнивания lip-sync не возьмёт звук НИ ОДНОЙ сцены ведущего: ролик
+  // собрался бы из одних перебивок под непрерывную речь и получил статус
+  // «готов». Честный отказ дешевле такого брака — оператор увидит ошибку и
+  // решит сам: чинить транскрипцию или выключить маршрут.
+  if (result.scenes.length === 0) {
+    return failStep(
+      "alignment_missing",
+      `Транскрипция не дала границ слов (${result.warning ?? "причина не указана"}) — `
+      + "на маршруте «монтаж от звука» без них не собрать ни одной сцены ведущего",
+    )
+  }
+
+  await updateStep(step.id, {
+    status: "completed",
+    finishedAt: new Date(),
+    outputSnapshot: {
+      trackFingerprint: input.track.fingerprint,
+      status: result.status,
+      scenes: result.scenes,
+      matchedRatio,
+      warning: result.warning,
+    } as unknown as Record<string, unknown>,
+  })
+  // Деградация выравнивания (границы приблизительные) — это предупреждение в
+  // лог шага, а НЕ errorMessage: успешный шаг с текстом ошибки читается в UI
+  // как сбой, и оператор идёт чинить работающий ролик.
+  if (result.warning) await appendStepLog(step.id, `Предупреждение: ${result.warning}`)
+
+  return {
+    // "skipped" раннера сюда не доходит: пустой результат отсечён отказом выше,
+    // и пересобираем ответ явно, а не приведением типа.
+    status: result.status === "degraded" ? "degraded" : "completed",
+    scenes: result.scenes,
+    costUsd: result.costUsd,
+    warning: result.warning,
+  }
 }
 
 // ─── Шаг 4: Генерация музыки ───────────────────────────────────

@@ -50,6 +50,7 @@ import { planSceneKinds } from "./broll-plan"
 
 import { runLipSyncStep, type LipSyncAudioFirstInput } from "./lip-sync-runner"
 import type { AlignedScene } from "./transcription/align"
+import { isTranscriptionRouteAvailable } from "./transcription/media-task"
 
 import { throwIfAborted, CancellationError } from "./pipeline-cancel-registry"
 
@@ -98,6 +99,18 @@ import {
  */
 export function planPipelineRun(editPipeline: boolean): readonly StepKey[] {
   return executionOrderFor(editPipeline)
+}
+
+/**
+ * Маршрут, по которому ролик пойдёт НА САМОМ ДЕЛЕ.
+ *
+ * Флага на ролике мало: audio-first держится на транскрипции, и без модели для
+ * неё маршрут неисполним — ролик собирается прежним, посценным способом. Решение
+ * принимается ДО первой оплаты (см. runVideoPipeline) и по этому же правилу
+ * считается каскад перезапуска шага: сбрасывать шаги чужого порядка нельзя.
+ */
+function usesAudioFirstRoute(editPipeline: boolean): boolean {
+  return editPipeline && isTranscriptionRouteAvailable()
 }
 
 /**
@@ -195,8 +208,10 @@ async function chargePartialStepOnFailure(
 async function invalidateClipDerivedStepCaches(
   videoId: number,
   lipSyncProducedNewClips: boolean,
+  /** Маршрут ролика: набор шагов после lip-sync у маршрутов разный. */
+  editPipeline: boolean,
 ): Promise<void> {
-  const steps = stepsInvalidatedByFreshClips(lipSyncProducedNewClips)
+  const steps = stepsInvalidatedByFreshClips(lipSyncProducedNewClips, editPipeline)
   if (steps.length === 0) return
 
   const reset = await prisma.videoGenerationStep.updateMany({
@@ -620,13 +635,33 @@ export async function runVideoPipeline(
     //
     // Порядок здесь не косметика: на этом маршруте звук — эталон времени, и
     // границы слов из транскрипции задают, какой длины снимать каждый кадр.
-    // Ролики без editPipeline через этот блок не проходят вовсе: у них порядок
-    // вызовов остаётся прежним (planPipelineRun(false)).
+    // Ролик, который идёт прежним маршрутом, через этот блок не проходит вовсе:
+    // у него порядок вызовов остаётся прежним (planPipelineRun(false)).
     let audioFirstTrack: Awaited<ReturnType<typeof runAudioFirstVoiceover>> | null = null
     let audioFirst: LipSyncAudioFirstInput | null = null
-    /** Сцены с фактическими границами. Пусто — монтаж идёт по плановым длительностям. */
+    /** Сцены с фактическими границами слов. На audio-first без них шаг падает. */
     let alignedScenes: readonly AlignedScene[] = []
-    if (video.editPipeline) {
+
+    /**
+     * Маршрут ролика решается ЗДЕСЬ и ДО первой оплаты.
+     *
+     * Транскрипция на audio-first не опция, а условие сборки: без границ слов
+     * lip-sync пропускает каждую сцену ведущего, своих клипов у них нет, и
+     * «собранный» ролик оказывается склейкой перебивок под непрерывную речь.
+     * Поэтому ролик, которому транскрипция недоступна в принципе (модель не
+     * настроена), уходит прежним маршрутом ЦЕЛИКОМ — ни трек, ни куски, ни
+     * аватарные кадры не оплачены впустую.
+     */
+    const audioFirstRoute = usesAudioFirstRoute(video.editPipeline)
+    if (video.editPipeline && !audioFirstRoute) {
+      await logAgent('video-pipeline', 'warn',
+        `Video ${videoId}: EDIT_PIPELINE включён, но модель транскрипции не настроена `
+        + `(MEDIA_MODEL_TRANSCRIPTION) — ролик идёт прежним маршрутом целиком, единый трек не синтезируется`,
+        { videoId },
+      ).catch(() => {})
+    }
+
+    if (audioFirstRoute) {
       // ── Cancel checkpoint: до платного синтеза трека ──
       throwIfAborted(signal)
       audioFirstTrack = await runAudioFirstVoiceover(
@@ -645,6 +680,8 @@ export async function runVideoPipeline(
       if (audioFirstTrack.status === 'completed' && audioFirstTrack.trackPath && audioFirstTrack.trackFingerprint) {
         // ── Cancel checkpoint: до транскрипции ──
         throwIfAborted(signal)
+        // Границ не будет — шаг бросит, и прогон честно упадёт: ролик без сцен
+        // ведущего не должен получить статус «готов».
         const transcription = await runVideoTranscription({
           videoId,
           track: {
@@ -670,17 +707,21 @@ export async function runVideoPipeline(
           fps: TIMELINE_FPS,
         }
 
-        if (alignedScenes.length === 0) {
+        if (transcription.status === 'degraded') {
           await logAgent('video-pipeline', 'warn',
-            `Video ${videoId}: транскрипция не дала границ (${transcription.warning ?? 'причина не указана'}) — `
-            + `сцены ведущего останутся без lip-sync, ролик собирается по плановым длительностям`,
+            `Video ${videoId}: выравнивание сошлось частично (${transcription.warning ?? 'без пояснения'}) — `
+            + `границы сцен приблизительные, монтаж по ним всё равно точнее плановых длительностей`,
             { videoId },
           ).catch(() => {})
         }
       } else {
+        // Речи в ролике нет вовсе (нет StoryPlan либо ни реплик в кадре, ни
+        // закадровых строк): единый трек собирать не из чего, выравнивать нечего
+        // и синхронизировать lip-sync тоже нечего. Прогон идёт дальше прежним
+        // шагом озвучки — на таком ролике он сам пропустится.
         await logAgent('video-pipeline', 'warn',
-          `Video ${videoId}: единого трека нет (${audioFirstTrack.reason ?? 'причина не указана'}) — `
-          + `прогон продолжается посценным маршрутом озвучки`,
+          `Video ${videoId}: единый трек не синтезирован (${audioFirstTrack.reason ?? 'причина не указана'}) — `
+          + `речи для него в сценарии нет, прогон продолжается прежним шагом озвучки`,
           { videoId },
         ).catch(() => {})
       }
@@ -856,9 +897,11 @@ export async function runVideoPipeline(
     // На audio-first сброса НЕТ и быть не может: там кэш озвучки — это единый
     // оплаченный трек, посчитанный не от клипов, а наоборот. Выбросив его, мы
     // синтезировали бы другой звук (у TTS нет seed) и обесценили бы каждый уже
-    // снятый аватарный кадр ролика (§4.4).
-    if (!video.editPipeline && video.voiceoverEnabled) {
-      await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips)
+    // снятый аватарный кадр ролика (§4.4). Смотрим на ФАКТИЧЕСКИЙ маршрут
+    // прогона: ролик с включённым флагом, но без модели транскрипции идёт
+    // прежним маршрутом, и кэш ему сбрасывать надо ровно как раньше.
+    if (!audioFirstRoute && video.voiceoverEnabled) {
+      await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips, audioFirstRoute)
     }
 
     // ── Cancel checkpoint #7: до voiceover ──
@@ -895,7 +938,9 @@ export async function runVideoPipeline(
           voiceoverPacing: (video.voiceoverPacing as 'slow' | 'moderate' | 'fast') || 'moderate',
           voiceoverReconciliation: (video.voiceoverReconciliation as 'extend_scene' | 'compress_audio' | 'trim_audio') || 'compress_audio',
           modelStrategy: video.modelStrategy || 'auto',
-          editPipeline: video.editPipeline,
+          // Фактический маршрут прогона, а не флаг ролика: если audio-first не
+          // состоялся, шаг обязан вести себя ровно как на прежнем маршруте.
+          editPipeline: audioFirstRoute,
         },
         videoPlan,
         clipSceneOrders,
@@ -1157,12 +1202,14 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
   //
   // Порядок берём МАРШРУТОМ РОЛИКА: на audio-first озвучка идёт до клипов, и
   // каскад по старому порядку сбросил бы совсем другие шаги — например, оставил
-  // бы транскрипт от выброшенного трека.
+  // бы транскрипт от выброшенного трека. Маршрут тот же, что выберет сам прогон
+  // (флаг ролика + исполнимость транскрипции): иначе каскад сбросил бы шаги
+  // порядка, по которому ролик всё равно не пойдёт.
   const routed = await prisma.video.findUnique({
     where: { id: videoId },
     select: { editPipeline: true },
   })
-  const stepsToReset = stepsToRerunFrom(stepKey, routed?.editPipeline ?? false)
+  const stepsToReset = stepsToRerunFrom(stepKey, usesAudioFirstRoute(routed?.editPipeline ?? false))
   if (stepsToReset.length === 0) throw new Error(`Неизвестный шаг: ${stepKey}`)
 
   const assetTypes = assetTypesForSteps(stepsToReset)

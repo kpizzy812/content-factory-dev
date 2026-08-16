@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { requestTranscription } from "~~/server/utils/transcription/media-task"
+import { isTranscriptionRouteAvailable, requestTranscription } from "~~/server/utils/transcription/media-task"
 import { StorageKeys } from "~~/server/utils/storage/keys"
 
 const h = vi.hoisted(() => ({
@@ -95,5 +95,25 @@ describe("requestTranscription: маршрут, потолок длительн�
     await expect(requestTranscription(INPUT)).rejects.toThrow(/длительность/)
 
     expect(h.runMediaTask).not.toHaveBeenCalled()
+  })
+
+  describe("гейт маршрута: исполнима ли транскрипция вообще", () => {
+    it("без настроенной модели — нет, и оркестратор уведёт ролик прежним маршрутом", () => {
+      expect(isTranscriptionRouteAvailable()).toBe(false)
+    })
+
+    it("с env-оверрайдом — да", () => {
+      process.env[ENV_KEY] = "openai/whisper"
+
+      expect(isTranscriptionRouteAvailable()).toBe(true)
+    })
+
+    it("правило то же, что у самого адаптера — иначе гейт и вызов разойдутся", async () => {
+      // Гейт говорит «нельзя» ровно там, где `requestTranscription` бросает
+      // до провайдера: одна и та же `resolveMediaRoute` без requestedId.
+      expect(isTranscriptionRouteAvailable()).toBe(false)
+      h.probeAudioDuration.mockResolvedValue(12)
+      await expect(requestTranscription(INPUT)).rejects.toThrow(/transcription/i)
+    })
   })
 })

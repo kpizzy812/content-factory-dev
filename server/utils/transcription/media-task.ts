@@ -12,9 +12,15 @@
  * Без requestedId и без env-дефолта `resolveMediaRoute` честно бросает
  * "No integrated media model registered for transcription"; runner.ts
  * (`server/utils/transcription/runner.ts`) ловит это в `try/catch` вокруг
- * `deps.runTask()` и превращает в `status: "skipped"` — ролик собирается
- * дальше по плановым длительностям (spec §10). Это ожидаемая деградация, а
- * не сбой.
+ * `deps.runTask()` и превращает в `status: "skipped"`.
+ *
+ * На маршруте «монтаж от звука» деградация выглядит ИНАЧЕ, чем задумывалось в
+ * spec §10: собрать ролик по плановым длительностям там невозможно — без
+ * границ слов lip-sync не берёт звук ни одной сцены ведущего, и «собранный»
+ * ролик оказывается склейкой перебивок под непрерывную речь. Поэтому маршрут
+ * решается ДО оплаты: `isTranscriptionRouteAvailable` (ниже) уводит такой
+ * ролик прежним посценным маршрутом целиком, а отказ уже ПОСЛЕ синтеза трека
+ * роняет шаг — статус «готово» на ролике без сцен ведущего недопустим.
  *
  * Штатный путь включения ДО подтверждения цены (до Task 14 / canary) —
  * переменная окружения `MEDIA_MODEL_TRANSCRIPTION=openai/whisper`: явный
@@ -36,6 +42,28 @@ import { probeAudioDuration } from "../tts"
 import { normalizeTranscriptPayload } from "./normalize"
 import type { Transcript, TranscriptWord } from "./types"
 
+/**
+ * Разрешима ли способность транскрипции ПРЯМО СЕЙЧАС — до единой копейки.
+ *
+ * Нужна оркестратору как гейт маршрута «монтаж от звука»: без границ слов на
+ * нём нельзя ни вырезать звук сцены, ни снять кадр под неё, а откат на
+ * посценный синтез поверх уже оплаченного трека дал бы вторую запись речи.
+ * Поэтому ролик с невыполнимой транскрипцией обязан уйти прежним маршрутом
+ * ЦЕЛИКОМ — и решать это надо до синтеза трека, а не после.
+ *
+ * Проверка ровно та же, что делает `requestTranscription`: `resolveMediaRoute`
+ * без requestedId бросает, пока модель не `integrated` и не задан
+ * `MEDIA_MODEL_TRANSCRIPTION`. Дублировать её правила здесь нельзя — разойдутся.
+ */
+export function isTranscriptionRouteAvailable(): boolean {
+  try {
+    resolveMediaRoute("transcription")
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function requestTranscription(input: {
   videoId: number
   stepId: number
@@ -46,7 +74,9 @@ export async function requestTranscription(input: {
 }): Promise<{ costUsd: number, raw: unknown }> {
   // Без requestedId: пока модель не integrated и переменная окружения не
   // задана, это бросает исключение ДО обращения к провайдеру (см. комментарий
-  // модуля) — runner.ts превратит его в деградацию, а не в оплаченный вызов.
+  // модуля). На audio-first до этой точки не доходят вовсе —
+  // `isTranscriptionRouteAvailable` уводит такой ролик прежним маршрутом ещё
+  // до синтеза трека.
   const { primary: spec } = resolveMediaRoute("transcription")
 
   // Длительность — до вызова провайдера: и для цены, и для отказа до оплаты.

@@ -26,7 +26,15 @@ const h = vi.hoisted(() => ({
   logs: [] as string[],
   /** Файл, который «скачивается» из хранилища, и его содержимое. */
   downloadWrites: null as null | (() => Promise<void>),
-  transcriptionTask: vi.fn(async () => ({ costUsd: 0.02, raw: { words: [] } })),
+  // Ответ провайдера по умолчанию совпадает со сценарием сцены (см. SCENES):
+  // выравнивание сходится, и тест кэша проверяет кэш, а не отказ.
+  transcriptionTask: vi.fn(async () => ({
+    costUsd: 0.02,
+    raw: { words: [
+      { word: "первая", start: 0, end: 0.5 },
+      { word: "реплика", start: 0.5, end: 1.1 },
+    ] },
+  })),
 }))
 
 vi.mock("../../../server/utils/video-pipeline-db", () => ({
@@ -234,20 +242,49 @@ describe("шаг транскрипции", () => {
   }
   const SCENES = [{ order: 1, text: "Первая реплика." }]
 
-  it("отказ провайдера ролик не роняет — сцены пустые, шаг пропущен", async () => {
+  it("отказ провайдера ПОСЛЕ оплаты трека роняет шаг, а не собирает ролик без сцен ведущего", async () => {
+    // Деградация «соберём по плановым длительностям» здесь недостижима: без
+    // границ lip-sync пропустит каждую сцену ведущего, своих клипов у них нет,
+    // и «готовый» ролик окажется склейкой перебивок под непрерывную речь.
     h.transcriptionTask.mockImplementationOnce(async () => { throw new Error("provider is down") })
+    const { runVideoTranscription } = await loadSteps()
+
+    await expect(runVideoTranscription({
+      videoId: 44,
+      track: TRACK,
+      scenes: SCENES,
+      language: "ru",
+    })).rejects.toThrow(/границ/i)
+
+    expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
+  })
+
+  it("частичное выравнивание — успех с предупреждением в логе, а не шаг с ошибкой", async () => {
+    // Слова провайдера совпадают со сценарием лишь отчасти: границы есть,
+    // монтаж возможен. errorMessage у такого шага читался бы в UI как сбой.
+    h.transcriptionTask.mockImplementationOnce(async () => ({
+      costUsd: 0.02,
+      raw: { words: [
+        { word: "первая", start: 0, end: 0.5 },
+        { word: "посторонний", start: 0.5, end: 1.0 },
+        { word: "текст", start: 1.0, end: 1.5 },
+      ] },
+    }))
     const { runVideoTranscription } = await loadSteps()
 
     const result = await runVideoTranscription({
       videoId: 44,
       track: TRACK,
-      scenes: SCENES,
+      scenes: [{ order: 1, text: "первая реплика ролика" }],
       language: "ru",
     })
 
-    expect(result.status).toBe("skipped")
-    expect(result.scenes).toEqual([])
-    expect(h.updates.at(-1)).toMatchObject({ status: "skipped" })
+    expect(result.status).toBe("degraded")
+    expect(result.scenes.length).toBeGreaterThan(0)
+    const final = h.updates.at(-1)!
+    expect(final).toMatchObject({ status: "completed" })
+    expect(final.errorMessage).toBeUndefined()
+    expect(h.logs.some(message => /предупреждение/i.test(message))).toBe(true)
   })
 
   it("готовый транскрипт того же трека не оплачивается второй раз", async () => {
@@ -292,17 +329,17 @@ describe("шаг транскрипции", () => {
     expect(h.transcriptionTask).toHaveBeenCalledTimes(1)
   })
 
-  it("без ключа в хранилище платного вызова не делает", async () => {
+  it("без ключа в хранилище платного вызова не делает, но и «готовым» ролик не объявляет", async () => {
     const { runVideoTranscription } = await loadSteps()
 
-    const result = await runVideoTranscription({
+    await expect(runVideoTranscription({
       videoId: 44,
       track: { ...TRACK, storageKey: null },
       scenes: SCENES,
       language: "ru",
-    })
+    })).rejects.toThrow(/хранилищ/i)
 
     expect(h.transcriptionTask).not.toHaveBeenCalled()
-    expect(result.status).toBe("skipped")
+    expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
   })
 })
