@@ -29,6 +29,7 @@ import { buildSubtitleTimeline, type SceneSubtitleInput } from "./subtitles/scen
 import { isNormalizedClipPath } from "./presenter/scene-clip-mapping"
 import { planAlignedClipTargets, planTrackClipFit } from "./video-pipeline-run-policy"
 import type { AlignedScene } from "./transcription/align"
+import { wordsForChunk } from "./subtitles/aligned-words"
 
 interface AssembleOptions {
   clips: string[]
@@ -1232,6 +1233,10 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
         format === 'portrait' ? presetMeta.fontSizePortrait : presetMeta.fontSizeLandscape,
         format === 'portrait' ? 60 : 100,
       ),
+      // Реальные тайминги слов — только на маршруте «монтаж от звука»
+      // (clipTrackAlignment задан). Старый маршрут этот аргумент не передаёт,
+      // и buildAssSegments отрабатывает как раньше.
+      alignedScenes: clipTrackAlignment?.alignedScenes,
     })
     if (assSegments.length > 0) {
       // videoId используется только для имени директории — выдёргиваем из outputPath.
@@ -1508,6 +1513,12 @@ async function buildAssSegments(opts: {
   keywordHints?: Array<{ order: number; keywords: Array<{ word: string; weight: number }> }>
   /** Потолок длины фразы под ширину кадра и кегль выбранного пресета. */
   maxChars?: number
+  /**
+   * Сцены с реальными таймингами слов (Task 2, «монтаж от звука»). Не задано —
+   * ASS-сегменты уходят без `words`, и билдер сам оценивает тайминги равномерно
+   * (`estimateWordTimings`) — прежнее поведение старого маршрута.
+   */
+  alignedScenes?: readonly AlignedScene[]
 }): Promise<Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput>> {
   const segs: Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput> = []
 
@@ -1522,15 +1533,35 @@ async function buildAssSegments(opts: {
       for (const h of opts.keywordHints) aiMap.set(h.order, h.keywords)
     }
 
+    // AlignedScene.order — тот же 0-based индекс сцены, что и sceneIndex окна
+    // (обе цепочки считаются от позиции сцены в videoPlan.scenes).
+    const alignedByOrder = new Map<number, AlignedScene>()
+    if (opts.alignedScenes) {
+      for (const scene of opts.alignedScenes) alignedByOrder.set(scene.order, scene)
+    }
+
     for (const window of windows) {
+      const alignedScene = alignedByOrder.get(window.sceneIndex)
       // Та же нарезка, что и в drawtext-ветке: фраза за фразой вслед за речью.
       for (const chunk of chunkSceneSpeech(window.text, window.startSec, window.endSec, { maxChars: opts.maxChars })) {
+        // Реальные тайминги слов чанка, если выравнивание есть и слова нашлись.
+        // Не нашлись — оставляем `words` незаполненным: билдер оценит сам, а не
+        // подсветит чужое слово.
+        const words = alignedScene
+          ? wordsForChunk({
+              words: alignedScene.words,
+              chunkText: chunk.text,
+              chunkStartSec: chunk.startSec,
+              chunkEndSec: chunk.endSec,
+            })
+          : []
         segs.push({
           startSec: chunk.startSec,
           endSec: chunk.endSec,
           text: chunk.text,
           placement: window.placement,
           aiKeywords: aiMap.get(window.sceneIndex + 1),
+          words: words.length > 0 ? words : undefined,
         })
       }
     }
