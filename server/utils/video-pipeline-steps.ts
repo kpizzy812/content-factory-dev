@@ -26,8 +26,13 @@ import {
 } from "./video-pipeline-db"
 import { getAccountStyleContext, formatAccountStyleForPrompt } from "./account-style-context"
 import { getAppScenarioContext, formatAppContextForPrompt } from "./app-context"
-import { synthesizeSpeech, buildVoiceoverTrack } from "./tts"
+import { synthesizeSpeech, buildVoiceoverTrack, type TtsSynthesisOptions, type TtsSynthesisResult } from "./tts"
 import { adjustAudioTempo, trimAudio, probeSceneClipDurations, extendVideoClip, planClipExtension } from "./render"
+import { mergeScriptLines } from "./voiceover/script-merge"
+import { buildTrackRequest, type TrackPause } from "./voiceover/track-builder"
+import { insertVoiceoverPauses } from "./voiceover/insert-pauses"
+import { presenterVoiceMissingMessage } from "./presenter/voice-defaults"
+import type { AlignScene } from "./transcription/align"
 import { buildSceneClipTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 import {
   buildSceneClipIndexMap,
@@ -1716,6 +1721,99 @@ export async function runVoiceoverGeneration(
   await appendStepLog(step.id, `Voiceover завершён: ${audiosToMix.length} сцен, mix=${mixResult.durationSec}s, стоимость $${totalCost.toFixed(3)}${partialFailures ? ' (partial — есть warnings)' : ''}`)
 
   return result
+}
+
+// ─── Шаг 3 (audio-first): единый трек озвучки ──────────────────
+//
+// Клипов на этом маршруте ещё нет — озвучка идёт ПЕРВОЙ и задаёт таймлайн,
+// а не подстраивается под него. Существующая `runVoiceoverGeneration` выше
+// остаётся маршрутом по умолчанию для всех нынешних роликов; эта функция —
+// параллельная ветка, подключение которой к оркестратору делает следующий
+// шаг плана.
+
+export interface SingleTrackInput {
+  videoId: number
+  stepId: number
+  scenes: Array<{ order: number, spokenLine: string | null }>
+  voiceoverLines: Array<{ sceneOrder: number, text: string }>
+  /** Голос ведущего. Синтез чужим голосом на его лицо недопустим — см. гейт ниже. */
+  voiceId: string | null
+  language: string
+  outputPath: string
+  /** Имя персонажа — для точного текста отказа, если голос не задан. */
+  characterName?: string | null
+}
+
+export interface SingleTrackResult {
+  trackPath: string
+  durationSec: number
+  costUsd: number
+  scenes: AlignScene[]
+  pauses: TrackPause[]
+}
+
+export interface SingleTrackDeps {
+  synthesize?: (options: TtsSynthesisOptions) => Promise<Pick<TtsSynthesisResult, "audioPath" | "durationSec" | "costUsd">>
+  /** Вставка тишины по маркерам пауз; путь исходного трека не найден — не найден и результат. */
+  insertPauses?: (path: string, pauses: TrackPause[]) => Promise<string>
+  log?: (stepId: number, message: string) => Promise<void>
+}
+
+/**
+ * Единый трек озвучки на весь ролик — одним вызовом TTS.
+ *
+ * Порядок: слить реплики в кадре и закадровые строки в один сценарный текст
+ * (`mergeScriptLines`) → собрать текст для синтеза, очищенные сцены и список
+ * пауз (`buildTrackRequest`) → отказ, если голосу неоткуда взяться → один
+ * синтез → тишина по маркерам, если они есть.
+ */
+export async function runSingleTrackVoiceover(
+  input: SingleTrackInput,
+  deps: SingleTrackDeps = {},
+): Promise<SingleTrackResult> {
+  const synthesize = deps.synthesize ?? synthesizeSpeech
+  const log = deps.log ?? appendStepLog
+
+  const merged = mergeScriptLines({ scenes: input.scenes, voiceoverLines: input.voiceoverLines })
+  const track = buildTrackRequest(merged)
+
+  if (!input.voiceId) {
+    const message = input.characterName
+      ? presenterVoiceMissingMessage(input.characterName)
+      : "Голос ролика не задан — синтезировать его чужим голосом нельзя"
+    await log(input.stepId, message)
+    throw new Error(message)
+  }
+
+  await log(input.stepId, `Синтезирую единый трек озвучки (${track.text.length} симв, ${track.scenes.length} сцен)`)
+  const synthResult = await synthesize({
+    text: track.text,
+    outputPath: input.outputPath,
+    voiceId: input.voiceId,
+    language: input.language,
+    videoId: input.videoId,
+  })
+
+  let trackPath = synthResult.audioPath
+  let durationSec = synthResult.durationSec
+
+  if (track.pauses.length > 0) {
+    const insertPauses = deps.insertPauses
+      ?? ((path: string, pauses: TrackPause[]) => insertVoiceoverPauses(path, pauses, track.scenes))
+    trackPath = await insertPauses(trackPath, track.pauses)
+    // Тишина добавляет ровно свою длительность — insertPauses режет и
+    // склеивает трек, не изменяя темп речи в остальных местах.
+    durationSec += track.pauses.reduce((sum, pause) => sum + pause.durationSec, 0)
+    await log(input.stepId, `Вставлено пауз: ${track.pauses.length}`)
+  }
+
+  return {
+    trackPath,
+    durationSec,
+    costUsd: synthResult.costUsd,
+    scenes: track.scenes,
+    pauses: track.pauses,
+  }
 }
 
 // ─── Шаг 4: Генерация музыки ───────────────────────────────────
