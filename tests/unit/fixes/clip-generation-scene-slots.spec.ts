@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   /** Клипы, которые «уже лежат в БД» (order → filePath). */
   clipAssets: new Map<number, { id: string; filePath: string }>(),
   mediaCalls: [] as Array<{ unitKey: string; sceneOrder: number }>,
+  stillClips: [] as Array<{ sceneIndex: number; durationSec: number }>,
 }))
 
 vi.mock("../../../server/utils/video-pipeline-db", () => ({
@@ -59,7 +60,9 @@ vi.mock("../../../server/utils/storage/download-to-storage", () => ({
   storageKeyToLegacyUrl: () => "/api/files/x.mp4",
 }))
 vi.mock("../../../server/utils/video-tools/still-clip-runner", () => ({
-  renderStillClip: async () => undefined,
+  renderStillClip: async (req: { sceneIndex: number; durationSec: number }) => {
+    h.stillClips.push({ sceneIndex: req.sceneIndex, durationSec: req.durationSec })
+  },
 }))
 vi.mock("../../../server/utils/media-provider/reference-frame", () => ({
   loadReferenceFrames: async () => new Map(),
@@ -117,6 +120,47 @@ beforeEach(() => {
   h.snapshots.length = 0
   h.clipAssets.clear()
   h.mediaCalls.length = 0
+  h.stillClips.length = 0
+})
+
+describe("runClipGeneration: перебивка живёт столько, сколько звучит реплика", () => {
+  /** Одна сцена-перебивка с закадровой репликой на 12 слов (≈4.3 с речи). */
+  const LINE = Array.from({ length: 12 }, (_, i) => `слово${i}`).join(" ")
+
+  function brollPlan(): StoryDrivenVideoPlan {
+    return {
+      mode: "story_driven",
+      // План обещает десять секунд — столько разрешает Kling, но перебивку
+      // рисует ffmpeg из картинки, и это ограничение к ней не относится.
+      scenes: [{ order: 1, durationSec: 10, voiceoverLine: LINE, spokenLine: null }],
+      voiceoverPlan: { enabled: true, pacing: "moderate", lines: [{ sceneOrder: 1, text: LINE }] },
+    } as unknown as StoryDrivenVideoPlan
+  }
+
+  it("кадр рисуется под длину реплики, а не под плановые десять секунд", async () => {
+    const steps = await loadSteps()
+
+    await steps.runClipGeneration(
+      24, promptsFor([1]), "portrait", 5, "replicate/kling", false,
+      brollPlan(), null, new Set<number>(), new Set([0]), new Map([[0, "img0.png"]]),
+    )
+
+    expect(h.stillClips).toHaveLength(1)
+    // 4.29 с речи плюс секунда запаса — вместо десяти секунд немого кадра.
+    expect(h.stillClips[0]!.durationSec).toBeCloseTo(5.29, 1)
+  })
+
+  it("платный клип по-прежнему просит плановую длительность — там правит модель", async () => {
+    const steps = await loadSteps()
+
+    await steps.runClipGeneration(
+      24, promptsFor([1]), "portrait", 5, "replicate/kling", false,
+      brollPlan(), null, new Set<number>(), new Set<number>(), new Map(),
+    )
+
+    expect(h.stillClips).toHaveLength(0)
+    expect(h.mediaCalls).toHaveLength(1)
+  })
 })
 
 describe("runClipGeneration: длина списка клипов равна числу сцен", () => {

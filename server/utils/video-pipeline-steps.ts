@@ -8,6 +8,7 @@
 import { join } from "node:path"
 import type { StoryPlan, SubtitleStyleProfile } from "~~/shared/types/story"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
+import { planStillSceneDuration } from "~~/shared/types/video-runtime"
 import type { SceneImagePrompts } from "./video-helpers"
 import { type DeviceType, buildDeviceNegativesForScene } from "~~/shared/utils/video-prompt-helpers"
 import {
@@ -667,9 +668,22 @@ export async function runClipGeneration(
     // ВАЖНО: key завязан на индекс цикла, а не на s.order из Claude. Если AI вернул
     // повторяющиеся order'ы, scene_X_clip.mp4 файлы коллизировали бы и переписывали
     // друг друга — на выходе один и тот же ролик. order для DB asset тоже = idx.
+    const voiceoverPacing = videoPlan.voiceoverPlan?.pacing ?? 'moderate'
     scenes = prompts.scenePrompts.scenes.map((s, idx) => {
       const planScene = videoPlan.scenes.find(ps => ps.order === s.order)
-      const sceneDuration = planScene?.durationSec ?? clipDuration
+      const plannedDuration = planScene?.durationSec ?? clipDuration
+      // Перебивку рисует ffmpeg из уже оплаченной картинки, и её длину задаём мы:
+      // квантование модели (Kling умеет только 5 или 10 секунд) к ней отношения
+      // не имеет. Пока это не учитывалось, сцена под реплику на 4.9 с получала
+      // десять секунд — пять секунд немого кадра, и субтитр висел после того, как
+      // голос замолчал. Платный клип по-прежнему просит плановую длительность.
+      const sceneDuration = brollSceneIndexes?.has(idx)
+        ? planStillSceneDuration({
+          speechText: planScene?.voiceoverLine ?? null,
+          pacing: voiceoverPacing,
+          plannedSec: plannedDuration,
+        })
+        : plannedDuration
 
       // Сопоставление опорного кадра из storyPlan (Claude order соответствует scenePrompt order).
       const storyScene = storyPlan?.scenes?.find(ps => ps.order === s.order)

@@ -236,6 +236,36 @@ export function estimateSpeechDurationSec(
   return trimmed.split(/\s+/).length / wps
 }
 
+/** Короче этого перебивка мелькает и читается как сбой монтажа. */
+export const MIN_STILL_SCENE_SEC = 2.5
+
+/** Дольше этого один неподвижный кадр смотреть невозможно, даже с движением камеры. */
+export const MAX_STILL_SCENE_SEC = 15
+
+/**
+ * Длина перебивки — кадра с движением камеры под закадровую реплику.
+ *
+ * Ограничения модели здесь ни при чём: перебивка не генерируется text-to-video,
+ * её собирает ffmpeg из уже оплаченной картинки, и длину задаём мы. Пока это не
+ * учитывалось, сцена получала квантованные Kling'ом 10 секунд под реплику на
+ * 4.9 — пять секунд немого кадра, а субтитр растягивался на всё окно и висел
+ * после того, как голос замолчал.
+ *
+ * Сцена без реплики остаётся плановой: считать её не от чего.
+ */
+export function planStillSceneDuration(input: {
+  speechText: string | null | undefined
+  pacing: string | null | undefined
+  plannedSec: number
+}): number {
+  const speechSec = estimateSpeechDurationSec(input.speechText, input.pacing)
+  if (speechSec <= 0) return input.plannedSec
+
+  const needed = speechSec + SPEECH_HEADROOM_SEC
+  const clamped = Math.min(MAX_STILL_SCENE_SEC, Math.max(MIN_STILL_SCENE_SEC, needed))
+  return Math.round(clamped * 100) / 100
+}
+
 /** Ограничения модели на длину клипа — либо фиксированный набор, либо диапазон. */
 export interface ModelDurationConstraints {
   durationRange?: [number, number] | readonly [number, number]
