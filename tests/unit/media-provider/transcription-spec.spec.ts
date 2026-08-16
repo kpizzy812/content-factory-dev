@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { listMediaSpecs, mapMediaInput, resolveMediaRoute } from "~~/server/utils/media-provider/registry"
+import { estimateMediaCost, listMediaSpecs, mapMediaInput, resolveMediaRoute } from "~~/server/utils/media-provider/registry"
 
 describe("способность transcription", () => {
   it("зарегистрирована в реестре", () => {
@@ -46,7 +46,14 @@ describe("способность transcription", () => {
 
   it("считает цену по секундам аудио", () => {
     const spec = listMediaSpecs("transcription")[0]!
+    const billing = spec.billing
 
-    expect(spec.billing.unit).toBe("audio_second")
+    expect(billing.unit).toBe("audio_second")
+    if (billing.unit !== "audio_second") throw new Error("unreachable")
+
+    // Не сверяем литерал сам с собой: реально считаем цену через estimateMediaCost
+    // и проверяем, что она равна ставке спеки, умноженной на секунды аудио.
+    expect(estimateMediaCost(spec, { audioSeconds: 120 })).toBeCloseTo(120 * billing.usdPerSecond, 10)
+    expect(estimateMediaCost(spec, { audioSeconds: 0 })).toBe(0)
   })
 })

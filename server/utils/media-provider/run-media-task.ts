@@ -729,6 +729,20 @@ async function reuseFromStorage<C extends MediaCapability>(
     ? await readJsonFile(request.outputPath, dependencies)
     : undefined
 
+  // Материализация прошла (файл в хранилище лежит и он оплачен), но разобрать
+  // его не удалось. Молча отдать «успех» без `raw` — тот же обман, от которого
+  // защищает предыдущая проверка, только для повреждённого файла вместо
+  // отсутствующего ключа. Молча ПЕРЕГЕНЕРИРОВАТЬ тоже нельзя: idempotencyKey
+  // доказывает, что задача уже оплачена, — повторный вызов провайдера оплатит
+  // её второй раз. Поэтому падаем честно и оставляем разбирательство человеку.
+  if (spec.execution === "sync_json" && raw === undefined) {
+    throw new Error(
+      `${spec.registryKey}: сохранённый результат повреждён (idempotencyKey=${identity.idempotencyKey}) — `
+      + "JSON по этому ключу не читается. Автоматическая регенерация не выполняется, чтобы не "
+      + "оплатить задачу повторно: проверьте объект в хранилище или запись MediaPrediction вручную.",
+    )
+  }
+
   return {
     localPath: request.outputPath,
     provider: spec.provider,

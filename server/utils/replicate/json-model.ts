@@ -83,5 +83,12 @@ export async function runReplicateJsonModel(
     throw new Error(`Транскрипция: задача завершилась как ${reason}`)
   }
 
+  // "succeeded" без output — вырожденный, но реальный случай ответа Replicate.
+  // Без проверки JSON.stringify(undefined) отдаст undefined, а Buffer.from(undefined)
+  // в вызывающем коде упадёт невнятным TypeError вместо понятной причины.
+  if (prediction.output === undefined || prediction.output === null) {
+    throw new Error(`Транскрипция: модель ${modelId} завершилась успешно, но не вернула output`)
+  }
+
   return prediction.output
 }
