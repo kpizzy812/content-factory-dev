@@ -55,7 +55,7 @@ import {
 } from "./agents/favorite-prompts-loader"
 import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
-import { computeAlignedClipTargetsSec, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
+import { shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
 import { planRemotionOverlays } from "./remotion/overlay-plan"
 import { renderRemotionOverlays } from "./remotion/render"
@@ -1424,7 +1424,7 @@ export async function runVoiceoverGeneration(
     // На audio-first сводить нечего: кадр и так нарезан по границам речи, а
     // подмена клипов файлами `*_ext.mp4` разошлась бы с таймлайном транскрипта.
     // Расхождение длины клипа с речью на этом маршруте закрывает render.ts
-    // (planDurationFit) правкой ВИДЕО, а не эта ветка правкой звука.
+    // (fitClipsToTrack/planTrackClipFit) правкой ВИДЕО, а не эта ветка правкой звука.
     if (shouldReconcileVoiceover(videoConfig.editPipeline ?? false)) {
       if (finalDuration > maxAllowedSec) {
         const overshoot = finalDuration - maxAllowedSec
@@ -2554,9 +2554,9 @@ export async function runAssembly(
     alignedScenes?: readonly AlignedScene[]
     /**
      * Измеренная длительность единого трека (audio-first) — верхняя граница
-     * подгона длины последнего клипа (`computeAlignedClipTargetsSec`). Без неё
-     * подгон по выравниванию не считается вовсе: закрывать сдвиг НЕЧЕМ, если
-     * неизвестно, до какой секунды тянуть последний кадр.
+     * подгона длины последнего клипа (`planAlignedClipTargets` в render.ts).
+     * Без неё подгон по выравниванию не считается вовсе: закрывать сдвиг
+     * НЕЧЕМ, если неизвестно, до какой секунды тянуть последний кадр.
      */
     voiceoverDurationSec?: number
   },
@@ -2625,11 +2625,18 @@ export async function runAssembly(
       .filter((s): s is SceneSubtitleInput => s.sceneIndex !== undefined && s.text.length > 0)
   }
 
-  // Ожидаемая длина каждого клипа склейки — только на маршруте «монтаж от
+  // Данные для подгона длины клипов под трек — только на маршруте «монтаж от
   // звука» (extras.alignedScenes появляется исключительно там, см. Task 9).
-  // На старом маршруте extras.alignedScenes нет вовсе, и render.ts получает
-  // undefined — подгон длины клипов не исполняется, поведение прежнее.
-  let clipExpectedDurationsSec: Array<number | null> | undefined
+  // Сам подгон (бакеты, пропорции, отказ при нарушении порядка/неизмеримом
+  // клипе) считает render.ts — здесь только карта «order сцены → позиция
+  // клипа в СКЛЕЙКЕ», её и передаём. На старом маршруте extras.alignedScenes
+  // нет вовсе, clipTrackAlignment остаётся undefined, и render.ts подгон не
+  // исполняет — поведение прежнее.
+  let clipTrackAlignment: {
+    alignedScenes: readonly AlignedScene[]
+    positionByOrder: ReadonlyMap<number, number>
+    trackDurationSec: number
+  } | undefined
   if (isStoryDriven && extras?.alignedScenes?.length && typeof extras.voiceoverDurationSec === 'number' && extras.voiceoverDurationSec > 0) {
     const clipIndexByOrderForFit = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
       allowPositionalFallback: false,
@@ -2639,12 +2646,15 @@ export async function runAssembly(
       const position = compacted.positionBySceneIndex.get(sceneIndex)
       if (position !== undefined) positionByOrder.set(order, position)
     }
-    clipExpectedDurationsSec = computeAlignedClipTargetsSec({
+    // Карта позиций может оказаться пустой (нет clipSceneOrders) — передаём
+    // всё равно: render.ts обязан честно отказаться от подгона и назвать
+    // причину в логе шага (RULING 3, ревью Task 10), а не получить undefined
+    // и промолчать, что подгон не пытался исполниться вовсе.
+    clipTrackAlignment = {
       alignedScenes: extras.alignedScenes,
-      trackDurationSec: extras.voiceoverDurationSec,
       positionByOrder,
-      clipCount: assemblyClips.length,
-    })
+      trackDurationSec: extras.voiceoverDurationSec,
+    }
   }
 
   const hasSceneSubs = subtitlesEnabled && sceneSubtitles && sceneSubtitles.length > 0
@@ -2755,8 +2765,29 @@ export async function runAssembly(
       musicVolumeWithVoiceover: extras?.musicVolumeWithVoiceover,
       clipVolumeWithVoiceover: extras?.clipVolumeWithVoiceover,
       voiceoverIntervals: extras?.voiceoverIntervals,
-      clipExpectedDurationsSec,
+      clipTrackAlignment,
     })
+
+    // RULING 3 (ревью Task 10): подгон длины клипов под трек обязан быть
+    // виден в логе шага — применён (сколько клипов подрезано/удержано и на
+    // сколько суммарно) либо не применён и почему. Раньше о нём не писалось
+    // ничего, и оба случая тихого отключения (нет clipSceneOrders, клип не
+    // измерен) были неотличимы от «подгон и не должен был исполняться».
+    if (clipTrackAlignment) {
+      const fit = result.durationFit
+      if (!fit || !fit.applied) {
+        await appendStepLog(
+          step.id,
+          `Подгон длины клипов под трек НЕ применён: ${fit?.reason ?? 'причина не сообщена'}`,
+        )
+      } else {
+        await appendStepLog(
+          step.id,
+          `Подгон длины клипов под трек: подрезано ${fit.trimmedCount}, удержан последний кадр у ${fit.heldCount}, `
+          + `суммарная правка ${fit.totalDeltaSec.toFixed(2)}с`,
+        )
+      }
+    }
 
     // Анимационная инфографика (PROJECT_CONTEXT §5) — необязательный слой
     // поверх готового ролика. Он не имеет права уронить сборку: ролик уже

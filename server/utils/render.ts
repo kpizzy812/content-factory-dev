@@ -27,7 +27,8 @@ import { chunkSceneSpeech, maxCharsForWidth } from "./subtitles/phrase-chunker"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildSubtitleTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 import { isNormalizedClipPath } from "./presenter/scene-clip-mapping"
-import { planDurationFit } from "./video-pipeline-run-policy"
+import { planAlignedClipTargets, planTrackClipFit } from "./video-pipeline-run-policy"
+import type { AlignedScene } from "./transcription/align"
 
 interface AssembleOptions {
   clips: string[]
@@ -63,17 +64,26 @@ interface AssembleOptions {
    */
   voiceoverIntervals?: Array<{ startSec: number; endSec: number }>
   /**
-   * Ожидаемая (по звуковому треку) длительность КАЖДОГО клипа `clips[i]` —
-   * маршрут «монтаж от звука» (Task 10). `null`/отсутствие элемента — клип
-   * без выравнивания, подгон его не трогает. Не задано вовсе — подгон
-   * длины клипов не исполняется (прежнее поведение старого маршрута).
+   * Данные для подгона длины клипов под звуковой трек — маршрут «монтаж от
+   * звука» (Task 10). Не задано вовсе — подгон не исполняется (прежнее
+   * поведение старого маршрута); задано, но не разрешилось ни одним анкором —
+   * подгон честно отключается для этого ролика (см. `planAlignedClipTargets`),
+   * а не молча пропускается.
    */
-  clipExpectedDurationsSec?: Array<number | null>
+  clipTrackAlignment?: {
+    alignedScenes: readonly AlignedScene[]
+    /** order сцены → её позиция в ИТОГОВОЙ (уплотнённой) склейке `clips[]`. */
+    positionByOrder: ReadonlyMap<number, number>
+    /** Измеренная длительность единого трека — верхняя граница последнего бакета. */
+    trackDurationSec: number
+  }
 }
 
 interface AssembleResult {
   filePath: string
   duration: number
+  /** Итог подгона длины клипов под трек — есть, только если он затевался (`clipTrackAlignment` задан). */
+  durationFit?: ClipDurationFitSummary
 }
 
 /** Маппинг SubtitleStyleProfile → параметры drawtext FFmpeg */
@@ -933,109 +943,83 @@ export async function extendVideoClip(
   })
 }
 
+/** Аргументы concat-safe re-encode для подгона длины клипа — see `buildClipTrimArgs`/`buildClipHoldLastFrameArgs`. */
+export interface ClipFitFfmpegArgs {
+  filters: string[]
+  outputOptions: string[]
+}
+
 /**
- * Обрезает НОРМАЛИЗОВАННЫЙ клип до точной длины — подгон под звук на маршруте
- * «монтаж от звука» (Task 10, planDurationFit action=`trim`).
- *
- * Вызывается ПОСЛЕДНИМ шагом перед конкатенацией, второго прохода через
- * `normalizeClip` за ним уже не будет — поэтому кодек/профиль/уровень/fps/
- * таймбаза заданы теми же параметрами, что и там. Иначе на стыке клипов
- * вернутся застывшие кадры, ради которых normalizeClip и существует.
+ * Общие concat-safe output-опции: те же, что даёт `normalizeClip`. Подгон
+ * длины (`buildClipTrimArgs`/`buildClipHoldLastFrameArgs`) вызывается
+ * ПОСЛЕДНИМ шагом перед конкатенацией — второго прохода нормализации за ним
+ * уже не будет, поэтому кодек/профиль/уровень/fps/таймбаза обязаны совпасть
+ * побитово, иначе на стыке клипов вернутся застывшие кадры, ради которых
+ * normalizeClip и существует.
  */
-async function trimFittedClip(
-  inputPath: string,
-  outputPath: string,
-  targetDurationSec: number,
-): Promise<void> {
+function concatSafeVideoOutputOptions(): string[] {
+  return [
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-crf", "22",
+    "-profile:v", "high",
+    "-level", "4.1",
+    "-pix_fmt", "yuv420p",
+    "-r", `${TIMELINE_FPS}`,
+    "-video_track_timescale", "30000",
+    "-movflags", "+faststart",
+    "-y",
+  ]
+}
+
+/**
+ * Чистая сборка ffmpeg-аргументов обрезки клипа до точной длины
+ * (`planTrackClipFit` action=`trim`). Без запуска процесса — по образцу
+ * `buildSegmentCutArgs` (voiceover/segment-cut.ts) и `buildStillClipArgs`
+ * (video-tools/still-clip.ts): concat-safe профиль, на котором стоит всё
+ * обоснование подгона, проверяется тестом, а не только глазами.
+ */
+export function buildClipTrimArgs(targetDurationSec: number, audioPresent: boolean): ClipFitFfmpegArgs {
   const target = Math.max(0.04, targetDurationSec)
-  const audioPresent = await hasAudioStream(inputPath)
+  const filters = [`[0:v]trim=0:${target.toFixed(3)},setpts=PTS-STARTPTS,fps=${TIMELINE_FPS}[v]`]
+  const outputOptions = ["-map", "[v]", ...concatSafeVideoOutputOptions()]
 
-  return new Promise((resolve, reject) => {
-    const stderrTail: string[] = []
-    const filters = [`[0:v]trim=0:${target.toFixed(3)},setpts=PTS-STARTPTS,fps=${TIMELINE_FPS}[v]`]
-    const outputOpts = [
-      "-map", "[v]",
-      "-c:v", "libx264",
-      "-preset", "veryfast",
-      "-crf", "22",
-      "-profile:v", "high",
-      "-level", "4.1",
-      "-pix_fmt", "yuv420p",
-      "-r", `${TIMELINE_FPS}`,
-      "-video_track_timescale", "30000",
-      "-movflags", "+faststart",
-      "-y",
-    ]
-    if (audioPresent) {
-      filters.push(`[0:a]atrim=0:${target.toFixed(3)},asetpts=PTS-STARTPTS,aresample=async=1:first_pts=0,aformat=sample_rates=44100:channel_layouts=stereo[a]`)
-      outputOpts.push("-map", "[a]", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "128k")
-    }
+  if (audioPresent) {
+    filters.push(`[0:a]atrim=0:${target.toFixed(3)},asetpts=PTS-STARTPTS,aresample=async=1:first_pts=0,aformat=sample_rates=44100:channel_layouts=stereo[a]`)
+    outputOptions.push("-map", "[a]", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "128k")
+  }
 
-    ffmpeg()
-      .input(inputPath)
-      .complexFilter(filters)
-      .outputOptions(outputOpts)
-      .output(outputPath)
-      .on("stderr", (line: string) => {
-        stderrTail.push(line)
-        if (stderrTail.length > 20) stderrTail.shift()
-      })
-      .on("end", () => resolve())
-      .on("error", (err) => {
-        const tail = stderrTail.slice(-10).join("\n")
-        reject(new Error(
-          `Не удалось обрезать клип ${inputPath} до ${target}s: ${err.message}`
-          + (tail ? `\n--- stderr ---\n${tail}` : ""),
-        ))
-      })
-      .run()
-  })
+  return { filters, outputOptions }
 }
 
 /**
- * Удерживает последний кадр НОРМАЛИЗОВАННОГО клипа до нужной длины — подгон
- * под звук на маршруте «монтаж от звука» (Task 10, planDurationFit action=
- * `hold_last_frame`). Звук клипа при этом ДОБИВАЕТСЯ ТИШИНОЙ, а не растягивается:
- * трек — эталон таймлайна, и на audio-first родная дорожка клипа всё равно
- * заглушена (`clipVolumeWithVoiceoverFor`), удлинять в ней нечего.
- *
- * Отдельно от `extendVideoClip`: та функция кодирует БЕЗ concat-safe профиля —
- * её результат идёт на ОБЫЧНУЮ нормализацию (`extend_scene` на старом
- * маршруте). Здесь нормализации за этим шагом уже не будет.
+ * Чистая сборка ffmpeg-аргументов удержания последнего кадра
+ * (`planTrackClipFit` action=`hold_last_frame`). Звук клипа при этом
+ * ДОБИВАЕТСЯ ТИШИНОЙ, а не растягивается: трек — эталон таймлайна, а на
+ * audio-first родная дорожка клипа всё равно заглушена
+ * (`clipVolumeWithVoiceoverFor`) — удлинять в ней нечего.
  */
-async function holdLastFrameFittedClip(
-  inputPath: string,
-  outputPath: string,
-  extraSec: number,
-): Promise<void> {
+export function buildClipHoldLastFrameArgs(extraSec: number, audioPresent: boolean): ClipFitFfmpegArgs {
   const extra = Math.max(0.04, extraSec)
-  const audioPresent = await hasAudioStream(inputPath)
+  const filters = [`[0:v]tpad=stop_mode=clone:stop_duration=${extra.toFixed(3)},fps=${TIMELINE_FPS}[v]`]
+  const outputOptions = ["-map", "[v]", ...concatSafeVideoOutputOptions()]
 
+  if (audioPresent) {
+    filters.push(`[0:a]apad=pad_dur=${extra.toFixed(3)},aresample=async=1:first_pts=0,aformat=sample_rates=44100:channel_layouts=stereo[a]`)
+    outputOptions.push("-map", "[a]", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "128k")
+  }
+
+  return { filters, outputOptions }
+}
+
+/** Тонкий ffmpeg-раннер аргументов подгона — вся логика уже в `buildClip*Args`. */
+async function runClipFitFfmpeg(inputPath: string, outputPath: string, args: ClipFitFfmpegArgs, failMessage: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const stderrTail: string[] = []
-    const filters = [`[0:v]tpad=stop_mode=clone:stop_duration=${extra.toFixed(3)},fps=${TIMELINE_FPS}[v]`]
-    const outputOpts = [
-      "-map", "[v]",
-      "-c:v", "libx264",
-      "-preset", "veryfast",
-      "-crf", "22",
-      "-profile:v", "high",
-      "-level", "4.1",
-      "-pix_fmt", "yuv420p",
-      "-r", `${TIMELINE_FPS}`,
-      "-video_track_timescale", "30000",
-      "-movflags", "+faststart",
-      "-y",
-    ]
-    if (audioPresent) {
-      filters.push(`[0:a]apad=pad_dur=${extra.toFixed(3)},aresample=async=1:first_pts=0,aformat=sample_rates=44100:channel_layouts=stereo[a]`)
-      outputOpts.push("-map", "[a]", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "128k")
-    }
-
     ffmpeg()
       .input(inputPath)
-      .complexFilter(filters)
-      .outputOptions(outputOpts)
+      .complexFilter(args.filters)
+      .outputOptions(args.outputOptions)
       .output(outputPath)
       .on("stderr", (line: string) => {
         stderrTail.push(line)
@@ -1044,75 +1028,125 @@ async function holdLastFrameFittedClip(
       .on("end", () => resolve())
       .on("error", (err) => {
         const tail = stderrTail.slice(-10).join("\n")
-        reject(new Error(
-          `Не удалось удержать последний кадр клипа ${inputPath} на ${extra}s: ${err.message}`
-          + (tail ? `\n--- stderr ---\n${tail}` : ""),
-        ))
+        reject(new Error(`${failMessage}: ${err.message}` + (tail ? `\n--- stderr ---\n${tail}` : "")))
       })
       .run()
   })
 }
 
+/** Обрезает НОРМАЛИЗОВАННЫЙ клип до точной длины (см. `buildClipTrimArgs`). */
+async function trimFittedClip(inputPath: string, outputPath: string, targetDurationSec: number): Promise<void> {
+  const audioPresent = await hasAudioStream(inputPath)
+  const args = buildClipTrimArgs(targetDurationSec, audioPresent)
+  await runClipFitFfmpeg(inputPath, outputPath, args, `Не удалось обрезать клип ${inputPath} до ${targetDurationSec.toFixed(2)}s`)
+}
+
+/** Удерживает последний кадр НОРМАЛИЗОВАННОГО клипа (см. `buildClipHoldLastFrameArgs`). */
+async function holdLastFrameFittedClip(inputPath: string, outputPath: string, extraSec: number): Promise<void> {
+  const audioPresent = await hasAudioStream(inputPath)
+  const args = buildClipHoldLastFrameArgs(extraSec, audioPresent)
+  await runClipFitFfmpeg(inputPath, outputPath, args, `Не удалось удержать последний кадр клипа ${inputPath} на ${extraSec.toFixed(2)}s`)
+}
+
+/** Итог подгона длины клипов под звуковой трек — для лога шага сборки (RULING 3, ревью Task 10). */
+export interface ClipDurationFitSummary {
+  /** Подгон реально применялся (нашлось хотя бы одно измерение и порядок сошёлся). */
+  applied: boolean
+  /** Заполнено только когда `applied: false` — почему подгон не состоялся. */
+  reason?: string
+  trimmedCount: number
+  heldCount: number
+  /** Сумма |Δ| по всем подрезанным/удержанным клипам — общий масштаб правки. */
+  totalDeltaSec: number
+}
+
+/** Ввод/вывод, инъецируемый в `fitClipsToTrack` — по образцу `cutTrackSegment` (voiceover/segment-cut.ts). */
+export interface ClipDurationFitDeps {
+  probeDuration: (path: string) => Promise<number | null>
+  trim: (inputPath: string, outputPath: string, targetDurationSec: number) => Promise<void>
+  holdLastFrame: (inputPath: string, outputPath: string, extraSec: number) => Promise<void>
+}
+
+/** Суффикс `_fit`, добавляемый к имени файла, а не в замену расширения — путь без `.mp4` не совпадает со входом. */
+function fitClipPath(clipPath: string): string {
+  return /\.mp4$/i.test(clipPath) ? clipPath.replace(/\.mp4$/i, "_fit.mp4") : `${clipPath}_fit.mp4`
+}
+
 /**
- * Подгоняет длину каждого НОРМАЛИЗОВАННОГО клипа под ожидаемую (по треку)
- * длительность — маршрут «монтаж от звука» (Task 10, spec §8: звук трогать
- * нельзя никогда, расхождение закрывает ВИДЕО).
+ * Подгоняет длину каждого НОРМАЛИЗОВАННОГО клипа под звуковой трек — маршрут
+ * «монтаж от звука» (Task 10, spec §8: звук трогать нельзя никогда,
+ * расхождение закрывает ВИДЕО).
  *
- * `expected[i]` посчитан цепочкой границ соседних сцен на треке
- * (`computeAlignedClipTargetsSec`), поэтому сумма подогнанных длин сходится с
- * длиной трека целиком, а не только у одного клипа — иначе рассинхрон
- * копился бы к концу ролика на каждом клипе без своего выравнивания.
- *
- * `null`/отсутствие `expected[i]` — клип без выравнивания (в тексте ролика для
- * его сцены не было ни реплики, ни закадровой строки): трогать нечего.
+ * Мерит ВСЕ клипы ДО планирования — вес пропорции неанкорных клипов и решение
+ * `planTrackClipFit` по анкорным нужны из одного и того же замера
+ * (`planAlignedClipTargets` сам откажется целиком, если хоть один клип не
+ * измерен — RULING 2 ревью). `deps` инъецируются, чтобы функцию можно было
+ * проверить тестом без реального ffmpeg — по образцу `cutTrackSegment`.
  */
-async function fitClipsToExpectedDurations(
+export async function fitClipsToTrack(
   clips: readonly string[],
-  expected: readonly (number | null)[],
-): Promise<string[]> {
+  alignment: {
+    alignedScenes: readonly AlignedScene[]
+    positionByOrder: ReadonlyMap<number, number>
+    trackDurationSec: number
+  },
+  deps: ClipDurationFitDeps,
+): Promise<{ clips: string[], summary: ClipDurationFitSummary }> {
+  const actualDurationsSec: Array<number | null> = []
+  for (const clip of clips) actualDurationsSec.push(await deps.probeDuration(clip))
+
+  const plan = planAlignedClipTargets({
+    alignedScenes: alignment.alignedScenes,
+    trackDurationSec: alignment.trackDurationSec,
+    positionByOrder: alignment.positionByOrder,
+    actualDurationsSec,
+    clipCount: clips.length,
+  })
+
+  if (!plan.ok) {
+    return {
+      clips: [...clips],
+      summary: { applied: false, reason: plan.reason, trimmedCount: 0, heldCount: 0, totalDeltaSec: 0 },
+    }
+  }
+
   const fitted: string[] = []
+  let trimmedCount = 0
+  let heldCount = 0
+  let totalDeltaSec = 0
 
   for (let i = 0; i < clips.length; i += 1) {
     const clipPath = clips[i]!
-    const expectedSec = expected[i]
+    const expectedSec = plan.targets[i]
+    const actualSec = actualDurationsSec[i]
 
-    if (typeof expectedSec !== "number" || !Number.isFinite(expectedSec) || expectedSec <= 0) {
+    if (typeof expectedSec !== "number" || !Number.isFinite(expectedSec) || expectedSec <= 0 || typeof actualSec !== "number") {
       fitted.push(clipPath)
       continue
     }
 
-    const actualSec = await probeMediaDuration(clipPath)
-    if (actualSec === null) {
-      console.warn(`[render] клип №${i + 1} не измерить для подгона под звук — оставляю как есть: ${clipPath}`)
-      fitted.push(clipPath)
-      continue
-    }
-
-    const fit = planDurationFit({ expectedSec, actualSec })
-
-    if (fit.action === "fail") {
-      throw new Error(
-        `Клип №${i + 1} разошёлся со звуковым треком на ${fit.deltaSec.toFixed(2)}с `
-        + `(заказано ${expectedSec.toFixed(2)}с, получено ${actualSec.toFixed(2)}с, файл ${clipPath}) — `
-        + "это сбой генерации, а не подгон: звук на этом маршруте не правится никогда",
-      )
-    }
-
+    const fit = planTrackClipFit({ expectedSec, actualSec })
     if (fit.action === "none") {
       fitted.push(clipPath)
       continue
     }
 
-    const fitPath = clipPath.replace(/\.mp4$/i, "_fit.mp4")
+    const fitPath = fitClipPath(clipPath)
     if (fit.action === "trim") {
-      await trimFittedClip(clipPath, fitPath, expectedSec)
+      await deps.trim(clipPath, fitPath, expectedSec)
+      trimmedCount += 1
     } else {
-      await holdLastFrameFittedClip(clipPath, fitPath, expectedSec - actualSec)
+      await deps.holdLastFrame(clipPath, fitPath, expectedSec - actualSec)
+      heldCount += 1
     }
+    totalDeltaSec += Math.abs(fit.deltaSec)
     fitted.push(fitPath)
   }
 
-  return fitted
+  return {
+    clips: fitted,
+    summary: { applied: true, trimmedCount, heldCount, totalDeltaSec },
+  }
 }
 
 /**
@@ -1142,7 +1176,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
     musicVolumeWithVoiceover = 0.12,
     clipVolumeWithVoiceover = 0.3,
     voiceoverIntervals,
-    clipExpectedDurationsSec,
+    clipTrackAlignment,
   } = options
 
   await ensureDir(dirname(outputPath))
@@ -1155,10 +1189,17 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
   // ДО построения concat-листа: дальше по функции все потребители (сама
   // склейка, окна субтитров) обязаны видеть уже подогнанные файлы, а не
   // исходные — иначе субтитры посчитались бы по одной длине, а в ролик легла
-  // бы другая. На старом маршруте `clipExpectedDurationsSec` не передаётся,
-  // и это условие не исполняется — поведение прежнее, побайтово.
-  if (clipExpectedDurationsSec && clipExpectedDurationsSec.length > 0) {
-    normalizedClips = await fitClipsToExpectedDurations(normalizedClips, clipExpectedDurationsSec)
+  // бы другая. На старом маршруте `clipTrackAlignment` не передаётся, и это
+  // условие не исполняется — поведение прежнее, побайтово.
+  let durationFitSummary: ClipDurationFitSummary | undefined
+  if (clipTrackAlignment) {
+    const fitResult = await fitClipsToTrack(normalizedClips, clipTrackAlignment, {
+      probeDuration: probeMediaDuration,
+      trim: trimFittedClip,
+      holdLastFrame: holdLastFrameFittedClip,
+    })
+    normalizedClips = fitResult.clips
+    durationFitSummary = fitResult.summary
   }
 
   // Создать concat list файл
@@ -1439,7 +1480,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
         // Получить длительность
         ffmpeg.ffprobe(outputPath, (err, metadata) => {
           const duration = Math.round(metadata?.format?.duration || 0)
-          resolve({ filePath: outputPath, duration })
+          resolve({ filePath: outputPath, duration, durationFit: durationFitSummary })
         })
       })
       .on("error", (err) => {

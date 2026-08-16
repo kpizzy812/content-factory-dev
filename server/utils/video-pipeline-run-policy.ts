@@ -20,11 +20,20 @@ export interface DurationFit {
 }
 
 /**
- * Что делать, если клип оказался не той длины, что заказана.
+ * Что делать, если клип оказался не той длины, что ЗАКАЗАНА У ПРОВАЙДЕРА
+ * (санитарная проверка «заказанный кусок против ответа lip-sync/генерации»,
+ * ОДИН клип против ОДНОГО ожидания).
  *
- * Правится ВИДЕО. Звук на audio-first не трогается никогда: он эталон
- * таймлайна, и любая правка звука сдвинула бы субтитры и границы всех
- * последующих кадров (spec §8).
+ * Порог отказа здесь уместен: заказывали ровно N секунд (сегмент трека,
+ * заданный `planSegmentCut`), а получили далёкое от N — это брак ответа
+ * провайдера, а не штатное расхождение.
+ *
+ * НЕ ДЛЯ подгона клипов под границы трека (фикс-раунд 1, ревью Task 10):
+ * там расхождение больше секунды — норма (see `planTrackClipFit`), а не
+ * сбой, и `fail` здесь ронял бы сборку после всех оплаченных шагов на
+ * штатных перебивках. Правится ВИДЕО в обоих случаях. Звук на audio-first не
+ * трогается никогда: он эталон таймлайна, и любая правка звука сдвинула бы
+ * субтитры и границы всех последующих кадров (spec §8).
  */
 export function planDurationFit(input: {
   expectedSec: number
@@ -37,6 +46,41 @@ export function planDurationFit(input: {
 
   if (magnitude <= tolerance) return { action: "none", deltaSec }
   if (magnitude > DURATION_FAILURE_SEC) return { action: "fail", deltaSec }
+  return { action: deltaSec > 0 ? "trim" : "hold_last_frame", deltaSec }
+}
+
+export interface TrackClipFit {
+  action: "none" | "trim" | "hold_last_frame"
+  deltaSec: number
+}
+
+/**
+ * Что делать с клипом при подгоне под ГРАНИЦЫ ЗВУКОВОГО ТРЕКА (`render.ts`,
+ * `fitClipsToTrack`) — БЕЗ порога отказа, в отличие от `planDurationFit`.
+ *
+ * Расхождение больше секунды здесь — НОРМА, а не брак: ревью Task 10 нашло
+ * три штатных пути к такому расхождению —
+ *  - длина still-клипа перебивки считается ОЦЕНКОЙ речи по словам
+ *    (`planStillSceneDuration`), а не измерением, и оценка занижена
+ *    (Fish на русском читает медленнее табличных 2.8 слова/сек — 20 слов
+ *    дают ошибку ≈1.26с);
+ *  - исходник ведущего принимается с допуском ровно 1с
+ *    (`DEFAULT_PRESENTER_MAX_DELTA_SEC`) плюс пауза до следующей сцены —
+ *    |Δ| > 1с гарантированно возможен;
+ *  - явный маркер `[пауза 2с]` целиком уходит в цель ПРЕДЫДУЩЕГО клипа
+ *    (см. `planAlignedClipTargets`) — Δ ≈ −2с.
+ * `fail` здесь ронял бы сборку после всех оплаченных шагов (картинки, клипы,
+ * lip-sync, TTS) на штатном сценарии, ради которого задача и написана.
+ */
+export function planTrackClipFit(input: {
+  expectedSec: number
+  actualSec: number
+  toleranceSec?: number
+}): TrackClipFit {
+  const tolerance = input.toleranceSec ?? DURATION_TOLERANCE_SEC
+  const deltaSec = input.actualSec - input.expectedSec
+
+  if (Math.abs(deltaSec) <= tolerance) return { action: "none", deltaSec }
   return { action: deltaSec > 0 ? "trim" : "hold_last_frame", deltaSec }
 }
 
@@ -56,48 +100,144 @@ export function shouldReconcileVoiceover(editPipeline: boolean): boolean {
   return !editPipeline
 }
 
+/** Результат планирования заказанных длин клипов под трек — см. `planAlignedClipTargets`. */
+export interface AlignedClipTargetsPlan {
+  /**
+   * false — подгон НЕДОСТУПЕН ЦЕЛИКОМ для этого ролика: `targets` в этом
+   * случае — массив из одних `null`, ни один клип трогать нельзя. Так решает
+   * ревью Task 10 (RULING 2): «если остаток посчитать невозможно — подгон
+   * выключается целиком с громкой записью в лог, а не молча по одному клипу».
+   */
+  ok: boolean
+  /** Причина отказа — только когда `ok: false`, для лога шага сборки. */
+  reason?: string
+  /** Заказанная длина клипа на позиции `i`. `null` — клип вне подгона. */
+  targets: Array<number | null>
+}
+
 /**
- * Ожидаемая (по треку) длительность каждого клипа в СКЛЕЙКЕ — маршрут «монтаж
- * от звука».
+ * Заказанная (по треку) длительность КАЖДОГО клипа в СКЛЕЙКЕ — маршрут «монтаж
+ * от звука» (фикс-раунд 1 после ревью Task 10).
  *
- * Клипу отдаётся отрезок трека от старта ЕГО сцены до старта СЛЕДУЮЩЕЙ, а не
- * интервал самой сцены (`endSec - startSec`): интервал не включает паузу перед
- * следующей репликой, и подгонка клипа только под него оставила бы паузу
- * ничьей — сумма клипов не дотянула бы до длины трека, и рассинхрон копился бы
- * на паузах точно так же, как раньше копился на плановых длительностях
- * (вход ревью Task 9: «перебивки между кусками ведущего встают в таймлайн с
- * ПЛАНОВЫМИ длительностями»). Первому клипу достаётся всё от начала трека,
- * последнему — всё до его конца, поэтому сумма результата всегда равна
- * `trackDurationSec` — если каждая сцена ролика узнана выравниванием.
+ * Трек делится на «бакеты» границами сцен, УЗНАННЫХ выравниванием (анкоров):
+ * виртуальный старт (0) → анкоры по возрастанию времени → виртуальный конец
+ * (`trackDurationSec`). Бакет между соседними анкорами покрывает ВСЕ позиции
+ * клипов между ними — не только клип анкора, но и любые НЕАНКОРНЫЕ клипы
+ * (немые перебивки без реплики и без закадровой строки, которых в
+ * `alignedScenes` нет никогда — см. `voiceover/script-merge.ts`). Раньше
+ * такой клип получал `null` и шёл со своей исходной длиной СВЕРХ отрезка
+ * анкоров — это добавляло время накопительно и было ровно тем разъездом,
+ * ради которого писалась задача (RULING 2 ревью). Теперь бакет делится между
+ * всеми его клипами ПРОПОРЦИОНАЛЬНО их фактическим (ещё не подогнанным)
+ * длительностям — так сохраняется относительный темп монтажа, а сумма всё
+ * равно телескопически сходится с длиной бакета:
  *
- * Сцена, которой в `alignedScenes` нет (в тексте ролика её не было — ни
- * реплики в кадре, ни закадровой строки), в карту не попадает: подгонять её
- * не к чему, и `render.ts` пропустит такой клип без правки.
+ *   Σ target[i] по бакету = bucketTotal
+ *   Σ bucketTotal по всем бакетам = trackDurationSec - 0 = trackDurationSec
+ *
+ * Если хотя бы один клип бакета не измерен (`actualDurationsSec[i] === null`
+ * либо `<= 0`) — пропорцию посчитать нечем, и подгон отключается ЦЕЛИКОМ для
+ * ролика (`ok: false`), а не молча только для этого клипа: частичный подгон
+ * ролика опаснее полного его отсутствия — половина клипов ушла бы под трек,
+ * половина нет, и итоговый разъезд стал бы непредсказуем.
+ *
+ * Тот же отказ — если порядок сцен ПО ВРЕМЕНИ ТРЕКА (`startSec`) не совпадает
+ * с порядком их клипов В СКЛЕЙКЕ (позиции обязаны расти вместе со временем):
+ * подгон предполагает ОДИН физический порядок, и его нарушение означает, что
+ * либо модель переставила сцены при нарезке клипов сильнее, чем при синтезе
+ * трека, либо входные данные испорчены — считать бакеты по чужому порядку
+ * значило бы подогнать клипы под ЧУЖИЕ границы.
  */
-export function computeAlignedClipTargetsSec(input: {
+export function planAlignedClipTargets(input: {
   alignedScenes: readonly AlignedScene[]
   trackDurationSec: number
   /** order сцены → её позиция в ИТОГОВОЙ (уплотнённой) склейке. */
   positionByOrder: ReadonlyMap<number, number>
+  /** ФАКТИЧЕСКАЯ (до подгона) длительность каждого клипа склейки — вес пропорции. */
+  actualDurationsSec: readonly (number | null)[]
   /** Сколько клипов в склейке — под этот размер строится результат. */
   clipCount: number
-}): Array<number | null> {
-  const result = new Array<number | null>(input.clipCount).fill(null)
-  if (input.alignedScenes.length === 0 || !(input.trackDurationSec > 0)) return result
+}): AlignedClipTargetsPlan {
+  const empty: Array<number | null> = new Array(input.clipCount).fill(null)
 
-  const ordered = [...input.alignedScenes].sort((a, b) => a.startSec - b.startSec)
-
-  for (let i = 0; i < ordered.length; i += 1) {
-    const scene = ordered[i]!
-    const position = input.positionByOrder.get(scene.order)
-    if (position === undefined || position < 0 || position >= input.clipCount) continue
-
-    const startBoundary = i === 0 ? 0 : scene.startSec
-    const endBoundary = i === ordered.length - 1 ? input.trackDurationSec : ordered[i + 1]!.startSec
-    result[position] = Math.max(0, endBoundary - startBoundary)
+  if (input.alignedScenes.length === 0 || !(input.trackDurationSec > 0)) {
+    return { ok: true, targets: empty }
   }
 
-  return result
+  interface Anchor { position: number, startSec: number }
+  const anchors: Anchor[] = []
+  for (const scene of input.alignedScenes) {
+    const position = input.positionByOrder.get(scene.order)
+    if (position === undefined || position < 0 || position >= input.clipCount) continue
+    anchors.push({ position, startSec: scene.startSec })
+  }
+
+  if (anchors.length === 0) {
+    return {
+      ok: false,
+      reason: "ни одна сцена выравнивания не сопоставилась с клипом склейки — карта позиций пуста",
+      targets: empty,
+    }
+  }
+
+  anchors.sort((a, b) => a.startSec - b.startSec)
+  for (let i = 1; i < anchors.length; i += 1) {
+    if (anchors[i]!.position <= anchors[i - 1]!.position) {
+      return {
+        ok: false,
+        reason: `порядок сцен по времени трека не совпадает с порядком клипов в склейке `
+          + `(позиции ${anchors[i - 1]!.position} → ${anchors[i]!.position} не растут)`,
+        targets: empty,
+      }
+    }
+  }
+
+  const targets: Array<number | null> = new Array(input.clipCount).fill(null)
+  // boundaries[k] — время в треке, bucketStartPositions[k] — позиция в склейке;
+  // виртуальный старт (0/0) добавлен, чтобы ведущие неанкорные клипы (до первого
+  // анкора) тоже попали в бакет; замыкающий бакет обходится без виртуальной
+  // записи — trackDurationSec подставляется напрямую как конец последнего.
+  const boundaries: number[] = [0, ...anchors.map(a => a.startSec), input.trackDurationSec]
+  const bucketStartPositions: number[] = [0, ...anchors.map(a => a.position)]
+
+  // Время НЕ продвигается на пустом бакете (виртуальный старт совпал с позицией
+  // первого анкора — обычный случай, когда самый первый клип уже анкорный):
+  // такой бакет не выбрасывает своё время, а сдаёт его целиком следующему,
+  // непустому — иначе первый анкор терял бы вдох перед своей репликой, и сумма
+  // подогнанных длин уже не сходилась бы с длиной трека.
+  let timeStart = boundaries[0]!
+
+  for (let b = 0; b < bucketStartPositions.length; b += 1) {
+    const from = bucketStartPositions[b]!
+    const to = b + 1 < bucketStartPositions.length ? bucketStartPositions[b + 1]! : input.clipCount
+    const timeEnd = boundaries[b + 1]!
+    if (to <= from) continue // пустой бакет — соседние анкоры на смежных позициях, timeStart не продвигаем
+
+    const bucketTotal = Math.max(0, timeEnd - timeStart)
+    const members: number[] = []
+    for (let p = from; p < to; p += 1) members.push(p)
+
+    const weights = members.map(p => input.actualDurationsSec[p])
+    const badIndex = weights.findIndex(w => !(typeof w === "number" && Number.isFinite(w) && w > 0))
+    if (badIndex >= 0) {
+      return {
+        ok: false,
+        reason: `клип на позиции ${members[badIndex]} не измерен — пропорцию подгона под трек посчитать нечем`,
+        targets: empty,
+      }
+    }
+
+    let weightSum = 0
+    for (const w of weights) weightSum += w as number
+    for (const p of members) {
+      const share = (input.actualDurationsSec[p] as number) / weightSum
+      targets[p] = bucketTotal * share
+    }
+
+    timeStart = timeEnd
+  }
+
+  return { ok: true, targets }
 }
 
 /**
