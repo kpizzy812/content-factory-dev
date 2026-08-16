@@ -17,6 +17,7 @@ export type MediaCapability =
   | "text_to_speech"
   | "speech_to_video"
   | "image_to_image"
+  | "transcription"
 // b_roll добавляется отдельным решением (P0-16, §7 спецификации)
 
 export type MediaProviderName = "replicate" | "fal" | "fish"
@@ -27,10 +28,12 @@ export type MediaProviderName = "replicate" | "fal" | "fish"
  *    выхода в наше хранилище (устойчиво к перезапуску процесса);
  *  - sync_queue — fal: сабмит и поллинг внутри одного вызова шага;
  *  - sync_bytes — Fish Audio: аудио приходит БАЙТАМИ в теле ответа, ссылки на
- *    выход нет вовсе, поэтому и разбирать нечего.
+ *    выход нет вовсе, поэтому и разбирать нечего;
+ *  - sync_json — Replicate-транскрипция: выход СТРУКТУРА (слова и границы), а
+ *    не файл и не ссылка на файл — скачивать нечего.
  * Ветку выбирает спека модели, а не глобальный флаг и не подстрока в id.
  */
-export type MediaExecution = "async_prediction" | "sync_queue" | "sync_bytes"
+export type MediaExecution = "async_prediction" | "sync_queue" | "sync_bytes" | "sync_json"
 
 export type MediaTier = "budget" | "standard" | "premium"
 
@@ -136,6 +139,17 @@ export interface ImageToImageInput {
   seed?: number
 }
 
+/**
+ * Транскрипция СВОЕЙ озвучки. Текст известен из сценария — нужны границы слов
+ * (spec §4.1).
+ */
+export interface TranscriptionInput {
+  /** Публичный URL готового трека озвучки. */
+  audioUrl: string
+  /** Подсказка языка: для русского заметно повышает точность границ. */
+  language?: string
+}
+
 export interface MediaInputMap {
   lip_sync: LipSyncInput
   text_to_image: TextToImageInput
@@ -144,6 +158,7 @@ export interface MediaInputMap {
   text_to_speech: TtsInput
   speech_to_video: SpeechToVideoInput
   image_to_image: ImageToImageInput
+  transcription: TranscriptionInput
 }
 
 export type MediaInputFor<C extends MediaCapability> = MediaInputMap[C]
@@ -216,6 +231,13 @@ export interface ImageToImageConstraints {
    * «похожий человек», и для библиотеки портретов это брак, а не вариация.
    */
   preservesIdentity: boolean
+}
+
+export interface TranscriptionConstraints {
+  languages: readonly string[]
+  /** Потолок длины аудио у модели. Проверяется ДО оплаты. */
+  maxDurationSec: number
+  audioExtensions: readonly string[]
 }
 
 // ─── Биллинг ────────────────────────────────────────────────────
@@ -342,6 +364,7 @@ export type ImageToVideoModelSpec = MediaModelSpecBase<"image_to_video", ImageTo
 export type TextToSpeechModelSpec = MediaModelSpecBase<"text_to_speech", TtsInput, TtsConstraints>
 export type SpeechToVideoModelSpec = MediaModelSpecBase<"speech_to_video", SpeechToVideoInput, SpeechToVideoConstraints>
 export type ImageToImageModelSpec = MediaModelSpecBase<"image_to_image", ImageToImageInput, ImageToImageConstraints>
+export type TranscriptionModelSpec = MediaModelSpecBase<"transcription", TranscriptionInput, TranscriptionConstraints>
 
 export type MediaModelSpec =
   | LipSyncModelSpec
@@ -351,6 +374,7 @@ export type MediaModelSpec =
   | TextToSpeechModelSpec
   | SpeechToVideoModelSpec
   | ImageToImageModelSpec
+  | TranscriptionModelSpec
 
 export type MediaSpecFor<C extends MediaCapability> = Extract<MediaModelSpec, { capability: C }>
 

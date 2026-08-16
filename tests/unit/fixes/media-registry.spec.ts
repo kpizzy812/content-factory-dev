@@ -459,7 +459,7 @@ describe("контракт реестра", () => {
     for (const spec of listMediaSpecs("lip_sync")) expect(spec.billingConfirmed).toBe(true)
   })
 
-  it("Replicate закрывает все семь способностей, fal остаётся резервом", () => {
+  it("Replicate закрывает все восемь способностей, fal остаётся резервом", () => {
     const replicate = listMediaSpecs().filter(spec => spec.provider === "replicate")
     expect([...new Set(replicate.map(spec => spec.capability))].sort()).toEqual([
       "image_to_image",
@@ -469,6 +469,7 @@ describe("контракт реестра", () => {
       "text_to_image",
       "text_to_speech",
       "text_to_video",
+      "transcription",
     ])
     // У каждой способности первым подключённым идёт Replicate.
     const capabilities = [

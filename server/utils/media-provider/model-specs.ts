@@ -34,6 +34,7 @@ import type {
   TextToImageModelSpec,
   TextToSpeechModelSpec,
   TextToVideoModelSpec,
+  TranscriptionModelSpec,
 } from "./types"
 
 // ─── Общие проверки входа ───────────────────────────────────────
@@ -1944,6 +1945,65 @@ const FISH_S21_PRO: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>
   avgGenerationTime: "~3 сек",
 })
 
+// ─── transcription: границы слов нашей же озвучки ────────────────
+
+/**
+ * Whisper на Replicate. Цена НЕ подтверждена страницей модели (токена в
+ * окружении нет — spec §14), поэтому `integrated: false`: модель видна в
+ * реестре, но маршрут её не выберет и в смету она не попадёт.
+ *
+ * Перед включением: подтвердить тариф страницей модели и сверить имена полей
+ * входа со снятой схемой — `audio`, `language`, `word_timestamps` взяты из
+ * публичной документации обёртки, а не из API.
+ */
+const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
+  registryKey: "replicate:whisper",
+  id: "openai/whisper",
+  provider: "replicate",
+  capability: "transcription",
+  execution: "sync_json",
+  billing: { unit: "audio_second", usdPerSecond: 0.0002 },
+  billingConfirmed: false,
+  constraints: Object.freeze({
+    languages: Object.freeze(["ru", "en"]),
+    maxDurationSec: 600,
+    audioExtensions: Object.freeze(["mp3", "wav", "m4a"]),
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const audioUrl = requireText(input.audioUrl, "audioUrl")
+    const language = (input.language || "ru").slice(0, 2).toLowerCase()
+    if (!this.constraints.languages.includes(language)) {
+      throw new Error(`Модель ${this.id} не размечает язык "${language}"`)
+    }
+    return {
+      payload: {
+        audio: audioUrl,
+        language,
+        // Без границ слов транскрипт бесполезен: ради них всё и затевается.
+        word_timestamps: true,
+      },
+    }
+  },
+  // Выход способности — JSON, а не ссылка на файл: скачивать нечего, разбирает
+  // его `normalizeTranscriptPayload`.
+  extractOutput: () => ({ urls: [] }),
+  dataProcessor: null,
+  integrated: false,
+  tier: "budget",
+  name: "Whisper",
+  vendorLabel: "Replicate / OpenAI",
+  strengths: Object.freeze([
+    "Границы слов, а не только текст",
+    "Русский распознаёт без отдельной настройки",
+  ]),
+  tradeoffs: Object.freeze([
+    "Цена не подтверждена страницей модели",
+    "Схема входа снята с документации, а не с API",
+  ]),
+  avgGenerationTime: "~10-30 сек на ролик",
+})
+
 /**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
@@ -1984,4 +2044,5 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   FLUX_KONTEXT_PRO,
   FLUX_KONTEXT_MAX,
   BYTEDANCE_FLUX_PULID,
+  REPLICATE_WHISPER,
 ])

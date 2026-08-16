@@ -205,6 +205,13 @@ export interface RunMediaTaskDependencies {
     timeoutMs: number,
   ) => Promise<{ bytes: Buffer, contentType: string }>
   writeBytes?: (path: string, bytes: Buffer) => Promise<void>
+  /** Провайдер, отдающий структуру, а не файл (транскрипция). */
+  runJsonModel?: (
+    modelId: string,
+    payload: Record<string, unknown>,
+    timeoutMs: number,
+  ) => Promise<unknown>
+  readTextFile?: (path: string) => Promise<string>
 }
 
 export async function runMediaTask<C extends MediaCapability>(
@@ -237,6 +244,7 @@ export async function runMediaTask<C extends MediaCapability>(
 
   if (spec.execution === "async_prediction") return runAsyncPredictionTask(request, spec, dependencies)
   if (spec.execution === "sync_bytes") return runSyncBytesTask(request, spec, dependencies)
+  if (spec.execution === "sync_json") return runSyncJsonTask(request, spec, dependencies)
   return runSyncQueueTask(request, spec, dependencies)
 }
 
@@ -415,6 +423,77 @@ async function defaultWriteBytes(path: string, bytes: Buffer): Promise<void> {
   const { dirname } = await import("node:path")
   await mkdir(dirname(path), { recursive: true }).catch(() => {})
   await writeFile(path, bytes)
+}
+
+// ─── Ветка sync_json (Replicate-транскрипция): выход — структура ─
+
+/**
+ * Ветка sync_json: провайдер отдаёт СТРУКТУРУ, а не файл и не ссылку.
+ *
+ * Так работает транскрипция. Скачивать нечего, поэтому JSON сериализуется и
+ * пишется в `outputPath`, оттуда попадает в постоянное хранилище на общих
+ * основаниях. Остальное общее с другими ветками: три уровня переиспользования,
+ * ключ идемпотентности, запись `MediaPrediction`.
+ */
+async function runSyncJsonTask<C extends MediaCapability>(
+  request: MediaTaskRequest<C>,
+  spec: MediaModelSpec,
+  dependencies: RunMediaTaskDependencies,
+): Promise<MediaTaskResult> {
+  const prepared = await prepareInputs(request, dependencies, async () => {
+    throw new Error(`${spec.registryKey}: заливка входных файлов этой веткой не поддерживается`)
+  })
+  const mapped = spec.mapInput(prepared.input as never, {
+    unitKey: request.unitKey,
+    sceneOrder: request.sceneOrder,
+  })
+  const identity = buildIdentity(request, spec, prepared)
+
+  const reused = await reuseFromStorage(request, spec, identity, dependencies)
+  if (reused) return reused
+
+  // Гейт платных вызовов — только там, где вызов платный (как в sync_bytes).
+  const costsMoney = spec.billing.unit !== "flat" || spec.billing.usd > 0
+  if (costsMoney) {
+    const requirePaid = dependencies.requirePaidApis
+      ?? (await import("../paid-guard")).requirePaidApisEnabled
+    requirePaid(spec.vendorLabel)
+  }
+
+  const runJson = dependencies.runJsonModel ?? defaultRunJsonModel
+  const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs)
+
+  const write = dependencies.writeBytes ?? defaultWriteBytes
+  await write(request.outputPath, Buffer.from(JSON.stringify(raw), "utf8"))
+
+  const storage = await persistOutput(request, dependencies)
+  if (identity) {
+    await savePrediction(request, spec, identity, null, mapped.payload, null, storage ?? null, dependencies)
+  }
+
+  return {
+    localPath: request.outputPath,
+    provider: spec.provider,
+    modelId: spec.id,
+    externalRef: null,
+    idempotencyKey: identity?.idempotencyKey ?? null,
+    costUsd: safeCost(spec, request, prepared.input, mapped.effectiveDurationSec),
+    source: "generated",
+    remoteUrl: null,
+    contentType: "application/json",
+    storage,
+    raw,
+  }
+}
+
+async function defaultRunJsonModel(
+  modelId: string,
+  payload: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<unknown> {
+  const { readReplicateConfig } = await import("../replicate/config")
+  const { runReplicateJsonModel } = await import("../replicate/json-model")
+  return runReplicateJsonModel(modelId, payload, readReplicateConfig(), timeoutMs)
 }
 
 // ─── Ветка async_prediction (Replicate): обобщённый runLipSync ────
@@ -644,6 +723,12 @@ async function reuseFromStorage<C extends MediaCapability>(
   await materialize(existing.persistedStorageKey, request.outputPath)
   const storage = await persistOutput(request, dependencies)
 
+  // Для JSON-способностей результат — не файл, а структура: без неё вызывающий
+  // получил бы «успех» с пустыми руками и заново пошёл бы платить.
+  const raw = spec.execution === "sync_json"
+    ? await readJsonFile(request.outputPath, dependencies)
+    : undefined
+
   return {
     localPath: request.outputPath,
     provider: spec.provider,
@@ -656,6 +741,23 @@ async function reuseFromStorage<C extends MediaCapability>(
     source: "reused_prediction",
     remoteUrl: null,
     storage,
+    raw,
+  }
+}
+
+async function readJsonFile(
+  path: string,
+  dependencies: RunMediaTaskDependencies,
+): Promise<unknown> {
+  const read = dependencies.readTextFile ?? (async (target: string) => {
+    const { readFile } = await import("node:fs/promises")
+    return readFile(target, "utf8")
+  })
+  try {
+    return JSON.parse(await read(path))
+  } catch (error) {
+    console.warn(`[media-task] сохранённый JSON не прочитан: ${describeError(error)}`)
+    return undefined
   }
 }
 
@@ -768,6 +870,10 @@ function deriveUsage(
         utf8Bytes: Buffer.byteLength(value.text, "utf8"),
       }
     }
+    case "transcription":
+      // Длительность знает только вызывающий (он мерил файл ffprobe'ом) —
+      // здесь её вывести не из чего, поэтому считаем по `request.usage`.
+      return {}
     default:
       return {}
   }

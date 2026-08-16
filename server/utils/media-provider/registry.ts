@@ -39,6 +39,7 @@ export const MEDIA_CAPABILITIES: readonly MediaCapability[] = Object.freeze([
   "text_to_speech",
   "speech_to_video",
   "image_to_image",
+  "transcription",
 ])
 
 const CAPABILITY_SET = new Set<string>(MEDIA_CAPABILITIES)
@@ -58,6 +59,7 @@ const ENV_MODEL_KEYS: Record<MediaCapability, readonly string[]> = Object.freeze
   text_to_speech: Object.freeze(["MEDIA_MODEL_TEXT_TO_SPEECH"]),
   speech_to_video: Object.freeze(["MEDIA_MODEL_SPEECH_TO_VIDEO"]),
   image_to_image: Object.freeze(["MEDIA_MODEL_IMAGE_TO_IMAGE"]),
+  transcription: Object.freeze(["MEDIA_MODEL_TRANSCRIPTION"]),
 })
 
 /** По-способностный override резерва поверх общего MEDIA_PROVIDER_FALLBACK. */
@@ -69,6 +71,7 @@ const ENV_FALLBACK_KEYS: Record<MediaCapability, string> = Object.freeze({
   text_to_speech: "MEDIA_PROVIDER_FALLBACK_TEXT_TO_SPEECH",
   speech_to_video: "MEDIA_PROVIDER_FALLBACK_SPEECH_TO_VIDEO",
   image_to_image: "MEDIA_PROVIDER_FALLBACK_IMAGE_TO_IMAGE",
+  transcription: "MEDIA_PROVIDER_FALLBACK_TRANSCRIPTION",
 })
 
 const BY_REGISTRY_KEY = new Map<string, MediaModelSpec>(
