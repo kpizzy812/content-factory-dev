@@ -42,6 +42,10 @@ export const StorageKeys = {
   videoThumbnail: (videoId: number | string): string =>
     `${STORAGE_PATH_PREFIX}videos/${vid(videoId)}/thumbnail.jpg`,
 
+  /** Выровненный транскрипт озвучки (границы слов после сопоставления со сценарием). */
+  videoTranscript: (videoId: number | string): string =>
+    `${STORAGE_PATH_PREFIX}videos/${vid(videoId)}/transcript.json`,
+
   /** Превью-клип (например, 5s low-res). */
   videoPreview: (videoId: number | string): string =>
     `${STORAGE_PATH_PREFIX}videos/${vid(videoId)}/preview.mp4`,
