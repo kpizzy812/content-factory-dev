@@ -1754,8 +1754,19 @@ export interface SingleTrackResult {
 
 export interface SingleTrackDeps {
   synthesize?: (options: TtsSynthesisOptions) => Promise<Pick<TtsSynthesisResult, "audioPath" | "durationSec" | "costUsd">>
-  /** Режет трек по маркерам пауз и вставляет тишину; возвращает путь к новому файлу. */
-  insertPauses?: (path: string, pauses: TrackPause[]) => Promise<string>
+  /**
+   * Режет трек по маркерам пауз и вставляет тишину. `durationSec` в ответе —
+   * ИЗМЕРЕННАЯ длительность готового файла (не сумма исходной длительности и
+   * пауз): трек — эталон времени для дальнейшего монтажа, вывести её
+   * арифметикой значило бы довериться складыванию там, где нужен факт.
+   * `skippedPauses` — паузы, для которых не нашлось точки вставки (тишина по
+   * ним НЕ добавлена); пусто, если все паузы легли на место.
+   */
+  insertPauses?: (path: string, pauses: TrackPause[]) => Promise<{
+    path: string
+    durationSec: number
+    skippedPauses: TrackPause[]
+  }>
   log?: (stepId: number, message: string) => Promise<void>
 }
 
@@ -1800,11 +1811,24 @@ export async function runSingleTrackVoiceover(
   if (track.pauses.length > 0) {
     const insertPauses = deps.insertPauses
       ?? ((path: string, pauses: TrackPause[]) => insertVoiceoverPauses(path, pauses, track.scenes))
-    trackPath = await insertPauses(trackPath, track.pauses)
-    // Тишина добавляет ровно свою длительность — insertPauses режет и
-    // склеивает трек, не изменяя темп речи в остальных местах.
-    durationSec += track.pauses.reduce((sum, pause) => sum + pause.durationSec, 0)
-    await log(input.stepId, `Вставлено пауз: ${track.pauses.length}`)
+    const inserted = await insertPauses(trackPath, track.pauses)
+    trackPath = inserted.path
+    // Факт, а не арифметика: длительность результата — то, что реально
+    // измерено на готовом файле. Наивная сумма "было + Σ пауз" молча соврала
+    // бы, если склейка дала не ровно ту длину или какая-то пауза не нашла
+    // точку вставки (см. skippedPauses ниже).
+    durationSec = inserted.durationSec
+
+    if (inserted.skippedPauses.length > 0) {
+      await log(
+        input.stepId,
+        `Не нашли точку вставки для паузы после сцен(ы) ${inserted.skippedPauses.map(p => p.afterSceneOrder).join(", ")} — тишина не добавлена`,
+      )
+    }
+    await log(
+      input.stepId,
+      `Вставлено пауз: ${track.pauses.length - inserted.skippedPauses.length} из ${track.pauses.length}`,
+    )
   }
 
   return {
