@@ -564,6 +564,7 @@ enum VideoStepKey {
   music_generation
   lip_sync_generation
   assembly
+  transcription
 }
 
 enum VideoStepStatus {
@@ -590,6 +591,7 @@ enum AssetType {
   voiceover_mix
   thumbnail
   preview
+  transcript
 }
 
 enum ScenarioStatus {
@@ -792,6 +794,11 @@ model Video {
   videoModelId             String                @default("fal-ai/kling-video/v3/standard/text-to-video")
   modelStrategy            String                @default("auto")
   generateAudio            Boolean               @default(true)
+  /// Маршрут производства, зафиксированный при старте прогона. true — audio-first
+  /// (единый трек, транскрипция, монтаж по границам слов). Читается с ролика, а не
+  /// из env: смена флага посреди производства не должна собирать половину ролика по
+  /// одним правилам, половину по другим.
+  editPipeline             Boolean               @default(false)
   // Lip-sync (premium feature, gated by quality preset)
   lipSyncEnabled           Boolean               @default(false)
   lipSyncModelId           String?

@@ -34,11 +34,34 @@ export const STEP_EXECUTION_ORDER: readonly StepKey[] = [
   "assembly",
 ]
 
+/**
+ * Порядок маршрута audio-first (spec §3).
+ *
+ * Озвучка первой: она эталон времени, всё остальное строится по ней.
+ * Транскрипция сразу за ней — без границ слов резать кадры не по чему.
+ */
+export const STEP_EXECUTION_ORDER_AUDIO_FIRST: readonly StepKey[] = [
+  "prompt_generation",
+  "voiceover_generation",
+  "transcription",
+  "image_generation",
+  "clip_generation",
+  "lip_sync_generation",
+  "music_generation",
+  "assembly",
+]
+
+/** Порядок исполнения по маршруту РОЛИКА, а не по глобальному флагу. */
+export function executionOrderFor(editPipeline: boolean): readonly StepKey[] {
+  return editPipeline ? STEP_EXECUTION_ORDER_AUDIO_FIRST : STEP_EXECUTION_ORDER
+}
+
 /** Шаги, которые обязан сбросить перезапуск с указанного. Пустой массив — шаг неизвестен. */
-export function stepsToRerunFrom(stepKey: StepKey): StepKey[] {
-  const index = STEP_EXECUTION_ORDER.indexOf(stepKey)
+export function stepsToRerunFrom(stepKey: StepKey, editPipeline = false): StepKey[] {
+  const order = executionOrderFor(editPipeline)
+  const index = order.indexOf(stepKey)
   if (index < 0) return []
-  return [...STEP_EXECUTION_ORDER.slice(index)]
+  return [...order.slice(index)]
 }
 
 /**
@@ -67,9 +90,9 @@ const CLIP_DERIVED_CACHE_STEPS: ReadonlySet<StepKey> = new Set<StepKey>(["voiceo
  * шагов не пришлось описывать вторым списком, и оставляем в нём только шаги с
  * клип-зависимым кэшем.
  */
-export function stepsInvalidatedByFreshClips(lipSyncProducedNewClips: boolean): StepKey[] {
+export function stepsInvalidatedByFreshClips(lipSyncProducedNewClips: boolean, editPipeline = false): StepKey[] {
   if (!lipSyncProducedNewClips) return []
-  return stepsToRerunFrom("voiceover_generation").filter(key => CLIP_DERIVED_CACHE_STEPS.has(key))
+  return stepsToRerunFrom("voiceover_generation", editPipeline).filter(key => CLIP_DERIVED_CACHE_STEPS.has(key))
 }
 
 /**

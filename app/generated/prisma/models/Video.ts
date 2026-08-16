@@ -106,6 +106,7 @@ export type VideoMinAggregateOutputType = {
   videoModelId: string | null
   modelStrategy: string | null
   generateAudio: boolean | null
+  editPipeline: boolean | null
   lipSyncEnabled: boolean | null
   lipSyncModelId: string | null
   lipSyncCharacterId: string | null
@@ -170,6 +171,7 @@ export type VideoMaxAggregateOutputType = {
   videoModelId: string | null
   modelStrategy: string | null
   generateAudio: boolean | null
+  editPipeline: boolean | null
   lipSyncEnabled: boolean | null
   lipSyncModelId: string | null
   lipSyncCharacterId: string | null
@@ -236,6 +238,7 @@ export type VideoCountAggregateOutputType = {
   videoModelId: number
   modelStrategy: number
   generateAudio: number
+  editPipeline: number
   lipSyncEnabled: number
   lipSyncModelId: number
   lipSyncCharacterId: number
@@ -345,6 +348,7 @@ export type VideoMinAggregateInputType = {
   videoModelId?: true
   modelStrategy?: true
   generateAudio?: true
+  editPipeline?: true
   lipSyncEnabled?: true
   lipSyncModelId?: true
   lipSyncCharacterId?: true
@@ -409,6 +413,7 @@ export type VideoMaxAggregateInputType = {
   videoModelId?: true
   modelStrategy?: true
   generateAudio?: true
+  editPipeline?: true
   lipSyncEnabled?: true
   lipSyncModelId?: true
   lipSyncCharacterId?: true
@@ -475,6 +480,7 @@ export type VideoCountAggregateInputType = {
   videoModelId?: true
   modelStrategy?: true
   generateAudio?: true
+  editPipeline?: true
   lipSyncEnabled?: true
   lipSyncModelId?: true
   lipSyncCharacterId?: true
@@ -629,6 +635,7 @@ export type VideoGroupByOutputType = {
   videoModelId: string
   modelStrategy: string
   generateAudio: boolean
+  editPipeline: boolean
   lipSyncEnabled: boolean
   lipSyncModelId: string | null
   lipSyncCharacterId: string | null
@@ -719,6 +726,7 @@ export type VideoWhereInput = {
   videoModelId?: Prisma.StringFilter<"Video"> | string
   modelStrategy?: Prisma.StringFilter<"Video"> | string
   generateAudio?: Prisma.BoolFilter<"Video"> | boolean
+  editPipeline?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
   lipSyncCharacterId?: Prisma.StringNullableFilter<"Video"> | string | null
@@ -802,6 +810,7 @@ export type VideoOrderByWithRelationInput = {
   videoModelId?: Prisma.SortOrder
   modelStrategy?: Prisma.SortOrder
   generateAudio?: Prisma.SortOrder
+  editPipeline?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrderInput | Prisma.SortOrder
   lipSyncCharacterId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -888,6 +897,7 @@ export type VideoWhereUniqueInput = Prisma.AtLeast<{
   videoModelId?: Prisma.StringFilter<"Video"> | string
   modelStrategy?: Prisma.StringFilter<"Video"> | string
   generateAudio?: Prisma.BoolFilter<"Video"> | boolean
+  editPipeline?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
   lipSyncCharacterId?: Prisma.StringNullableFilter<"Video"> | string | null
@@ -971,6 +981,7 @@ export type VideoOrderByWithAggregationInput = {
   videoModelId?: Prisma.SortOrder
   modelStrategy?: Prisma.SortOrder
   generateAudio?: Prisma.SortOrder
+  editPipeline?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrderInput | Prisma.SortOrder
   lipSyncCharacterId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -1046,6 +1057,7 @@ export type VideoScalarWhereWithAggregatesInput = {
   videoModelId?: Prisma.StringWithAggregatesFilter<"Video"> | string
   modelStrategy?: Prisma.StringWithAggregatesFilter<"Video"> | string
   generateAudio?: Prisma.BoolWithAggregatesFilter<"Video"> | boolean
+  editPipeline?: Prisma.BoolWithAggregatesFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolWithAggregatesFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableWithAggregatesFilter<"Video"> | string | null
   lipSyncCharacterId?: Prisma.StringNullableWithAggregatesFilter<"Video"> | string | null
@@ -1111,6 +1123,7 @@ export type VideoCreateInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -1190,6 +1203,7 @@ export type VideoUncheckedCreateInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -1266,6 +1280,7 @@ export type VideoUpdateInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1345,6 +1360,7 @@ export type VideoUncheckedUpdateInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1423,6 +1439,7 @@ export type VideoCreateManyInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -1488,6 +1505,7 @@ export type VideoUpdateManyMutationInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1551,6 +1569,7 @@ export type VideoUncheckedUpdateManyInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1628,6 +1647,7 @@ export type VideoCountOrderByAggregateInput = {
   videoModelId?: Prisma.SortOrder
   modelStrategy?: Prisma.SortOrder
   generateAudio?: Prisma.SortOrder
+  editPipeline?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrder
   lipSyncCharacterId?: Prisma.SortOrder
@@ -1714,6 +1734,7 @@ export type VideoMaxOrderByAggregateInput = {
   videoModelId?: Prisma.SortOrder
   modelStrategy?: Prisma.SortOrder
   generateAudio?: Prisma.SortOrder
+  editPipeline?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrder
   lipSyncCharacterId?: Prisma.SortOrder
@@ -1778,6 +1799,7 @@ export type VideoMinOrderByAggregateInput = {
   videoModelId?: Prisma.SortOrder
   modelStrategy?: Prisma.SortOrder
   generateAudio?: Prisma.SortOrder
+  editPipeline?: Prisma.SortOrder
   lipSyncEnabled?: Prisma.SortOrder
   lipSyncModelId?: Prisma.SortOrder
   lipSyncCharacterId?: Prisma.SortOrder
@@ -2261,6 +2283,7 @@ export type VideoCreateWithoutLipSyncCharacterInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -2339,6 +2362,7 @@ export type VideoUncheckedCreateWithoutLipSyncCharacterInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -2445,6 +2469,7 @@ export type VideoScalarWhereInput = {
   videoModelId?: Prisma.StringFilter<"Video"> | string
   modelStrategy?: Prisma.StringFilter<"Video"> | string
   generateAudio?: Prisma.BoolFilter<"Video"> | boolean
+  editPipeline?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncEnabled?: Prisma.BoolFilter<"Video"> | boolean
   lipSyncModelId?: Prisma.StringNullableFilter<"Video"> | string | null
   lipSyncCharacterId?: Prisma.StringNullableFilter<"Video"> | string | null
@@ -2510,6 +2535,7 @@ export type VideoCreateWithoutScenarioInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -2587,6 +2613,7 @@ export type VideoUncheckedCreateWithoutScenarioInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -2689,6 +2716,7 @@ export type VideoCreateWithoutFramesInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -2767,6 +2795,7 @@ export type VideoUncheckedCreateWithoutFramesInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -2858,6 +2887,7 @@ export type VideoUpdateWithoutFramesInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -2936,6 +2966,7 @@ export type VideoUncheckedUpdateWithoutFramesInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3011,6 +3042,7 @@ export type VideoCreateWithoutAssetsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -3089,6 +3121,7 @@ export type VideoUncheckedCreateWithoutAssetsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -3180,6 +3213,7 @@ export type VideoUpdateWithoutAssetsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -3258,6 +3292,7 @@ export type VideoUncheckedUpdateWithoutAssetsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3333,6 +3368,7 @@ export type VideoCreateWithoutStepsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -3411,6 +3447,7 @@ export type VideoUncheckedCreateWithoutStepsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -3502,6 +3539,7 @@ export type VideoUpdateWithoutStepsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -3580,6 +3618,7 @@ export type VideoUncheckedUpdateWithoutStepsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3655,6 +3694,7 @@ export type VideoCreateWithoutMediaPredictionsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -3733,6 +3773,7 @@ export type VideoUncheckedCreateWithoutMediaPredictionsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -3824,6 +3865,7 @@ export type VideoUpdateWithoutMediaPredictionsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -3902,6 +3944,7 @@ export type VideoUncheckedUpdateWithoutMediaPredictionsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3977,6 +4020,7 @@ export type VideoCreateWithoutUploadsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -4055,6 +4099,7 @@ export type VideoUncheckedCreateWithoutUploadsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -4146,6 +4191,7 @@ export type VideoUpdateWithoutUploadsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -4224,6 +4270,7 @@ export type VideoUncheckedUpdateWithoutUploadsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4299,6 +4346,7 @@ export type VideoCreateWithoutFactoryPublicationsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -4377,6 +4425,7 @@ export type VideoUncheckedCreateWithoutFactoryPublicationsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -4468,6 +4517,7 @@ export type VideoUpdateWithoutFactoryPublicationsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -4546,6 +4596,7 @@ export type VideoUncheckedUpdateWithoutFactoryPublicationsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4621,6 +4672,7 @@ export type VideoCreateWithoutFactoryQaReviewsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -4699,6 +4751,7 @@ export type VideoUncheckedCreateWithoutFactoryQaReviewsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -4790,6 +4843,7 @@ export type VideoUpdateWithoutFactoryQaReviewsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -4868,6 +4922,7 @@ export type VideoUncheckedUpdateWithoutFactoryQaReviewsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4943,6 +4998,7 @@ export type VideoCreateWithoutPipelineInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -5021,6 +5077,7 @@ export type VideoUncheckedCreateWithoutPipelineInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -5122,6 +5179,7 @@ export type VideoCreateWithoutRunInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -5200,6 +5258,7 @@ export type VideoUncheckedCreateWithoutRunInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -5301,6 +5360,7 @@ export type VideoCreateWithoutDriveCredentialInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -5379,6 +5439,7 @@ export type VideoUncheckedCreateWithoutDriveCredentialInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -5480,6 +5541,7 @@ export type VideoCreateWithoutDriveFileInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -5558,6 +5620,7 @@ export type VideoUncheckedCreateWithoutDriveFileInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -5649,6 +5712,7 @@ export type VideoUpdateWithoutDriveFileInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -5727,6 +5791,7 @@ export type VideoUncheckedUpdateWithoutDriveFileInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -5802,6 +5867,7 @@ export type VideoCreateWithoutPostingJobsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -5880,6 +5946,7 @@ export type VideoUncheckedCreateWithoutPostingJobsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -5971,6 +6038,7 @@ export type VideoUpdateWithoutPostingJobsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -6049,6 +6117,7 @@ export type VideoUncheckedUpdateWithoutPostingJobsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6124,6 +6193,7 @@ export type VideoCreateWithoutUniqueVariantsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -6202,6 +6272,7 @@ export type VideoUncheckedCreateWithoutUniqueVariantsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -6293,6 +6364,7 @@ export type VideoUpdateWithoutUniqueVariantsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -6371,6 +6443,7 @@ export type VideoUncheckedUpdateWithoutUniqueVariantsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6446,6 +6519,7 @@ export type VideoCreateWithoutCaptionsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -6524,6 +6598,7 @@ export type VideoUncheckedCreateWithoutCaptionsInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -6615,6 +6690,7 @@ export type VideoUpdateWithoutCaptionsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -6693,6 +6769,7 @@ export type VideoUncheckedUpdateWithoutCaptionsInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -6770,6 +6847,7 @@ export type VideoCreateManyLipSyncCharacterInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   isLocked?: boolean
@@ -6834,6 +6912,7 @@ export type VideoUpdateWithoutLipSyncCharacterInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -6912,6 +6991,7 @@ export type VideoUncheckedUpdateWithoutLipSyncCharacterInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -6989,6 +7069,7 @@ export type VideoUncheckedUpdateManyWithoutLipSyncCharacterInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -7054,6 +7135,7 @@ export type VideoCreateManyScenarioInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -7119,6 +7201,7 @@ export type VideoUpdateWithoutScenarioInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -7196,6 +7279,7 @@ export type VideoUncheckedUpdateWithoutScenarioInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -7273,6 +7357,7 @@ export type VideoUncheckedUpdateManyWithoutScenarioInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -7340,6 +7425,7 @@ export type VideoCreateManyPipelineInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -7404,6 +7490,7 @@ export type VideoUpdateWithoutPipelineInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -7482,6 +7569,7 @@ export type VideoUncheckedUpdateWithoutPipelineInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -7559,6 +7647,7 @@ export type VideoUncheckedUpdateManyWithoutPipelineInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -7625,6 +7714,7 @@ export type VideoCreateManyRunInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -7689,6 +7779,7 @@ export type VideoUpdateWithoutRunInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -7767,6 +7858,7 @@ export type VideoUncheckedUpdateWithoutRunInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -7844,6 +7936,7 @@ export type VideoUncheckedUpdateManyWithoutRunInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -7910,6 +8003,7 @@ export type VideoCreateManyDriveCredentialInput = {
   videoModelId?: string
   modelStrategy?: string
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: string | null
   lipSyncCharacterId?: string | null
@@ -7974,6 +8068,7 @@ export type VideoUpdateWithoutDriveCredentialInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isLocked?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -8052,6 +8147,7 @@ export type VideoUncheckedUpdateWithoutDriveCredentialInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -8129,6 +8225,7 @@ export type VideoUncheckedUpdateManyWithoutDriveCredentialInput = {
   videoModelId?: Prisma.StringFieldUpdateOperationsInput | string
   modelStrategy?: Prisma.StringFieldUpdateOperationsInput | string
   generateAudio?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  editPipeline?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lipSyncModelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lipSyncCharacterId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -8307,6 +8404,7 @@ export type VideoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   videoModelId?: boolean
   modelStrategy?: boolean
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
   lipSyncCharacterId?: boolean
@@ -8391,6 +8489,7 @@ export type VideoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   videoModelId?: boolean
   modelStrategy?: boolean
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
   lipSyncCharacterId?: boolean
@@ -8463,6 +8562,7 @@ export type VideoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   videoModelId?: boolean
   modelStrategy?: boolean
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
   lipSyncCharacterId?: boolean
@@ -8535,6 +8635,7 @@ export type VideoSelectScalar = {
   videoModelId?: boolean
   modelStrategy?: boolean
   generateAudio?: boolean
+  editPipeline?: boolean
   lipSyncEnabled?: boolean
   lipSyncModelId?: boolean
   lipSyncCharacterId?: boolean
@@ -8562,7 +8663,7 @@ export type VideoSelectScalar = {
   fitRationale?: boolean
 }
 
-export type VideoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scenarioId" | "variantId" | "applicationId" | "status" | "currentStep" | "format" | "filePath" | "fileUrl" | "storageKey" | "storageProvider" | "fileSizeBytes" | "fileSha256" | "duration" | "errorMessage" | "subtitlesEnabled" | "subtitlesStyle" | "subtitlePreset" | "voiceoverPlan" | "musicEnabled" | "musicMood" | "musicDuration" | "musicVolume" | "musicVolumeWithVoiceover" | "clipDuration" | "imageCount" | "renderQuality" | "targetPlatform" | "voiceoverEnabled" | "voiceoverProvider" | "voiceoverModelId" | "voiceoverVoiceId" | "voiceoverLanguage" | "voiceoverPacing" | "voiceoverReconciliation" | "imageModelId" | "videoModelId" | "modelStrategy" | "generateAudio" | "lipSyncEnabled" | "lipSyncModelId" | "lipSyncCharacterId" | "isLocked" | "lockedAt" | "lockedReason" | "startedAt" | "finishedAt" | "totalCostEstimate" | "totalCostActual" | "createdAt" | "updatedAt" | "runId" | "pipelineId" | "isExternalCreative" | "externalSource" | "externalSourceId" | "driveFileId" | "driveCredentialId" | "analysisData" | "framePassVersion" | "framePassRunAt" | "analysisDurationSec" | "fitScore" | "fitRationale", ExtArgs["result"]["video"]>
+export type VideoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scenarioId" | "variantId" | "applicationId" | "status" | "currentStep" | "format" | "filePath" | "fileUrl" | "storageKey" | "storageProvider" | "fileSizeBytes" | "fileSha256" | "duration" | "errorMessage" | "subtitlesEnabled" | "subtitlesStyle" | "subtitlePreset" | "voiceoverPlan" | "musicEnabled" | "musicMood" | "musicDuration" | "musicVolume" | "musicVolumeWithVoiceover" | "clipDuration" | "imageCount" | "renderQuality" | "targetPlatform" | "voiceoverEnabled" | "voiceoverProvider" | "voiceoverModelId" | "voiceoverVoiceId" | "voiceoverLanguage" | "voiceoverPacing" | "voiceoverReconciliation" | "imageModelId" | "videoModelId" | "modelStrategy" | "generateAudio" | "editPipeline" | "lipSyncEnabled" | "lipSyncModelId" | "lipSyncCharacterId" | "isLocked" | "lockedAt" | "lockedReason" | "startedAt" | "finishedAt" | "totalCostEstimate" | "totalCostActual" | "createdAt" | "updatedAt" | "runId" | "pipelineId" | "isExternalCreative" | "externalSource" | "externalSourceId" | "driveFileId" | "driveCredentialId" | "analysisData" | "framePassVersion" | "framePassRunAt" | "analysisDurationSec" | "fitScore" | "fitRationale", ExtArgs["result"]["video"]>
 export type VideoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
   lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
@@ -8657,6 +8758,13 @@ export type $VideoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     videoModelId: string
     modelStrategy: string
     generateAudio: boolean
+    /**
+     * Маршрут производства, зафиксированный при старте прогона. true — audio-first
+     * (единый трек, транскрипция, монтаж по границам слов). Читается с ролика, а не
+     * из env: смена флага посреди производства не должна собирать половину ролика по
+     * одним правилам, половину по другим.
+     */
+    editPipeline: boolean
     lipSyncEnabled: boolean
     lipSyncModelId: string | null
     lipSyncCharacterId: string | null
@@ -9160,6 +9268,7 @@ export interface VideoFieldRefs {
   readonly videoModelId: Prisma.FieldRef<"Video", 'String'>
   readonly modelStrategy: Prisma.FieldRef<"Video", 'String'>
   readonly generateAudio: Prisma.FieldRef<"Video", 'Boolean'>
+  readonly editPipeline: Prisma.FieldRef<"Video", 'Boolean'>
   readonly lipSyncEnabled: Prisma.FieldRef<"Video", 'Boolean'>
   readonly lipSyncModelId: Prisma.FieldRef<"Video", 'String'>
   readonly lipSyncCharacterId: Prisma.FieldRef<"Video", 'String'>

@@ -197,7 +197,8 @@ export const VideoStepKey = {
   voiceover_generation: 'voiceover_generation',
   music_generation: 'music_generation',
   lip_sync_generation: 'lip_sync_generation',
-  assembly: 'assembly'
+  assembly: 'assembly',
+  transcription: 'transcription'
 } as const
 
 export type VideoStepKey = (typeof VideoStepKey)[keyof typeof VideoStepKey]
@@ -232,7 +233,8 @@ export const AssetType = {
   voiceover: 'voiceover',
   voiceover_mix: 'voiceover_mix',
   thumbnail: 'thumbnail',
-  preview: 'preview'
+  preview: 'preview',
+  transcript: 'transcript'
 } as const
 
 export type AssetType = (typeof AssetType)[keyof typeof AssetType]

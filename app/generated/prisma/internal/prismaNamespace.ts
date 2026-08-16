@@ -7026,6 +7026,7 @@ export const VideoScalarFieldEnum = {
   videoModelId: 'videoModelId',
   modelStrategy: 'modelStrategy',
   generateAudio: 'generateAudio',
+  editPipeline: 'editPipeline',
   lipSyncEnabled: 'lipSyncEnabled',
   lipSyncModelId: 'lipSyncModelId',
   lipSyncCharacterId: 'lipSyncCharacterId',

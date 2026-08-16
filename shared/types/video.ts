@@ -1,7 +1,7 @@
 export interface VideoAsset {
   id: number
   videoId: number
-  type: "image" | "clip" | "music" | "voiceover" | "voiceover_mix"
+  type: "image" | "clip" | "music" | "voiceover" | "voiceover_mix" | "transcript"
   prompt: string | null
   filePath: string | null
   fileUrl: string | null
@@ -29,6 +29,7 @@ export type VideoStepKey =
   | "image_generation"
   | "clip_generation"
   | "voiceover_generation"
+  | "transcription"
   | "music_generation"
   | "assembly"
 
@@ -142,15 +143,21 @@ export const STEP_LABELS: Record<VideoStepKey, string> = {
   image_generation: "Генерация изображений",
   clip_generation: "Генерация видеоклипов",
   voiceover_generation: "Озвучка (TTS)",
+  transcription: "Транскрипция",
   music_generation: "Генерация музыки",
   assembly: "Сборка видео",
 }
 
+// Порядок строк в таблице шагов UI. Не обязан совпадать с персистентным
+// stepIndex (server/utils/video-pipeline-db.ts): там transcription в конце
+// (история роликов), здесь — сразу после voiceover_generation, потому что
+// на маршруте audio-first транскрипция логически идёт следом за озвучкой.
 export const STEP_ORDER: VideoStepKey[] = [
   "prompt_generation",
   "image_generation",
   "clip_generation",
   "voiceover_generation",
+  "transcription",
   "music_generation",
   "assembly",
 ]

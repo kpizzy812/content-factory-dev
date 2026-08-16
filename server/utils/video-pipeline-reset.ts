@@ -23,6 +23,7 @@ export type VideoAssetType
     | "voiceover_mix"
     | "thumbnail"
     | "preview"
+    | "transcript"
 
 /**
  * Шаг → типы ассетов, которые он производит и обязан пересоздать.
@@ -43,6 +44,7 @@ export const STEP_ASSET_TYPES: Record<StepKey, readonly VideoAssetType[]> = {
   music_generation: ["music"],
   lip_sync_generation: [],
   assembly: [],
+  transcription: ["transcript"],
 }
 
 /** Объединение типов ассетов для набора сбрасываемых шагов (без дублей). */

@@ -24,15 +24,16 @@ export interface FalVideoResult {
   video: { url: string }
 }
 
-export type StepKey = "prompt_generation" | "image_generation" | "clip_generation" | "voiceover_generation" | "music_generation" | "lip_sync_generation" | "assembly"
+export type StepKey = "prompt_generation" | "image_generation" | "clip_generation" | "voiceover_generation" | "music_generation" | "lip_sync_generation" | "assembly" | "transcription"
 
 /**
  * Порядок шагов для персистентного stepIndex и сортировки в UI.
  *
  * ВНИМАНИЕ: это НЕ порядок выполнения — lip-sync фактически идёт шагом 4b, между
- * клипами и озвучкой. Каскад перезапуска считается по STEP_EXECUTION_ORDER из
- * video-pipeline-run-policy.ts; здесь порядок зафиксирован историей уже
- * записанных VideoGenerationStep.stepIndex и трогать его нельзя.
+ * клипами и озвучкой. Каскад перезапуска считается по STEP_EXECUTION_ORDER /
+ * STEP_EXECUTION_ORDER_AUDIO_FIRST из video-pipeline-run-policy.ts; здесь порядок
+ * зафиксирован историей уже записанных VideoGenerationStep.stepIndex и трогать
+ * его нельзя.
  */
 export const STEP_ORDER: StepKey[] = [
   "prompt_generation",
@@ -42,6 +43,9 @@ export const STEP_ORDER: StepKey[] = [
   "music_generation",
   "lip_sync_generation",
   "assembly",
+  // Дописан в конец намеренно: stepIndex персистентный, по нему записана
+  // история роликов, и вставка в середину переписала бы её.
+  "transcription",
 ]
 
 /** Результат генерации промптов — либо legacy (3 промпта), либо scene-level */

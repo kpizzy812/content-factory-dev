@@ -55,7 +55,7 @@ export const SPEND_GROUPS: GroupDefinition[] = [
   {
     key: 'audio',
     label: 'Синтез речи и музыка',
-    stepKeys: ['voiceover_generation', 'music_generation'],
+    stepKeys: ['voiceover_generation', 'transcription', 'music_generation'],
   },
   {
     key: 'text',

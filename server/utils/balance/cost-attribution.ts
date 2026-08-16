@@ -61,6 +61,14 @@ export function mapStepKeyToService(
     case "music_generation":
       return "mubert"
 
+    case "transcription": {
+      // Единственная реальная модель сейчас — Whisper на Replicate
+      // (server/utils/media-provider/model-specs.ts). Фолбэк на тот же
+      // провайдер, если модель вне реестра — по образцу lip_sync_generation.
+      if (!modelId) return "replicate"
+      return serviceFromSpec(modelId) ?? "replicate"
+    }
+
     case "voiceover_generation": {
       // Провайдер берётся из спеки. Прежняя ветка возвращала null для всего,
       // что не содержит «fal» в названии вендора, — то есть расход на
