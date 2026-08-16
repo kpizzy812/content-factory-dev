@@ -249,6 +249,20 @@ describe("lip-sync-progress: природа причины отказа", () => 
     expect(covered("tts_failed")).toBe(false)
     expect(covered("lip_sync_failed")).toBe(false)
   })
+
+  it("отказы маршрута «монтаж от звука» разделены на материал и среду", () => {
+    // Нет границ сцены в выравнивании и нулевой интервал — свойства данных:
+    // повторятся один в один, и без покрытия шаг терял бы раннюю идемпотентность
+    // навсегда. Появится выравнивание — сменится ключ (в него входит отпечаток
+    // куска), и отказ перестанет закрывать сцену сам.
+    expect(covered("track_segment_missing")).toBe(true)
+    expect(covered("track_segment_empty")).toBe(true)
+    expect(isKnownSkipReason("track_segment_missing")).toBe(true)
+    expect(isKnownSkipReason("track_segment_empty")).toBe(true)
+    // Упавший ffmpeg — состояние минуты: сцена обязана получить вторую попытку.
+    expect(covered("track_segment_failed")).toBe(false)
+    expect(isKnownSkipReason("track_segment_failed")).toBe(true)
+  })
 })
 
 // ─── Runner: тот же вопрос на живом шаге ─────────────────────────────────────

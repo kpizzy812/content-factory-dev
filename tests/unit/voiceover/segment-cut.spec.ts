@@ -118,6 +118,18 @@ describe("вырезка куска трека под сцену", () => {
     // А целая миллисекунда — уже другой кусок.
     expect(segmentIdentity({ ...base, startSec: 1.001 })).not.toBe(segmentIdentity(base))
   })
+
+  it("ключ различает куски с разной добивкой тишиной", () => {
+    // Границы при нижнем зажатии не двигаются, отличается только тишина в хвосте:
+    // модель с минимумом 2с и модель с минимумом 3с обязаны получить РАЗНЫЕ файлы,
+    // иначе к трёхсекундному кадру подставится старый двухсекундный mp3.
+    const base = { videoId: 7, sceneOrder: 1, startSec: 1, endSec: 2.5, trackFingerprint: "abc" }
+
+    expect(segmentIdentity({ ...base, silencePadSec: 0.5 }))
+      .not.toBe(segmentIdentity({ ...base, silencePadSec: 1.5 }))
+    // Отсутствие добивки и нулевая добивка — одно и то же.
+    expect(segmentIdentity({ ...base, silencePadSec: 0 })).toBe(segmentIdentity(base))
+  })
 })
 
 describe("аргументы ffmpeg для вырезки", () => {
@@ -133,6 +145,13 @@ describe("аргументы ffmpeg для вырезки", () => {
     expect(args.outputOptions.slice(0, 2)).toEqual(["-t", "3.367"])
     expect(args.outputOptions).toContain("libmp3lame")
     expect(args.audioFilters).toEqual([])
+  })
+
+  it("зажатому по потолку куску фильтры не нужны — там режется, а не добивается", () => {
+    const args = buildSegmentCutArgs(cutOf({ order: 2, startSec: 0, endSec: 14 }))
+
+    expect(args.audioFilters).toEqual([])
+    expect(args.outputOptions.slice(0, 2)).toEqual(["-t", "10.000"])
   })
 
   it("добивку тишиной кладёт в фильтр apad ровно на длину файла", () => {

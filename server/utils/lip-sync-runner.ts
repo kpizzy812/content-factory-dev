@@ -81,6 +81,7 @@ import {
   planSegmentCut,
   segmentIdentity,
   snapSecToFrame,
+  trackEndFrame,
   type SegmentCut,
 } from "./voiceover/segment-cut"
 import type { AlignedScene } from "./transcription/align"
@@ -299,14 +300,15 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
 
   /**
    * Отпечаток куска трека для КЛЮЧА СЦЕНЫ — по границам выравнивания, притянутым
-   * к кадру, но БЕЗ зажатия в диапазон модели: модель уже учтена в ключе своим id,
-   * а границы нужны здесь, в ранней ветке идемпотентности, где модель ещё не
-   * разрешена.
+   * к кадру и обрезанным концом трека, но БЕЗ зажатия в диапазон модели: модель
+   * уже учтена в ключе своим id, а границы нужны здесь, в ранней ветке
+   * идемпотентности, где модель ещё не разрешена.
    *
-   * Притяжка к кадру обязательна: без неё дрожание выравнивания в единицы
-   * миллисекунд при том же треке меняло бы ключ, хотя кусок вырезается тот же
-   * байт в байт — ролик из двух десятков сцен переоплачивал бы lip-sync на пустом
-   * месте. fps ролика — константа сборки, и здесь она известна.
+   * Притяжка к кадру и обрезка по треку обязательны: без них дрожание
+   * выравнивания в единицы миллисекунд (или за концом трека) при том же треке
+   * меняло бы ключ, хотя кусок вырезается тот же байт в байт — ролик из двух
+   * десятков сцен переоплачивал бы lip-sync на пустом месте. fps ролика —
+   * константа сборки, и здесь она известна.
    *
    * Имя файла куска считается отдельно и от ЗАЖАТЫХ границ (см. цикл): там
    * важна фактическая длина вырезанного звука.
@@ -314,12 +316,18 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   const trackSegmentKeyFor = (sceneOrder: number): string | null => {
     if (!audioFirst) return null
     const aligned = alignedSceneByOrder.get(sceneOrder)
-    if (!aligned) return null
+    // Выравнивание сцены не знает: отказ у неё будет свой, и ключ ему нужен
+    // МАРШРУТ-СПЕЦИФИЧНЫЙ. Верни здесь null — ключ совпал бы с ключом посценного
+    // маршрута, и прогон без audioFirst (флаг выключили, транскрипция не доехала)
+    // принял бы запись-отказ за свою: шаг отдал бы кэш, а сцена осталась бы без
+    // lip-sync молча и навсегда.
+    if (!aligned) return "audio-first:no-alignment"
+    const trackEnd = trackEndFrame(audioFirst.trackDurationSec, timelineFps)
     return segmentIdentity({
       videoId,
       sceneOrder,
-      startSec: snapSecToFrame(aligned.startSec, timelineFps),
-      endSec: snapSecToFrame(aligned.endSec, timelineFps),
+      startSec: Math.min(Math.max(0, snapSecToFrame(aligned.startSec, timelineFps)), trackEnd),
+      endSec: Math.min(snapSecToFrame(aligned.endSec, timelineFps), trackEnd),
       trackFingerprint: audioFirst.trackFingerprint,
     })
   }
@@ -439,6 +447,10 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         sceneOrder: aligned.order,
         startSec: cut.startSec,
         endSec: cut.endSec,
+        // Добивка тишиной — часть ФАЙЛА: без неё модели с разным минимумом дали бы
+        // одно имя файлам разной длины, и старый кусок переиспользовался бы вместо
+        // нового.
+        silencePadSec: cut.silencePadSec,
         trackFingerprint: track.trackFingerprint,
       }),
     }

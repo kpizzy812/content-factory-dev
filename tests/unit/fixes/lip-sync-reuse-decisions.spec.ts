@@ -49,6 +49,13 @@ const h = vi.hoisted(() => ({
   /** Что «видит» ffprobe: пути нет в карте — файл битый/отсутствует. */
   durationByPath: new Map<string, number>(),
   ffprobe: vi.fn(),
+  /**
+   * Пайплайн ffmpeg по умолчанию запрещён (юнит-тест процессов не запускает).
+   * Маршрут «монтаж от звука» режет кусок трека — там ставится фейковая команда.
+   */
+  ffmpegPipeline: null as null | ((input: string) => unknown),
+  /** Что фейковый ffmpeg реально «вырезал» — по одной записи на запуск. */
+  ffmpegRuns: [] as Array<{ input: string; output: string; outputOptions: string[]; audioFilters: string[] }>,
   assetFindFirst: vi.fn(),
   appendStepLog: vi.fn(),
   updateStep: vi.fn(),
@@ -60,7 +67,10 @@ const h = vi.hoisted(() => ({
 
 vi.mock("fluent-ffmpeg", () => {
   const ffmpeg = Object.assign(
-    () => { throw new Error("ffmpeg-пайплайн в юнит-тестах не запускается") },
+    (input: string) => {
+      if (!h.ffmpegPipeline) throw new Error("ffmpeg-пайплайн в юнит-тестах не запускается")
+      return h.ffmpegPipeline(input)
+    },
     { ffprobe: (path: string, cb: ProbeCallback) => h.ffprobe(path, cb) },
   )
   return { default: ffmpeg }
@@ -156,6 +166,36 @@ function stepAttemptGrew(): boolean {
   return h.updateStep.mock.calls.some(call => (call[1] as { status?: string })?.status === "running")
 }
 
+/**
+ * Фейковый ffmpeg-пайплайн вырезки: файл создаётся, длительность берётся из `-t`
+ * (то есть из плана вырезки), процесс не запускается. Заодно это проверка, что
+ * длина куска задана именно выходным `-t`.
+ */
+function fakeSegmentCutter(input: string): unknown {
+  const handlers = new Map<string, (arg?: unknown) => void>()
+  let output = ""
+  let outputOptions: string[] = []
+  let audioFilters: string[] = []
+  const command: Record<string, unknown> = {
+    inputOptions: () => command,
+    audioFilters: (filters: string[]) => { audioFilters = filters; return command },
+    outputOptions: (options: string[]) => { outputOptions = options; return command },
+    output: (path: string) => { output = path; return command },
+    on: (event: string, cb: (arg?: unknown) => void) => { handlers.set(event, cb); return command },
+    run: () => {
+      void (async () => {
+        const durationIndex = outputOptions.indexOf("-t")
+        const durationSec = durationIndex >= 0 ? Number(outputOptions[durationIndex + 1]) : 0
+        await writeFile(output, "segment")
+        h.durationByPath.set(output, durationSec)
+        h.ffmpegRuns.push({ input, output, outputOptions, audioFilters })
+        handlers.get("end")?.()
+      })()
+    },
+  }
+  return command
+}
+
 function resetCalls(): void {
   h.appendStepLog.mockClear()
   h.updateStep.mockClear()
@@ -175,6 +215,8 @@ beforeEach(async () => {
   h.promptSnapshot = IDENTITY_PROMPT_SNAPSHOT
   h.clipAssets.clear()
   h.durationByPath.clear()
+  h.ffmpegPipeline = null
+  h.ffmpegRuns.length = 0
 
   h.ffprobe.mockReset()
   h.ffprobe.mockImplementation((path: string, cb: ProbeCallback) => {
@@ -502,5 +544,153 @@ describe("lip-sync-progress: записи-отказы", () => {
     // каждый прогон, хранить его негде (ключ записи — индекс клипа).
     expect(areAllScenesCovered([1, undefined], records)).toBe(true)
     expect(areAllScenesCovered([undefined], records)).toBe(false)
+  })
+})
+
+// ─── Маршрут «монтаж от звука»: решения о переиспользовании куска трека ──────
+describe("runLipSyncStep: звук сцены из общего трека", () => {
+  const TRACK_PATH = join(ASSETS_DIR, "voiceover_track.mp3")
+
+  /**
+   * Границы сцены в треке. `jitterSec` — дрожание выравнивания ВНУТРИ одного
+   * кадра (30 fps): кусок от него не меняется ни на байт.
+   */
+  function audioFirstInput(options: { jitterSec?: number; fingerprint?: string } = {}) {
+    const jitter = options.jitterSec ?? 0
+    return {
+      trackPath: TRACK_PATH,
+      trackDurationSec: 60,
+      trackFingerprint: options.fingerprint ?? "track-v1",
+      fps: 30,
+      scenes: [{ order: 1, startSec: 1.2333 + jitter, endSec: 4.6 + jitter, words: [] }],
+    }
+  }
+
+  async function seedTrack(): Promise<string[]> {
+    const clipPaths = await seedClips(1)
+    await writeFile(TRACK_PATH, "track")
+    h.durationByPath.set(TRACK_PATH, 60)
+    h.ffmpegPipeline = fakeSegmentCutter
+    return clipPaths
+  }
+
+  it("режет кусок трека вместо синтеза и отдаёт его модели", async () => {
+    const clipPaths = await seedTrack()
+
+    await runLipSyncStep({
+      videoId: 25,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput(),
+    })
+
+    // Ни одного платного синтеза: трек уже оплачен шагом озвучки.
+    expect(h.synthesizeSpeech).not.toHaveBeenCalled()
+    expect(h.ffmpegRuns).toHaveLength(1)
+    expect(h.ffmpegRuns[0]!.input).toBe(TRACK_PATH)
+    // В модель уходит именно вырезанный кусок, а не посценный mp3.
+    const request = h.runLipSync.mock.calls[0]![0] as { audioPath: string }
+    expect(request.audioPath).toBe(h.ffmpegRuns[0]!.output)
+    expect(request.audioPath).toContain("_track_")
+  })
+
+  it("дрожание границ внутри кадра при том же треке не отменяет переиспользование", async () => {
+    const clipPaths = await seedTrack()
+    await runLipSyncStep({
+      videoId: 25,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput(),
+    })
+
+    const snapshot = lastSnapshot()
+    resetCalls()
+    h.ffmpegRuns.length = 0
+    h.stepCompleted = true
+    h.step = { id: 404, attemptCount: 1, actualCost: 0.072, outputSnapshot: snapshot }
+
+    // Выравнивание пересчитали: границы уехали на доли миллисекунды, кадр тот же.
+    // Без притяжки к кадру ключ сцены менялся бы и ролик переоплачивал бы lip-sync.
+    const result = await runLipSyncStep({
+      videoId: 25,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput({ jitterSec: 0.0004 }),
+    })
+
+    expect(stepAttemptGrew()).toBe(false)
+    expect(h.runLipSync).not.toHaveBeenCalled()
+    expect(h.ffmpegRuns).toHaveLength(0)
+    expect(result.resyncedSceneCount).toBe(0)
+    expect(result.clipPaths).toEqual([lipSyncPath(0)])
+  })
+
+  it("новый трек обесценивает готовую сцену — иначе к свежему звуку встанут старые губы", async () => {
+    const clipPaths = await seedTrack()
+    await runLipSyncStep({
+      videoId: 25,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput(),
+    })
+
+    const snapshot = lastSnapshot()
+    resetCalls()
+    h.ffmpegRuns.length = 0
+    h.stepCompleted = true
+    h.step = { id: 404, attemptCount: 1, actualCost: 0.072, outputSnapshot: snapshot }
+
+    // Трек переозвучили: текст сцены тот же, звук другой.
+    const result = await runLipSyncStep({
+      videoId: 25,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput({ fingerprint: "track-v2" }),
+    })
+
+    expect(h.runLipSync).toHaveBeenCalledTimes(1)
+    expect(h.ffmpegRuns).toHaveLength(1)
+    expect(result.resyncedSceneCount).toBe(1)
+  })
+
+  it("отказ «нет выравнивания» не принимается прогоном посценного маршрута за свой", async () => {
+    const clipPaths = await seedTrack()
+
+    // Сцена 1 есть в плане, но в выравнивании её нет — вырезать нечего.
+    await runLipSyncStep({
+      videoId: 26,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: { ...audioFirstInput(), scenes: [] },
+    })
+
+    const record = lastSnapshot()?.scenes?.find(scene => scene.sceneIndex === 0)
+    expect(record?.skipped).toBe("track_segment_missing")
+    expect(h.synthesizeSpeech).not.toHaveBeenCalled()
+
+    const snapshot = lastSnapshot()
+    resetCalls()
+    h.ffmpegRuns.length = 0
+    h.stepCompleted = true
+    h.step = { id: 404, attemptCount: 1, actualCost: 0, outputSnapshot: snapshot }
+
+    // Прогон БЕЗ audioFirst (флаг выключили, транскрипция не доехала): отказ
+    // маршрута трека к нему не относится, сцену обязаны синхронизировать честно.
+    const result = await runLipSyncStep({
+      videoId: 26,
+      clipPaths,
+      videoPlan: makePlan([1]),
+      videoConfig: VIDEO_CONFIG,
+    })
+
+    expect(h.synthesizeSpeech).toHaveBeenCalledTimes(1)
+    expect(h.runLipSync).toHaveBeenCalledTimes(1)
+    expect(result.clipPaths).toEqual([lipSyncPath(0)])
   })
 })

@@ -84,6 +84,20 @@ function floorToFrame(sec: number, fps: number): number {
 }
 
 /**
+ * Конец трека, притянутый вниз к кадру: дальше него звука нет.
+ * Длительность неизвестна — потолка нет вовсе (`Infinity`).
+ *
+ * Экспортируется по той же причине, что и `snapSecToFrame`: ключ переиспользования
+ * обязан обрезать границы ровно так же, как вырезка, иначе дрожание границ ЗА
+ * концом трека даст тот же кусок, но другой ключ.
+ */
+export function trackEndFrame(trackDurationSec: number, fps: number): number {
+  return Number.isFinite(trackDurationSec) && trackDurationSec > 0
+    ? floorToFrame(trackDurationSec, fps)
+    : Number.POSITIVE_INFINITY
+}
+
+/**
  * Границы куска: от выравнивания, притянутые к кадру, обрезанные длиной трека и
  * подогнанные под диапазон длительности модели.
  *
@@ -98,9 +112,7 @@ function floorToFrame(sec: number, fps: number): number {
  */
 export function planSegmentCut(input: SegmentCutInput): SegmentCut {
   const { fps, model, trackDurationSec } = input
-  const trackEnd = Number.isFinite(trackDurationSec) && trackDurationSec > 0
-    ? floorToFrame(trackDurationSec, fps)
-    : Number.POSITIVE_INFINITY
+  const trackEnd = trackEndFrame(trackDurationSec, fps)
 
   let startSec = Math.max(0, snapSecToFrame(input.scene.startSec, fps))
   let endSec = Math.min(snapSecToFrame(input.scene.endSec, fps), trackEnd)
@@ -140,11 +152,20 @@ export interface SegmentIdentityInput {
    * ранее вырезанные куски: текст сцены при этом мог не измениться ни на букву.
    */
   trackFingerprint: string
+  /**
+   * Добивка тишиной. Обязательна там, где отпечаток идёт в ИМЯ ФАЙЛА: границы
+   * при нижнем зажатии не двигаются, и модель с минимумом 2 с и модель с
+   * минимумом 3 с дали бы одно имя для файлов разной длины — старый двухсекундный
+   * mp3 переиспользовался бы там, где нужен трёхсекундный.
+   *
+   * В ключе переиспользования сцены не нужна: там минимум модели уже учтён её id.
+   */
+  silencePadSec?: number
 }
 
 /**
- * Отпечаток куска: ролик, сцена, границы с точностью до миллисекунды и трек.
- * Текста реплики здесь нет намеренно — см. шапку модуля.
+ * Отпечаток куска: ролик, сцена, границы с точностью до миллисекунды, трек и
+ * добивка тишиной. Текста реплики здесь нет намеренно — см. шапку модуля.
  */
 export function segmentIdentity(input: SegmentIdentityInput): string {
   return createHash("sha1")
@@ -153,6 +174,7 @@ export function segmentIdentity(input: SegmentIdentityInput): string {
       input.sceneOrder,
       Math.round(input.startSec * 1000),
       Math.round(input.endSec * 1000),
+      Math.round((input.silencePadSec ?? 0) * 1000),
       input.trackFingerprint,
     ].join(" "))
     .digest("hex")
