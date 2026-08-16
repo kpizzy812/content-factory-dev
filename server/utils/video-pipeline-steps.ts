@@ -1754,7 +1754,7 @@ export interface SingleTrackResult {
 
 export interface SingleTrackDeps {
   synthesize?: (options: TtsSynthesisOptions) => Promise<Pick<TtsSynthesisResult, "audioPath" | "durationSec" | "costUsd">>
-  /** Вставка тишины по маркерам пауз; путь исходного трека не найден — не найден и результат. */
+  /** Режет трек по маркерам пауз и вставляет тишину; возвращает путь к новому файлу. */
   insertPauses?: (path: string, pauses: TrackPause[]) => Promise<string>
   log?: (stepId: number, message: string) => Promise<void>
 }
