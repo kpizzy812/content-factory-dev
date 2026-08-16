@@ -40,6 +40,13 @@ export interface TranscriptionStepDeps {
     audioUrl: string
     language: string
     outputPath: string
+    /**
+     * Текст, который в этом треке ЗВУЧИТ. Провайдеру он не обязателен (Whisper
+     * распознаёт и без подсказки), но адаптер вправе им пользоваться: мок-режим
+     * строит по нему детерминированный транскрипт вместо заглушки, а реальная
+     * модель может принимать его как initial_prompt.
+     */
+    scenes: readonly AlignScene[]
   }) => Promise<{ costUsd: number, raw: unknown }>
   /** Сохранение выровненного транскрипта: без него повтор прогона теряет тайминги. */
   saveTranscript: (payload: {
@@ -66,6 +73,7 @@ export async function runTranscriptionStep(
       audioUrl: input.audioUrl,
       language: input.language,
       outputPath: input.outputPath,
+      scenes: input.scenes,
     })
     raw = task.raw
     costUsd = task.costUsd

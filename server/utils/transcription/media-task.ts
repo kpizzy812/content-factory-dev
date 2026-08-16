@@ -36,9 +36,11 @@
  */
 
 import { resolveMediaRoute } from "../media-provider/registry"
-import { runMediaTask } from "../media-provider/run-media-task"
+import { runMediaTask, type RunMediaTaskDependencies } from "../media-provider/run-media-task"
 import { StorageKeys } from "../storage/keys"
 import { probeAudioDuration } from "../tts"
+import type { AlignScene } from "./align"
+import { buildMockTranscript } from "./mock-transcript"
 import { normalizeTranscriptPayload } from "./normalize"
 import type { Transcript, TranscriptWord } from "./types"
 
@@ -71,6 +73,8 @@ export async function requestTranscription(input: {
   audioUrl: string
   language: string
   outputPath: string
+  /** Сцены с очищенным текстом — вход мока и (потенциально) подсказка модели. */
+  scenes?: readonly AlignScene[]
 }): Promise<{ costUsd: number, raw: unknown }> {
   // Без requestedId: пока модель не integrated и переменная окружения не
   // задана, это бросает исключение ДО обращения к провайдеру (см. комментарий
@@ -95,6 +99,18 @@ export async function requestTranscription(input: {
     )
   }
 
+  // Мок-режим: транскрипт собирается из СЦЕНАРИЯ и измеренной длительности
+  // трека — ровно то, что вернул бы идеальный распознаватель нашей же озвучки.
+  // Заглушка провайдера (`replicate/json-model.ts`) отдаёт два слова «мок
+  // транскрипции», и выравнивание по ним схлопывает весь ролик в полторы
+  // секунды: маршрут доходил до конца, но собирал брак. Мок ставится
+  // зависимостью, а не внутри клиента, потому что текст знает только шаг.
+  const dependencies: RunMediaTaskDependencies = {}
+  const scenes = input.scenes ?? []
+  if (process.env.REPLICATE_MOCK_MODE === "true" && spec.provider === "replicate" && scenes.length > 0) {
+    dependencies.runJsonModel = async () => buildMockTranscript({ scenes, audioSeconds })
+  }
+
   const task = await runMediaTask({
     capability: "transcription",
     spec,
@@ -108,7 +124,7 @@ export async function requestTranscription(input: {
     // Ключ хранилища транскрипта рядом с прочими ассетами ролика — это и есть
     // второй уровень переиспользования (reuseFromStorage по MediaPrediction).
     persist: { storageKey: StorageKeys.videoTranscript(input.videoId), contentType: "application/json" },
-  })
+  }, dependencies)
 
   warnIfNotMonotonic(task.raw, input.videoId)
 

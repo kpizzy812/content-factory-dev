@@ -397,6 +397,11 @@ function resolveSubtitleFont(): string | null {
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/Library/Fonts/Arial Unicode.ttf',
     '/System/Library/Fonts/Helvetica.ttc',
+    // Windows-стенд. Без явного fontfile drawtext уходит в fontconfig, а сборки
+    // ffmpeg для Windows идут без конфига fontconfig — процесс не «рисует
+    // квадратики», а падает с access violation, и ролик не собирается вовсе.
+    'C:/Windows/Fonts/arial.ttf',
+    'C:/Windows/Fonts/segoeui.ttf',
   ]
   for (const path of candidates) {
     try {

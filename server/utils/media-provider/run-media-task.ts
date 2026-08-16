@@ -452,9 +452,17 @@ async function runSyncJsonTask<C extends MediaCapability>(
   const reused = await reuseFromStorage(request, spec, identity, dependencies)
   if (reused) return reused
 
-  // Гейт платных вызовов — только там, где вызов платный (как в sync_bytes).
+  // Гейт платных вызовов — только там, где вызов платный (как в sync_bytes) и
+  // только там, где вызов ВООБЩЕ уходит наружу. Мок-режим провайдера денег не
+  // тратит, и гейт в нём — не защита, а поломка: ветку sync_json исполняет
+  // Replicate, и на стенде с REPLICATE_MOCK_MODE=true и штатным
+  // ENABLE_PAID_APIS=false транскрипция падала здесь ещё до мока, унося с собой
+  // весь маршрут «монтаж от звука». Ровно то же исключение уже делает
+  // `runAsyncPredictionTask` ниже.
   const costsMoney = spec.billing.unit !== "flat" || spec.billing.usd > 0
-  if (costsMoney) {
+  const replicateMocked = spec.provider === "replicate"
+    && (dependencies.replicateConfig?.mockMode ?? process.env.REPLICATE_MOCK_MODE === "true")
+  if (costsMoney && !replicateMocked) {
     const requirePaid = dependencies.requirePaidApis
       ?? (await import("../paid-guard")).requirePaidApisEnabled
     requirePaid(spec.vendorLabel)

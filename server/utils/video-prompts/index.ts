@@ -165,7 +165,20 @@ export async function generateSceneImagePrompts(
   const staticSystem = buildKlingStaticSystemPrompt()
 
   // ── 4. Anthropic call (cached) ─────────────────────────────
-  const { result, rawText, cacheHit } = await fetchSceneImagePrompts(staticSystem, dynamicUser)
+  // Сцены прогона уходят вниз ради мок-режима: там промпты собираются из них
+  // самих, чтобы список order'ов совпал с планом (см. mockSceneImagePrompts).
+  const mockSeeds = useRuntimeUnits
+    ? sceneUnits!.map(unit => ({
+      order: unit.order,
+      visualGuidance: unit.visualPrompt,
+      purpose: unit.purpose,
+    }))
+    : storyPlan.scenes.map(scene => ({
+      order: scene.order,
+      visualGuidance: scene.visualPromptGuidance,
+      purpose: scene.purpose,
+    }))
+  const { result, rawText, cacheHit } = await fetchSceneImagePrompts(staticSystem, dynamicUser, mockSeeds)
 
   // ── 5. Post-validation (Haiku coherence check) ────────────
   const fixedScenes = await validateScenePromptsCoherence(result.scenes)
