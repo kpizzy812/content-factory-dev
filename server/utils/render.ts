@@ -30,6 +30,7 @@ import { isNormalizedClipPath } from "./presenter/scene-clip-mapping"
 import { planAlignedClipTargets, planTrackClipFit } from "./video-pipeline-run-policy"
 import type { AlignedScene } from "./transcription/align"
 import { wordsForChunk } from "./subtitles/aligned-words"
+import { alignedScenesByClipPosition } from "./subtitles/aligned-scene-position"
 
 interface AssembleOptions {
   clips: string[]
@@ -1236,8 +1237,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       // Реальные тайминги слов — только на маршруте «монтаж от звука»
       // (clipTrackAlignment задан). Старый маршрут этот аргумент не передаёт,
       // и buildAssSegments отрабатывает как раньше.
-      alignedScenes: clipTrackAlignment?.alignedScenes,
-      positionByOrder: clipTrackAlignment?.positionByOrder,
+      clipTrackAlignment,
     })
     if (assSegments.length > 0) {
       // videoId используется только для имени директории — выдёргиваем из outputPath.
@@ -1515,19 +1515,17 @@ async function buildAssSegments(opts: {
   /** Потолок длины фразы под ширину кадра и кегль выбранного пресета. */
   maxChars?: number
   /**
-   * Сцены с реальными таймингами слов (Task 2, «монтаж от звука»). Не задано —
-   * ASS-сегменты уходят без `words`, и билдер сам оценивает тайминги равномерно
-   * (`estimateWordTimings`) — прежнее поведение старого маршрута.
+   * Выровненные сцены (Task 2, «монтаж от звука») + перевод order → позиция в
+   * УПЛОТНЁННОЙ склейке (та же карта, что уходит в fitClipsToTrack). Оба поля
+   * приходят вместе — одно без другого использовать нельзя, см.
+   * `alignedScenesByClipPosition`. Не задано вовсе — ASS-сегменты уходят без
+   * `words`, и билдер сам оценивает тайминги равномерно (`estimateWordTimings`)
+   * — прежнее поведение старого маршрута.
    */
-  alignedScenes?: readonly AlignedScene[]
-  /**
-   * order сцены → её позиция в УПЛОТНЁННОЙ склейке (та же карта, что уходит в
-   * fitClipsToTrack). `AlignedScene.order` — исходный индекс сцены в
-   * videoPlan.scenes, а `window.sceneIndex` ниже — уже позиция в clips[] ПОСЛЕ
-   * уплотнения (сцены без клипа выпадают и сдвигают хвост). Без этой карты
-   * сопоставление съезжает на любом ролике, где хоть одна сцена клипа не получила.
-   */
-  positionByOrder?: ReadonlyMap<number, number>
+  clipTrackAlignment?: {
+    alignedScenes: readonly AlignedScene[]
+    positionByOrder: ReadonlyMap<number, number>
+  }
 }): Promise<Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput>> {
   const segs: Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput> = []
 
@@ -1543,16 +1541,11 @@ async function buildAssSegments(opts: {
     }
 
     // Ключ карты — позиция в УПЛОТНЁННОЙ склейке (то же пространство индексов,
-    // что и window.sceneIndex), а не исходный AlignedScene.order: без перевода
-    // через positionByOrder сцена без клипа сдвинула бы сопоставление для всех
-    // сцен после неё.
-    const alignedByPosition = new Map<number, AlignedScene>()
-    if (opts.alignedScenes) {
-      for (const scene of opts.alignedScenes) {
-        const position = opts.positionByOrder ? opts.positionByOrder.get(scene.order) : scene.order
-        if (position !== undefined) alignedByPosition.set(position, scene)
-      }
-    }
+    // что и window.sceneIndex): alignedScenesByClipPosition переводит через
+    // positionByOrder, а не полагается на совпадение order с sceneIndex.
+    const alignedByPosition = opts.clipTrackAlignment
+      ? alignedScenesByClipPosition(opts.clipTrackAlignment.alignedScenes, opts.clipTrackAlignment.positionByOrder)
+      : new Map<number, AlignedScene>()
 
     for (const window of windows) {
       const alignedScene = alignedByPosition.get(window.sceneIndex)
