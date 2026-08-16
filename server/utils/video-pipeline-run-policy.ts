@@ -84,6 +84,19 @@ export function planTrackClipFit(input: {
   return { action: deltaSec > 0 ? "trim" : "hold_last_frame", deltaSec }
 }
 
+/** Значения, которыми маршрут включают осознанно. Всё прочее — выключено. */
+const TRUTHY = new Set(["1", "on", "true", "yes"])
+
+/**
+ * Флаг читается ОДИН раз — при создании ролика, дальше живёт на ролике
+ * (`Video.editPipeline`). Перечитывать его на каждом шаге нельзя: смена
+ * переменной посреди производства собрала бы половину ролика по одним
+ * правилам, половину по другим (spec §3.1).
+ */
+export function resolveEditPipelineFlag(env: Record<string, string | undefined>): boolean {
+  return TRUTHY.has((env.EDIT_PIPELINE ?? "").trim().toLowerCase())
+}
+
 /** Громкость родных дорожек клипов под озвучкой — зависит от маршрута. */
 export function clipVolumeWithVoiceoverFor(editPipeline: boolean): number {
   return editPipeline ? 0 : 0.3

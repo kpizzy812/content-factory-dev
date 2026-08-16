@@ -4,6 +4,7 @@ import {
   presenterVoiceMissingMessage,
   resolvePresenterVoice,
 } from "~~/server/utils/presenter/voice-defaults"
+import { resolveEditPipelineFlag } from "~~/server/utils/video-pipeline-run-policy"
 
 const VALID_FORMATS = ["portrait", "landscape"] as const
 const VALID_QUALITIES = ["low", "medium", "high"] as const
@@ -359,6 +360,9 @@ export default defineEventHandler(async (event) => {
       lipSyncEnabled: body.lipSyncEnabled === true,
       lipSyncModelId: resolvedLipSyncModel?.id ?? null,
       lipSyncCharacterId: resolvedLipSyncCharacterId,
+      // Маршрут фиксируется на ролике один раз при создании — не глобальным
+      // флагом на каждом шаге (см. resolveEditPipelineFlag).
+      editPipeline: resolveEditPipelineFlag(process.env),
     },
   })
 

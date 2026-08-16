@@ -9,6 +9,7 @@ import { CancellationError, throwIfAborted } from "./pipeline-cancel-registry"
 import { resolveScenarioFunnel } from "./scenario-funnel"
 import type { ScenarioFunnelPayload } from "./scenario-funnel"
 import { selectScenarioVariantForVideo } from "./scenario-variant-selection"
+import { resolveEditPipelineFlag } from "./video-pipeline-run-policy"
 
 const VIDEO_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -656,7 +657,9 @@ async function stepVideos(
       for (const scenario of scenarios) {
         throwIfAborted(signal)
         const video = await prisma.video.create({
-          data: { scenarioId: scenario.id },
+          // Маршрут фиксируется на ролике при создании, а не глобальным флагом
+          // на каждом шаге (см. resolveEditPipelineFlag).
+          data: { scenarioId: scenario.id, editPipeline: resolveEditPipelineFlag(process.env) },
         })
         startedVideoIds.push(video.id)
         // Пайплайн сам проверяет signal между шагами и не тратит деньги дальше.

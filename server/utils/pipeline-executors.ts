@@ -28,6 +28,7 @@ import { resolveScenarioFunnel } from './scenario-funnel'
 import { selectScenarioVariantForVideo, describeVariantSelection } from './scenario-variant-selection'
 import { isFalAccessBlocking, isFalProbeInconclusive } from './fal-access-gate'
 import { COST_ACTUAL_KEY, COST_ESTIMATE_KEY, sumAmounts } from './pipeline-cost'
+import { resolveEditPipelineFlag } from './video-pipeline-run-policy'
 
 // Re-export для backward compatibility (call-sites вне этого файла могут
 // импортировать detectUpstreamNoData/getUpstreamNoDataReason из './pipeline-executors').
@@ -1204,6 +1205,9 @@ export async function executeVideoNode(
         lipSyncEnabled: config.lipSyncEnabled === true,
         lipSyncModelId: resolvedLipSyncModel?.id ?? null,
         lipSyncCharacterId: resolvedLipSyncCharacterId,
+        // Маршрут фиксируется на ролике при создании, а не глобальным флагом
+        // на каждом шаге (см. resolveEditPipelineFlag).
+        editPipeline: resolveEditPipelineFlag(process.env),
         // --- Pipeline tracking: runId/pipelineId помогают фильтру «К юниту» ---
         ...(runId ? { runId } : {}),
         ...(pipelineIdForTracking ? { pipelineId: pipelineIdForTracking } : {}),
