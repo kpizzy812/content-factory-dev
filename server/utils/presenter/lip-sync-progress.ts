@@ -38,6 +38,12 @@ export type LipSyncSkipReason =
   | "duration_out_of_range"
   /** Синтез реплики упал у провайдера. */
   | "tts_failed"
+  /**
+   * Не удалось вырезать кусок общего трека под сцену (маршрут «монтаж от звука»).
+   * Причина среды — упавший ffmpeg, занятый файл: сцена обязана получить вторую
+   * попытку, а не остаться без lip-sync навсегда.
+   */
+  | "track_segment_failed"
   /** Сам вызов lip-sync упал у провайдера. */
   | "lip_sync_failed"
 
@@ -70,6 +76,8 @@ export type LipSyncSkipReason =
  *                           один spawn EAGAIN или заблокированный антивирусом mp4
  *                           иначе навсегда лишал сцену lip-sync, причём молча.
  *   tts_failed              СРЕДА: провайдер синтеза.
+ *   track_segment_failed    СРЕДА: ffmpeg не вырезал кусок трека (файл занят, процесс
+ *                           не запустился). Сам трек при этом на месте.
  *   lip_sync_failed         СРЕДА: провайдер lip-sync.
  */
 const DETERMINISTIC_SKIP_REASONS: ReadonlySet<LipSyncSkipReason> = new Set<LipSyncSkipReason>([
@@ -91,6 +99,7 @@ const KNOWN_SKIP_REASONS: ReadonlySet<string> = new Set<LipSyncSkipReason>([
   "source_unmeasurable",
   "duration_out_of_range",
   "tts_failed",
+  "track_segment_failed",
   "lip_sync_failed",
 ])
 
