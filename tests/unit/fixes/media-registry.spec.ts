@@ -433,6 +433,13 @@ describe("контракт реестра", () => {
     // token_input_count оплаченных прогонов совпал с длиной русского текста.
     const CONFIRMED_BY_MODEL_PAGE = new Set([
       "prunaai/p-video-avatar",
+      // Аватарные модели сверены со страницами 16.08.2026: три из четырёх
+      // занижали смету втрое (omni-human $0.045→$0.14, fabric $0.025→$0.08),
+      // а wan-2.2-s2v вообще считался за время GPU вместо секунд выхода.
+      "bytedance/omni-human",
+      "veed/fabric-1.0",
+      "wan-video/wan-2.2-s2v",
+      "kwaivgi/kling-avatar-v2",
       "black-forest-labs/flux-kontext-dev",
       "black-forest-labs/flux-kontext-pro",
       "black-forest-labs/flux-kontext-max",
@@ -508,7 +515,14 @@ describe("витрина video-models собирается из спек", () =>
       "s2.1-pro-free",
       "s2.1-pro",
     ])
-    expect(LIP_SYNC_MODELS.map(m => m.id)).toEqual(["kwaivgi/kling-lip-sync", "fal-ai/sync-lipsync"])
+    // Sync Labs добавлены как премиальная альтернатива Kling: тот же вход
+    // (готовое видео + аудио), заметно точнее на фронтальной съёмке.
+    expect(LIP_SYNC_MODELS.map(m => m.id)).toEqual([
+      "kwaivgi/kling-lip-sync",
+      "sync/lipsync-2",
+      "sync/lipsync-2-pro",
+      "fal-ai/sync-lipsync",
+    ])
   })
 
   it("image-to-video в витрину не попадает — это маршрут, а не выбор пользователя", () => {

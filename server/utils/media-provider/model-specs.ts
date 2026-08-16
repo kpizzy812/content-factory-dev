@@ -1259,8 +1259,10 @@ const VEED_FABRIC_1: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSp
   provider: "replicate",
   capability: "speech_to_video",
   execution: "async_prediction",
-  billing: { unit: "output_second", usdPerSecond: 0.025 },
-  billingConfirmed: false,
+  // $0.08 за секунду выхода — со страницы модели 16.08.2026. Прежние $0.025
+  // были прикидкой и занижали смету втрое.
+  billing: { unit: "output_second", usdPerSecond: 0.08 },
+  billingConfirmed: true,
   constraints: Object.freeze({
     resolutions: Object.freeze(["480p", "720p"]),
     maxDurationSec: 60,
@@ -1312,8 +1314,10 @@ const BYTEDANCE_OMNI_HUMAN: SpeechToVideoModelSpec = Object.freeze<SpeechToVideo
   provider: "replicate",
   capability: "speech_to_video",
   execution: "async_prediction",
-  billing: { unit: "output_second", usdPerSecond: 0.045 },
-  billingConfirmed: false,
+  // $0.14 за секунду выхода — со страницы модели 16.08.2026. Прежние $0.045
+  // занижали смету втрое: сцена ведущей на 8.5 с стоит $1.19, а не $0.38.
+  billing: { unit: "output_second", usdPerSecond: 0.14 },
+  billingConfirmed: true,
   constraints: Object.freeze({
     resolutions: Object.freeze(["720p"]),
     maxDurationSec: 60,
@@ -1352,11 +1356,125 @@ const BYTEDANCE_OMNI_HUMAN: SpeechToVideoModelSpec = Object.freeze<SpeechToVideo
 })
 
 /**
+ * Kling Avatar v2 — портрет плюс речь, естественные повороты и кивки головы.
+ *
+ * По сравнительным обзорам 2026 идёт следом за OmniHuman по точности губ, но
+ * втрое дешевле его ($0.056 против $0.14 за секунду) и не разваливается на
+ * длинных сценах — у OmniHuman отмечают деградацию кадра после 10-11 секунд,
+ * а наши сцены как раз 8-10.
+ */
+const KLING_AVATAR_V2: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>({
+  registryKey: "replicate:kling-avatar-v2",
+  id: "kwaivgi/kling-avatar-v2",
+  provider: "replicate",
+  capability: "speech_to_video",
+  execution: "async_prediction",
+  billing: { unit: "output_second", usdPerSecond: 0.056 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    resolutions: Object.freeze(["720p", "1080p"]),
+    maxDurationSec: 60,
+    audioExtensions: SPEECH_AUDIO_EXTENSIONS,
+    imageExtensions: PORTRAIT_IMAGE_EXTENSIONS,
+    supportsPrompt: false,
+  }),
+  timeoutMs: SPEECH_TO_VIDEO_TIMEOUT_MS,
+  mapInput(input) {
+    const { image, audio, durationSec } = requireSpeechToVideoInput(input, 60, "kling-avatar-v2")
+    return {
+      payload: { image, audio },
+      effectiveDurationSec: durationSec,
+    }
+  },
+  extractOutput: extractVideoOutput,
+  dataProcessor: Object.freeze({
+    name: "Kuaishou",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "premium",
+  name: "Kling Avatar v2",
+  vendorLabel: "Replicate / Kuaishou",
+  strengths: Object.freeze([
+    "Естественные повороты и кивки головы, а не одни губы",
+    "Держит длинную сцену без деградации кадра",
+    "Кадрирование задаёт портрет — крупный план вместо общего",
+  ]),
+  tradeoffs: Object.freeze([
+    "Дороже липсинка по живому видео вчетверо",
+    "Фон и одежда берутся с портрета: смена плана внутри сцены невозможна",
+  ]),
+  avgGenerationTime: "3-8 мин",
+})
+
+/**
+ * Sync Labs Lipsync 2.0 — липсинк по ГОТОВОМУ видео, как и Kling Lip Sync,
+ * но заметно точнее на фронтальной съёмке. В обзорах UGC-рекламы 2026 стоит в
+ * категории «фиксеров» рядом с 2-pro; про 2-pro отдельно отмечают, что он
+ * вязнет на статичных кадрах и сложных ракурсах.
+ */
+const SYNC_LIPSYNC_2: LipSyncModelSpec = Object.freeze<LipSyncModelSpec>({
+  registryKey: "replicate:sync-lipsync-2",
+  id: "sync/lipsync-2",
+  provider: "replicate",
+  capability: "lip_sync",
+  execution: "async_prediction",
+  billing: { unit: "output_second", usdPerSecond: 0.05 },
+  billingConfirmed: true,
+  constraints: LIP_SYNC_CONSTRAINTS,
+  timeoutMs: 15 * 60_000,
+  mapInput(input) {
+    return {
+      payload: {
+        video: requireText(input.videoUrl, "videoUrl"),
+        audio: requireText(input.audioUrl, "audioUrl"),
+        sync_mode: "cut_off",
+      },
+    }
+  },
+  extractOutput(raw) {
+    return extractMediaOutput(raw, { priorityKeys: ["video"], defaultContentType: "video/mp4" })
+  },
+  dataProcessor: Object.freeze({
+    name: "Sync Labs",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "premium",
+  name: "Sync Lipsync 2.0",
+  vendorLabel: "Replicate / Sync Labs",
+  strengths: Object.freeze([
+    "Точнее бюджетного Kling Lip Sync на фронтальной съёмке",
+    "Работает по готовому видео — живой материал остаётся живым",
+  ]),
+  tradeoffs: Object.freeze([
+    "Втрое дороже Kling Lip Sync",
+    "Общий план и сложный ракурс остаются проблемой — рот мал в кадре",
+  ]),
+  avgGenerationTime: "~1-3 мин на сцену",
+})
+
+/** Sync Labs Lipsync 2 Pro — та же схема, студийное качество, вдвое дороже 2.0. */
+const SYNC_LIPSYNC_2_PRO: LipSyncModelSpec = Object.freeze<LipSyncModelSpec>({
+  ...SYNC_LIPSYNC_2,
+  registryKey: "replicate:sync-lipsync-2-pro",
+  id: "sync/lipsync-2-pro",
+  billing: { unit: "output_second", usdPerSecond: 0.08325 },
+  tier: "premium",
+  name: "Sync Lipsync 2 Pro",
+  tradeoffs: Object.freeze([
+    "Дороже Kling Lip Sync в шесть раз",
+    "По обзорам вязнет на статичных кадрах и сложных ракурсах",
+  ]),
+})
+
+/**
  * Wan 2.2 S2V — единственная в способности, где промпт обязателен по схеме.
  *
- * Тарифицируется временем GPU, поэтому цена известна только после завершения
- * prediction: единица `hardware_second`, смета — оценка, факт придёт из
- * `metrics.predict_time` вебхука.
+ * Тарифицировалась у нас временем GPU (300 секунд по $0.001 — фиксированные
+ * $0.30 за прогон независимо от длины сцены). На странице модели 16.08.2026
+ * стоит другая единица: $0.02 за секунду ВЫХОДА. Для сцены в 8.5 с это $0.17
+ * вместо $0.30, а для минутного блока — $1.20 вместо тех же $0.30.
  */
 const WAN_22_S2V: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>({
   registryKey: "replicate:wan-2.2-s2v",
@@ -1364,8 +1482,8 @@ const WAN_22_S2V: SpeechToVideoModelSpec = Object.freeze<SpeechToVideoModelSpec>
   provider: "replicate",
   capability: "speech_to_video",
   execution: "async_prediction",
-  billing: { unit: "hardware_second", usdPerSecond: 0.001, estimatedSeconds: 300 },
-  billingConfirmed: false,
+  billing: { unit: "output_second", usdPerSecond: 0.02 },
+  billingConfirmed: true,
   constraints: Object.freeze({
     resolutions: Object.freeze(["480p", "720p"]),
     maxDurationSec: 60,
@@ -1854,10 +1972,13 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   FISH_S21_PRO_FREE,
   FISH_S21_PRO,
   KLING_LIP_SYNC,
+  SYNC_LIPSYNC_2,
+  SYNC_LIPSYNC_2_PRO,
   FAL_SYNC_LIPSYNC,
   PRUNA_P_VIDEO_AVATAR,
   VEED_FABRIC_1,
   BYTEDANCE_OMNI_HUMAN,
+  KLING_AVATAR_V2,
   WAN_22_S2V,
   FLUX_KONTEXT_DEV,
   FLUX_KONTEXT_PRO,

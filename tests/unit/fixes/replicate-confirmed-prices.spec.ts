@@ -47,6 +47,61 @@ describe("тарифы, подтверждённые страницей моде
   })
 })
 
+/**
+ * Аватарные модели (`speech_to_video`) стояли в реестре по прикидкам, и три из
+ * четырёх занижали смету втрое. Числа сняты со страниц моделей 16.08.2026 —
+ * тем же способом, что и остальные тарифы этого файла.
+ */
+describe("speech_to_video: тарифы со страниц моделей", () => {
+  it("omni-human — $0.14 за секунду, а не $0.045", () => {
+    // Втрое дороже, чем считал реестр. На сцене ведущей в 8.5 с это разница
+    // между $0.38 и $1.19 — партия уехала бы за кошелёк молча.
+    const omni = spec("replicate:omni-human")
+    expect(estimateMediaCost(omni, { outputSeconds: 10 })).toBeCloseTo(1.4, 6)
+    expect(omni.billingConfirmed).toBe(true)
+  })
+
+  it("veed/fabric-1.0 — $0.08 за секунду, а не $0.025", () => {
+    const veed = spec("replicate:veed-fabric-1")
+    expect(estimateMediaCost(veed, { outputSeconds: 10 })).toBeCloseTo(0.8, 6)
+    expect(veed.billingConfirmed).toBe(true)
+  })
+
+  it("wan-2.2-s2v тарифицируется за секунду ВЫХОДА, а не за секунду железа", () => {
+    // Реестр считал 300 секунд GPU по $0.001 — фиксированные $0.30 за прогон
+    // независимо от длины сцены. Страница модели: $0.02 за секунду выхода.
+    const wan = spec("replicate:wan-2.2-s2v")
+    expect(estimateMediaCost(wan, { outputSeconds: 10 })).toBeCloseTo(0.2, 6)
+    expect(wan.billingConfirmed).toBe(true)
+  })
+
+  it("prunaai/p-video-avatar — $0.025 за секунду, число было верным", () => {
+    const pruna = spec("replicate:p-video-avatar")
+    expect(estimateMediaCost(pruna, { outputSeconds: 10 })).toBeCloseTo(0.25, 6)
+    expect(pruna.billingConfirmed).toBe(true)
+  })
+
+  it("kling-avatar-v2 — $0.056 за секунду выхода", () => {
+    const kling = spec("replicate:kling-avatar-v2")
+    expect(estimateMediaCost(kling, { outputSeconds: 10 })).toBeCloseTo(0.56, 6)
+    expect(kling.billingConfirmed).toBe(true)
+  })
+})
+
+describe("lip_sync: премиальные модели того же семейства", () => {
+  it("sync/lipsync-2 — $0.05 за секунду выхода", () => {
+    const sync2 = spec("replicate:sync-lipsync-2")
+    expect(estimateMediaCost(sync2, { outputSeconds: 10 })).toBeCloseTo(0.5, 6)
+    expect(sync2.billingConfirmed).toBe(true)
+  })
+
+  it("sync/lipsync-2-pro — $0.08325 за секунду выхода", () => {
+    const pro = spec("replicate:sync-lipsync-2-pro")
+    expect(estimateMediaCost(pro, { outputSeconds: 10 })).toBeCloseTo(0.8325, 6)
+    expect(pro.billingConfirmed).toBe(true)
+  })
+})
+
 describe("TTS: для русского токен равен символу", () => {
   it("считает $0.06 за 1000 символов", () => {
     // Страница модели: «$0.06 per thousand input tokens». Коэффициент
