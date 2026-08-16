@@ -13,6 +13,7 @@
  */
 
 import { falProbeAccessBatch } from "./fal"
+import { normalizeSceneClips } from "./render"
 import { estimateVideoCost } from "./video-cost"
 import { getModel, getDefaultImageModel, getDefaultVideoModel } from "./video-models"
 import type { StoryPlan } from "~~/shared/types/story"
@@ -745,6 +746,18 @@ export async function runVideoPipeline(
     // Прирост попытки остаётся фолбэком для снапшотов старого формата.
     const lipSyncAttemptGrew = (await loadStepAttempt(videoId, "lip_sync_generation")) > lipSyncAttemptBefore
     const lipSyncProducedNewClips = didLipSyncProduceNewClips(lipSyncResult, lipSyncAttemptGrew)
+
+    // Приведение клипов к единому кодеку/fps/таймбазе — ДО озвучки, а не внутри
+    // сборки. Нормализация режет по границе кадра и укорачивает клип на
+    // 0.02-0.06 с; пока её делала сборка, шаг озвучки строил таймлайн по
+    // ИСХОДНЫМ файлам, ошибка копилась от сцены к сцене, и на ролике 24 к
+    // восьмой сцене реплика заезжала в следующий тейк на 0.18 с. Теперь все
+    // шаги меряют ровно те файлы, которые попадут в склейку. Повторный вызов в
+    // сборке бесплатен: нормализованный путь она узнаёт и пропускает.
+    effectiveClipPaths = await normalizeSceneClips(
+      effectiveClipPaths,
+      video.format === 'landscape' ? 'landscape' : 'portrait',
+    )
 
     // Свежие файлы губ обесценивают кэш озвучки ЦЕЛИКОМ: её микс сведён по
     // длительностям клипов прошлого прогона. Сбрасываем ДО вызова шага, иначе он

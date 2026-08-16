@@ -15,6 +15,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { tmpdir } from "node:os"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
+import { VOICE_LEAD_IN_SEC } from "~~/shared/types/video-runtime"
 
 const h = vi.hoisted(() => ({
   step: { id: 9, attemptCount: 0, actualCost: 0, outputSnapshot: null as unknown },
@@ -41,6 +42,8 @@ vi.mock("../../../server/utils/render", () => ({
   },
   // Старый массовый замер: любая неудача ffprobe молча превращается в 5 секунд —
   // ровно то поведение, из-за которого пустая ячейка «весила» пять секунд.
+  // Нормализация под concat: в тесте файлов нет, отдаём пути как есть.
+  normalizeSceneClips: async (paths: string[]) => [...paths],
   probeClipDurations: async (paths: string[]) => {
     h.probeCalls.push(...paths)
     return paths.map(p => h.durationByPath.get(p) ?? 5)
@@ -155,8 +158,8 @@ describe("runVoiceoverGeneration: пустая ячейка — это отсу�
     // Сцена 2 клипа не получила → её нет в миксе, а сцена 3 стартует сразу
     // после первого клипа (6 с), а не после выдуманных пяти секунд паузы.
     expect(h.mix).toEqual([
-      { sceneOrder: 1, sceneStartSec: 0, sceneDurationSec: 6 },
-      { sceneOrder: 3, sceneStartSec: 6, sceneDurationSec: 7 },
+      { sceneOrder: 1, sceneStartSec: 0 + VOICE_LEAD_IN_SEC, sceneDurationSec: 6 },
+      { sceneOrder: 3, sceneStartSec: 6 + VOICE_LEAD_IN_SEC, sceneDurationSec: 7 },
     ])
   })
 
@@ -184,10 +187,12 @@ describe("runVoiceoverGeneration: отрезки речи считает сам 
     )
 
     // План говорит «по 10 секунд на сцену», факт — 6/5/7. Речь по 4 секунды.
+    // Каждая реплика сдвинута на вдох: на самом стыке клипов она наезжала на
+    // хвост предыдущего тейка.
     expect(result.voicedIntervals).toEqual([
-      { startSec: 0, endSec: 4 },
-      { startSec: 6, endSec: 10 },
-      { startSec: 11, endSec: 15 },
+      { startSec: 0 + VOICE_LEAD_IN_SEC, endSec: 4 + VOICE_LEAD_IN_SEC },
+      { startSec: 6 + VOICE_LEAD_IN_SEC, endSec: 10 + VOICE_LEAD_IN_SEC },
+      { startSec: 11 + VOICE_LEAD_IN_SEC, endSec: 15 + VOICE_LEAD_IN_SEC },
     ])
   })
 
@@ -204,6 +209,9 @@ describe("runVoiceoverGeneration: отрезки речи считает сам 
 
     const result = await steps.runVoiceoverGeneration(23, ["c0.mp4"], VOICE_CONFIG, shortPlan, [1])
 
-    expect(result.voicedIntervals).toEqual([{ startSec: 0, endSec: 3 }])
+    // Клип три секунды: реплика обязана замолчать до его конца с запасом на
+    // хвост, иначе она наедет на следующий тейк.
+    const { VOICE_TAIL_SEC } = await import("~~/shared/types/video-runtime")
+    expect(result.voicedIntervals).toEqual([{ startSec: VOICE_LEAD_IN_SEC, endSec: 3 - VOICE_TAIL_SEC }])
   })
 })

@@ -23,6 +23,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 import { tmpdir } from "node:os"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import type { SubtitlePlacement } from "~~/shared/types/story"
+import { VOICE_LEAD_IN_SEC } from "~~/shared/types/video-runtime"
 
 // ── Шаги пайплайна: подменяем только «долгие» раннеры, остальное — настоящее ──
 
@@ -191,6 +192,8 @@ vi.mock("../../../server/utils/tts", () => ({
 
 /** ffmpeg-обёртки: реальных вызовов быть не должно. */
 vi.mock("../../../server/utils/render", () => ({
+  // Нормализация под concat: в тесте файлов нет, отдаём пути как есть.
+  normalizeSceneClips: async (paths: string[]) => [...paths],
   probeClipDurations: vi.fn(async (paths: string[]) => paths.map((_, i) => [8, 9, 10][i] ?? 5)),
   // Замер по ячейкам сцен: пустая ячейка — дыра, а не файл (см.
   // probe-scene-clip-durations.spec.ts).
@@ -427,9 +430,9 @@ describe("runVoiceoverGeneration: реплика ложится на клип с
     await steps.runVoiceoverGeneration(7, ["c0.mp4", "c1.mp4", "c2.mp4"], VOICE_CONFIG, plan, [1, 3, 2])
 
     expect(mixCalls.scenes).toEqual([
-      { sceneOrder: 1, sceneStartSec: 0 },
-      { sceneOrder: 2, sceneStartSec: 17 },
-      { sceneOrder: 3, sceneStartSec: 8 },
+      { sceneOrder: 1, sceneStartSec: 0 + VOICE_LEAD_IN_SEC },
+      { sceneOrder: 2, sceneStartSec: 17 + VOICE_LEAD_IN_SEC },
+      { sceneOrder: 3, sceneStartSec: 8 + VOICE_LEAD_IN_SEC },
     ])
   })
 
@@ -439,7 +442,7 @@ describe("runVoiceoverGeneration: реплика ложится на клип с
 
     await steps.runVoiceoverGeneration(7, ["c0.mp4"], VOICE_CONFIG, plan, [1])
 
-    expect(mixCalls.scenes).toEqual([{ sceneOrder: 1, sceneStartSec: 0 }])
+    expect(mixCalls.scenes).toEqual([{ sceneOrder: 1, sceneStartSec: VOICE_LEAD_IN_SEC }])
   })
 
   it("порядок не передан — прежняя позиционная раскладка плюс предупреждение в логе шага", async () => {
@@ -449,9 +452,9 @@ describe("runVoiceoverGeneration: реплика ложится на клип с
     await steps.runVoiceoverGeneration(7, ["c0.mp4", "c1.mp4", "c2.mp4"], VOICE_CONFIG, plan)
 
     expect(mixCalls.scenes).toEqual([
-      { sceneOrder: 1, sceneStartSec: 0 },
-      { sceneOrder: 2, sceneStartSec: 8 },
-      { sceneOrder: 3, sceneStartSec: 17 },
+      { sceneOrder: 1, sceneStartSec: 0 + VOICE_LEAD_IN_SEC },
+      { sceneOrder: 2, sceneStartSec: 8 + VOICE_LEAD_IN_SEC },
+      { sceneOrder: 3, sceneStartSec: 17 + VOICE_LEAD_IN_SEC },
     ])
     expect(stepLogs.lines.some(l => l.includes("Порядок нарезки клипов не передан"))).toBe(true)
   })

@@ -146,8 +146,8 @@ describe("runClipGeneration: перебивка живёт столько, ск�
     )
 
     expect(h.stillClips).toHaveLength(1)
-    // 4.29 с речи плюс секунда запаса — вместо десяти секунд немого кадра.
-    expect(h.stillClips[0]!.durationSec).toBeCloseTo(5.29, 1)
+    // 4.29 с речи плюс вдох и хвост — вместо десяти секунд немого кадра.
+    expect(h.stillClips[0]!.durationSec).toBeCloseTo(4.89, 1)
   })
 
   it("платный клип по-прежнему просит плановую длительность — там правит модель", async () => {

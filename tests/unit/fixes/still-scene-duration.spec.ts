@@ -17,16 +17,19 @@ import {
   planStillSceneDuration,
   MIN_STILL_SCENE_SEC,
   MAX_STILL_SCENE_SEC,
-  SPEECH_HEADROOM_SEC,
+  VOICE_LEAD_IN_SEC,
+  VOICE_TAIL_SEC,
 } from "~~/shared/types/video-runtime"
 
 const words = (count: number) => Array.from({ length: count }, (_, i) => `слово${i}`).join(" ")
 
 describe("planStillSceneDuration", () => {
   it("длина перебивки идёт от реплики, а не от плановых десяти секунд", () => {
-    // 12 слов при moderate (2.8 слова/с) — 4.29 с речи плюс секунда запаса.
+    // 12 слов при moderate (2.8 слова/с) — 4.29 с речи плюс вдох и хвост.
+    // Ровно столько же резервирует раскладка озвучки: лишнего молчания в сцене
+    // не остаётся, иначе после каждой мини-фразы висит пауза.
     expect(planStillSceneDuration({ speechText: words(12), pacing: "moderate", plannedSec: 10 }))
-      .toBeCloseTo(4.29 + SPEECH_HEADROOM_SEC, 1)
+      .toBeCloseTo(4.29 + VOICE_LEAD_IN_SEC + VOICE_TAIL_SEC, 1)
   })
 
   it("длинная реплика не режется под план — перебивке потолок модели не указ", () => {

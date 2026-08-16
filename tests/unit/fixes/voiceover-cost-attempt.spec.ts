@@ -73,6 +73,8 @@ vi.mock("../../../server/utils/tts", () => ({
 
 /** ffmpeg-обёртки: реальных вызовов быть не должно. */
 vi.mock("../../../server/utils/render", () => ({
+  // Нормализация под concat: в тесте файлов нет, отдаём пути как есть.
+  normalizeSceneClips: async (paths: string[]) => [...paths],
   probeClipDurations: vi.fn(async (paths: string[]) => paths.map(() => 5)),
   probeSceneClipDurations: vi.fn(async (paths: string[]) =>
     paths.map(p => (p.trim().length === 0 ? null : 5))),

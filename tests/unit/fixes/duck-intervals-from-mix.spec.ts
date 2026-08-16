@@ -61,6 +61,12 @@ vi.mock("../../../server/utils/lip-sync-runner", () => ({
   })),
 }))
 
+// Приведение клипов под concat идёт до озвучки и трогает ffmpeg — в тесте
+// файлов нет, поэтому пути возвращаются как есть.
+vi.mock("../../../server/utils/render", () => ({
+  normalizeSceneClips: async (paths: string[]) => [...paths],
+}))
+
 vi.mock("../../../server/utils/video-pipeline-db", () => ({
   STEP_ORDER: [
     "prompt_generation", "image_generation", "clip_generation",

@@ -16,6 +16,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { tmpdir } from "node:os"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
+import { VOICE_LEAD_IN_SEC } from "~~/shared/types/video-runtime"
 
 vi.mock("../../../server/utils/video-pipeline-db", () => ({
   ensureStep: vi.fn(async () => ({
@@ -75,6 +76,8 @@ const mixCalls = vi.hoisted(() => ({
 
 /** ffmpeg-обёртки: реальных вызовов нет, арифметика лимита повторяет render.ts. */
 vi.mock("../../../server/utils/render", () => ({
+  // Нормализация под concat: в тесте файлов нет, отдаём пути как есть.
+  normalizeSceneClips: async (paths: string[]) => [...paths],
   probeClipDurations: vi.fn(async (paths: string[]) => paths.map(() => 5)),
   probeSceneClipDurations: vi.fn(async (paths: string[]) =>
     paths.map(p => (p.trim().length === 0 ? null : 5))),
@@ -178,9 +181,9 @@ describe("runVoiceoverGeneration: extend_scene пересчитывает тай
 
     const scene2 = mixCalls.scenes.find(s => s.sceneOrder === 2)!
     const scene1 = mixCalls.scenes.find(s => s.sceneOrder === 1)!
-    expect(scene1.sceneStartSec).toBeCloseTo(0, 6)
+    expect(scene1.sceneStartSec).toBeCloseTo(VOICE_LEAD_IN_SEC, 6)
     // Клип сцены 1 стал 7.1s — клип сцены 2 начинается там же, а не на 5s.
-    expect(scene2.sceneStartSec).toBeCloseTo(7.1, 6)
+    expect(scene2.sceneStartSec).toBeCloseTo(7.1 + VOICE_LEAD_IN_SEC, 6)
     expect(scene2.sceneDurationSec).toBeCloseTo(5, 6)
     expect(scene1.sceneDurationSec).toBeCloseTo(7.1, 6)
     // Общая длина трека тоже с учётом удлинения.
@@ -201,8 +204,8 @@ describe("runVoiceoverGeneration: extend_scene пересчитывает тай
     )
 
     expect(mixCalls.scenes).toEqual([
-      { sceneOrder: 2, sceneStartSec: 5, sceneDurationSec: 5 },
-      { sceneOrder: 1, sceneStartSec: 0, sceneDurationSec: 5 },
+      { sceneOrder: 2, sceneStartSec: 5 + VOICE_LEAD_IN_SEC, sceneDurationSec: 5 },
+      { sceneOrder: 1, sceneStartSec: 0 + VOICE_LEAD_IN_SEC, sceneDurationSec: 5 },
     ])
     expect(result.clipPaths).toBeUndefined()
   })

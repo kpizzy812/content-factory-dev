@@ -8,7 +8,11 @@
 import { join } from "node:path"
 import type { StoryPlan, SubtitleStyleProfile } from "~~/shared/types/story"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
-import { planStillSceneDuration } from "~~/shared/types/video-runtime"
+import {
+  planStillSceneDuration,
+  VOICE_LEAD_IN_SEC,
+  VOICE_TAIL_SEC,
+} from "~~/shared/types/video-runtime"
 import type { SceneImagePrompts } from "./video-helpers"
 import { type DeviceType, buildDeviceNegativesForScene } from "~~/shared/utils/video-prompt-helpers"
 import {
@@ -1390,8 +1394,12 @@ export async function runVoiceoverGeneration(
     let speedFactor: number | undefined
     let warning: string | undefined
 
-    // Доступная длительность = clip duration минус small safety gap (0.1s)
-    const maxAllowedSec = Math.max(0.5, sceneDurationSec - 0.1)
+    // Реплика живёт внутри сцены: вдох в начале и хвост в конце. Раньше здесь
+    // стоял зазор 0.1 с только с конца, реплика начиналась ровно на стыке клипов
+    // и упиралась в следующий — «не успев договорить, стартует новый тейк».
+    // Хвост заодно съедает расхождение таймлайнов: сборка склеивает
+    // нормализованные клипы, а они короче исходных на несколько сотых.
+    const maxAllowedSec = Math.max(0.5, sceneDurationSec - VOICE_LEAD_IN_SEC - VOICE_TAIL_SEC)
 
     if (finalDuration > maxAllowedSec) {
       const overshoot = finalDuration - maxAllowedSec
@@ -1598,7 +1606,9 @@ export async function runVoiceoverGeneration(
     return {
       sceneOrder: a.sceneOrder,
       audioPath: a.audioPath,
-      sceneStartSec: slot?.startSec ?? 0,
+      // Вдох перед репликой: на самом стыке клипов она наезжала на хвост
+      // предыдущего тейка.
+      sceneStartSec: (slot?.startSec ?? 0) + VOICE_LEAD_IN_SEC,
       voiceoverDurationSec: a.voiceoverDurationSec,
       sceneDurationSec: slot?.clipDurationSec ?? a.sceneDurationSec,
     }
@@ -1612,10 +1622,18 @@ export async function runVoiceoverGeneration(
    * (`durationSec: 10` у всех девяти), и глушил звук клипов не там, где идёт речь.
    * Реплика не может звучать дольше своей сцены — микс её туда и не положит.
    */
-  const voicedIntervals = mixScenes.map(s => ({
-    startSec: s.sceneStartSec,
-    endSec: s.sceneStartSec + Math.min(s.voiceoverDurationSec, s.sceneDurationSec),
-  }))
+  const voicedIntervals = mixScenes.map((s, index) => {
+    // Конец сцены на таймлайне: старт клипа плюс его длина. sceneStartSec уже
+    // сдвинут на вдох, поэтому границу считаем от слота, а не от него.
+    const slot = finalTimeline[audiosToMix[index]!.clipIndex]
+    const sceneEndSec = (slot?.startSec ?? s.sceneStartSec) + s.sceneDurationSec
+    return {
+      startSec: s.sceneStartSec,
+      // Реплика обязана замолчать до конца своей сцены с запасом на хвост:
+      // иначе она наезжает на следующий тейк, а он начинает говорить поверх.
+      endSec: Math.min(s.sceneStartSec + s.voiceoverDurationSec, sceneEndSec - VOICE_TAIL_SEC),
+    }
+  })
 
   const totalDurationSec = effectiveClipDurations.reduce<number>((sum, d) => sum + (d ?? 0), 0)
     || scenes.reduce((sum, s) => sum + s.durationSec, 0)

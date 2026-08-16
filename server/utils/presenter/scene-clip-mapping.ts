@@ -201,6 +201,20 @@ export function findEmptyClipPathIndexes(paths: readonly unknown[]): number[] {
   return empty
 }
 
+/**
+ * Прошёл ли файл нормализацию под concat.
+ *
+ * Сборка склеивает не исходные клипы, а приведённые к единому кодеку, fps и
+ * таймбазе — иначе concat даёт застывшие кадры на стыках. Нормализация режет по
+ * границе кадра и укорачивает клип на сотые доли секунды, поэтому гонять файл
+ * через неё дважды нельзя: длина уедет ещё раз, а вместе с ней и вся раскладка
+ * озвучки. `_norm` ищем в любом месте имени: политика extend_scene делает из
+ * нормализованного клипа `..._norm_ext.mp4`, и он тоже уже нормализован.
+ */
+export function isNormalizedClipPath(path: string | null | undefined): boolean {
+  return typeof path === "string" && /_norm(_[a-z0-9]+)*\.mp4$/i.test(path.trim())
+}
+
 /** Есть ли в ячейке путь клипа (пробельная строка — та же дыра, что и пустая). */
 export function hasClipPath(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0

@@ -21,6 +21,7 @@ import { tryRenderAssFilter } from "./subtitles/render-ass"
 import { chunkSceneSpeech, maxCharsForWidth } from "./subtitles/phrase-chunker"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildSubtitleTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
+import { isNormalizedClipPath } from "./presenter/scene-clip-mapping"
 
 interface AssembleOptions {
   clips: string[]
@@ -661,6 +662,46 @@ export async function normalizeClipsForConcat(
   const shotVariation = process.env.SHOT_VARIATION_ENABLED !== "false"
   const normalized: string[] = []
   for (const [index, clip] of clips.entries()) {
+    // Второй проход по уже нормализованному файлу снова срезал бы его по границе
+    // кадра — а на его длине построена вся раскладка озвучки.
+    if (isNormalizedClipPath(clip)) {
+      normalized.push(clip)
+      continue
+    }
+    const normPath = clip.replace(/\.mp4$/i, "_norm.mp4")
+    await normalizeClip(clip, normPath, format, shotVariation ? index : null)
+    normalized.push(normPath)
+  }
+  return normalized
+}
+
+/**
+ * Нормализация списка, адресуемого ПОЗИЦИЕЙ СЦЕНЫ: пустые ячейки сохраняются.
+ *
+ * Зачем отдельно от `normalizeClipsForConcat`: нормализовать надо ДО шага
+ * озвучки, чтобы он мерил ровно те файлы, которые потом склеит сборка. Иначе
+ * озвучка считает таймлайн по исходным клипам, сборка режет по нормализованным
+ * (короче на 0.02-0.06 с каждый), ошибка копится от сцены к сцене — и реплика
+ * заезжает в следующий тейк.
+ *
+ * Индекс для смены плана — позиция СЦЕНЫ, а не позиция в склейке: так план
+ * кадрирования не меняется от того, потерялась ли соседняя сцена.
+ */
+export async function normalizeSceneClips(
+  clips: readonly string[],
+  format: "portrait" | "landscape",
+): Promise<string[]> {
+  const shotVariation = process.env.SHOT_VARIATION_ENABLED !== "false"
+  const normalized: string[] = []
+  for (const [index, clip] of clips.entries()) {
+    if (typeof clip !== "string" || clip.trim().length === 0) {
+      normalized.push("")
+      continue
+    }
+    if (isNormalizedClipPath(clip)) {
+      normalized.push(clip)
+      continue
+    }
     const normPath = clip.replace(/\.mp4$/i, "_norm.mp4")
     await normalizeClip(clip, normPath, format, shotVariation ? index : null)
     normalized.push(normPath)

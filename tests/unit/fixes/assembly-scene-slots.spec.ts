@@ -34,6 +34,8 @@ vi.mock("../../../server/utils/video-pipeline-db", () => ({
 }))
 
 vi.mock("../../../server/utils/render", () => ({
+  // Нормализация под concat: в тесте файлов нет, отдаём пути как есть.
+  normalizeSceneClips: async (paths: string[]) => [...paths],
   probeSceneClipDurations: async (paths: string[]) => paths.map(p => (p ? 5 : null)),
   probeClipDurations: async (paths: string[]) => paths.map(() => 5),
   adjustAudioTempo: async () => ({ outputPath: "x", durationSec: 1 }),

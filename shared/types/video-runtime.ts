@@ -236,6 +236,24 @@ export function estimateSpeechDurationSec(
   return trimmed.split(/\s+/).length / wps
 }
 
+/**
+ * Вдох перед репликой: она не должна стартовать ровно на стыке клипов.
+ *
+ * Реплика, поставленная в нулевую секунду сцены, наезжает на хвост предыдущего
+ * тейка — «не успев договорить, стартует новый». Четверть секунды хватает, чтобы
+ * склейка читалась как смена плана, а не как обрыв.
+ */
+export const VOICE_LEAD_IN_SEC = 0.25
+
+/**
+ * Хвост после реплики: она обязана закончиться ДО конца своей сцены.
+ *
+ * Кроме вдоха у следующего тейка это ещё и запас на расхождение таймлайнов:
+ * сборка склеивает нормализованные клипы, а они короче исходных на 0.02-0.06 с,
+ * и без запаса реплика заезжала в следующую сцену.
+ */
+export const VOICE_TAIL_SEC = 0.35
+
 /** Короче этого перебивка мелькает и читается как сбой монтажа. */
 export const MIN_STILL_SCENE_SEC = 2.5
 
@@ -261,7 +279,10 @@ export function planStillSceneDuration(input: {
   const speechSec = estimateSpeechDurationSec(input.speechText, input.pacing)
   if (speechSec <= 0) return input.plannedSec
 
-  const needed = speechSec + SPEECH_HEADROOM_SEC
+  // Ровно вдох плюс хвост — столько же, сколько резервирует раскладка озвучки.
+  // Больше значило бы паузу в середине ролика: «мини-фраза, и тишина, как будто
+  // закончился тейк».
+  const needed = speechSec + VOICE_LEAD_IN_SEC + VOICE_TAIL_SEC
   const clamped = Math.min(MAX_STILL_SCENE_SEC, Math.max(MIN_STILL_SCENE_SEC, needed))
   return Math.round(clamped * 100) / 100
 }
