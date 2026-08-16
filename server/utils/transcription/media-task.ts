@@ -2,12 +2,26 @@
  * Продовая реализация `TranscriptionStepDeps["runTask"]` — клей поверх уже
  * готовых частей медиаконтура, без своей бизнес-логики.
  *
- * Спека берётся напрямую `listMediaSpecs("transcription")[0]`, а НЕ через
- * `resolveMediaRoute("transcription")`: единственная модель способности —
+ * Спека берётся через `resolveMediaRoute("transcription")` БЕЗ requestedId —
+ * НЕ `listMediaSpecs(...)[0]` напрямую. Единственная модель способности —
  * Whisper на Replicate — стоит в реестре с `integrated: false` (цена не
- * подтверждена страницей модели, spec §14), и `resolveMediaRoute` без явного
- * запроса модели такую спеку не отдаёт, а честно бросает
- * "No integrated media model registered for transcription".
+ * подтверждена страницей модели, spec §14). `runMediaTask` сам `integrated`
+ * не проверяет вовсе, поэтому прямой доступ к спеке в обход маршрута списал
+ * бы деньги при `ENABLE_PAID_APIS=true` за модель, чью цену никто не
+ * подтвердил, — это протестированный в Task 4 гейт, а не досадная помеха.
+ * Без requestedId и без env-дефолта `resolveMediaRoute` честно бросает
+ * "No integrated media model registered for transcription"; runner.ts
+ * (`server/utils/transcription/runner.ts`) ловит это в `try/catch` вокруг
+ * `deps.runTask()` и превращает в `status: "skipped"` — ролик собирается
+ * дальше по плановым длительностям (spec §10). Это ожидаемая деградация, а
+ * не сбой.
+ *
+ * Штатный путь включения ДО подтверждения цены (до Task 14 / canary) —
+ * переменная окружения `MEDIA_MODEL_TRANSCRIPTION=openai/whisper`: явный
+ * requestedId и env-дефолт `resolveMediaRoute` проверку `integrated` не
+ * делают вовсе (см. ветку `if (requested)` / `readEnvDefault` в registry.ts),
+ * так что оператор стенда включает транскрипцию под свою ответственность, а
+ * прод без этой переменной платных вызовов не делает.
  *
  * Длительность трека меряется здесь и уходит в `usage.audioSeconds`: у
  * `deriveUsage` (`run-media-task.ts`) для transcription намеренно пустая
@@ -15,7 +29,7 @@
  * Без явного `usage` цена посчиталась бы нулём.
  */
 
-import { listMediaSpecs } from "../media-provider/registry"
+import { resolveMediaRoute } from "../media-provider/registry"
 import { runMediaTask } from "../media-provider/run-media-task"
 import { StorageKeys } from "../storage/keys"
 import { probeAudioDuration } from "../tts"
@@ -30,15 +44,10 @@ export async function requestTranscription(input: {
   language: string
   outputPath: string
 }): Promise<{ costUsd: number, raw: unknown }> {
-  const spec = listMediaSpecs("transcription")[0]
-  if (!spec) {
-    throw new Error("В реестре медиамоделей нет ни одной спеки способности transcription")
-  }
-  if (spec.capability !== "transcription") {
-    // Реестр гарантирует порядок по способности (listMediaSpecs фильтрует сам),
-    // но раз уж мы читаем constraints — сверяем честно, а не доверяем молча.
-    throw new Error(`Реестр вернул спеку не той способности: ${spec.capability}`)
-  }
+  // Без requestedId: пока модель не integrated и переменная окружения не
+  // задана, это бросает исключение ДО обращения к провайдеру (см. комментарий
+  // модуля) — runner.ts превратит его в деградацию, а не в оплаченный вызов.
+  const { primary: spec } = resolveMediaRoute("transcription")
 
   // Длительность — до вызова провайдера: и для цены, и для отказа до оплаты.
   const audioSeconds = await probeAudioDuration(input.audioPath)
