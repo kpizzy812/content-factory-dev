@@ -46,6 +46,8 @@ export default defineConfig({
       "tests/unit/module-gate.spec.ts",
       // Регрессии на исправленные дефекты конвейера и публикации (DB-free).
       "tests/unit/fixes/**/*.spec.ts",
+      "tests/unit/transcription/**/*.spec.ts",
+      "tests/unit/voiceover/**/*.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },
