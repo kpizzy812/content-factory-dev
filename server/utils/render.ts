@@ -1237,6 +1237,7 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       // (clipTrackAlignment задан). Старый маршрут этот аргумент не передаёт,
       // и buildAssSegments отрабатывает как раньше.
       alignedScenes: clipTrackAlignment?.alignedScenes,
+      positionByOrder: clipTrackAlignment?.positionByOrder,
     })
     if (assSegments.length > 0) {
       // videoId используется только для имени директории — выдёргиваем из outputPath.
@@ -1519,6 +1520,14 @@ async function buildAssSegments(opts: {
    * (`estimateWordTimings`) — прежнее поведение старого маршрута.
    */
   alignedScenes?: readonly AlignedScene[]
+  /**
+   * order сцены → её позиция в УПЛОТНЁННОЙ склейке (та же карта, что уходит в
+   * fitClipsToTrack). `AlignedScene.order` — исходный индекс сцены в
+   * videoPlan.scenes, а `window.sceneIndex` ниже — уже позиция в clips[] ПОСЛЕ
+   * уплотнения (сцены без клипа выпадают и сдвигают хвост). Без этой карты
+   * сопоставление съезжает на любом ролике, где хоть одна сцена клипа не получила.
+   */
+  positionByOrder?: ReadonlyMap<number, number>
 }): Promise<Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput>> {
   const segs: Array<import('./subtitles/ass-builder/dialogue').AssSegmentInput> = []
 
@@ -1533,15 +1542,20 @@ async function buildAssSegments(opts: {
       for (const h of opts.keywordHints) aiMap.set(h.order, h.keywords)
     }
 
-    // AlignedScene.order — тот же 0-based индекс сцены, что и sceneIndex окна
-    // (обе цепочки считаются от позиции сцены в videoPlan.scenes).
-    const alignedByOrder = new Map<number, AlignedScene>()
+    // Ключ карты — позиция в УПЛОТНЁННОЙ склейке (то же пространство индексов,
+    // что и window.sceneIndex), а не исходный AlignedScene.order: без перевода
+    // через positionByOrder сцена без клипа сдвинула бы сопоставление для всех
+    // сцен после неё.
+    const alignedByPosition = new Map<number, AlignedScene>()
     if (opts.alignedScenes) {
-      for (const scene of opts.alignedScenes) alignedByOrder.set(scene.order, scene)
+      for (const scene of opts.alignedScenes) {
+        const position = opts.positionByOrder ? opts.positionByOrder.get(scene.order) : scene.order
+        if (position !== undefined) alignedByPosition.set(position, scene)
+      }
     }
 
     for (const window of windows) {
-      const alignedScene = alignedByOrder.get(window.sceneIndex)
+      const alignedScene = alignedByPosition.get(window.sceneIndex)
       // Та же нарезка, что и в drawtext-ветке: фраза за фразой вслед за речью.
       for (const chunk of chunkSceneSpeech(window.text, window.startSec, window.endSec, { maxChars: opts.maxChars })) {
         // Реальные тайминги слов чанка, если выравнивание есть и слова нашлись.
