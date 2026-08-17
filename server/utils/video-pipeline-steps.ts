@@ -2779,20 +2779,47 @@ export async function runAssembly(
       // Случай А (дуп-order-бриф) — порядок нарезки клипов не передан, ролик
       // целиком снят ведущей: чужих клипов не существует, и сопоставление
       // сцены с клипом однозначно даже без order — по её ПОЗИЦИИ в плане.
-      // Дубль order здесь — ЛОЖНАЯ неоднозначность, которую создаёт сама карта
-      // order → sceneIndex: у presenterOnly-ролика КАЖДАЯ сцена несёт
-      // spokenLine (иначе видео не presenterOnly), поэтому voiceover/script-merge
-      // и align.ts не роняют ни одной сцены — extras.alignedScenes идёт
-      // один-в-один и в ТОМ ЖЕ порядке, что videoPlan.scenes (см. дуп-order-бриф
-      // и align.ts:266-294). Значит позиция сцены В МАССИВЕ alignedScenes уже
-      // сама по себе однозначный ключ, и order для этой цели не нужен вовсе.
-      // Подменяем order на sceneIndex в производной копии — planAlignedClipTargets
-      // и alignedScenesByClipPosition по-прежнему читают только `scene.order`,
-      // второй формы карты не появляется, потребителю нечего угадывать.
-      alignedScenesForFit = extras.alignedScenes.map((scene, sceneIndex) => ({ ...scene, order: sceneIndex }))
-      for (let sceneIndex = 0; sceneIndex < extras.alignedScenes.length; sceneIndex += 1) {
-        const position = compacted.positionBySceneIndex.get(sceneIndex)
-        if (position !== undefined) positionByOrder.set(sceneIndex, position)
+      // Дубль order здесь — ЛОЖНАЯ неоднозначность, но только пока
+      // extras.alignedScenes ПОЗИЦИОННО совпадает с videoPlan.scenes. Это НЕ
+      // гарантия по устройству ролика — она ломается внутри самого
+      // presenterOnly двумя задокументированными путями (ревью фикс-раунда 1):
+      //  - сцена, чей spokenLine целиком — маркер паузы («[пауза 2с]») или
+      //    пунктуация: presenterOnly её видит непустой (`video-pipeline.ts`:
+      //    `spokenLine.trim().length > 0`), а `buildTrackRequest`
+      //    (`voiceover/track-builder.ts:63-64`, `if (!cleaned) continue`) —
+      //    ЧИСТОЙ и выбрасывает из трека: alignedScenes короче videoPlan.scenes;
+      //  - `mergeScriptLines` (`voiceover/script-merge.ts:55`) сортирует
+      //    сцены ПО order — если order сцен плана не строго возрастает
+      //    (перестановка, не только дубль), alignedScenes идёт в ДРУГОМ
+      //    порядке, чем videoPlan.scenes.
+      // В обоих случаях синтетический order=sceneIndex отдал бы сцене чужую
+      // позицию в склейке МОЛЧА (ok:true, но неверно) — именно та цена
+      // ошибки, которой посвящён весь бриф. Поэтому применяем трюк ТОЛЬКО
+      // когда сам инвариант подтверждён на этом конкретном входе: длины
+      // совпадают и order совпадает поэлементно. Не подтверждён — откат на
+      // прежнюю (добро-фиксовую) карту `buildSceneClipIndexMap`: она либо
+      // сопоставит верно (нет дублей/перестановок), либо честно откажет
+      // (дубль/перестановка) — тот же исход, что был до всей этой задачи.
+      const alignedScenesMatchPlanPositions = extras.alignedScenes.length === videoPlan.scenes.length
+        && extras.alignedScenes.every((scene, sceneIndex) => scene.order === videoPlan.scenes[sceneIndex]!.order)
+
+      if (alignedScenesMatchPlanPositions) {
+        // planAlignedClipTargets и alignedScenesByClipPosition по-прежнему
+        // читают только `scene.order` — второй формы карты не появляется,
+        // потребителю нечего угадывать.
+        alignedScenesForFit = extras.alignedScenes.map((scene, sceneIndex) => ({ ...scene, order: sceneIndex }))
+        for (let sceneIndex = 0; sceneIndex < extras.alignedScenes.length; sceneIndex += 1) {
+          const position = compacted.positionBySceneIndex.get(sceneIndex)
+          if (position !== undefined) positionByOrder.set(sceneIndex, position)
+        }
+      } else {
+        const clipIndexByOrderForFit = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
+          allowPositionalFallback: true,
+        })
+        for (const [order, sceneIndex] of clipIndexByOrderForFit.entries()) {
+          const position = compacted.positionBySceneIndex.get(sceneIndex)
+          if (position !== undefined) positionByOrder.set(order, position)
+        }
       }
     }
 

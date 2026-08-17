@@ -158,7 +158,17 @@ export interface AlignedClipTargetsPlan {
 export function planAlignedClipTargets(input: {
   alignedScenes: readonly AlignedScene[]
   trackDurationSec: number
-  /** order сцены → её позиция в ИТОГОВОЙ (уплотнённой) склейке. */
+  /**
+   * `AlignedScene.order` → её позиция в ИТОГОВОЙ (уплотнённой) склейке.
+   *
+   * Ключ читается непрозрачно: чей это `order` — настоящий business-номер
+   * сцены (когда порядок нарезки клипов известен) или подмена на её позицию
+   * в `videoPlan.scenes` (когда не известен, но это позиционное тождество
+   * ПРОВЕРЕНО вызывающим — см. `alignedScenesMatchPlanPositions` в
+   * `runAssembly`, video-pipeline-steps.ts, дуп-order-бриф) — решает
+   * строитель карты, а не эта функция. Оба вида ключа приходят в ОДНОМ и том
+   * же типе `Map<number, number>`, второй формы карты нет.
+   */
   positionByOrder: ReadonlyMap<number, number>
   /** ФАКТИЧЕСКАЯ (до подгона) длительность каждого клипа склейки — вес пропорции. */
   actualDurationsSec: readonly (number | null)[]

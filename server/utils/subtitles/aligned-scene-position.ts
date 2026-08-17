@@ -11,6 +11,15 @@
  *
  * `positionByOrder` — та же карта, что уже использует `fitClipsToTrack` (Task 10)
  * для перевода order → позиция; здесь она переиспользуется, а не считается заново.
+ *
+ * `AlignedScene.order` здесь не всегда «настоящий» business-order сценария:
+ * `runAssembly` (video-pipeline-steps.ts) для ролика ведущей БЕЗ переданного
+ * порядка нарезки клипов (`extras.clipSceneOrders` пуст) может подменить его
+ * на позицию сцены в `videoPlan.scenes` — ровно тогда, когда это ПРОВЕРЕНО
+ * позиционным тождеством с планом (см. `alignedScenesMatchPlanPositions` в
+ * `runAssembly`, дуп-order-бриф). Для этой функции разницы нет: она всегда
+ * читает `.order` только как непрозрачный ключ карты `positionByOrder`, не
+ * заглядывая в его происхождение.
  */
 
 import type { AlignedScene } from "../transcription/align"

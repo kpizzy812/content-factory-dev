@@ -502,4 +502,112 @@ describe("дубль order в плане сцен не роняет случай
     expect(clipPlan.targets[1]).toBeCloseTo(4.0, 6)
     expect(clipPlan.targets[2]).toBeCloseTo(3.8, 6)
   })
+
+  // Фикс-раунд 1 (ревью): «alignedScenes один-в-один с videoPlan.scenes»
+  // держится не по устройству ролика, а только пока это ПРОВЕРЕНО на
+  // конкретном входе — presenterOnly сам по себе ломает инвариант минимум
+  // двумя путями. Оба теста ниже кормят runAssembly входом, где инвариант НЕ
+  // держится, и доказывают откат на прежнюю (order-ключуемую) карту — то же
+  // поведение, что было до всей этой задачи: верное сопоставление либо
+  // честный отказ, но никогда молчаливая порча.
+  it("сцена с spokenLine-маркером паузы выпадает из трека — фикс откатывается на прежнюю карту, а не сдвигает позиции", async () => {
+    const steps = await loadSteps()
+    h.durationFit = { applied: true, trimmedCount: 3, heldCount: 0, totalDeltaSec: 0.5 }
+
+    // 4 сцены плана, order [1,2,3,4] — БЕЗ дублей и БЕЗ перестановки. Вторая
+    // сцена целиком — маркер паузы: presenterOnly её видит непустой
+    // (`spokenLine.trim().length > 0`), но buildTrackRequest её ЧИСТИТ до
+    // пустой строки и выбрасывает из трека (`track-builder.ts:63-64`).
+    const plan: StoryDrivenVideoPlan = {
+      mode: "story_driven",
+      scenes: [1, 2, 3, 4].map(order => ({
+        order,
+        durationSec: 5,
+        subtitleCopy: `Сцена ${order}`,
+        subtitlePlacement: BOTTOM,
+        spokenLine: order === 2 ? "[пауза 2с]" : `реплика ${order}`,
+        voiceoverLine: null,
+      })),
+      subtitleStyle: null,
+    } as unknown as StoryDrivenVideoPlan
+
+    // Клип второй сцены отсутствует: у ролика ведущей lip-sync не заполняет
+    // ячейку сцены, для которой в треке нет своего куска (track_segment_missing).
+    const clipsWithGap = ["c0.mp4", "", "c2.mp4", "c3.mp4"]
+    // alignedScenes короче плана на одну запись — ровно то, что реально
+    // отдаёт транскрипция для такого трека: order идёт [1, 3, 4].
+    const droppedSceneAlignedScenes: AlignedScene[] = [
+      { order: 1, startSec: 0.2, endSec: 3.8, words: [] },
+      { order: 3, startSec: 4.2, endSec: 7.8, words: [] },
+      { order: 4, startSec: 8.2, endSec: 11.8, words: [] },
+    ]
+
+    const result = await steps.runAssembly(31, clipsWithGap, null, true, "", "", "portrait", plan, {
+      alignedScenes: droppedSceneAlignedScenes,
+      voiceoverDurationSec: 12,
+    })
+
+    expect(result.filePath).toBe("final.mp4")
+    expect(stepCompleted()).toBe(true)
+
+    const alignment = h.assembleCalls[0]!.clipTrackAlignment as {
+      alignedScenes: AlignedScene[]
+      positionByOrder: Map<number, number>
+      trackDurationSec: number
+    }
+    // Откат на прежнюю карту: order в alignedScenesForFit НЕ подменён на
+    // sceneIndex (0,1,2) — остался настоящим [1,3,4]. Если бы фикс всё равно
+    // применил синтетический order, здесь было бы [0,1,2].
+    expect(alignment.alignedScenes.map(s => s.order)).toEqual([1, 3, 4])
+    // Карта по-прежнему ключуется настоящим order и не путает сцену 3 со
+    // сценой 2 (у которой клипа нет вовсе).
+    expect([...alignment.positionByOrder.entries()].sort()).toEqual([[1, 0], [3, 1], [4, 2]])
+
+    const clipPlan = planAlignedClipTargets({
+      alignedScenes: alignment.alignedScenes,
+      positionByOrder: alignment.positionByOrder,
+      trackDurationSec: alignment.trackDurationSec,
+      actualDurationsSec: [5, 5, 5],
+      clipCount: clipsWithGap.filter(Boolean).length,
+    })
+
+    // Верное сопоставление (то же самое, что дал бы код ДО всей этой задачи):
+    // клип 0 (сцена 1) получает бакет до старта сцены 3, а не бакет,
+    // рассчитанный по чужому (сдвинутому) времени.
+    expect(clipPlan.ok).toBe(true)
+    expect(clipPlan.targets[0]).toBeCloseTo(4.2, 6)
+    expect(clipPlan.targets[1]).toBeCloseTo(4.0, 6)
+    expect(clipPlan.targets[2]).toBeCloseTo(3.8, 6)
+  })
+
+  it("order плана переставлен (не только дублируется) — фикс откатывается на прежний честный отказ", async () => {
+    const steps = await loadSteps()
+
+    // План заявляет порядок [2, 1, 3] — НЕ дубль, а перестановка. mergeScriptLines
+    // сортирует сцены ПО order (`script-merge.ts:55`), поэтому текст сцены
+    // order=1 звучит в треке ПЕРВЫМ, хотя в плане она стоит второй —
+    // alignedScenes идёт как [1, 2, 3], а не как план [2, 1, 3].
+    const orderedPlan = planWithOrders([2, 1, 3])
+    const alignedInTrackOrder = alignedScenesWithOrders([1, 2, 3])
+
+    // Тот же дешёвый preflight, что и у случая Б (video-pipeline-steps.ts:
+    // ~2911-2928), стреляет здесь настоящим planAlignedClipTargets ДО
+    // assembleVideo — если бы фикс подменил order на sceneIndex, перестановка
+    // стала бы НЕВИДИМОЙ (позиции [0,1,2] совпали бы с порядком следования в
+    // alignedScenes), и ворота пропустили бы ролик с речью на чужом кадре.
+    await expect(
+      steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", orderedPlan, {
+        alignedScenes: alignedInTrackOrder,
+        voiceoverDurationSec: 12,
+      }),
+    ).rejects.toThrow(/подгон/i)
+
+    expect(stepFailed()).toBe(true)
+    expect(stepCompleted()).toBe(false)
+    // Честный отказ, как и до всей этой задачи: позиции по времени трека
+    // (сцена order=1 говорит первой, но её клип — ВТОРОЙ в склейке плана
+    // [2,1,3]) не растут.
+    expect(h.logs.some(l => l.includes("не растут"))).toBe(true)
+    expect(h.assembleCalls).toHaveLength(0)
+  })
 })

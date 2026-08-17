@@ -1526,6 +1526,13 @@ async function buildAssSegments(opts: {
    * `alignedScenesByClipPosition`. Не задано вовсе — ASS-сегменты уходят без
    * `words`, и билдер сам оценивает тайминги равномерно (`estimateWordTimings`)
    * — прежнее поведение старого маршрута.
+   *
+   * `AlignedScene.order` в паре — не обязательно исходный business-номер
+   * сцены: `runAssembly` может подменить его на позицию сцены в
+   * `videoPlan.scenes`, когда порядок нарезки клипов не передан, но это
+   * позиционное тождество с планом ПРОВЕРЕНО (дуп-order-бриф). Для этого
+   * места разницы нет — `.order` используется только как ключ пары с
+   * `positionByOrder`, не как самостоятельное значение.
    */
   clipTrackAlignment?: {
     alignedScenes: readonly AlignedScene[]
