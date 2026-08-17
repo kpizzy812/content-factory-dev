@@ -223,9 +223,11 @@ async function chargePartialStepOnFailure(
  * Трогаем только completed-шаги: ранний возврат кэша срабатывает лишь на них,
  * а сбрасывать в pending живой/упавший шаг незачем.
  *
- * Вызывается только для старого маршрута — единственный колл-сайт стоит под
- * `!audioFirstRoute` (см. комментарий там), поэтому параметра editPipeline
- * здесь нет: он был бы всегда `false`.
+ * Вызывается только когда единый трек НЕ состоялся (старый маршрут либо
+ * audio-first без синтезированного трека) — единственный колл-сайт стоит под
+ * `!audioFirstTrackCompleted` (см. комментарий там). В обоих случаях шаг
+ * озвучки, чей кэш здесь обесценивают, один и тот же — посценный
+ * `runVoiceoverGeneration`, поэтому параметра editPipeline у этой функции нет.
  */
 async function invalidateClipDerivedStepCaches(
   videoId: number,
@@ -749,6 +751,21 @@ export async function runVideoPipeline(
       }
     }
 
+    /**
+     * ФАКТ — трек синтезирован и готов, а не «маршрут выбран».
+     *
+     * `audioFirstRoute` решает, ПЫТАЕМСЯ ли мы собрать единый трек (флаг +
+     * доступна транскрипция); он не меняется задним числом и остаётся истиной
+     * для порядка шагов и каскада перезапуска. Но синтез мог не состояться
+     * (`legacy_mode_no_single_track`, `empty_script` — см. ветку `else` выше) —
+     * тогда всё, что описывает ПОВЕДЕНИЕ сборки и озвучки (подгон длин, громкость
+     * дорожек клипов, сброс кэша), обязано смотреть на этот факт, а не на
+     * `audioFirstRoute`: иначе ролик получает выключенное сведение длин и
+     * заглушенные в ноль дорожки клипов без единого трека, который их заменяет
+     * (spec §6.4) — ведущего не слышно вовсе.
+     */
+    const audioFirstTrackCompleted = audioFirstTrack?.status === 'completed'
+
     // 3. Генерация изображений — story-driven может пропустить этот шаг
     const effectiveImageCount = videoPlan.mode !== 'legacy_simple'
       ? videoPlan.scenes.length
@@ -919,10 +936,12 @@ export async function runVideoPipeline(
     // На audio-first сброса НЕТ и быть не может: там кэш озвучки — это единый
     // оплаченный трек, посчитанный не от клипов, а наоборот. Выбросив его, мы
     // синтезировали бы другой звук (у TTS нет seed) и обесценили бы каждый уже
-    // снятый аватарный кадр ролика (§4.4). Смотрим на ФАКТИЧЕСКИЙ маршрут
-    // прогона: ролик с включённым флагом, но без модели транскрипции идёт
-    // прежним маршрутом, и кэш ему сбрасывать надо ровно как раньше.
-    if (!audioFirstRoute && video.voiceoverEnabled) {
+    // снятый аватарный кадр ролика (§4.4). Смотрим на ФАКТ, а не на выбранный
+    // маршрут: ролик с включённым флагом, но без единого трека (нет модели
+    // транскрипции — либо модель есть, а трек не состоялся, empty_script/
+    // legacy_mode_no_single_track) идёт прежним шагом озвучки, и кэш ему
+    // сбрасывать надо ровно как раньше.
+    if (!audioFirstTrackCompleted && video.voiceoverEnabled) {
       await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips)
     }
 
@@ -931,6 +950,9 @@ export async function runVideoPipeline(
 
     // 5. Voiceover (TTS) — идёт ПЕРЕД music чтобы cost/ducking были известны заранее
     let voiceoverResult: VoiceoverStepResult
+    // Проверка по свойству, а не по `audioFirstTrackCompleted`: TS сужает тип
+    // `audioFirstTrack` до non-null только по прямой проверке, а он нужен ниже
+    // как объект.
     if (audioFirstTrack && audioFirstTrack.status === 'completed') {
       // На audio-first речь уже синтезирована ДО картинки, шаг озвучки здесь
       // отработал и оплачен. Переносим его результат в форму, которую ждут
@@ -960,9 +982,10 @@ export async function runVideoPipeline(
           voiceoverPacing: (video.voiceoverPacing as 'slow' | 'moderate' | 'fast') || 'moderate',
           voiceoverReconciliation: (video.voiceoverReconciliation as 'extend_scene' | 'compress_audio' | 'trim_audio') || 'compress_audio',
           modelStrategy: video.modelStrategy || 'auto',
-          // Фактический маршрут прогона, а не флаг ролика: если audio-first не
-          // состоялся, шаг обязан вести себя ровно как на прежнем маршруте.
-          editPipeline: audioFirstRoute,
+          // ФАКТ трека, а не выбранный маршрут: мы уже внутри ветки, где трек не
+          // состоялся (см. `if` выше), — если audio-first не состоялся, шаг
+          // обязан вести себя ровно как на прежнем маршруте.
+          editPipeline: audioFirstTrackCompleted,
         },
         videoPlan,
         clipSceneOrders,
@@ -1046,10 +1069,13 @@ export async function runVideoPipeline(
         voiceoverPath: voiceoverResult.mixedPath,
         musicVolume: video.musicVolume ?? 0.3,
         musicVolumeWithVoiceover: video.musicVolumeWithVoiceover ?? 0.12,
-        // На audio-first родная дорожка клипа — тот же кусок трека, что уже
-        // звучит на 1.0 из voiceoverPath: 0.3 дали бы двойную речь с эхом
-        // (spec §6.4). На старом маршруте прежние 0.3 сохраняются.
-        clipVolumeWithVoiceover: clipVolumeWithVoiceoverFor(audioFirstRoute),
+        // Родная дорожка клипа глушится в ноль только когда единый трек ДЕЙСТВИТЕЛЬНО
+        // состоялся — тогда она тот же кусок трека, что уже звучит на 1.0 из
+        // voiceoverPath, и 0.3 дали бы двойную речь с эхом (spec §6.4). Без
+        // состоявшегося трека (старый маршрут либо audio-first, где трек не
+        // синтезировался) заменить эту дорожку нечем — прежние 0.3 сохраняются,
+        // иначе ведущего не было бы слышно вовсе.
+        clipVolumeWithVoiceover: clipVolumeWithVoiceoverFor(audioFirstTrackCompleted),
         subtitlePreset: (video.subtitlePreset as import('./render').SubtitlePresetId | null) ?? undefined,
         subtitleStyleOverride,
         clipSceneOrders,
@@ -1059,8 +1085,11 @@ export async function runVideoPipeline(
         // обязаны доезжать сюда уже сейчас, иначе доказать сквозной проход
         // маршрута нечем.
         alignedScenes: alignedScenes.length > 0 ? alignedScenes : undefined,
-        // Верхняя граница подгона длины последнего клипа под трек (Task 10).
-        voiceoverDurationSec: audioFirstRoute ? voiceoverResult.mixedDurationSec : undefined,
+        // Верхняя граница подгона длины последнего клипа под трек (Task 10) —
+        // только когда трек СОСТОЯЛСЯ: без него alignedScenes уже пуст (см.
+        // выше), и подгон не запустится независимо от этого значения, но факт
+        // важнее совпадения — маршрут без трека такой границы не считает.
+        voiceoverDurationSec: audioFirstTrackCompleted ? voiceoverResult.mixedDurationSec : undefined,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })

@@ -328,9 +328,12 @@ const CLIP_DERIVED_CACHE_STEPS: ReadonlySet<StepKey> = new Set<StepKey>(["voiceo
  * клип-зависимым кэшем.
  *
  * Единственный вызывающий (`invalidateClipDerivedStepCaches` в video-pipeline.ts)
- * сам вызывается только под `!audioFirstRoute`, поэтому маршрут здесь всегда
- * старый — параметра `editPipeline`, как у `stepsToRerunFrom`, у этой функции
- * намеренно нет.
+ * сам вызывается только когда единый трек НЕ состоялся (флаг ролика при этом
+ * может быть и `true` — audio-first, где трек не синтезировался). Шаг, чей
+ * кэш здесь ищут, в обоих случаях один и тот же — посценный
+ * `voiceover_generation`, и он присутствует в порядке шагов ЛЮБОГО маршрута,
+ * так что итоговый фильтр от порядка не зависит — параметра `editPipeline`,
+ * как у `stepsToRerunFrom`, у этой функции намеренно нет.
  */
 export function stepsInvalidatedByFreshClips(lipSyncProducedNewClips: boolean): StepKey[] {
   if (!lipSyncProducedNewClips) return []
