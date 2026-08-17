@@ -25,6 +25,7 @@
 
 import { createHash, randomUUID } from "node:crypto"
 import { rename, unlink } from "node:fs/promises"
+import { extname } from "node:path"
 import ffmpeg from "fluent-ffmpeg"
 import type { AlignedScene } from "../transcription/align"
 
@@ -220,17 +221,51 @@ export interface CutTrackSegmentResult {
 }
 
 /**
+ * Путь временного файла вырезки: случайный суффикс встаёт ПЕРЕД расширением,
+ * а не после него.
+ *
+ * `buildSegmentCutArgs` не задаёт муксер (`-f`) явно — ffmpeg выбирает его по
+ * расширению ВЫХОДНОГО пути. Суффикс после `.mp3` (`seg.mp3.tmp-<uuid>`)
+ * лишает ffmpeg расширения вовсе, и настоящий процесс отказывается писать:
+ * "Unable to choose an output format ... Error opening output file" — то есть
+ * КАЖДЫЙ кусок трека молча уходил бы в отказ (`track_segment_failed`), и
+ * маршрут «монтаж от звука» оставался бы без lip-sync целиком. Расширение
+ * обязано остаться последним символом пути.
+ *
+ * Чистая функция — по образцу `buildSegmentCutArgs`: без отдельного теста эта
+ * дыра видна только настоящему ffmpeg, а любой мок в тестах пишет по тому
+ * пути, который ему дали, и такую ошибку не ловит.
+ */
+export function buildTempSegmentPath(outputPath: string): string {
+  const ext = extname(outputPath)
+  const base = ext ? outputPath.slice(0, -ext.length) : outputPath
+  return `${base}.tmp-${randomUUID()}${ext}`
+}
+
+/**
  * Переименование с повтором: на Windows `rename` поверх файла, который в тот
  * же момент создаёт (или только что создал) параллельный прогон, изредка
  * падает `EPERM`/`EBUSY` — антивирус или файловый индексатор коротко держит
  * блокировку на только что записанном файле. POSIX этой проблемы не знает,
  * но повтор там безвреден, а отдельная ветка "только Windows" не окупала бы
- * себя.
+ * себя. Любая другая ошибка (например `ENOENT` — временного файла нет)
+ * пробрасывается немедленно, без единой лишней попытки.
+ *
+ * `renameFile` инжектируется по образцу `probeDuration` в `cutTrackSegment`:
+ * три ветки (повтор после EPERM/EBUSY, исчерпание попыток, немедленный
+ * проброс прочих ошибок) — гонка на реальной файловой системе, которую без
+ * инъекции пришлось бы либо не проверять вовсе, либо ловить только на
+ * Windows, когда повезёт.
  */
-async function renameWithRetry(from: string, to: string, attempts = 5): Promise<void> {
+export async function renameWithRetry(
+  from: string,
+  to: string,
+  attempts = 5,
+  renameFile: (from: string, to: string) => Promise<void> = rename,
+): Promise<void> {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      await rename(from, to)
+      await renameFile(from, to)
       return
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
@@ -259,16 +294,16 @@ async function renameWithRetry(from: string, to: string, attempts = 5): Promise<
  * плановую длительность вместо измеренной здесь нельзя — тогда неизмеримый
  * (битый) файл молча сошёл бы за готовый кусок под тем же именем.
  *
- * Имя временного файла содержит случайный суффикс: два параллельных прогона
- * могут резать один и тот же кусок одновременно (тот же ролик, тот же трек,
- * повторный заход до завершения первого), и общее имя дало бы одному
- * прогону дописать чужой ещё не готовый временный файл. С уникальным
- * суффиксом каждый прогон пишет СВОЙ temp и переименовывает его независимо;
- * `rename` — одна атомарная операция ОС, поэтому конечный путь в любой
- * момент содержит либо старый файл, либо один из полностью готовых новых —
- * никогда огрызок. Переименование поверх файла, который параллельно занял
- * второй прогон (антивирус/индексатор Windows держит его короткую долю
- * секунды), ретраится — см. `renameWithRetry`.
+ * Имя временного файла (`buildTempSegmentPath`) содержит случайный суффикс:
+ * два параллельных прогона могут резать один и тот же кусок одновременно
+ * (тот же ролик, тот же трек, повторный заход до завершения первого), и
+ * общее имя дало бы одному прогону дописать чужой ещё не готовый временный
+ * файл. С уникальным суффиксом каждый прогон пишет СВОЙ temp и переименовывает
+ * его независимо; `rename` — одна атомарная операция ОС, поэтому конечный
+ * путь в любой момент содержит либо старый файл, либо один из полностью
+ * готовых новых — никогда огрызок. Переименование поверх файла, который
+ * параллельно занял второй прогон (антивирус/индексатор Windows держит его
+ * короткую долю секунды), ретраится — см. `renameWithRetry`.
  */
 export async function cutTrackSegment(input: {
   trackPath: string
@@ -278,7 +313,7 @@ export async function cutTrackSegment(input: {
 }): Promise<CutTrackSegmentResult> {
   const { cut, outputPath, trackPath } = input
   const args = buildSegmentCutArgs(cut)
-  const tempPath = `${outputPath}.tmp-${randomUUID()}`
+  const tempPath = buildTempSegmentPath(outputPath)
 
   try {
     await new Promise<void>((resolve, reject) => {

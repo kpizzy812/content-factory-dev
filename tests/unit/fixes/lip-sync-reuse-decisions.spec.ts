@@ -591,10 +591,14 @@ describe("runLipSyncStep: звук сцены из общего трека", () 
     expect(h.ffmpegRuns[0]!.input).toBe(TRACK_PATH)
     // В модель уходит именно вырезанный кусок, а не посценный mp3. ffmpeg при
     // этом пишет во временный файл РЯДОМ с audioPath (temp+rename, Task 3
-    // atomic-write) — сравнивать напрямую с h.ffmpegRuns[0].output нельзя,
-    // это ещё не переименованный temp.
+    // atomic-write): суффикс встаёт ПЕРЕД расширением (buildTempSegmentPath),
+    // иначе настоящий ffmpeg отказывается писать файл без расширения на конце
+    // (ревью Task 3, Critical) — сравнивать напрямую с h.ffmpegRuns[0].output
+    // нельзя, это ещё не переименованный temp.
     const request = h.runLipSync.mock.calls[0]![0] as { audioPath: string }
-    expect(h.ffmpegRuns[0]!.output.startsWith(`${request.audioPath}.tmp-`)).toBe(true)
+    const audioBase = request.audioPath.replace(/\.mp3$/, "")
+    expect(h.ffmpegRuns[0]!.output.startsWith(`${audioBase}.tmp-`)).toBe(true)
+    expect(h.ffmpegRuns[0]!.output.endsWith(".mp3")).toBe(true)
     expect(request.audioPath).toContain("_track_")
   })
 

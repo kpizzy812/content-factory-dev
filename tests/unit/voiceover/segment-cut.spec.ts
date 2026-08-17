@@ -16,8 +16,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   buildSegmentCutArgs,
+  buildTempSegmentPath,
   cutTrackSegment,
   planSegmentCut,
+  renameWithRetry,
   segmentIdentity,
   type SegmentCut,
 } from "~~/server/utils/voiceover/segment-cut"
@@ -276,7 +278,13 @@ describe("cutTrackSegment — временный файл рядом с целе
     // Замер шёл по ВРЕМЕННОМУ файлу — на момент замера rename ещё не случился.
     const measuredPath = probeDuration.mock.calls[0]?.[0] as string
     expect(measuredPath).not.toBe(outputPath)
-    expect(measuredPath.startsWith(`${outputPath}.tmp-`)).toBe(true)
+    const base = outputPath.slice(0, -".mp3".length)
+    expect(measuredPath.startsWith(`${base}.tmp-`)).toBe(true)
+    // Расширение обязано остаться ПОСЛЕДНИМ символом пути: суффикс после
+    // .mp3 лишает настоящий ffmpeg расширения выходного файла, и он
+    // отказывается писать вовсе ("Unable to choose an output format") — мок
+    // этого не ловит, потому что пишет по любому пути, который ему дали.
+    expect(measuredPath.endsWith(".mp3")).toBe(true)
     expect(await tmpLeftovers()).toEqual([])
   })
 
@@ -309,5 +317,68 @@ describe("cutTrackSegment — временный файл рядом с целе
     expect(new Set(h.outputPaths).size).toBe(2)
     expect(existsSync(outputPath)).toBe(true)
     expect(await tmpLeftovers()).toEqual([])
+  })
+})
+
+describe("buildTempSegmentPath — расширение остаётся последним символом пути", () => {
+  it("суффикс встаёт ПЕРЕД расширением, а не после него", () => {
+    const tempPath = buildTempSegmentPath("/assets/scene_0_track_abc123456789.mp3")
+
+    // Настоящий ffmpeg выбирает муксер по расширению ВЫХОДНОГО пути
+    // (buildSegmentCutArgs не задаёт -f явно): суффикс после .mp3 лишает его
+    // расширения вовсе, и запись падает ("Unable to choose an output format").
+    expect(tempPath).toMatch(/^\/assets\/scene_0_track_abc123456789\.tmp-[0-9a-f-]+\.mp3$/)
+    expect(tempPath.endsWith(".mp3")).toBe(true)
+  })
+
+  it("два вызова на один и тот же путь дают разные временные файлы", () => {
+    const a = buildTempSegmentPath("/assets/seg.mp3")
+    const b = buildTempSegmentPath("/assets/seg.mp3")
+
+    expect(a).not.toBe(b)
+  })
+
+  it("путь без расширения — суффикс добавляется на конец, без .undefined", () => {
+    const tempPath = buildTempSegmentPath("/assets/seg")
+
+    expect(tempPath).toMatch(/^\/assets\/seg\.tmp-[0-9a-f-]+$/)
+  })
+})
+
+describe("renameWithRetry — повтор переименования при EPERM/EBUSY", () => {
+  function errnoError(code: string): NodeJS.ErrnoException {
+    const err = new Error(`${code}: смоделированная ошибка переименования`) as NodeJS.ErrnoException
+    err.code = code
+    return err
+  }
+
+  it("EPERM на первой попытке — второй попытки достаточно для успеха", async () => {
+    let calls = 0
+    const renameFile = vi.fn(async () => {
+      calls++
+      if (calls === 1) throw errnoError("EPERM")
+    })
+
+    await renameWithRetry("/tmp/a.mp3.tmp-1.mp3", "/tmp/a.mp3", 5, renameFile)
+
+    expect(renameFile).toHaveBeenCalledTimes(2)
+    expect(renameFile).toHaveBeenNthCalledWith(1, "/tmp/a.mp3.tmp-1.mp3", "/tmp/a.mp3")
+    expect(renameFile).toHaveBeenNthCalledWith(2, "/tmp/a.mp3.tmp-1.mp3", "/tmp/a.mp3")
+  })
+
+  it("EBUSY на каждой попытке — исчерпание бросает исходную ошибку, а не глотает её", async () => {
+    const renameFile = vi.fn(async () => { throw errnoError("EBUSY") })
+
+    await expect(renameWithRetry("/tmp/a.mp3.tmp-1.mp3", "/tmp/a.mp3", 3, renameFile))
+      .rejects.toMatchObject({ code: "EBUSY" })
+    expect(renameFile).toHaveBeenCalledTimes(3)
+  })
+
+  it("ошибка, не связанная с блокировкой файла, пробрасывается сразу — без единого повтора", async () => {
+    const renameFile = vi.fn(async () => { throw errnoError("ENOENT") })
+
+    await expect(renameWithRetry("/tmp/a.mp3.tmp-1.mp3", "/tmp/a.mp3", 5, renameFile))
+      .rejects.toMatchObject({ code: "ENOENT" })
+    expect(renameFile).toHaveBeenCalledTimes(1)
   })
 })
