@@ -7,13 +7,75 @@
  * каждому своему полю. Аргументы ffmpeg проверяются без запуска процесса.
  */
 
-import { describe, expect, it } from "vitest"
+import { existsSync, readFileSync } from "node:fs"
+import { mkdir, readdir, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   buildSegmentCutArgs,
+  cutTrackSegment,
   planSegmentCut,
   segmentIdentity,
+  type SegmentCut,
 } from "~~/server/utils/voiceover/segment-cut"
+
+/**
+ * `cutTrackSegment` запускает ffmpeg (fluent-ffmpeg) — по образцу
+ * `insert-pauses.spec.ts` реальный процесс в юнит-тестах не запускаем. В
+ * отличие от того образца, мок реально пишет байты на диск (в скретч-
+ * директорию в os.tmpdir()): temp+rename и подчистку временного файла нечем
+ * проверить, если мок не трогает файловую систему.
+ *
+ * Провал ffmpeg дополнительно пишет ЧАСТИЧНЫЕ байты по пути из `.output()`
+ * ДО вызова `error` — ровно так ведёт себя настоящий ffmpeg при обрыве
+ * процесса (SIGKILL, паника воркера): пишет поток на диск ПО ХОДУ работы, а
+ * не одним атомарным блоком в конце. Именно этот сценарий делает опасной
+ * запись прямо в конечный путь — там, где раньше писал `cutTrackSegment`.
+ */
+const h = vi.hoisted(() => ({
+  behavior: "success" as "success" | "fail",
+  content: "вырезанный-кусок",
+  outputPaths: [] as string[],
+}))
+
+vi.mock("fluent-ffmpeg", () => {
+  const makeCommand = () => {
+    const handlers = new Map<string, (...args: unknown[]) => void>()
+    let outPath = ""
+    const cmd: Record<string, unknown> = {}
+    const chain = () => cmd
+    Object.assign(cmd, {
+      inputOptions: chain,
+      audioFilters: chain,
+      outputOptions: chain,
+      output: (p: string) => { outPath = p; return cmd },
+      on: (event: string, cb: (...args: unknown[]) => void) => {
+        handlers.set(event, cb)
+        return cmd
+      },
+      run: () => {
+        h.outputPaths.push(outPath)
+        setTimeout(() => {
+          void (async () => {
+            const { writeFile } = await import("node:fs/promises")
+            if (h.behavior === "fail") {
+              await writeFile(outPath, "битые-байты-оборванного-ffmpeg")
+              handlers.get("error")?.(new Error("ffmpeg упал (мок)"))
+              return
+            }
+            await writeFile(outPath, h.content)
+            handlers.get("end")?.()
+          })()
+        }, 0)
+      },
+    })
+    return cmd
+  }
+  return { default: Object.assign(() => makeCommand(), {}) }
+})
 
 const MODEL = { minDurationSec: 2, maxDurationSec: 10 }
 
@@ -160,5 +222,92 @@ describe("аргументы ffmpeg для вырезки", () => {
     expect(args.inputOptions).toEqual(["-ss", "58.500"])
     expect(args.audioFilters).toEqual(["apad=whole_dur=2.000"])
     expect(args.outputOptions.slice(0, 2)).toEqual(["-t", "2.000"])
+  })
+})
+
+describe("cutTrackSegment — временный файл рядом с целевым, переименование после замера", () => {
+  const SCRATCH_DIR = join(tmpdir(), "cf-segment-cut-atomic")
+  const trackPath = join(SCRATCH_DIR, "track.mp3")
+  const outputPath = join(SCRATCH_DIR, "scene_0_track_abc123456789.mp3")
+  const cut: SegmentCut = { startSec: 0, endSec: 1, durationSec: 1, silencePadSec: 0, clampedToModel: false }
+
+  /** Временные файлы, оставшиеся рядом с целевым после прогона — их не должно быть. */
+  async function tmpLeftovers(): Promise<string[]> {
+    const entries = await readdir(SCRATCH_DIR)
+    return entries.filter(name => name.includes(".tmp-"))
+  }
+
+  beforeEach(async () => {
+    await rm(SCRATCH_DIR, { recursive: true, force: true })
+    await mkdir(SCRATCH_DIR, { recursive: true })
+    h.behavior = "success"
+    h.content = "вырезанный-кусок"
+    h.outputPaths = []
+  })
+
+  afterEach(async () => {
+    await rm(SCRATCH_DIR, { recursive: true, force: true })
+  })
+
+  it("ffmpeg обрывается — по конечному пути ничего не появляется, временный подчищен", async () => {
+    h.behavior = "fail"
+    const probeDuration = vi.fn(async () => 1)
+
+    await expect(cutTrackSegment({ trackPath, outputPath, cut, probeDuration }))
+      .rejects.toThrow(/Не удалось вырезать/)
+
+    // Мок пишет частичные байты по пути из .output() ДО падения — ровно как
+    // настоящий ffmpeg при обрыве процесса. На конечном пути их быть не должно:
+    // иначе следующий прогон принял бы огрызок за готовый кусок и отдал бы его
+    // в платный lip-sync.
+    expect(existsSync(outputPath)).toBe(false)
+    expect(probeDuration).not.toHaveBeenCalled()
+    expect(await tmpLeftovers()).toEqual([])
+  })
+
+  it("успешная вырезка: замер идёт по временному файлу, переименование — только после него", async () => {
+    const probeDuration = vi.fn(async () => 3.5)
+
+    const result = await cutTrackSegment({ trackPath, outputPath, cut, probeDuration })
+
+    expect(result).toEqual({ path: outputPath, durationSec: 3.5 })
+    expect(existsSync(outputPath)).toBe(true)
+    expect(readFileSync(outputPath, "utf8")).toBe("вырезанный-кусок")
+    // Замер шёл по ВРЕМЕННОМУ файлу — на момент замера rename ещё не случился.
+    const measuredPath = probeDuration.mock.calls[0]?.[0] as string
+    expect(measuredPath).not.toBe(outputPath)
+    expect(measuredPath.startsWith(`${outputPath}.tmp-`)).toBe(true)
+    expect(await tmpLeftovers()).toEqual([])
+  })
+
+  it("замер длительности провалился — конечный путь остаётся пустым, временный подчищен", async () => {
+    // Файл на диске есть (ffmpeg отработал), но неизмерим — тоже падение:
+    // подставлять плановую длительность и переименовывать в конечный путь
+    // здесь нельзя, иначе неизмеримый кусок сойдёт за готовый навсегда.
+    const probeDuration = vi.fn(async () => null)
+
+    await expect(cutTrackSegment({ trackPath, outputPath, cut, probeDuration }))
+      .rejects.toThrow(/не измеряется/)
+
+    expect(existsSync(outputPath)).toBe(false)
+    expect(await tmpLeftovers()).toEqual([])
+  })
+
+  it("два параллельных прогона режут один и тот же кусок — разные временные файлы, конечный путь не бьётся", async () => {
+    const probeDuration = vi.fn(async () => 1)
+
+    const [first, second] = await Promise.all([
+      cutTrackSegment({ trackPath, outputPath, cut, probeDuration }),
+      cutTrackSegment({ trackPath, outputPath, cut, probeDuration }),
+    ])
+
+    expect(first.path).toBe(outputPath)
+    expect(second.path).toBe(outputPath)
+    // Каждый прогон писал СВОЙ временный файл — общее имя дало бы одному
+    // прогону дописать чужой недописанный файл поверх другого.
+    expect(h.outputPaths).toHaveLength(2)
+    expect(new Set(h.outputPaths).size).toBe(2)
+    expect(existsSync(outputPath)).toBe(true)
+    expect(await tmpLeftovers()).toEqual([])
   })
 })

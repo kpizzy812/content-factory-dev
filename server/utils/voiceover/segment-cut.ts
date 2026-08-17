@@ -23,7 +23,8 @@
  * старые губы.
  */
 
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
+import { rename, unlink } from "node:fs/promises"
 import ffmpeg from "fluent-ffmpeg"
 import type { AlignedScene } from "../transcription/align"
 
@@ -218,7 +219,57 @@ export interface CutTrackSegmentResult {
   durationSec: number
 }
 
-/** Вырезает кусок трека в отдельный файл по плану `buildSegmentCutArgs`. */
+/**
+ * Переименование с повтором: на Windows `rename` поверх файла, который в тот
+ * же момент создаёт (или только что создал) параллельный прогон, изредка
+ * падает `EPERM`/`EBUSY` — антивирус или файловый индексатор коротко держит
+ * блокировку на только что записанном файле. POSIX этой проблемы не знает,
+ * но повтор там безвреден, а отдельная ветка "только Windows" не окупала бы
+ * себя.
+ */
+async function renameWithRetry(from: string, to: string, attempts = 5): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await rename(from, to)
+      return
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (attempt === attempts || (code !== "EPERM" && code !== "EBUSY")) throw err
+      await new Promise(resolve => setTimeout(resolve, 25 * attempt))
+    }
+  }
+}
+
+/**
+ * Вырезает кусок трека в отдельный файл по плану `buildSegmentCutArgs`.
+ *
+ * Пишет во ВРЕМЕННЫЙ файл рядом с `outputPath` (тот же том — переименование
+ * между томами не атомарно) и переименовывает его в целевой путь ТОЛЬКО
+ * после успешного замера длительности готового файла. Имя куска
+ * контент-адресное, а `ensureTrackSegment` (`lip-sync-runner.ts`)
+ * переиспользует его по факту существования файла на конечном пути: без
+ * temp+rename оборванный процесс (SIGKILL, рестарт воркера) посреди ffmpeg
+ * оставил бы недописанный mp3 под валидным именем НАВСЕГДА, и следующий
+ * прогон отдал бы его в платный lip-sync — губы, произносящие обрубленную
+ * фразу, за реальные деньги.
+ *
+ * Неудачный замер (`probeDuration` вернул `null`) — тоже падение: конечный
+ * путь остаётся пустым, временный файл подчищается, а вызывающий получает
+ * исключение и честно помечает сцену несинхронизированной. Подставлять
+ * плановую длительность вместо измеренной здесь нельзя — тогда неизмеримый
+ * (битый) файл молча сошёл бы за готовый кусок под тем же именем.
+ *
+ * Имя временного файла содержит случайный суффикс: два параллельных прогона
+ * могут резать один и тот же кусок одновременно (тот же ролик, тот же трек,
+ * повторный заход до завершения первого), и общее имя дало бы одному
+ * прогону дописать чужой ещё не готовый временный файл. С уникальным
+ * суффиксом каждый прогон пишет СВОЙ temp и переименовывает его независимо;
+ * `rename` — одна атомарная операция ОС, поэтому конечный путь в любой
+ * момент содержит либо старый файл, либо один из полностью готовых новых —
+ * никогда огрызок. Переименование поверх файла, который параллельно занял
+ * второй прогон (антивирус/индексатор Windows держит его короткую долю
+ * секунды), ретраится — см. `renameWithRetry`.
+ */
 export async function cutTrackSegment(input: {
   trackPath: string
   outputPath: string
@@ -227,29 +278,48 @@ export async function cutTrackSegment(input: {
 }): Promise<CutTrackSegmentResult> {
   const { cut, outputPath, trackPath } = input
   const args = buildSegmentCutArgs(cut)
+  const tempPath = `${outputPath}.tmp-${randomUUID()}`
 
-  await new Promise<void>((resolve, reject) => {
-    const stderrTail: string[] = []
-    const command = ffmpeg(trackPath).inputOptions(args.inputOptions)
-    if (args.audioFilters.length > 0) command.audioFilters(args.audioFilters)
-    command
-      .outputOptions(args.outputOptions)
-      .output(outputPath)
-      .on("stderr", (line: string) => {
-        stderrTail.push(line)
-        if (stderrTail.length > 20) stderrTail.shift()
-      })
-      .on("end", () => resolve())
-      .on("error", (err: Error) => {
-        const tail = stderrTail.slice(-10).join("\n")
-        reject(new Error(
-          `Не удалось вырезать кусок ${cut.startSec.toFixed(3)}-${cut.endSec.toFixed(3)}с из трека ${trackPath}: ${err.message}`
-          + (tail ? `\n--- stderr ---\n${tail}` : ""),
-        ))
-      })
-      .run()
-  })
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const stderrTail: string[] = []
+      const command = ffmpeg(trackPath).inputOptions(args.inputOptions)
+      if (args.audioFilters.length > 0) command.audioFilters(args.audioFilters)
+      command
+        .outputOptions(args.outputOptions)
+        .output(tempPath)
+        .on("stderr", (line: string) => {
+          stderrTail.push(line)
+          if (stderrTail.length > 20) stderrTail.shift()
+        })
+        .on("end", () => resolve())
+        .on("error", (err: Error) => {
+          const tail = stderrTail.slice(-10).join("\n")
+          reject(new Error(
+            `Не удалось вырезать кусок ${cut.startSec.toFixed(3)}-${cut.endSec.toFixed(3)}с из трека ${trackPath}: ${err.message}`
+            + (tail ? `\n--- stderr ---\n${tail}` : ""),
+          ))
+        })
+        .run()
+    })
 
-  const measured = await input.probeDuration(outputPath)
-  return { path: outputPath, durationSec: measured ?? cut.durationSec }
+    // Замер ДО переименования и именно у временного файла — ради этого
+    // порядка всё и затевалось (см. докстринг). Провал замера здесь — тоже
+    // падение, а не повод подставить плановую длительность.
+    const measured = await input.probeDuration(tempPath)
+    if (measured === null) {
+      throw new Error(
+        `Кусок трека ${cut.startSec.toFixed(3)}-${cut.endSec.toFixed(3)}с из ${trackPath} вырезан, но его длительность не измеряется — файл повреждён, в конечный путь не переименовываю`,
+      )
+    }
+
+    await renameWithRetry(tempPath, outputPath)
+    return { path: outputPath, durationSec: measured }
+  } catch (err) {
+    // Подчистка временного файла не должна маскировать исходную ошибку своей:
+    // не удалось удалить (temp мог не появиться вовсе, если упал сам ffmpeg) —
+    // наружу всё равно уходит причина падения вырезки/замера, а не ошибка unlink.
+    await unlink(tempPath).catch(() => {})
+    throw err
+  }
 }

@@ -589,9 +589,12 @@ describe("runLipSyncStep: звук сцены из общего трека", () 
     expect(h.synthesizeSpeech).not.toHaveBeenCalled()
     expect(h.ffmpegRuns).toHaveLength(1)
     expect(h.ffmpegRuns[0]!.input).toBe(TRACK_PATH)
-    // В модель уходит именно вырезанный кусок, а не посценный mp3.
+    // В модель уходит именно вырезанный кусок, а не посценный mp3. ffmpeg при
+    // этом пишет во временный файл РЯДОМ с audioPath (temp+rename, Task 3
+    // atomic-write) — сравнивать напрямую с h.ffmpegRuns[0].output нельзя,
+    // это ещё не переименованный temp.
     const request = h.runLipSync.mock.calls[0]![0] as { audioPath: string }
-    expect(request.audioPath).toBe(h.ffmpegRuns[0]!.output)
+    expect(h.ffmpegRuns[0]!.output.startsWith(`${request.audioPath}.tmp-`)).toBe(true)
     expect(request.audioPath).toContain("_track_")
   })
 
