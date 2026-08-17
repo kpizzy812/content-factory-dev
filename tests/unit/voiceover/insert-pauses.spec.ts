@@ -1,6 +1,43 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { buildPauseInsertionPlan, planPauseSplit } from "~~/server/utils/voiceover/insert-pauses"
+import { buildPauseInsertionPlan, insertVoiceoverPauses, planPauseSplit } from "~~/server/utils/voiceover/insert-pauses"
+
+/**
+ * `probeAudioDuration` (ffprobe) подменяем на уровне модуля `tts.ts` — по
+ * образцу `media-task.spec.ts` и `clip-order-wiring.spec.ts`: замер честно
+ * может вернуть 0 при сбое, и это нужно эмулировать без реального ffprobe.
+ * ffmpeg-пайплайн (`fluent-ffmpeg`) подменяем по образцу
+ * `subtitle-timeline.spec.ts` — реальный процесс в юнит-тестах не запускается.
+ * vi.mock хойстится вверх файла самим vitest — порядок относительно импортов
+ * выше не важен.
+ */
+const h = vi.hoisted(() => ({
+  probeAudioDuration: vi.fn<(path: string) => Promise<number>>(),
+}))
+
+vi.mock("~~/server/utils/tts", () => ({ probeAudioDuration: h.probeAudioDuration }))
+
+vi.mock("fluent-ffmpeg", () => {
+  const makeCommand = () => {
+    const handlers = new Map<string, (...args: unknown[]) => void>()
+    const cmd: Record<string, unknown> = {}
+    const chain = () => cmd
+    Object.assign(cmd, {
+      input: chain,
+      complexFilter: chain,
+      outputOptions: chain,
+      output: chain,
+      on: (event: string, cb: (...args: unknown[]) => void) => {
+        handlers.set(event, cb)
+        return cmd
+      },
+      // Успешный прогон: сразу отдаём 'end', никакого настоящего кодирования.
+      run: () => { setTimeout(() => handlers.get("end")?.(), 0) },
+    })
+    return cmd
+  }
+  return { default: Object.assign(() => makeCommand(), {}) }
+})
 
 const scene = (order: number, text: string) => ({ order, text })
 
@@ -94,5 +131,84 @@ describe("сборка ffmpeg-плана вставки тишины (buildPause
     const silenceCount = plan.filters.filter(f => f.includes("anullsrc")).length
     expect(silenceCount).toBe(2)
     expect(plan.filters[plan.filters.length - 1]).toContain("concat=n=5:v=0:a=1")
+  })
+})
+
+describe("фоллбек на длину синтеза при неудачном замере (insertVoiceoverPauses)", () => {
+  // probeAudioDuration при ошибке ffprobe возвращает 0, а не бросает. Ноль
+  // отсюда уезжает в снапшот шага и молча отключает подгон длины клипов и
+  // реальные тайминги субтитров — без единой строки в логе. Фоллбек обязан
+  // стоять на всех трёх точках замера внутри функции (см. Task 2 бриф).
+  beforeEach(() => {
+    h.probeAudioDuration.mockReset()
+  })
+
+  it("неизмеримая длительность при отсутствии пауз — результат равен длине синтеза, а не нулю", async () => {
+    h.probeAudioDuration.mockResolvedValueOnce(0)
+
+    const result = await insertVoiceoverPauses("/tmp/track.mp3", [], [], 6.4)
+
+    expect(result.durationSec).toBeCloseTo(6.4, 3)
+    expect(result.skippedPauses).toEqual([])
+    expect(result.sourceDurationMeasureFailed).toBe(false)
+  })
+
+  it("замер исходника не удался при непустых паузах — фоллбек на синтез, причина размечена честно", async () => {
+    h.probeAudioDuration.mockResolvedValueOnce(0)
+    const pauses = [{ afterSceneOrder: 1, durationSec: 2 }]
+
+    const result = await insertVoiceoverPauses(
+      "/tmp/track.mp3",
+      pauses,
+      [scene(1, "12345"), scene(2, "12345")],
+      6.4,
+    )
+
+    expect(result.durationSec).toBeCloseTo(6.4, 3)
+    // Резать по оценённым долям было не от чего — ffmpeg не запускался,
+    // путь остался исходным.
+    expect(result.path).toBe("/tmp/track.mp3")
+    expect(result.skippedPauses).toEqual(pauses)
+    // Причина — сбой замера, а не отсутствие опорной сцены: вызывающий код
+    // обязан различать эти случаи, иначе лог соврёт про «не нашли точку
+    // вставки» там, где сцена нашлась бы, просто резать было не от чего.
+    expect(result.sourceDurationMeasureFailed).toBe(true)
+  })
+
+  it("замер результата после ffmpeg не удался — фоллбек на синтез, паузы при этом реально вставлены", async () => {
+    h.probeAudioDuration
+      .mockResolvedValueOnce(10) // исходник — измерен успешно, разрез возможен
+      .mockResolvedValueOnce(0) // результат — ffprobe не смог измерить готовый файл
+    const pauses = [{ afterSceneOrder: 1, durationSec: 2 }]
+
+    const result = await insertVoiceoverPauses(
+      "/tmp/track.mp3",
+      pauses,
+      [scene(1, "12345"), scene(2, "12345")],
+      6.4,
+    )
+
+    expect(result.durationSec).toBeCloseTo(6.4, 3)
+    expect(result.path).toBe("/tmp/track_paused.mp3")
+    expect(result.skippedPauses).toEqual([])
+    // Разрез состоялся — точка вставки нашлась, дело не в ней.
+    expect(result.sourceDurationMeasureFailed).toBe(false)
+  })
+
+  it("оба замера успешны — длительность результата это факт, а не оценка длины синтеза", async () => {
+    h.probeAudioDuration
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(11.5)
+    const pauses = [{ afterSceneOrder: 1, durationSec: 2 }]
+
+    const result = await insertVoiceoverPauses(
+      "/tmp/track.mp3",
+      pauses,
+      [scene(1, "12345"), scene(2, "12345")],
+      999, // заведомо другое число — фоллбек не должен был примениться
+    )
+
+    expect(result.durationSec).toBeCloseTo(11.5, 3)
+    expect(result.sourceDurationMeasureFailed).toBe(false)
   })
 })

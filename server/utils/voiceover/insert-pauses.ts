@@ -137,35 +137,69 @@ export function buildPauseInsertionPlan(
 
 export interface InsertPausesResult {
   path: string
-  /** Измерено ffprobe на готовом файле — не сумма исходной длительности и пауз. */
+  /**
+   * Измерено ffprobe на готовом файле — не сумма исходной длительности и
+   * пауз. Если замер (любой из трёх внутри функции) не удался, здесь —
+   * `synthDurationSec` (оценка по длине синтеза), а не 0: ноль отсюда уезжает
+   * в снапшот шага и молча отключает подгон длины клипов и реальные тайминги
+   * субтитров ниже по конвейеру.
+   */
   durationSec: number
   /** Паузы, для которых не нашлось точки вставки — тишина по ним НЕ добавлена. */
   skippedPauses: TrackPause[]
+  /**
+   * true, если не удалось измерить ИСХОДНИК (до разреза) — в этом случае
+   * `skippedPauses` содержит ВСЕ переданные паузы не потому, что для них не
+   * нашлось опорной сцены, а потому что резать по оценённым долям было не от
+   * чего измерить. Вызывающий код обязан различать эти причины в логе — иначе
+   * сообщение соврёт про «не нашли точку вставки» там, где дело в сбое ffprobe.
+   */
+  sourceDurationMeasureFailed: boolean
 }
 
 /**
  * Вставка тишины: пробует исходную длительность, планирует разрез (чистая
- * часть выше), запускает ffmpeg и пробует РЕЗУЛЬТАТ — длительность в ответе
- * всегда измерена на готовом файле, не выведена сложением.
+ * часть выше), запускает ffmpeg и пробует РЕЗУЛЬТАТ.
+ *
+ * `probeAudioDuration` при сбое ffprobe не бросает, а возвращает 0 — транзиент
+ * на только что созданном файле не должен превращаться в нулевую длительность
+ * трека (эталона времени всего дальнейшего монтажа). Поэтому на каждой из
+ * трёх точек замера ниже неположительный результат подменяется на заведомо
+ * известную длину синтеза (`synthDurationSec`) — оценку вместо факта, но не
+ * враньё про ноль.
  */
 export async function insertVoiceoverPauses(
   path: string,
   pauses: readonly TrackPause[],
   scenes: readonly AlignScene[],
+  synthDurationSec: number,
 ): Promise<InsertPausesResult> {
   if (pauses.length === 0) {
-    return { path, durationSec: await probeAudioDuration(path), skippedPauses: [] }
+    const measured = await probeAudioDuration(path)
+    return {
+      path,
+      durationSec: measured > 0 ? measured : synthDurationSec,
+      skippedPauses: [],
+      sourceDurationMeasureFailed: false,
+    }
   }
 
   const totalDurationSec = await probeAudioDuration(path)
   if (totalDurationSec <= 0) {
-    // Не измерили исходник — резать по оценённым долям не от чего.
-    return { path, durationSec: totalDurationSec, skippedPauses: [...pauses] }
+    // Не измерили исходник — резать по оценённым долям не от чего. Все паузы
+    // остаются без вставки, но по ДРУГОЙ причине, чем «не нашли опорную
+    // сцену» — см. sourceDurationMeasureFailed.
+    return {
+      path,
+      durationSec: synthDurationSec,
+      skippedPauses: [...pauses],
+      sourceDurationMeasureFailed: true,
+    }
   }
 
   const { points, skipped } = planPauseSplit(pauses, scenes, totalDurationSec)
   if (points.length === 0) {
-    return { path, durationSec: totalDurationSec, skippedPauses: skipped }
+    return { path, durationSec: totalDurationSec, skippedPauses: skipped, sourceDurationMeasureFailed: false }
   }
 
   const { filters, outputPath } = buildPauseInsertionPlan(path, points, totalDurationSec)
@@ -192,6 +226,11 @@ export async function insertVoiceoverPauses(
       .run()
   })
 
-  const durationSec = await probeAudioDuration(outputPath)
-  return { path: outputPath, durationSec, skippedPauses: skipped }
+  const measuredResultSec = await probeAudioDuration(outputPath)
+  return {
+    path: outputPath,
+    durationSec: measuredResultSec > 0 ? measuredResultSec : synthDurationSec,
+    skippedPauses: skipped,
+    sourceDurationMeasureFailed: false,
+  }
 }

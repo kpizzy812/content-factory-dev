@@ -54,8 +54,11 @@ describe("единый трек озвучки", () => {
     }, dependencies as never)
 
     expect(dependencies.insertPauses).toHaveBeenCalledTimes(1)
-    const [, pauses] = (dependencies.insertPauses as ReturnType<typeof vi.fn>).mock.calls[0]!
+    const [, pauses, synthDurationSec] = (dependencies.insertPauses as ReturnType<typeof vi.fn>).mock.calls[0]!
     expect(pauses).toEqual([{ afterSceneOrder: 1, durationSec: 2 }])
+    // insertPauses обязан знать длину синтеза — она же фоллбек, если ffprobe
+    // не измерит трек внутри него (Task 2 бриф).
+    expect(synthDurationSec).toBeCloseTo(6.4, 3)
     // Длительность результата — то, что вернул insertPauses (факт), а НЕ
     // синтез + сумма пауз (6.4 + 2 = 8.4): арифметика и измерение здесь
     // намеренно разные числа, чтобы регресс на сложение был виден.
@@ -102,5 +105,36 @@ describe("единый трек озвучки", () => {
     expect(result.durationSec).toBeCloseTo(6.4, 3)
     const messages = (dependencies.log as ReturnType<typeof vi.fn>).mock.calls.map(call => call[1])
     expect(messages.some(m => typeof m === "string" && /не наш.*точк/i.test(m) && m.includes("1"))).toBe(true)
+  })
+
+  it("сбой замера исходника — честная причина в логе, а не «не нашли точку вставки»", async () => {
+    // insertPauses пометил sourceDurationMeasureFailed: ffprobe не измерил
+    // исходник, поэтому splitting не запускался вовсе — все паузы попали в
+    // skippedPauses, но НЕ из-за отсутствия опорной сцены (Task 2 бриф,
+    // решение 2). Лог обязан назвать настоящую причину.
+    const dependencies = deps({
+      insertPauses: vi.fn(async (path: string) => ({
+        path,
+        durationSec: 6.4, // фоллбек на длину синтеза, не 0
+        skippedPauses: [{ afterSceneOrder: 1, durationSec: 2 }],
+        sourceDurationMeasureFailed: true,
+      })),
+    })
+
+    const result = await runSingleTrackVoiceover({
+      videoId: 7,
+      stepId: 4,
+      scenes: [{ order: 1, spokenLine: "Смотри. [пауза 2с]" }, { order: 2, spokenLine: "Вывод." }],
+      voiceoverLines: [],
+      voiceId: "clone-1",
+      language: "ru",
+      outputPath: "/tmp/track.mp3",
+    }, dependencies as never)
+
+    expect(result.durationSec).toBeCloseTo(6.4, 3)
+    const messages = (dependencies.log as ReturnType<typeof vi.fn>).mock.calls.map(call => call[1])
+    expect(messages.some(m => typeof m === "string" && /измерить/i.test(m))).toBe(true)
+    // Старая (неверная для этого случая) причина показываться не должна.
+    expect(messages.some(m => typeof m === "string" && /не наш.*точк/i.test(m))).toBe(false)
   })
 })

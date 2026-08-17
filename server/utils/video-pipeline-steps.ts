@@ -1780,13 +1780,22 @@ export interface SingleTrackDeps {
    * ИЗМЕРЕННАЯ длительность готового файла (не сумма исходной длительности и
    * пауз): трек — эталон времени для дальнейшего монтажа, вывести её
    * арифметикой значило бы довериться складыванию там, где нужен факт.
+   * Если ffprobe не смог измерить (транзиентный сбой на только что созданном
+   * файле), сюда приходит длина синтеза (третий аргумент) — не 0, иначе
+   * дальше по конвейеру молча отключились бы и подгон длины клипов, и
+   * реальные тайминги субтитров.
    * `skippedPauses` — паузы, для которых не нашлось точки вставки (тишина по
    * ним НЕ добавлена); пусто, если все паузы легли на место.
+   * `sourceDurationMeasureFailed` — не удалось измерить ИСХОДНИК: тогда
+   * `skippedPauses` содержит ВСЕ паузы не потому, что для них не нашлось
+   * опорной сцены, а потому что резать было не от чего измерить — причина
+   * другая, и лог обязан её различать.
    */
-  insertPauses?: (path: string, pauses: TrackPause[]) => Promise<{
+  insertPauses?: (path: string, pauses: TrackPause[], synthDurationSec: number) => Promise<{
     path: string
     durationSec: number
     skippedPauses: TrackPause[]
+    sourceDurationMeasureFailed?: boolean
   }>
   log?: (stepId: number, message: string) => Promise<void>
 }
@@ -1831,16 +1840,26 @@ export async function runSingleTrackVoiceover(
 
   if (track.pauses.length > 0) {
     const insertPauses = deps.insertPauses
-      ?? ((path: string, pauses: TrackPause[]) => insertVoiceoverPauses(path, pauses, track.scenes))
-    const inserted = await insertPauses(trackPath, track.pauses)
+      ?? ((path: string, pauses: TrackPause[], synthDurationSec: number) =>
+        insertVoiceoverPauses(path, pauses, track.scenes, synthDurationSec))
+    const inserted = await insertPauses(trackPath, track.pauses, synthResult.durationSec)
     trackPath = inserted.path
     // Факт, а не арифметика: длительность результата — то, что реально
     // измерено на готовом файле. Наивная сумма "было + Σ пауз" молча соврала
     // бы, если склейка дала не ровно ту длину или какая-то пауза не нашла
-    // точку вставки (см. skippedPauses ниже).
+    // точку вставки (см. skippedPauses ниже). Если ffprobe не смог измерить
+    // вовсе, здесь — длина синтеза (оценка), а не 0.
     durationSec = inserted.durationSec
 
-    if (inserted.skippedPauses.length > 0) {
+    if (inserted.sourceDurationMeasureFailed) {
+      // Причина честная: не измерили исходный трек, поэтому разрез не
+      // запускался вовсе — не путать с «не нашли точку вставки» ниже, та
+      // причина про конкретную паузу без опорной сцены, а не про сбой ffprobe.
+      await log(
+        input.stepId,
+        `Не удалось измерить длительность трека озвучки (ffprobe вернул 0) — паузы не вставлены, взята длина синтеза`,
+      )
+    } else if (inserted.skippedPauses.length > 0) {
       await log(
         input.stepId,
         `Не нашли точку вставки для паузы после сцен(ы) ${inserted.skippedPauses.map(p => p.afterSceneOrder).join(", ")} — тишина не добавлена`,
