@@ -38,6 +38,7 @@ import { runTranscriptionStep, type TranscriptionStepDeps, type TranscriptionSte
 import { requestTranscription } from "./transcription/media-task"
 import { buildSceneClipTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 import {
+  alignedScenesMatchPlanPositions,
   buildSceneClipIndexMap,
   compactSceneClipPaths,
   restoreSceneIndexedClipPaths,
@@ -2800,10 +2801,14 @@ export async function runAssembly(
       // прежнюю (добро-фиксовую) карту `buildSceneClipIndexMap`: она либо
       // сопоставит верно (нет дублей/перестановок), либо честно откажет
       // (дубль/перестановка) — тот же исход, что был до всей этой задачи.
-      const alignedScenesMatchPlanPositions = extras.alignedScenes.length === videoPlan.scenes.length
-        && extras.alignedScenes.every((scene, sceneIndex) => scene.order === videoPlan.scenes[sceneIndex]!.order)
+      //
+      // Проверка общая с lip-sync-runner.ts (тот же дубль-order-бриф, выбор
+      // куска трека вместо якоря подгона) — вынесена в
+      // `presenter/scene-clip-mapping.ts`, чтобы решение «когда позиции
+      // доверять» не разъезжалось по двум переписанным копиям.
+      const alignedScenesPositional = alignedScenesMatchPlanPositions(extras.alignedScenes, videoPlan.scenes)
 
-      if (alignedScenesMatchPlanPositions) {
+      if (alignedScenesPositional) {
         // planAlignedClipTargets и alignedScenesByClipPosition по-прежнему
         // читают только `scene.order` — второй формы карты не появляется,
         // потребителю нечего угадывать.

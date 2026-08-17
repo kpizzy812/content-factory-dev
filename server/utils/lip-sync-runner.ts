@@ -59,6 +59,7 @@ import {
 import { logStepCost } from "./balance/cost-ledger"
 import { accumulateStepCost } from "./video-cost-actual"
 import {
+  alignedScenesMatchPlanPositions,
   buildLipSyncReuseKey,
   buildSceneClipIndexMap,
   presenterTargetDuration,
@@ -293,16 +294,63 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   const duplicateAlignedOrders: number[] = []
   for (const aligned of audioFirst?.scenes ?? []) {
     // order из плана AI умеет повторяться (см. аватарную ветку ниже), и молча
-    // схлопнутый дубль отдал бы двум сценам один и тот же кусок трека.
+    // схлопнутый дубль отдал бы двум сценам один и тот же кусок трека — ПОКА
+    // позиционное тождество ниже не подтверждено (тогда за дубль отвечает
+    // alignedSceneFor, а не этот order-ключ).
     if (alignedSceneByOrder.has(aligned.order)) duplicateAlignedOrders.push(aligned.order)
     alignedSceneByOrder.set(aligned.order, aligned)
   }
+  /**
+   * Позиционное тождество audioFirst.scenes ↔ sceneUnits.
+   *
+   * sceneUnits — это САМА ссылка videoPlan.scenes (см. её объявление выше:
+   * `sceneUnits = isStoryDriven ? videoPlan.scenes : []`), не копия, так что
+   * проверка тождества с videoPlan.scenes и проверка тождества со sceneUnits —
+   * один и тот же вопрос. Та же чистая функция, что video-pipeline-steps.ts
+   * применяет к якорям подгона длины под трек (alignedScenesMatchPlanPositions,
+   * presenter/scene-clip-mapping.ts) — правило одно на оба места, иначе
+   * решение «когда позиции доверять» разъехалось бы по двум переписанным
+   * копиям.
+   *
+   * Подтверждено — дубль order здесь ЛОЖНЫЙ: каждая сцена (включая
+   * дублирующиеся по order) адресуется по своей ПОЗИЦИИ в sceneUnits, и
+   * получает СВОЙ кусок трека, а не чужой. Не подтверждено — откат на
+   * прежнюю карту по order: тождество ломается тремя задокументированными
+   * путями (сцена-маркер паузы выпадает в voiceover/track-builder.ts, сцена
+   * с пустыми токенами — в transcription/align.ts, сироты-нарраторы удлиняют
+   * список в voiceover/script-merge.ts, сортировка там же по order ломает
+   * тождество при инверсии order в плане — подробности в
+   * presenter/scene-clip-mapping.ts), и позиционная догадка на неподтверждённом
+   * входе отдала бы куску трека чужие границы молча — ту же цену ошибки,
+   * которой посвящён этот бриф.
+   */
+  const alignedScenesPositional = !!audioFirst && alignedScenesMatchPlanPositions(audioFirst.scenes, sceneUnits)
   if (duplicateAlignedOrders.length > 0) {
     await appendStepLog(
       step.id,
-      `WARN в выравнивании повторяются order сцен: ${duplicateAlignedOrders.join(", ")} — `
-      + `беру последние границы, но сцены с одинаковым order получат один кусок трека`,
+      alignedScenesPositional
+        ? `В выравнивании повторяется order сцен: ${duplicateAlignedOrders.join(", ")} — `
+        + `позиция сцены в плане подтверждена (см. alignedScenesMatchPlanPositions), дубль ложный: `
+        + `у каждой из этих сцен свой кусок трека`
+        : `WARN в выравнивании повторяются order сцен: ${duplicateAlignedOrders.join(", ")} — `
+        + `беру последние границы, но сцены с одинаковым order получат один кусок трека`,
     )
+  }
+  /**
+   * Кусок трека под сцену: по её ПОЗИЦИИ в sceneUnits, когда тождество с
+   * audioFirst.scenes подтверждено, иначе — по order (прежняя карта выше).
+   * Один источник для планирования куска (planTrackSegment ниже) и для его
+   * отпечатка в ключе переиспользования (trackSegmentKeyFor) — расхождение
+   * между ними значило бы, что кэш описывает не тот кусок, который реально
+   * вырезан и оплачен.
+   */
+  const alignedSceneFor = (scene: (typeof sceneUnits)[number]): AlignedScene | undefined => {
+    if (!audioFirst) return undefined
+    if (alignedScenesPositional) {
+      const position = sceneUnits.indexOf(scene)
+      return position >= 0 ? audioFirst.scenes[position] : undefined
+    }
+    return alignedSceneByOrder.get(scene.order)
   }
 
   /**
@@ -319,10 +367,17 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
    *
    * Имя файла куска считается отдельно и от ЗАЖАТЫХ границ (см. цикл): там
    * важна фактическая длина вырезанного звука.
+   *
+   * Сцена читается через тот же alignedSceneFor, что и сам подбор куска ниже
+   * (planTrackSegment) — не отдельным order-ключом. Расхождение между ними
+   * значило бы, что ключ переиспользования описывает не тот кусок, который
+   * реально вырезан и оплачен: при подтверждённом позиционном тождестве и
+   * дубле order старый order-ключ отдал бы двум разным сценам один и тот же
+   * отпечаток куска, хотя куски у них теперь честно разные.
    */
-  const trackSegmentKeyFor = (sceneOrder: number): string | null => {
+  const trackSegmentKeyFor = (scene: (typeof sceneUnits)[number]): string | null => {
     if (!audioFirst) return null
-    const aligned = alignedSceneByOrder.get(sceneOrder)
+    const aligned = alignedSceneFor(scene)
     // Выравнивание сцены не знает: отказ у неё будет свой, и ключ ему нужен
     // МАРШРУТ-СПЕЦИФИЧНЫЙ. Верни здесь null — ключ совпал бы с ключом посценного
     // маршрута, и прогон без audioFirst (флаг выключили, транскрипция не доехала)
@@ -332,7 +387,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     const trackEnd = trackEndFrame(audioFirst.trackDurationSec, timelineFps)
     return segmentIdentity({
       videoId,
-      sceneOrder,
+      sceneOrder: scene.order,
       startSec: Math.min(Math.max(0, snapSecToFrame(aligned.startSec, timelineFps)), trackEnd),
       endSec: Math.min(snapSecToFrame(aligned.endSec, timelineFps), trackEnd),
       trackFingerprint: audioFirst.trackFingerprint,
@@ -394,7 +449,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       expectedKeys.set(sceneIndex, await reuseKeyFor(
         scene.spokenLine!.trim(),
         sourceAnchorFor(sceneIndex, resolvedPath),
-        trackSegmentKeyFor(scene.order),
+        trackSegmentKeyFor(scene),
       ))
     }
     const covered = areAllScenesCovered(targetIndexes, previousByIndex)
@@ -636,7 +691,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       const spokenLine = scene.spokenLine!.trim()
       const spokenLineHash = hashSpokenLine(spokenLine)
       const sourceAnchor = sourceAnchorFor(sceneIndex, resolvedSource.path)
-      const reuseKey = await reuseKeyFor(spokenLine, sourceAnchor, trackSegmentKeyFor(scene.order))
+      const reuseKey = await reuseKeyFor(spokenLine, sourceAnchor, trackSegmentKeyFor(scene))
 
       // Маршрут «монтаж от звука»: сцене нужен её кусок общего трека, а границы
       // куска даёт выравнивание. Сцены в выравнивании нет — синтезировать речь
@@ -644,7 +699,10 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // звука. Отказ пишем ДО ветки переиспользования и обязательно записью:
       // без неё в снапшоте остался бы outputPath прошлого (посценного) прогона,
       // а в путях клипов — сырой клип, и снапшот разошёлся бы с фактом.
-      const alignedScene = audioFirst ? alignedSceneByOrder.get(scene.order) : undefined
+      //
+      // alignedSceneFor адресует по ПОЗИЦИИ сцены в sceneUnits, когда это
+      // тождество подтверждено (дубль-order-бриф), иначе — по order, как раньше.
+      const alignedScene = alignedSceneFor(scene)
       if (audioFirst && !alignedScene) {
         await appendStepLog(
           step.id,
