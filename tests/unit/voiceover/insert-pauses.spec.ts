@@ -151,6 +151,9 @@ describe("фоллбек на длину синтеза при неудачно�
     expect(result.durationSec).toBeCloseTo(6.4, 3)
     expect(result.skippedPauses).toEqual([])
     expect(result.sourceDurationMeasureFailed).toBe(false)
+    // Пауз нет — сложить нечего, но это всё равно оценка, а не факт: замер
+    // не удался, и вызывающий код обязан иметь возможность это увидеть.
+    expect(result.durationEstimated).toBe(true)
   })
 
   it("замер исходника не удался при непустых паузах — фоллбек на синтез, причина размечена честно", async () => {
@@ -173,9 +176,14 @@ describe("фоллбек на длину синтеза при неудачно�
     // обязан различать эти случаи, иначе лог соврёт про «не нашли точку
     // вставки» там, где сцена нашлась бы, просто резать было не от чего.
     expect(result.sourceDurationMeasureFailed).toBe(true)
+    expect(result.durationEstimated).toBe(true)
   })
 
-  it("замер результата после ffmpeg не удался — фоллбек на синтез, паузы при этом реально вставлены", async () => {
+  it("замер результата после ffmpeg не удался — оценка суммой исходника и вставленных пауз, а НЕ длина синтеза", async () => {
+    // Ревью Task 2, находка Critical: паузы уже РЕАЛЬНО вставлены (ffmpeg
+    // прошёл), поэтому длина синтеза (без пауз) занижала бы результат ровно
+    // на сумму вставленной тишины. synthDurationSec здесь заведомо другое
+    // число (999) — если бы фоллбек подставлял его, тест бы это поймал.
     h.probeAudioDuration
       .mockResolvedValueOnce(10) // исходник — измерен успешно, разрез возможен
       .mockResolvedValueOnce(0) // результат — ffprobe не смог измерить готовый файл
@@ -185,17 +193,42 @@ describe("фоллбек на длину синтеза при неудачно�
       "/tmp/track.mp3",
       pauses,
       [scene(1, "12345"), scene(2, "12345")],
-      6.4,
+      999,
     )
 
-    expect(result.durationSec).toBeCloseTo(6.4, 3)
+    // 10 (измеренный исходник) + 2 (реально вставленная пауза) = 12, а не 999.
+    expect(result.durationSec).toBeCloseTo(12, 3)
     expect(result.path).toBe("/tmp/track_paused.mp3")
     expect(result.skippedPauses).toEqual([])
     // Разрез состоялся — точка вставки нашлась, дело не в ней.
     expect(result.sourceDurationMeasureFailed).toBe(false)
+    // Но это оценка (сумма), а не факт (измерение) — вызывающий код обязан
+    // различать это в логе, значение кэшируется дальше как есть.
+    expect(result.durationEstimated).toBe(true)
   })
 
-  it("оба замера успешны — длительность результата это факт, а не оценка длины синтеза", async () => {
+  it("несколько пауз, замер результата не удался — сумма учитывает КАЖДУЮ вставленную паузу", async () => {
+    h.probeAudioDuration
+      .mockResolvedValueOnce(20) // исходник
+      .mockResolvedValueOnce(0) // результат не измерен
+    const pauses = [
+      { afterSceneOrder: 1, durationSec: 1.5 },
+      { afterSceneOrder: 2, durationSec: 2.5 },
+    ]
+
+    const result = await insertVoiceoverPauses(
+      "/tmp/track.mp3",
+      pauses,
+      [scene(1, "12345"), scene(2, "12345"), scene(3, "12345")],
+      999,
+    )
+
+    // 20 + 1.5 + 2.5 = 24.
+    expect(result.durationSec).toBeCloseTo(24, 3)
+    expect(result.durationEstimated).toBe(true)
+  })
+
+  it("оба замера успешны — длительность результата это факт, а не оценка", async () => {
     h.probeAudioDuration
       .mockResolvedValueOnce(10)
       .mockResolvedValueOnce(11.5)
@@ -210,5 +243,25 @@ describe("фоллбек на длину синтеза при неудачно�
 
     expect(result.durationSec).toBeCloseTo(11.5, 3)
     expect(result.sourceDurationMeasureFailed).toBe(false)
+    expect(result.durationEstimated).toBe(false)
+  })
+
+  it("точек разреза нет (все паузы пропущены) — длительность исходника это факт, не оценка", async () => {
+    h.probeAudioDuration.mockResolvedValueOnce(10)
+    // Пауза без опорной сцены — planPauseSplit не даёт точек, ffmpeg не
+    // запускается, но исходник УЖЕ измерен ffprobe успешно.
+    const pauses = [{ afterSceneOrder: 9, durationSec: 2 }]
+
+    const result = await insertVoiceoverPauses(
+      "/tmp/track.mp3",
+      pauses,
+      [scene(1, "12345")],
+      999,
+    )
+
+    expect(result.durationSec).toBeCloseTo(10, 3)
+    expect(result.skippedPauses).toEqual(pauses)
+    expect(result.sourceDurationMeasureFailed).toBe(false)
+    expect(result.durationEstimated).toBe(false)
   })
 })

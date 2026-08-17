@@ -13,7 +13,13 @@ function deps(overrides: Record<string, unknown> = {}) {
     // durationSec сознательно НЕ равен "6.4 + 2" (наивной сумме синтеза и
     // паузы) — так тест различает измеренный факт от арифметики (см. Task 7
     // review, находка 1).
-    insertPauses: vi.fn(async (path: string) => ({ path, durationSec: 8.35, skippedPauses: [] })),
+    insertPauses: vi.fn(async (path: string) => ({
+      path,
+      durationSec: 8.35,
+      skippedPauses: [],
+      sourceDurationMeasureFailed: false,
+      durationEstimated: false,
+    })),
     log: vi.fn(async () => {}),
     ...overrides,
   }
@@ -89,6 +95,8 @@ describe("единый трек озвучки", () => {
         path,
         durationSec: 6.4, // тишина не легла — длительность как у чистого синтеза
         skippedPauses: [{ afterSceneOrder: 1, durationSec: 2 }],
+        sourceDurationMeasureFailed: false,
+        durationEstimated: false,
       })),
     })
 
@@ -118,6 +126,7 @@ describe("единый трек озвучки", () => {
         durationSec: 6.4, // фоллбек на длину синтеза, не 0
         skippedPauses: [{ afterSceneOrder: 1, durationSec: 2 }],
         sourceDurationMeasureFailed: true,
+        durationEstimated: true,
       })),
     })
 
@@ -135,6 +144,40 @@ describe("единый трек озвучки", () => {
     const messages = (dependencies.log as ReturnType<typeof vi.fn>).mock.calls.map(call => call[1])
     expect(messages.some(m => typeof m === "string" && /измерить/i.test(m))).toBe(true)
     // Старая (неверная для этого случая) причина показываться не должна.
+    expect(messages.some(m => typeof m === "string" && /не наш.*точк/i.test(m))).toBe(false)
+  })
+
+  it("паузы реально вставлены, но замер результата не удался — честная оценка в логе, старая причина молчит", async () => {
+    // sourceDurationMeasureFailed: false (сплайсинг прошёл, точка вставки
+    // нашлась), но durationEstimated: true — ffprobe не смог измерить
+    // ГОТОВЫЙ файл. Это другая причина, чем сбой замера исходника, и лог
+    // обязан назвать именно её, а не молчать (Task 2 ревью, Important-1).
+    const dependencies = deps({
+      insertPauses: vi.fn(async (path: string) => ({
+        path,
+        durationSec: 8.4, // 6.4 (исходник) + 2 (пауза) — оценка суммой, не факт
+        skippedPauses: [],
+        sourceDurationMeasureFailed: false,
+        durationEstimated: true,
+      })),
+    })
+
+    const result = await runSingleTrackVoiceover({
+      videoId: 7,
+      stepId: 4,
+      scenes: [{ order: 1, spokenLine: "Смотри. [пауза 2с]" }, { order: 2, spokenLine: "Вывод." }],
+      voiceoverLines: [],
+      voiceId: "clone-1",
+      language: "ru",
+      outputPath: "/tmp/track.mp3",
+    }, dependencies as never)
+
+    expect(result.durationSec).toBeCloseTo(8.4, 3)
+    const messages = (dependencies.log as ReturnType<typeof vi.fn>).mock.calls.map(call => call[1])
+    expect(messages.some(m => typeof m === "string" && /оценен/i.test(m))).toBe(true)
+    // Ни «не измерили исходник», ни «не нашли точку вставки» здесь не звучат —
+    // обе причины неверны для этого случая.
+    expect(messages.some(m => typeof m === "string" && /паузы не вставлены/i.test(m))).toBe(false)
     expect(messages.some(m => typeof m === "string" && /не наш.*точк/i.test(m))).toBe(false)
   })
 })

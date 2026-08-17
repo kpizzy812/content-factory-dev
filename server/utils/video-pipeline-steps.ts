@@ -1777,25 +1777,30 @@ export interface SingleTrackDeps {
   synthesize?: (options: TtsSynthesisOptions) => Promise<Pick<TtsSynthesisResult, "audioPath" | "durationSec" | "costUsd">>
   /**
    * Режет трек по маркерам пауз и вставляет тишину. `durationSec` в ответе —
-   * ИЗМЕРЕННАЯ длительность готового файла (не сумма исходной длительности и
-   * пауз): трек — эталон времени для дальнейшего монтажа, вывести её
-   * арифметикой значило бы довериться складыванию там, где нужен факт.
-   * Если ffprobe не смог измерить (транзиентный сбой на только что созданном
-   * файле), сюда приходит длина синтеза (третий аргумент) — не 0, иначе
+   * в норме ИЗМЕРЕННАЯ длительность готового файла (не сумма исходной
+   * длительности и пауз): трек — эталон времени для дальнейшего монтажа,
+   * вывести её арифметикой значило бы довериться складыванию там, где нужен
+   * факт. Если ffprobe не смог измерить (транзиентный сбой на только что
+   * созданном файле), сюда приходит лучшая доступная оценка — не 0, иначе
    * дальше по конвейеру молча отключились бы и подгон длины клипов, и
-   * реальные тайминги субтитров.
+   * реальные тайминги субтитров — см. `durationEstimated`.
    * `skippedPauses` — паузы, для которых не нашлось точки вставки (тишина по
    * ним НЕ добавлена); пусто, если все паузы легли на место.
    * `sourceDurationMeasureFailed` — не удалось измерить ИСХОДНИК: тогда
    * `skippedPauses` содержит ВСЕ паузы не потому, что для них не нашлось
    * опорной сцены, а потому что резать было не от чего измерить — причина
    * другая, и лог обязан её различать.
+   * `durationEstimated` — true, если `durationSec` выше это оценка, а не
+   * измерение (при любой из трёх причин внутри `insertVoiceoverPauses`).
+   * Значение кэшируется дальше по конвейеру как факт — лог обязан честно
+   * предупредить об оценке, иначе отличить её от факта станет нечем.
    */
   insertPauses?: (path: string, pauses: TrackPause[], synthDurationSec: number) => Promise<{
     path: string
     durationSec: number
     skippedPauses: TrackPause[]
-    sourceDurationMeasureFailed?: boolean
+    sourceDurationMeasureFailed: boolean
+    durationEstimated: boolean
   }>
   log?: (stepId: number, message: string) => Promise<void>
 }
@@ -1844,11 +1849,12 @@ export async function runSingleTrackVoiceover(
         insertVoiceoverPauses(path, pauses, track.scenes, synthDurationSec))
     const inserted = await insertPauses(trackPath, track.pauses, synthResult.durationSec)
     trackPath = inserted.path
-    // Факт, а не арифметика: длительность результата — то, что реально
-    // измерено на готовом файле. Наивная сумма "было + Σ пауз" молча соврала
-    // бы, если склейка дала не ровно ту длину или какая-то пауза не нашла
-    // точку вставки (см. skippedPauses ниже). Если ffprobe не смог измерить
-    // вовсе, здесь — длина синтеза (оценка), а не 0.
+    // В норме факт, а не арифметика: длительность результата — то, что
+    // реально измерено на готовом файле. Наивная сумма "было + Σ пауз" молча
+    // соврала бы, если склейка дала не ровно ту длину или какая-то пауза не
+    // нашла точку вставки (см. skippedPauses ниже). Если ffprobe не смог
+    // измерить вовсе, здесь — лучшая доступная оценка, а не 0
+    // (`durationEstimated` ниже честно предупреждает об этом в лог).
     durationSec = inserted.durationSec
 
     if (inserted.sourceDurationMeasureFailed) {
@@ -1859,11 +1865,23 @@ export async function runSingleTrackVoiceover(
         input.stepId,
         `Не удалось измерить длительность трека озвучки (ffprobe вернул 0) — паузы не вставлены, взята длина синтеза`,
       )
-    } else if (inserted.skippedPauses.length > 0) {
-      await log(
-        input.stepId,
-        `Не нашли точку вставки для паузы после сцен(ы) ${inserted.skippedPauses.map(p => p.afterSceneOrder).join(", ")} — тишина не добавлена`,
-      )
+    } else {
+      if (inserted.durationEstimated) {
+        // Паузы РЕАЛЬНО вставлены (сплайсинг прошёл), но замер ГОТОВОГО
+        // файла не удался — durationSec выше оценён суммой исходника и
+        // вставленных пауз, а не измерен. Значение кэшируется дальше как
+        // факт, поэтому молчать здесь нельзя.
+        await log(
+          input.stepId,
+          `Не удалось измерить длительность трека после вставки пауз (ffprobe вернул 0) — длительность оценена по сумме исходника и пауз, а не измерена`,
+        )
+      }
+      if (inserted.skippedPauses.length > 0) {
+        await log(
+          input.stepId,
+          `Не нашли точку вставки для паузы после сцен(ы) ${inserted.skippedPauses.map(p => p.afterSceneOrder).join(", ")} — тишина не добавлена`,
+        )
+      }
     }
     await log(
       input.stepId,
@@ -1892,7 +1910,12 @@ export async function runSingleTrackVoiceover(
 export interface AudioFirstVoiceoverResult {
   status: "completed" | "skipped"
   trackPath: string | null
-  /** ИЗМЕРЕННАЯ длительность финального файла (после вставки пауз). */
+  /**
+   * Длительность финального файла (после вставки пауз) — в норме ИЗМЕРЕННАЯ
+   * ffprobe. Если замер транзиентно не удался (см. `insertVoiceoverPauses` /
+   * `SingleTrackDeps.insertPauses`), здесь лучшая доступная оценка вместо
+   * лжи про 0 — но не всегда факт, снапшот шага/лог это честно фиксируют.
+   */
   durationSec: number
   /**
    * sha256 ФИНАЛЬНОГО файла — того, что получился после вставки пауз.

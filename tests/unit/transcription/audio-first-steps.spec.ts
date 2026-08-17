@@ -194,7 +194,13 @@ describe("шаг единого трека", () => {
 
     const result = await runAudioFirstVoiceover(44, CONFIG, PLAN, {
       synthesize: async () => ({ audioPath: rawPath, durationSec: 12.1, costUsd: 0.07 }),
-      insertPauses: async () => ({ path: pausedPath, durationSec: 14.05, skippedPauses: [] }),
+      insertPauses: async () => ({
+        path: pausedPath,
+        durationSec: 14.05,
+        skippedPauses: [],
+        sourceDurationMeasureFailed: false,
+        durationEstimated: false,
+      }),
     })
 
     expect(h.uploads).toEqual([pausedPath])
@@ -209,7 +215,13 @@ describe("шаг единого трека", () => {
 
     const result = await runAudioFirstVoiceover(44, CONFIG, PLAN, {
       synthesize: async () => ({ audioPath: join(assetsDir, "t.mp3"), durationSec: 12, costUsd: 0.07 }),
-      insertPauses: async (path: string) => ({ path, durationSec: 14, skippedPauses: [] }),
+      insertPauses: async (path: string) => ({
+        path,
+        durationSec: 14,
+        skippedPauses: [],
+        sourceDurationMeasureFailed: false,
+        durationEstimated: false,
+      }),
     })
 
     expect(result.scenes).toEqual([

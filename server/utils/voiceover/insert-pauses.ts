@@ -15,11 +15,14 @@
  * пересчитает границы сцен уже по факту готового трека, тишина в его расчётах
  * будет видна как обычная пауза в речи.
  *
- * Итоговая ДЛИТЕЛЬНОСТЬ файла, в отличие от точки разреза, оценкой не
- * является: она пробуется ffprobe уже на готовом результате, а не выводится
- * сложением `исходная + Σ пауз`. Склейка/кодек могут дать не ровно ту сумму
- * (несколько лишних миллисекунд на стыках), а трек — эталон времени для
- * всего дальнейшего монтажа: врать здесь нельзя даже на миллисекунды.
+ * Итоговая ДЛИТЕЛЬНОСТЬ файла в норме — не оценка: она пробуется ffprobe
+ * уже на готовом результате, а не выводится сложением `исходная + Σ пауз`
+ * (склейка/кодек могут дать не ровно ту сумму — несколько лишних миллисекунд
+ * на стыках), а трек — эталон времени для всего дальнейшего монтажа: врать
+ * здесь нельзя даже на миллисекунды. Но если ffprobe транзиентно не смог
+ * измерить (см. `InsertPausesResult.durationEstimated`), в ответ идёт лучшая
+ * ДОСТУПНАЯ оценка вместо лжи про ноль — честно помеченная как оценка, а не
+ * тихо выданная за факт.
  *
  * Чистые части (расчёт точек разреза, сборка ffmpeg-фильтров) вынесены в
  * отдельные функции и тестируются без запуска ffmpeg — по образцу
@@ -138,11 +141,11 @@ export function buildPauseInsertionPlan(
 export interface InsertPausesResult {
   path: string
   /**
-   * Измерено ffprobe на готовом файле — не сумма исходной длительности и
-   * пауз. Если замер (любой из трёх внутри функции) не удался, здесь —
-   * `synthDurationSec` (оценка по длине синтеза), а не 0: ноль отсюда уезжает
-   * в снапшот шага и молча отключает подгон длины клипов и реальные тайминги
-   * субтитров ниже по конвейеру.
+   * Готовая длительность. Измерена ffprobe, КРОМЕ случая, когда замер не
+   * удался (`durationEstimated: true`) — тогда это лучшая доступная оценка,
+   * а не факт. Ноль сюда никогда не попадает: он уезжает в снапшот шага и в
+   * `VideoAsset.duration`, где молча отключает и подгон длины клипов, и
+   * реальные тайминги субтитров.
    */
   durationSec: number
   /** Паузы, для которых не нашлось точки вставки — тишина по ним НЕ добавлена. */
@@ -155,6 +158,14 @@ export interface InsertPausesResult {
    * сообщение соврёт про «не нашли точку вставки» там, где дело в сбое ffprobe.
    */
   sourceDurationMeasureFailed: boolean
+  /**
+   * true, если `durationSec` — оценка, а не измерение готового файла ffprobe
+   * (независимо от причины: пустой список пауз, неизмеримый исходник или
+   * неизмеримый результат после ffmpeg). Значение кэшируется дальше по
+   * конвейеру как факт, поэтому вызывающий код обязан честно сообщить об
+   * оценке в лог, а не промолчать.
+   */
+  durationEstimated: boolean
 }
 
 /**
@@ -164,9 +175,9 @@ export interface InsertPausesResult {
  * `probeAudioDuration` при сбое ffprobe не бросает, а возвращает 0 — транзиент
  * на только что созданном файле не должен превращаться в нулевую длительность
  * трека (эталона времени всего дальнейшего монтажа). Поэтому на каждой из
- * трёх точек замера ниже неположительный результат подменяется на заведомо
- * известную длину синтеза (`synthDurationSec`) — оценку вместо факта, но не
- * враньё про ноль.
+ * трёх точек замера ниже неположительный результат подменяется на лучшую
+ * доступную оценку — не враньё про ноль, но и не подмена «как будто измерено»:
+ * `durationEstimated` честно говорит, что это не факт.
  */
 export async function insertVoiceoverPauses(
   path: string,
@@ -175,31 +186,42 @@ export async function insertVoiceoverPauses(
   synthDurationSec: number,
 ): Promise<InsertPausesResult> {
   if (pauses.length === 0) {
+    // Пауз нет — сложить нечего, лучшая оценка при неудачном замере это
+    // длина синтеза как есть.
     const measured = await probeAudioDuration(path)
     return {
       path,
       durationSec: measured > 0 ? measured : synthDurationSec,
       skippedPauses: [],
       sourceDurationMeasureFailed: false,
+      durationEstimated: measured <= 0,
     }
   }
 
   const totalDurationSec = await probeAudioDuration(path)
   if (totalDurationSec <= 0) {
-    // Не измерили исходник — резать по оценённым долям не от чего. Все паузы
-    // остаются без вставки, но по ДРУГОЙ причине, чем «не нашли опорную
-    // сцену» — см. sourceDurationMeasureFailed.
+    // Не измерили исходник — резать по оценённым долям не от чего, паузы не
+    // вставлены вовсе, поэтому длина синтеза (без пауз) — лучшая оценка. Все
+    // паузы остаются без вставки, но по ДРУГОЙ причине, чем «не нашли
+    // опорную сцену» — см. sourceDurationMeasureFailed.
     return {
       path,
       durationSec: synthDurationSec,
       skippedPauses: [...pauses],
       sourceDurationMeasureFailed: true,
+      durationEstimated: true,
     }
   }
 
   const { points, skipped } = planPauseSplit(pauses, scenes, totalDurationSec)
   if (points.length === 0) {
-    return { path, durationSec: totalDurationSec, skippedPauses: skipped, sourceDurationMeasureFailed: false }
+    return {
+      path,
+      durationSec: totalDurationSec,
+      skippedPauses: skipped,
+      sourceDurationMeasureFailed: false,
+      durationEstimated: false,
+    }
   }
 
   const { filters, outputPath } = buildPauseInsertionPlan(path, points, totalDurationSec)
@@ -227,10 +249,17 @@ export async function insertVoiceoverPauses(
   })
 
   const measuredResultSec = await probeAudioDuration(outputPath)
+  // Паузы РЕАЛЬНО вставлены (сплайсинг прошёл) — в отличие от исходника,
+  // здесь есть чем оценить результат точнее длины синтеза: исходник уже
+  // измерен, а вставленная тишина известна поточечно. Сумма — не подмена
+  // синтезом (который вообще не учитывал бы паузы), а честная оценка того,
+  // что ffprobe не смог подтвердить на готовом файле.
+  const estimatedResultSec = totalDurationSec + points.reduce((sum, point) => sum + point.durationSec, 0)
   return {
     path: outputPath,
-    durationSec: measuredResultSec > 0 ? measuredResultSec : synthDurationSec,
+    durationSec: measuredResultSec > 0 ? measuredResultSec : estimatedResultSec,
     skippedPauses: skipped,
     sourceDurationMeasureFailed: false,
+    durationEstimated: measuredResultSec <= 0,
   }
 }
