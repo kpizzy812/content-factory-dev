@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   logs: [] as string[],
   updates: [] as Record<string, unknown>[],
   assembleCalls: [] as Array<Record<string, unknown>>,
+  keywordAgentCalls: 0,
   durationFit: undefined as ClipDurationFitSummary | undefined,
 }))
 
@@ -50,7 +51,12 @@ vi.mock("../../../server/utils/render", () => ({
 }))
 
 vi.mock("../../../server/utils/agents/subtitle-keyword-agent", () => ({
-  runSubtitleKeywordAgent: async () => ({ segments: [] }),
+  // Платный вызов Anthropic с кэшем только в памяти процесса: на обречённом
+  // ролике он оплачивался бы заново при каждом перезапуске.
+  runSubtitleKeywordAgent: async () => {
+    h.keywordAgentCalls += 1
+    return { segments: [] }
+  },
 }))
 vi.mock("../../../server/utils/remotion/render", () => ({
   renderRemotionOverlays: async () => ({ status: "skipped", reason: "тест" }),
@@ -105,6 +111,19 @@ function alignedScenes(): AlignedScene[] {
   ]
 }
 
+/**
+ * Вырожденное выравнивание: сцены 2 и 3 схлопнуты в одну точку трека, интервал
+ * между анкорами нулевой (`align.ts` даёт это уже на ВТОРОЙ подряд
+ * несопоставленной сцене — span=0 при интерполяции).
+ */
+function collapsedAlignedScenes(): AlignedScene[] {
+  return [
+    { order: 1, startSec: 1.0, endSec: 3.0, words: [] },
+    { order: 2, startSec: 3.0, endSec: 3.0, words: [] },
+    { order: 3, startSec: 3.0, endSec: 3.0, words: [] },
+  ]
+}
+
 const CLIPS = ["c0.mp4", "c1.mp4", "c2.mp4"]
 
 /** extras маршрута «монтаж от звука»: выравнивание доехало, длина трека измерена. */
@@ -130,6 +149,7 @@ beforeEach(() => {
   h.logs.length = 0
   h.updates.length = 0
   h.assembleCalls.length = 0
+  h.keywordAgentCalls = 0
   h.durationFit = undefined
 })
 
@@ -193,6 +213,79 @@ describe("runAssembly: отказ подгона длины под трек ро
     expect(result.filePath).toBe("final.mp4")
     expect(stepCompleted()).toBe(true)
     expect(stepFailed()).toBe(false)
+  })
+
+  // Ревью: ролик, целиком снятый ведущей, шаг промптов пропускает
+  // (`video-pipeline.ts:621` → `skipPromptGenerationStep`), поэтому scenePrompts
+  // у него нет и `clipSceneOrders` в сборку приходит `undefined`. Карта позиций
+  // пуста НЕ потому, что выравнивание выродилось, а по устройству ролика:
+  // чужих клипов, на которые могло бы уехать сопоставление, не существует —
+  // клип каждой сцены сделал lip-sync (тот же довод, что у `presenterOnlyVideo`,
+  // `lip-sync-runner.ts:247-262`). Без различения этих двух случаев падал бы
+  // КАЖДЫЙ ролик ведущей — флагманский сценарий маршрута.
+  it("ролик ведущей (порядок нарезки не передан) собирается: позиции берутся из плана", async () => {
+    const steps = await loadSteps()
+    h.durationFit = { applied: true, trimmedCount: 3, heldCount: 0, totalDeltaSec: 0.9 }
+
+    const result = await steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", plan(), {
+      // clipSceneOrders нет вовсе — ровно то, что приходит от presenterOnly-ролика.
+      alignedScenes: alignedScenes(),
+      voiceoverDurationSec: 12,
+    })
+
+    expect(result.filePath).toBe("final.mp4")
+    expect(stepCompleted()).toBe(true)
+    expect(stepFailed()).toBe(false)
+    // Подгон реально заказан, а не тихо пропущен: карта позиций доехала до render.
+    expect(h.assembleCalls[0]!.clipTrackAlignment).toBeDefined()
+    // Допущение о порядке названо вслух — оператор не должен догадываться.
+    expect(h.logs.some(l => l.includes("Порядок нарезки клипов не передан") && l.includes("подгон"))).toBe(true)
+  })
+
+  it("у ролика ведущей вырожденное выравнивание по-прежнему роняет сборку", async () => {
+    const steps = await loadSteps()
+
+    await expect(
+      steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", plan(), {
+        alignedScenes: collapsedAlignedScenes(),
+        voiceoverDurationSec: 8,
+      }),
+    ).rejects.toThrow(/подгон/i)
+
+    expect(stepFailed()).toBe(true)
+    expect(h.logs.some(l => l.includes("нулевой или отрицательный интервал"))).toBe(true)
+  })
+
+  it("вырожденное выравнивание останавливает сборку ДО рендера и ДО платного предпрохода", async () => {
+    const steps = await loadSteps()
+
+    await expect(
+      steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", plan(), {
+        ...audioFirstExtras(),
+        alignedScenes: collapsedAlignedScenes(),
+        voiceoverDurationSec: 8,
+        // Пресет с needsKeywordDetection: без ворот сюда уходил бы платный вызов
+        // Anthropic — и оплачивался заново при каждом перезапуске обречённого ролика.
+        subtitlePreset: "hormozi" as never,
+      }),
+    ).rejects.toThrow(/подгон/i)
+
+    expect(h.keywordAgentCalls).toBe(0)
+    expect(h.assembleCalls).toHaveLength(0)
+    expect(stepFailed()).toBe(true)
+  })
+
+  it("на здоровом подгоне платный предпроход отрабатывает как раньше", async () => {
+    const steps = await loadSteps()
+    h.durationFit = { applied: true, trimmedCount: 1, heldCount: 0, totalDeltaSec: 0.2 }
+
+    await steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", plan(), {
+      ...audioFirstExtras(),
+      subtitlePreset: "hormozi" as never,
+    })
+
+    expect(h.keywordAgentCalls).toBe(1)
+    expect(stepCompleted()).toBe(true)
   })
 
   it("старый маршрут без выравнивания собирается как прежде — отсутствие подгона ему не отказ", async () => {

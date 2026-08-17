@@ -221,6 +221,27 @@ describe("заказанная длина клипов по выравниван
     expect(plan.targets).toEqual([null, null])
   })
 
+  // Диагностика (preflight, задача 5): отказ теперь роняет сборку, и его причина
+  // уезжает оператору в Video.errorMessage. Дубль order (план модели умеет их
+  // повторять — WARN в lip-sync-runner.ts:300-305) схлопывает две сцены на один
+  // клип; прежний текст «позиции 1 → 1 не растут» отправлял бы искать
+  // перестановку сцен, которой нет.
+  it("две сцены на одном клипе (дубль order) названы дублем, а не перестановкой", () => {
+    const plan = planAlignedClipTargets({
+      alignedScenes: [scene(2, 1.0, 3.0), scene(2, 4.0, 6.0)],
+      trackDurationSec: 8.0,
+      // Карта order → клип схлопнула обе сцены в одну позицию.
+      positionByOrder: new Map([[2, 1]]),
+      actualDurationsSec: [3, 3],
+      clipCount: 2,
+    })
+
+    expect(plan.ok).toBe(false)
+    expect(plan.reason).toMatch(/один и тот же клип/)
+    expect(plan.reason).toMatch(/order/)
+    expect(plan.reason).not.toMatch(/не растут/)
+  })
+
   it("неизмеримый клип в бакете отключает подгон целиком, а не только для себя", () => {
     const plan = planAlignedClipTargets({
       alignedScenes: [scene(1, 0.5, 3.0), scene(3, 6.5, 9.0)],

@@ -55,7 +55,7 @@ import {
 } from "./agents/favorite-prompts-loader"
 import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
-import { shouldReconcileVoiceover } from "./video-pipeline-run-policy"
+import { planAlignedClipTargets, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
 import { planRemotionOverlays } from "./remotion/overlay-plan"
 import { renderRemotionOverlays } from "./remotion/render"
@@ -2724,19 +2724,39 @@ export async function runAssembly(
     positionByOrder: ReadonlyMap<number, number>
     trackDurationSec: number
   } | undefined
+  /** Порядок нарезки неизвестен, позиции взяты из плана — сказать это вслух в логе шага. */
+  let fitPositionalOrderWarning: string | null = null
   if (isStoryDriven && extras?.alignedScenes?.length && typeof extras.voiceoverDurationSec === 'number' && extras.voiceoverDurationSec > 0) {
+    // Позиционный фолбэк здесь РАЗРЕШЁН, в отличие от lip-sync и субтитров,
+    // которым он отдал бы реплику на чужой клип при перестановке сцен моделью.
+    // Порядок нарезки неизвестен ровно в одном случае: ролик снят целиком
+    // ведущей, шаг промптов пропущен и scenePrompts нет вовсе
+    // (`video-pipeline.ts:621`, `skipPromptGenerationStep`). Тогда позиция сцены
+    // в плане — не догадка, а единственный возможный порядок: чужих клипов, на
+    // которые могло бы уехать сопоставление, не существует, клип каждой сцены
+    // сделал lip-sync — тот же довод, что у `presenterOnlyVideo`
+    // (`lip-sync-runner.ts:247-262`), и та же раскладка, которой двадцатью
+    // строками выше идут субтитры. Отказ подгона роняет сборку, поэтому
+    // разница между «карта пуста по устройству ролика» и «выравнивание
+    // выродилось» стоит ролика: ведущая — флагманский сценарий этого маршрута,
+    // и без фолбэка НИ ОДИН такой ролик не собрался бы вовсе.
     const clipIndexByOrderForFit = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
-      allowPositionalFallback: false,
+      allowPositionalFallback: true,
     })
+    if (!extras?.clipSceneOrders?.length) {
+      fitPositionalOrderWarning = "Порядок нарезки клипов не передан — подгон длины под трек считает позиции по плану сцен. "
+        + "Так приходит ролик, целиком снятый ведущей: text-to-video ему не запускали, чужих клипов не существует"
+    }
     const positionByOrder = new Map<number, number>()
     for (const [order, sceneIndex] of clipIndexByOrderForFit.entries()) {
       const position = compacted.positionBySceneIndex.get(sceneIndex)
       if (position !== undefined) positionByOrder.set(order, position)
     }
-    // Карта позиций может оказаться пустой (нет clipSceneOrders) — передаём
-    // всё равно: render.ts обязан честно отказаться от подгона и назвать
-    // причину в логе шага (RULING 3, ревью Task 10), а не получить undefined
-    // и промолчать, что подгон не пытался исполниться вовсе.
+    // Карта позиций всё ещё может оказаться пустой (сцены выравнивания не
+    // сошлись ни с одной ячейкой склейки) — передаём всё равно: render.ts
+    // обязан честно отказаться от подгона и назвать причину (RULING 3, ревью
+    // Task 10), а не получить undefined и промолчать, что подгон не пытался
+    // исполниться вовсе.
     clipTrackAlignment = {
       alignedScenes: extras.alignedScenes,
       positionByOrder,
@@ -2795,6 +2815,7 @@ export async function runAssembly(
     )
   }
   if (clipOrderWarning && hasSceneSubs) await appendStepLog(step.id, clipOrderWarning)
+  if (fitPositionalOrderWarning) await appendStepLog(step.id, fitPositionalOrderWarning)
   if (legacyFallbackUsed) {
     await appendStepLog(step.id, "WARN: субтитры включены, но ни у одной сцены нет текста — накладываю legacy hook/CTA. Проверьте тексты сцен в редакторе субтитров.")
   } else if (storySubsMissing) {
@@ -2802,48 +2823,79 @@ export async function runAssembly(
   }
   await updateVideoStatus(videoId, "assembling", { currentStep: "assembly" })
 
-  // Keyword pre-pass — только для пресетов с needsKeywordDetection=true. При выключенных
-  // paid-apis или ошибке агента — graceful degrade (фолбэк на эвристику внутри ass-builder).
   let keywordHints: Array<{ order: number; keywords: Array<{ word: string; weight: number }> }> | undefined
-  if (subtitlesEnabled && hasSceneSubs && extras?.subtitlePreset) {
-    const presetMeta = getPresetByKey(extras.subtitlePreset)
-    if (presetMeta.needsKeywordDetection) {
-      try {
-        // order = sceneIndex + 1 — тот же ключ, по которому render читает подсказки
-        // (aiMap.get(sceneIndex + 1)). Нумерация с единицы: так её видит AI-агент.
-        const segs = sceneSubtitles!.map(s => ({ order: s.sceneIndex + 1, text: s.text }))
-        const lang = videoPlan?.subtitleStyle?.typography?.fontIntent?.toLowerCase().includes('rus')
-          ? 'ru'
-          : 'en'
-        const result = await runSubtitleKeywordAgent({
-          segments: segs,
-          language: lang,
-          maxKeywordsPerSegment: 2,
-        })
-        keywordHints = result.segments
-        await appendStepLog(step.id, `AI keyword-detector: помечено ${result.segments.reduce((acc, s) => acc + s.keywords.length, 0)} слов в ${result.segments.length} сегментах`)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        await appendStepLog(step.id, `AI keyword-detector недоступен (${msg.slice(0, 120)}), используется эвристика`)
-      }
-    }
-  }
 
   try {
+    // ── Ворота маршрута «монтаж от звука»: подгон длины решается ДО денег ─────
+    //
     // Сборка, получившая выравнивание по звуку, обязана предъявить состоявшийся
     // подгон длины клипов под трек: на этом маршруте звук — эталон времени, и
-    // картинка подгоняется под него (spec §8). Данных для подгона не собралось
-    // вовсе — считать нечего, и ролик уехал бы в хранилище длиннее собственной
-    // озвучки со статусом «готов». Отказываем ДО рендера: единственные причины
-    // сюда попасть (ролик не story-driven, измеренная длина трека не доехала)
-    // видны уже сейчас, и гонять ffmpeg ради заведомо забракованного ролика
-    // незачем.
+    // картинка подгоняется под него (spec §8). Обе проверки стоят ВЫШЕ платного
+    // предпрохода детектора ключевых слов и выше рендера намеренно: отказ
+    // детерминирован (то же выравнивание — тот же отказ), и на обречённом ролике
+    // предпроход оплачивался бы заново при каждом перезапуске, а его кэш живёт
+    // только в памяти процесса.
+    //
+    // Данных для подгона не собралось вовсе — считать нечего, ролик уехал бы в
+    // хранилище длиннее собственной озвучки со статусом «готов».
     if (extras?.alignedScenes?.length && !clipTrackAlignment) {
       throw new Error(
         "Подгон длины клипов под звуковой трек невозможен: "
         + (isStoryDriven ? "измеренная длина единого трека не доехала до сборки" : "ролик собран не по сценарному плану")
         + ". На маршруте «монтаж от звука» картинка обязана подгоняться под звук — сборка остановлена, готовым ролик не помечается",
       )
+    }
+
+    // Дешёвая проверка того же плана подгона, что посчитает render.ts. Замер
+    // здесь идёт по ИСХОДНЫМ клипам, а решающий подгон — по нормализованным
+    // (они короче на сотые доли кадра), поэтому этот проход именно ворота, а не
+    // замена: причины отказа, которые он ловит, от длительностей не зависят
+    // вовсе (нулевой интервал трека, порядок сцен, пустая карта позиций), а
+    // единственная зависящая — неизмеримый клип — до нормализации не
+    // «выздоравливает». Итоговое слово остаётся за render.ts ниже.
+    if (clipTrackAlignment) {
+      const preflightDurations = assemblyClips.length > 0 ? await probeSceneClipDurations(assemblyClips) : []
+      const preflight = planAlignedClipTargets({
+        alignedScenes: clipTrackAlignment.alignedScenes,
+        trackDurationSec: clipTrackAlignment.trackDurationSec,
+        positionByOrder: clipTrackAlignment.positionByOrder,
+        actualDurationsSec: preflightDurations,
+        clipCount: assemblyClips.length,
+      })
+      if (!preflight.ok) {
+        await appendStepLog(step.id, `Подгон длины клипов под трек невозможен: ${preflight.reason ?? 'причина не сообщена'}`)
+        throw new Error(
+          `Подгон длины клипов под звуковой трек не состоится (${preflight.reason ?? 'причина не сообщена'}). `
+          + "На маршруте «монтаж от звука» картинка обязана подгоняться под звук — иначе ролик выйдет "
+          + "длиннее собственной озвучки; сборка остановлена до рендера, готовым ролик не помечается",
+        )
+      }
+    }
+
+    // Keyword pre-pass — только для пресетов с needsKeywordDetection=true. При выключенных
+    // paid-apis или ошибке агента — graceful degrade (фолбэк на эвристику внутри ass-builder).
+    if (subtitlesEnabled && hasSceneSubs && extras?.subtitlePreset) {
+      const presetMeta = getPresetByKey(extras.subtitlePreset)
+      if (presetMeta.needsKeywordDetection) {
+        try {
+          // order = sceneIndex + 1 — тот же ключ, по которому render читает подсказки
+          // (aiMap.get(sceneIndex + 1)). Нумерация с единицы: так её видит AI-агент.
+          const segs = sceneSubtitles!.map(s => ({ order: s.sceneIndex + 1, text: s.text }))
+          const lang = videoPlan?.subtitleStyle?.typography?.fontIntent?.toLowerCase().includes('rus')
+            ? 'ru'
+            : 'en'
+          const result = await runSubtitleKeywordAgent({
+            segments: segs,
+            language: lang,
+            maxKeywordsPerSegment: 2,
+          })
+          keywordHints = result.segments
+          await appendStepLog(step.id, `AI keyword-detector: помечено ${result.segments.reduce((acc, s) => acc + s.keywords.length, 0)} слов в ${result.segments.length} сегментах`)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          await appendStepLog(step.id, `AI keyword-detector недоступен (${msg.slice(0, 120)}), используется эвристика`)
+        }
+      }
     }
 
     const outputPath = join(getVideosDir(), `${videoId}.mp4`)

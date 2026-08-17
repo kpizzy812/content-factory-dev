@@ -189,11 +189,27 @@ export function planAlignedClipTargets(input: {
 
   anchors.sort((a, b) => a.startSec - b.startSec)
   for (let i = 1; i < anchors.length; i += 1) {
-    if (anchors[i]!.position <= anchors[i - 1]!.position) {
+    const position = anchors[i]!.position
+    const previous = anchors[i - 1]!.position
+    // Два анкора на ОДНОЙ позиции — это не перестановка сцен, а две сцены
+    // выравнивания, указывающие на один и тот же клип: у сцен совпал `order`
+    // (план модели умеет их повторять — WARN в `lip-sync-runner.ts:300-305`),
+    // и карта `order → клип` схлопнула их в одну запись. Причина отказа та же,
+    // а вот след для оператора разный: «позиции 1 → 1 не растут» отправило бы
+    // его искать перестановку, которой нет.
+    if (position === previous) {
+      return {
+        ok: false,
+        reason: `две сцены выравнивания указывают на один и тот же клип (позиция ${position}) — `
+          + `вероятно, у сцен совпадает order и они делят один кусок трека`,
+        targets: empty,
+      }
+    }
+    if (position < previous) {
       return {
         ok: false,
         reason: `порядок сцен по времени трека не совпадает с порядком клипов в склейке `
-          + `(позиции ${anchors[i - 1]!.position} → ${anchors[i]!.position} не растут)`,
+          + `(позиции ${previous} → ${position} не растут)`,
         targets: empty,
       }
     }
