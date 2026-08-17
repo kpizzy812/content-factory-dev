@@ -5,8 +5,15 @@
  * выравнивание, деградация и сохранение — обязана проверяться без БД, сети и
  * денег.
  *
- * Отказ провайдера ролик не роняет (spec §10): без точных таймингов монтаж
- * работает по плановым длительностям, и это видно в логе шага, а не молча.
+ * На маршруте «монтаж от звука» транскрипция ОБЯЗАТЕЛЬНА (spec §4.1, §10):
+ * без границ слов lip-sync не возьмёт звук ни одной сцены ведущего, и ролик
+ * без честного отказа получил бы статус «готов» со склейкой одних перебивок
+ * под непрерывную речь. Сам раннер при отказе провайдера или неразборчивом
+ * ответе исключение не бросает — он лишь пишет причину в лог шага и
+ * возвращает пустой результат; ронять шаг обязан вызывающий код
+ * (`runVideoTranscription` в video-pipeline-steps.ts), который трактует
+ * пустые `scenes` как отказ. Так содержательная часть шага проверяется без
+ * исключений в юнит-тестах, а решение «падать ли» остаётся в одном месте.
  */
 
 import { alignScriptToTranscript, type AlignedScene, type AlignScene } from "./align"
@@ -26,6 +33,14 @@ export interface TranscriptionStepInput {
 }
 
 export interface TranscriptionStepResult {
+  /**
+   * "skipped" — провайдер отказал или ответ не разобран; всегда приходит с
+   * `scenes: []`. Как «мягкая» деградация с продолжением сборки этот статус
+   * не используется нигде: вызывающий код трактует пустые `scenes` как отказ
+   * и роняет шаг честно (см. заголовок модуля), так что "skipped" здесь —
+   * не более чем метка причины в возвращаемом объекте, а не исход, на
+   * который где-то ветвятся.
+   */
   status: "completed" | "degraded" | "skipped"
   scenes: AlignedScene[]
   costUsd: number
@@ -79,7 +94,7 @@ export async function runTranscriptionStep(
     costUsd = task.costUsd
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    await deps.log(input.stepId, `Транскрипция не выполнена (${message}) — ролик собирается по плановым длительностям, тайминги приблизительные`)
+    await deps.log(input.stepId, `Транскрипция не выполнена (${message}) — на маршруте «монтаж от звука» шаг обязателен, вызывающий код провалит его честно`)
     return { status: "skipped", scenes: [], costUsd: 0, warning: message }
   }
 
@@ -88,7 +103,7 @@ export async function runTranscriptionStep(
     transcript = normalizeTranscriptPayload(raw)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    await deps.log(input.stepId, `Ответ транскрипции не разобран (${message}) — тайминги приблизительные`)
+    await deps.log(input.stepId, `Ответ транскрипции не разобран (${message}) — шаг будет провален вызывающим кодом`)
     return { status: "skipped", scenes: [], costUsd, warning: message }
   }
 

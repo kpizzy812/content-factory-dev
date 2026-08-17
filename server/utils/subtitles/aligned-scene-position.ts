@@ -9,8 +9,8 @@
  * ровно так на само-ревью Task 11 нашёлся баг: первая версия сопоставляла
  * `AlignedScene.order` напрямую с позицией окна субтитра.
  *
- * `positionByOrder` — та же карта, что уже uses `fitClipsToTrack` (Task 10) для
- * перевода order → позиция; здесь она переиспользуется, а не считается заново.
+ * `positionByOrder` — та же карта, что уже использует `fitClipsToTrack` (Task 10)
+ * для перевода order → позиция; здесь она переиспользуется, а не считается заново.
  */
 
 import type { AlignedScene } from "../transcription/align"

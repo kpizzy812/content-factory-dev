@@ -3,63 +3,16 @@ import { describe, expect, it } from "vitest"
 import {
   clipVolumeWithVoiceoverFor,
   planAlignedClipTargets,
-  planDurationFit,
   planTrackClipFit,
   shouldReconcileVoiceover,
 } from "~~/server/utils/video-pipeline-run-policy"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 
-describe("подгон длины кадра под звук", () => {
-  it("расхождение в пределах допуска не трогает ничего", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 4.02 })).toMatchObject({ action: "none" })
-  })
-
-  it("клип длиннее заказанного подрезается", () => {
-    const fit = planDurationFit({ expectedSec: 4, actualSec: 4.6 })
-
-    expect(fit.action).toBe("trim")
-    expect(fit.deltaSec).toBeCloseTo(0.6, 6)
-  })
-
-  it("клип короче заказанного удерживает последний кадр", () => {
-    // Звук трогать нельзя: он эталон таймлайна (spec §8).
-    expect(planDurationFit({ expectedSec: 4, actualSec: 3.5 })).toMatchObject({
-      action: "hold_last_frame",
-    })
-  })
-
-  it("расхождение больше секунды — это сбой, а не подгон", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 1.2 })).toMatchObject({ action: "fail" })
-  })
-
-  // Фикс-раунд 1 (ревью Task 10, RULING 1 + "Низкая"): границы порогов и toleranceSec.
-  it("ровно на допуске (0.05) — не трогает", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 4.05 })).toMatchObject({ action: "none" })
-  })
-
-  it("на волосок за допуском — уже trim", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 4.0500001 })).toMatchObject({ action: "trim" })
-  })
-
-  it("ровно на границе сбоя (1.0) — ещё подгон, не сбой", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 5 })).toMatchObject({ action: "trim" })
-  })
-
-  it("на волосок за границей сбоя — уже fail", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 5.0000001 })).toMatchObject({ action: "fail" })
-  })
-
-  it("публичный toleranceSec переопределяет допуск по умолчанию", () => {
-    expect(planDurationFit({ expectedSec: 4, actualSec: 4.3, toleranceSec: 0.5 })).toMatchObject({ action: "none" })
-    expect(planDurationFit({ expectedSec: 4, actualSec: 4.3, toleranceSec: 0.1 })).toMatchObject({ action: "trim" })
-  })
-})
-
 // planTrackClipFit — фикс-раунд 1 (ревью Task 10, RULING 1, блокер): подгон под
 // границы трека не имеет верхнего предела отказа. Расхождение больше секунды на
 // этом пути — норма (see комментарий в video-pipeline-run-policy.ts), а не сбой:
-// `planDurationFit` с его `fail` ронял бы сборку после всех оплаченных шагов на
-// штатных перебивках.
+// порог отказа здесь ронял бы сборку после всех оплаченных шагов на штатных
+// перебивках.
 describe("подгон клипа под границы трека (planTrackClipFit) — без верхнего предела отказа", () => {
   it("расхождение в пределах допуска не трогает ничего", () => {
     expect(planTrackClipFit({ expectedSec: 4, actualSec: 4.02 })).toMatchObject({ action: "none" })
@@ -82,7 +35,7 @@ describe("подгон клипа под границы трека (planTrackCli
     expect(planTrackClipFit({ expectedSec: 4, actualSec: 9 })).toMatchObject({ action: "trim" })
   })
 
-  it("публичный toleranceSec работает так же, как у planDurationFit", () => {
+  it("публичный toleranceSec переопределяет допуск по умолчанию", () => {
     expect(planTrackClipFit({ expectedSec: 4, actualSec: 4.3, toleranceSec: 0.5 })).toMatchObject({ action: "none" })
   })
 })

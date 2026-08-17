@@ -74,7 +74,7 @@ describe("шаг транскрипции", () => {
     expect(result.warning).toMatch(/выравнивание/i)
   })
 
-  it("не роняет ролик, если транскрипция недоступна", async () => {
+  it("сам не бросает исключение при отказе провайдера — возвращает пустой результат, ронять шаг обязан вызывающий код", async () => {
     const dependencies = deps({
       runTask: vi.fn(async () => { throw new Error("provider is down") }),
     })

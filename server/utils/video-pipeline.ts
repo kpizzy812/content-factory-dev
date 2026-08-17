@@ -222,14 +222,16 @@ async function chargePartialStepOnFailure(
  *
  * Трогаем только completed-шаги: ранний возврат кэша срабатывает лишь на них,
  * а сбрасывать в pending живой/упавший шаг незачем.
+ *
+ * Вызывается только для старого маршрута — единственный колл-сайт стоит под
+ * `!audioFirstRoute` (см. комментарий там), поэтому параметра editPipeline
+ * здесь нет: он был бы всегда `false`.
  */
 async function invalidateClipDerivedStepCaches(
   videoId: number,
   lipSyncProducedNewClips: boolean,
-  /** Маршрут ролика: набор шагов после lip-sync у маршрутов разный. */
-  editPipeline: boolean,
 ): Promise<void> {
-  const steps = stepsInvalidatedByFreshClips(lipSyncProducedNewClips, editPipeline)
+  const steps = stepsInvalidatedByFreshClips(lipSyncProducedNewClips)
   if (steps.length === 0) return
 
   const reset = await prisma.videoGenerationStep.updateMany({
@@ -921,7 +923,7 @@ export async function runVideoPipeline(
     // прогона: ролик с включённым флагом, но без модели транскрипции идёт
     // прежним маршрутом, и кэш ему сбрасывать надо ровно как раньше.
     if (!audioFirstRoute && video.voiceoverEnabled) {
-      await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips, audioFirstRoute)
+      await invalidateClipDerivedStepCaches(videoId, lipSyncProducedNewClips)
     }
 
     // ── Cancel checkpoint #7: до voiceover ──

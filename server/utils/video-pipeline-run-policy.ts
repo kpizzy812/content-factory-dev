@@ -11,43 +11,6 @@ import type { AlignedScene } from "./transcription/align"
 
 /** Допуск, в пределах которого расхождение длин не стоит правки. */
 const DURATION_TOLERANCE_SEC = 0.05
-/** Расхождение больше этого — не подгон, а сбой генерации. */
-const DURATION_FAILURE_SEC = 1
-
-export interface DurationFit {
-  action: "none" | "trim" | "hold_last_frame" | "fail"
-  deltaSec: number
-}
-
-/**
- * Что делать, если клип оказался не той длины, что ЗАКАЗАНА У ПРОВАЙДЕРА
- * (санитарная проверка «заказанный кусок против ответа lip-sync/генерации»,
- * ОДИН клип против ОДНОГО ожидания).
- *
- * Порог отказа здесь уместен: заказывали ровно N секунд (сегмент трека,
- * заданный `planSegmentCut`), а получили далёкое от N — это брак ответа
- * провайдера, а не штатное расхождение.
- *
- * НЕ ДЛЯ подгона клипов под границы трека (фикс-раунд 1, ревью Task 10):
- * там расхождение больше секунды — норма (see `planTrackClipFit`), а не
- * сбой, и `fail` здесь ронял бы сборку после всех оплаченных шагов на
- * штатных перебивках. Правится ВИДЕО в обоих случаях. Звук на audio-first не
- * трогается никогда: он эталон таймлайна, и любая правка звука сдвинула бы
- * субтитры и границы всех последующих кадров (spec §8).
- */
-export function planDurationFit(input: {
-  expectedSec: number
-  actualSec: number
-  toleranceSec?: number
-}): DurationFit {
-  const tolerance = input.toleranceSec ?? DURATION_TOLERANCE_SEC
-  const deltaSec = input.actualSec - input.expectedSec
-  const magnitude = Math.abs(deltaSec)
-
-  if (magnitude <= tolerance) return { action: "none", deltaSec }
-  if (magnitude > DURATION_FAILURE_SEC) return { action: "fail", deltaSec }
-  return { action: deltaSec > 0 ? "trim" : "hold_last_frame", deltaSec }
-}
 
 export interface TrackClipFit {
   action: "none" | "trim" | "hold_last_frame"
@@ -56,7 +19,7 @@ export interface TrackClipFit {
 
 /**
  * Что делать с клипом при подгоне под ГРАНИЦЫ ЗВУКОВОГО ТРЕКА (`render.ts`,
- * `fitClipsToTrack`) — БЕЗ порога отказа, в отличие от `planDurationFit`.
+ * `fitClipsToTrack`) — БЕЗ верхнего порога отказа.
  *
  * Расхождение больше секунды здесь — НОРМА, а не брак: ревью Task 10 нашло
  * три штатных пути к такому расхождению —
@@ -69,8 +32,9 @@ export interface TrackClipFit {
  *    |Δ| > 1с гарантированно возможен;
  *  - явный маркер `[пауза 2с]` целиком уходит в цель ПРЕДЫДУЩЕГО клипа
  *    (см. `planAlignedClipTargets`) — Δ ≈ −2с.
- * `fail` здесь ронял бы сборку после всех оплаченных шагов (картинки, клипы,
- * lip-sync, TTS) на штатном сценарии, ради которого задача и написана.
+ * Порог отказа здесь неуместен: он ронял бы сборку после всех оплаченных
+ * шагов (картинки, клипы, lip-sync, TTS) на штатном сценарии, ради которого
+ * задача и написана.
  */
 export function planTrackClipFit(input: {
   expectedSec: number
@@ -362,10 +326,15 @@ const CLIP_DERIVED_CACHE_STEPS: ReadonlySet<StepKey> = new Set<StepKey>(["voiceo
  * Набор берём из штатного каскада «всё, что идёт после lip-sync», чтобы порядок
  * шагов не пришлось описывать вторым списком, и оставляем в нём только шаги с
  * клип-зависимым кэшем.
+ *
+ * Единственный вызывающий (`invalidateClipDerivedStepCaches` в video-pipeline.ts)
+ * сам вызывается только под `!audioFirstRoute`, поэтому маршрут здесь всегда
+ * старый — параметра `editPipeline`, как у `stepsToRerunFrom`, у этой функции
+ * намеренно нет.
  */
-export function stepsInvalidatedByFreshClips(lipSyncProducedNewClips: boolean, editPipeline = false): StepKey[] {
+export function stepsInvalidatedByFreshClips(lipSyncProducedNewClips: boolean): StepKey[] {
   if (!lipSyncProducedNewClips) return []
-  return stepsToRerunFrom("voiceover_generation", editPipeline).filter(key => CLIP_DERIVED_CACHE_STEPS.has(key))
+  return stepsToRerunFrom("voiceover_generation").filter(key => CLIP_DERIVED_CACHE_STEPS.has(key))
 }
 
 /**
