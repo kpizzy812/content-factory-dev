@@ -167,6 +167,19 @@ describe("generateMockPlaceholder на холодном кеше", () => {
     expect(await readFile(i2i)).not.toEqual(await readFile(t2i))
   }, 60_000)
 
+  it("кеш внутри ОДНОЙ способности по-прежнему работает: разные id — тот же файл", async () => {
+    // Суффикс способности в имени кеш-файла (`buildCacheFileName`) разводит
+    // РАЗНЫЕ способности (тест выше), но не должен развести ссылки ОДНОЙ и
+    // той же способности с разными id — иначе каждый вызов через ссылку
+    // провайдера заново звал бы ffmpeg вместо копии из кеша.
+    const first = join(sandbox, "t2i-first.png")
+    const second = join(sandbox, "t2i-second.png")
+    await generateMockPlaceholder("mock://replicate/text_to_image/mock_abc.png", first)
+    await generateMockPlaceholder("mock://replicate/text_to_image/mock_xyz.png", second)
+
+    expect(await readFile(second)).toEqual(await readFile(first))
+  }, 60_000)
+
   it("делает видео заказанной длины, а не своей", async () => {
     const dest = join(sandbox, "ordered.mp4")
     await generateMockPlaceholder("mock://replicate/lip_sync/mock_abc.mp4?duration=4.500", dest)
