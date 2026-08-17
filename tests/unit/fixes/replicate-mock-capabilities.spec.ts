@@ -16,6 +16,7 @@ import {
   createMockReplicateProvider,
   mockReplicateOutputUrl,
 } from "../../../server/utils/replicate/mock"
+import { parseMockPlaceholderUrl } from "../../../server/utils/mock/fal-mock"
 import { normalizeReplicatePrediction } from "../../../server/utils/replicate/client"
 
 /**
@@ -80,15 +81,34 @@ describe("мок Replicate отдаёт выход по способности",
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it("отдаёт mock:// URL, который заглушка загрузки разбирает без сети и без ffmpeg", async () => {
+  it("отдаёт mock:// URL, который заглушка загрузки разбирает без сети", async () => {
     const url = await succeededOutput("text_to_image", "video:8:scene:1")
 
-    // Первый сегмент — генератор заглушки в mock/fal-mock.ts; ветки
-    // video/image/audio там требуют ffmpeg и падают на кеше `<kind>.bin`.
+    // Первый сегмент — провайдер, второй — способность: по ней заглушка
+    // (`mock/fal-mock.ts`) и выбирает, что именно сгенерировать.
     expect(url).toMatch(/^mock:\/\/replicate\//)
     // Расширение в конце пути — по нему prediction-service выбирает,
     // под каким расширением класть файл в хранилище.
     expect(new URL(url ?? "").pathname.endsWith(".png")).toBe(true)
+  })
+
+  it("несёт заказанную длительность в ссылке — и только когда она известна", () => {
+    // Шов между этим модулем и `parseMockPlaceholderUrl` (`mock/fal-mock.ts`):
+    // один пишет query-параметр, другая его читает. Разъедься они — заглушка
+    // молча вернулась бы к своей длине по умолчанию, и «клип получился той
+    // длины, что заказали» снова стало бы сравнением константы с константой.
+    // Поэтому здесь проверяется не строка сама по себе, а её обратный разбор.
+    const ordered = mockReplicateOutputUrl("lip_sync", "mock_a", 4.5)
+    expect(ordered).toBe("mock://replicate/lip_sync/mock_a.mp4?duration=4.500")
+    expect(parseMockPlaceholderUrl(ordered)).toEqual({ kind: "video", durationSec: 4.5, capability: "lip_sync" })
+
+    // Длину не заказывали (или назвали бессмыслицу) — параметра нет вовсе, и
+    // расширение остаётся последним в пути: по нему `inferExtension` выбирает,
+    // под каким именем класть файл в хранилище.
+    for (const unknownDuration of [undefined, null, 0, Number.NaN]) {
+      expect(mockReplicateOutputUrl("lip_sync", "mock_a", unknownDuration))
+        .toBe("mock://replicate/lip_sync/mock_a.mp4")
+    }
   })
 
   it("падает на способности, для которой тип выхода не задан", async () => {

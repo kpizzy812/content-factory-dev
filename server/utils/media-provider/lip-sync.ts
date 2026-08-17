@@ -119,7 +119,10 @@ export async function runLipSync(
   const deleteReplicateInput = dependencies.deleteReplicateInput
     ?? (id => uploader.deleteFile(id))
   const executeReplicatePrediction = dependencies.executeReplicatePrediction
-    ?? (submission => executePrediction(submission, config))
+    // Длительность заказа доезжает до мок-провайдера: заглушка обязана отдать
+    // клип той длины, которую попросили, иначе проверка длины ничего не значит.
+    // Боевой провайдер её игнорирует — там длину задаёт исходник.
+    ?? (submission => executePrediction(submission, config, request.durationSec))
   const materializeOutput = dependencies.materializeOutput
     ?? ((storageKey, outputPath) => getStorageDriver().downloadToFile(storageKey, outputPath))
   const runFal = dependencies.runFal ?? executeFalLipSync
@@ -182,9 +185,10 @@ export async function runLipSync(
 async function executePrediction(
   submission: PredictionSubmission,
   config: ReplicateConfig,
+  outputDurationSec?: number | null,
 ): Promise<ReplicatePredictionExecution> {
   const provider = config.mockMode
-    ? createMockReplicateProvider()
+    ? createMockReplicateProvider({ outputDurationSec })
     : createReplicateProvider({ config })
   const service = createPredictionService({ provider })
   let prediction = await service.submitOrResumePrediction(submission)

@@ -557,7 +557,12 @@ async function runAsyncPredictionTask<C extends MediaCapability>(
     }
 
     const execute = dependencies.executeReplicatePrediction
-      ?? ((submission: PredictionSubmission, timeoutMs: number) => executePrediction(submission, timeoutMs, config))
+      // `effectiveDurationSec` — длина, которую модель реально выдаст (её знает
+      // маппер спеки). Мок-провайдер отдаёт заглушку ровно такой длины; боевой
+      // параметр не видит. Без него заглушка клипа была бы своей длины по
+      // умолчанию, и сборка считала бы таймлайн по выдуманным секундам.
+      ?? ((submission: PredictionSubmission, timeoutMs: number) =>
+        executePrediction(submission, timeoutMs, config, mapped.effectiveDurationSec))
     const execution = await withReplicateRetries(
       () => execute({
         videoId: request.videoId ?? null,
@@ -606,6 +611,7 @@ async function executePrediction(
   submission: PredictionSubmission,
   timeoutMs: number,
   config: ReplicateConfig,
+  outputDurationSec?: number | null,
 ): Promise<ReplicatePredictionExecution> {
   const [{ createReplicateProvider }, { createMockReplicateProvider }, { createPredictionService }] = await Promise.all([
     import("../replicate/client"),
@@ -613,7 +619,7 @@ async function executePrediction(
     import("../replicate/prediction-service"),
   ])
   const provider = config.mockMode
-    ? createMockReplicateProvider()
+    ? createMockReplicateProvider({ outputDurationSec })
     : createReplicateProvider({ config })
   const service = createPredictionService({ provider })
 

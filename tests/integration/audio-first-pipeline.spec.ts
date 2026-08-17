@@ -9,29 +9,40 @@
  * (`REPLICATE_MOCK_MODE`, `ANTHROPIC_MOCK_MODE`, `FAL_MOCK_MODE`). Ни одного
  * платного вызова: `ENABLE_PAID_APIS=false` остаётся из `.env.test`.
  *
- * Что доказывается (бриф Task 13):
+ * Что доказывается:
  *  1. шаги выполнены в порядке audio-first;
  *  2. озвучка синтезирована и ОПЛАЧЕНА ровно один раз;
  *  3. транскрипт сохранён и переживает повтор прогона;
  *  4. повторный прогон не создал новых оплаченных задач;
- *  5. финальный файл существует и его длина совпадает с длиной трека.
+ *  5. финальный файл существует и его длина совпадает с длиной трека;
+ *  6. НЕСУЩАЯ МЕХАНИКА МАРШРУТА: границы выравнивания → вырезанный из общего
+ *     трека кусок → клип lip-sync его длины → склейка. Ролику для этого задан
+ *     персонаж с библиотекой исходников и включён lip-sync: сцены с репликой в
+ *     кадре снимает ведущая, звук им не синтезируется заново, а режется из
+ *     трека, и повторный прогон не режет и не платит второй раз.
  *
- * ⚠️ ГЛАВНОЕ, ЧЕГО ЭТОТ ТЕСТ НЕ ПРОВЕРЯЕТ.
+ * До 17.08.2026 пункт 6 этот файл обходил: `runLipSyncStep` идёт только через
+ * Replicate, а мок Replicate писал вместо медиа JSON-заглушку под именем `.mp4`
+ * (её ffmpeg не склеит), и lip-sync приходилось выключать. Теперь мок выбирает
+ * вид заглушки по СПОСОБНОСТИ и отдаёт видео заказанной длины
+ * (`server/utils/mock/fal-mock.ts`, `tests/unit/fixes/fal-mock-placeholder.spec.ts`).
  *
- * Lip-sync у ролика ВЫКЛЮЧЕН, а значит НЕ покрыта вся связка, ради которой
- * маршрут и затевался: границы выравнивания → вырезанный кусок трека → клип
- * lip-sync → его длина → склейка. Не покрыты притяжка границ к кадру,
- * идемпотентность нарезки при повторе и маршрут-специфичный ключ отказа. Зелёный
- * прогон этого файла НЕ означает, что монтаж от звука работает — он означает,
- * что ролик собирается и его длина сходится с длиной трека. Нарезка кусков
- * держится ТОЛЬКО на модульных тестах Task 8.
- *
- * Причина, а не оправдание: `runLipSyncStep` берёт только Replicate-модель
- * (`lip-sync-runner.ts`, ветка `preferredModel.provider…includes("replicate")`),
- * а мок Replicate по решению `server/utils/mock/fal-mock.ts` пишет вместо медиа
- * JSON-заглушку под именем `.mp4` (поведение закреплено тестом
- * `tests/unit/fixes/fal-mock-placeholder.spec.ts`). Такой «клип» ffmpeg не
- * склеит. Оценка стоимости починки — в отчёте Task 13, находка 3.
+ * ЧЕГО ЭТОТ ТЕСТ ВСЁ ЕЩЁ НЕ ПРОВЕРЯЕТ (сузившееся предупреждение):
+ *  - lip-sync поверх СГЕНЕРИРОВАННОГО клипа: здесь у каждой сцены с репликой
+ *    есть фрагмент ведущей, и ветка «исходник из clip_generation» не исполняется;
+ *  - аватарный маршрут (`speech_to_video`) — он включается переменной
+ *    `PRESENTER_ROUTE=avatar` и живёт на своих модульных тестах;
+ *  - верхнее зажатие куска (`clampedToModel === "max"`): мок TTS отдаёт трек в
+ *    одну секунду, поэтому интервал сцены всегда КОРОЧЕ минимума модели и
+ *    добивается тишиной. Ветка обрезки по потолку модели проверяется модульно
+ *    (`tests/unit/voiceover/segment-cut.spec.ts`);
+ *  - маршрут-специфичные ключи отказа (`track_segment_empty`,
+ *    `track_segment_failed`): счастливый путь их не проходит по определению, они
+ *    живут на `tests/unit/fixes/lip-sync-skip-reasons.spec.ts`;
+ *  - притяжка границ куска к кадру здесь ИСПОЛНЯЕТСЯ, но не утверждается:
+ *    сдвиг меньше 1/fps тонет в допуске, без которого нельзя — перекодировка в
+ *    mp3 даёт свой хвост в десятки миллисекунд. Проверяется модульно там же,
+ *    в `segment-cut.spec.ts`.
  *
  * Почему globalThis: `server/utils/**` рассчитан на авто-импорты Nitro
  * (`prisma`, `logAgent`, `ensureDir`, `getAssetsDir`, `assembleVideo`…).
@@ -42,7 +53,9 @@
  * @vitest-environment node
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { mkdtemp, rm, stat } from "node:fs/promises"
+import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises"
+import { spawn } from "node:child_process"
+import { createHash } from "node:crypto"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -50,7 +63,8 @@ import { prisma } from "../../server/utils/prisma"
 import * as render from "../../server/utils/render"
 import { logAgent } from "../../server/utils/agent-logger"
 import { downloadFile } from "../../server/utils/video-helpers"
-import { resetStorageDriver } from "../../server/utils/storage"
+import { getStorageDriver, resetStorageDriver } from "../../server/utils/storage"
+import { StorageKeys } from "../../server/utils/storage/keys"
 import { createError } from "h3"
 
 const globals = globalThis as Record<string, unknown>
@@ -111,12 +125,40 @@ async function installNitroAutoImports(): Promise<void> {
   globals.assembleVideo = render.assembleVideo
 }
 
-/** Три сцены с репликами ведущего — ради них маршрут и существует. */
-const SCENE_LINES = [
+/** Три сцены с репликами ведущей в кадре — ради них маршрут и существует. */
+const SPOKEN_LINES = [
   "Первая сцена рассказывает про запуск проекта",
   "Вторая сцена показывает результат за неделю",
   "Третья сцена зовёт написать кодовое слово",
 ]
+
+/**
+ * Четвёртая сцена — перебивка: реплики в кадре нет, звучит закадровая строка.
+ *
+ * Она здесь не для полноты картины, а чтобы ролик НЕ был «целиком снятым
+ * ведущей»: у такого ролика оркестратор пропускает и промпты, и кадры, и клипы
+ * (`presenterOnly`), и сквозной прогон потерял бы весь платный контур
+ * `text_to_image` вместе с ним. С перебивкой в прогоне остаются и кадры, и
+ * сцена, которую lip-sync законно не трогает.
+ */
+const NARRATION_LINE = "Закадровый голос подводит итог недели"
+
+/** Все реплики ролика в порядке звучания — из них мок собирает трек и транскрипт. */
+const SCENE_LINES = [...SPOKEN_LINES, NARRATION_LINE]
+
+/** Длина фрагмента ведущей в библиотеке персонажа. */
+const PRESENTER_CLIP_SEC = 2
+/**
+ * Второй фрагмент — заведомо мимо: интервал сцены в односекундном треке
+ * добивается тишиной до минимума модели (2 с), и окно подбора его не достанет.
+ * Он в фикстуре ради того, чтобы выбор исходника был выбором, а не единственным
+ * вариантом.
+ */
+const PRESENTER_CLIP_TOO_LONG_SEC = 5
+/** Минимум длительности исходника у kling-lip-sync — до него добивается кусок трека. */
+const LIP_SYNC_MIN_SEC = 2
+/** Длина видео-заглушки мока по умолчанию: заказанная длина обязана отличаться от неё. */
+const PLACEHOLDER_DEFAULT_SEC = 3
 
 function storyPlan() {
   return {
@@ -140,14 +182,26 @@ function storyPlan() {
       visualPromptGuidance: `studio shot, presenter, scene ${index + 1}`,
       subtitleCopy: line,
       subtitlePlacement: { position: "bottom", alignment: "center", avoidZones: [] },
-      voiceoverLine: null,
-      spokenLine: line,
+      voiceoverLine: index < SPOKEN_LINES.length ? null : line,
+      spokenLine: index < SPOKEN_LINES.length ? line : null,
       continuityNotes: "",
       duration: "5s",
       cameraAngle: "medium",
       props: [],
     })),
-    voiceoverPlan: { enabled: false, pacing: "moderate", lines: [] },
+    voiceoverPlan: {
+      enabled: true,
+      narratorPersona: null,
+      pacing: "moderate",
+      emotionalContour: [],
+      syncGuidance: "",
+      lines: [{
+        sceneOrder: SCENE_LINES.length,
+        text: NARRATION_LINE,
+        emotion: "neutral",
+        pauseAfter: "none",
+      }],
+    },
     subtitleStyle: null,
     globalVisualSystem: {
       stylePrompt: "clean studio, soft key light",
@@ -173,13 +227,82 @@ interface Fixture {
   videoId: number
   scenarioId: number
   appId: number
+  characterId: string
 }
 
-async function createVideoFixture(): Promise<Fixture> {
+/**
+ * Чёрный клип нужной длины НАСТОЯЩИМ ffmpeg.
+ *
+ * Собирается своим вызовом, а не через `generateMockPlaceholder`: длина
+ * фрагмента ведущей — эталон, с которым сверяется длина клипа после lip-sync.
+ * Возьми мы эталон у той же заглушки, которую проверяем, сравнение доказывало бы
+ * только её самосогласованность.
+ */
+function renderBlackClip(outPath: string, durationSec: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", [
+      "-y",
+      "-f", "lavfi", "-i", `color=black:size=1080x1920:duration=${durationSec}:rate=30`,
+      "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+      "-shortest",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "ultrafast",
+      "-c:a", "aac", "-b:a", "96k",
+      outPath,
+    ], { stdio: "ignore" })
+    proc.once("error", reject)
+    proc.once("exit", code => code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`)))
+  })
+}
+
+/**
+ * Персонаж с библиотекой исходников — то, из чего lip-sync снимает сцену
+ * ведущей. Фрагменты кладём в то же постоянное хранилище, откуда их берёт шаг:
+ * подмена драйвера здесь означала бы проверку собственного мока.
+ */
+async function createPresenterCharacter(appId: number, workDir: string): Promise<string> {
+  const character = await prisma.character.create({
+    data: { appId, name: "Ведущая сквозного прогона", role: "protagonist" },
+  })
+
+  for (const durationSec of [PRESENTER_CLIP_SEC, PRESENTER_CLIP_TOO_LONG_SEC]) {
+    const localPath = join(workDir, `presenter_${durationSec}s.mp4`)
+    await renderBlackClip(localPath, durationSec)
+    const bytes = await readFile(localPath)
+    const sha1 = createHash("sha1").update(bytes).digest("hex")
+    const storageKey = StorageKeys.presenterSourceClip(appId, character.id, sha1)
+    await getStorageDriver().uploadBuffer(storageKey, bytes, { contentType: "video/mp4" })
+    // В БД кладём ИЗМЕРЕННУЮ длительность: по ней шаг строит окно подбора, и
+    // номинал ffmpeg с ней расходится на сотые доли.
+    const measured = await render.probeMediaDuration(localPath)
+    expect(measured).not.toBeNull()
+
+    await prisma.presenterSourceClip.create({
+      data: {
+        characterId: character.id,
+        name: `presenter_${durationSec}s.mp4`,
+        fileUrl: `/api/files/${encodeURIComponent(storageKey)}`,
+        storageKey,
+        storageProvider: getStorageDriver().providerName,
+        sha1,
+        mimeType: "video/mp4",
+        bytes: bytes.length,
+        durationSec: measured!,
+        width: 1080,
+        height: 1920,
+        tags: [],
+      },
+    })
+  }
+
+  return character.id
+}
+
+async function createVideoFixture(workDir: string): Promise<Fixture> {
   const seed = Math.floor(Math.random() * 1_000_000_000)
   const app = await prisma.app.create({
     data: { name: `AudioFirstApp ${seed}`, description: "фикстура сквозного прогона", keywords: [] },
   })
+  const characterId = await createPresenterCharacter(app.id, workDir)
   const scenario = await prisma.scenario.create({
     data: { appId: app.id, status: "selected" as never },
   })
@@ -216,8 +339,9 @@ async function createVideoFixture(): Promise<Fixture> {
       voiceoverVoiceId: "Rachel",
       voiceoverLanguage: "ru",
       voiceoverPacing: "moderate",
-      // Мок fal отдаёт настоящие медиафайлы (ffmpeg-заглушки), Replicate — нет:
-      // его мок пишет JSON под именем .mp4. Поэтому кадры и клипы идут через fal.
+      // Кадры и клипы — через fal, это дефолт реестра. Replicate в этом прогоне
+      // исполняет транскрипцию и lip-sync, то есть оба маршрутных провайдера
+      // работают по-настоящему.
       imageModelId: "fal-ai/flux/dev",
       videoModelId: "fal-ai/kling-video/v3/standard/text-to-video",
       modelStrategy: "auto",
@@ -228,11 +352,15 @@ async function createVideoFixture(): Promise<Fixture> {
       imageCount: 3,
       renderQuality: "medium",
       targetPlatform: "tiktok",
-      lipSyncEnabled: false,
+      // Несущая механика маршрута: сцены с репликой в кадре снимает ведущая,
+      // звук им режется из общего трека. Модель не задаём — шаг берёт
+      // интегрированную по умолчанию (Replicate kling-lip-sync).
+      lipSyncEnabled: true,
+      lipSyncCharacterId: characterId,
     },
   })
 
-  return { videoId: video.id, scenarioId: scenario.id, appId: app.id }
+  return { videoId: video.id, scenarioId: scenario.id, appId: app.id, characterId }
 }
 
 /**
@@ -347,8 +475,8 @@ describe("маршрут «монтаж от звука» собирает ро�
     await rm(storageRoot, { recursive: true, force: true }).catch(() => {})
   })
 
-  it("прогон, повтор прогона и совпадение длины ролика с длиной трека", async () => {
-    const { videoId } = await createVideoFixture()
+  it("прогон через нарезку трека и lip-sync, повтор прогона и совпадение длины ролика с длиной трека", async () => {
+    const { videoId } = await createVideoFixture(storageRoot)
     const { runVideoPipeline } = await import("../../server/utils/video-pipeline")
 
     await runVideoPipeline(videoId)
@@ -446,6 +574,97 @@ describe("маршрут «монтаж от звука» собирает ро�
     const assemblyLog = await stepLog(videoId, "assembly")
     expect(assemblyLog.some(line => line.startsWith("Подгон длины клипов под трек:"))).toBe(true)
 
+    // ── 6. Несущая механика: кусок трека → lip-sync клип → склейка ──
+    const lipSyncStep = await prisma.videoGenerationStep.findFirst({
+      where: { videoId, stepKey: "lip_sync_generation" as never },
+      select: { status: true, outputSnapshot: true },
+    })
+    expect(lipSyncStep?.status).toBe("completed")
+    const lipSync = lipSyncStep?.outputSnapshot as {
+      status?: string
+      syncedSceneCount?: number
+      clipPaths?: string[]
+      scenes?: Array<{
+        sceneOrder: number
+        sceneIndex: number
+        outputPath: string | null
+        audioPath: string | null
+        durationSec: number
+        skipped?: string
+      }>
+    }
+    expect(lipSync?.status).toBe("completed")
+    // Синхронизированы ровно сцены с репликой в кадре: перебивку lip-sync не
+    // трогает, у неё своего голоса нет.
+    expect(lipSync?.syncedSceneCount).toBe(SPOKEN_LINES.length)
+    expect(lipSync?.scenes).toHaveLength(SPOKEN_LINES.length)
+
+    const alignedByOrder = new Map(
+      (snapshot?.scenes ?? []).map(scene => [scene.order, scene] as const),
+    )
+    /** mtime кусков трека и клипов — по ним видно, резали ли заново на повторе. */
+    const producedFileMtimes = new Map<string, number>()
+
+    for (const record of lipSync!.scenes!) {
+      expect(record.skipped).toBeUndefined()
+
+      // Звук сцены — ВЫРЕЗАННЫЙ кусок трека, а не повторный синтез. Имя файла
+      // куска содержит отпечаток интервала, синтезированной реплики — отпечаток
+      // текста и голоса; спутать их нельзя.
+      expect(record.audioPath).toMatch(/scene_\d+_track_[0-9a-f]{12}\.mp3$/)
+      const segmentSec = await render.probeMediaDuration(record.audioPath!)
+      expect(segmentSec).not.toBeNull()
+
+      // Кусок вырезан ПО ГРАНИЦАМ СЦЕНЫ: его длина — интервал выравнивания,
+      // добитый тишиной до минимума модели (короче минимума провайдер не примет).
+      const aligned = alignedByOrder.get(record.sceneOrder)
+      expect(aligned).toBeTruthy()
+      const expectedSegmentSec = Math.max(aligned!.endSec - aligned!.startSec, LIP_SYNC_MIN_SEC)
+      expect(Math.abs(segmentSec! - expectedSegmentSec)).toBeLessThan(0.25)
+
+      // Заказ ушёл длиной ИСХОДНИКА ведущей — фрагмента из библиотеки, который
+      // подобран под длину куска. Это и есть число, которое обязана вернуть
+      // заглушка, и оно намеренно НЕ равно её длине по умолчанию: иначе проверка
+      // ниже сравнивала бы константу с константой.
+      expect(Math.abs(record.durationSec - PRESENTER_CLIP_SEC)).toBeLessThan(0.25)
+      expect(Math.abs(record.durationSec - PLACEHOLDER_DEFAULT_SEC)).toBeGreaterThan(0.5)
+
+      // Клип после lip-sync — настоящий файл ЗАКАЗАННОЙ длины.
+      expect(record.outputPath).toBeTruthy()
+      const clipSec = await render.probeMediaDuration(record.outputPath!)
+      expect(clipSec).not.toBeNull()
+      expect(Math.abs(clipSec! - record.durationSec)).toBeLessThan(0.25)
+
+      // …и он уехал В СБОРКУ. Видеоряд сборка берёт из `clipPaths` этого
+      // снапшота (`video-pipeline.ts`: `effectiveClipPaths = lipSyncResult.clipPaths`),
+      // а не из `filePath` ассетов — у обычной сцены он намеренно продолжает
+      // смотреть на несинхронизированный оригинал. Без этой проверки последнее
+      // звено цепочки «кусок → клип → склейка» осталось бы на честном слове:
+      // совпадение длин само по себе прошло бы и на ролике, собранном из
+      // исходников.
+      expect(lipSync?.clipPaths?.[record.sceneIndex]).toBe(record.outputPath)
+
+      for (const path of [record.audioPath!, record.outputPath!]) {
+        producedFileMtimes.set(path, (await stat(path)).mtimeMs)
+      }
+    }
+
+    // Куски трека лежат в каталоге ассетов ролика, посценного синтеза нет вовсе,
+    // а от атомарной нарезки (temp + rename) не осталось временных огрызков.
+    const assetFiles = await readdir(render.getAssetsDir(videoId))
+    expect(assetFiles.filter(name => /^scene_\d+_track_/.test(name)))
+      .toHaveLength(SPOKEN_LINES.length)
+    expect(assetFiles.filter(name => /^scene_\d+_spoken_/.test(name))).toEqual([])
+    expect(assetFiles.filter(name => name.includes(".tmp-"))).toEqual([])
+
+    // Lip-sync оплачен ровно один раз — по строке ledger на попытку.
+    const lipSyncCosts = await prisma.aiAuditLog.findMany({
+      where: { videoId, stepKey: "lip_sync_generation" },
+      select: { costUsd: true },
+    })
+    expect(lipSyncCosts).toHaveLength(1)
+    expect(Number(lipSyncCosts[0]!.costUsd)).toBeGreaterThan(0)
+
     // 4. Повторный прогон не создал новых оплаченных задач.
     //
     // Меряем тремя независимыми счётчиками: задачи провайдеров
@@ -466,6 +685,15 @@ describe("маршрут «монтаж от звука» собирает ро�
     expect(await prisma.aiAuditLog.count({
       where: { videoId, stepKey: "voiceover_generation" },
     })).toBe(1)
+
+    // 6 (вторая половина). Повтор не режет кусок заново и не платит за губы:
+    // файлы на месте и НЕ переписаны — mtime тот же, что после первого прогона.
+    expect(await prisma.aiAuditLog.count({
+      where: { videoId, stepKey: "lip_sync_generation" },
+    })).toBe(1)
+    for (const [path, mtimeMs] of producedFileMtimes) {
+      expect((await stat(path)).mtimeMs).toBe(mtimeMs)
+    }
 
     // 3 (вторая половина). Транскрипт ПЕРЕЖИЛ повтор прогона, трек не пересинтезирован.
     expect(await prisma.videoAsset.count({ where: { videoId, type: "transcript" as never } })).toBe(1)

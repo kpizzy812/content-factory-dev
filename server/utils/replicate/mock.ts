@@ -12,6 +12,14 @@ export interface MockReplicateProviderOptions {
    * важен конкретный URL; по умолчанию выход выбирается по capability.
    */
   outputUrl?: string
+  /**
+   * Длительность выходного медиа, если вызывающий её знает (lip-sync заказывает
+   * клип длиной исходника, text-to-video — длиной сцены).
+   *
+   * Без неё заглушка отдаёт видео своей длины по умолчанию, и проверка «клип
+   * получился той длины, которую заказали» превращается в проверку константы.
+   */
+  outputDurationSec?: number | null
 }
 
 interface MockState {
@@ -46,16 +54,24 @@ const OUTPUT_EXTENSION_BY_CAPABILITY: Record<string, string> = {
 /**
  * Детерминированный URL выхода мока.
  *
- * Первый сегмент оставлен `replicate` намеренно. `generateMockPlaceholder`
- * (`server/utils/mock/fal-mock.ts`) выбирает генератор заглушки по первому
- * сегменту, и ветки `video`/`image`/`audio` собирают файл через ffmpeg в кеш
- * `<kind>.bin` — такой контейнер ffmpeg не мультиплексирует, заявка падает.
- * Ветка по умолчанию пишет JSON-заглушку без ffmpeg и без сети, что моку и
- * нужно. Тип выхода несёт расширение в конце пути: по нему `inferExtension`
- * (`prediction-service.ts`) кладёт результат под правильным расширением, а
- * тесты видят png/mp3/mp4 там, где их ждут.
+ * Первый сегмент — имя провайдера, второй — СПОСОБНОСТЬ: по ней
+ * `generateMockPlaceholder` (`server/utils/mock/fal-mock.ts`) и выбирает вид
+ * заглушки. Раньше он умел читать только форму fal (`mock://video/{id}`), эта
+ * ссылка попадала в ветку «неизвестно» и вместо клипа получался JSON под
+ * именем `.mp4`; из-за него весь Replicate-контур в тестах не исполнялся.
+ * Тип выхода дополнительно несёт расширение в конце пути: по нему
+ * `inferExtension` (`prediction-service.ts`) кладёт результат под правильным
+ * расширением, а тесты видят png/mp3/mp4 там, где их ждут.
+ *
+ * Длительность уходит query-параметром и только когда она известна: заглушка
+ * обязана быть той длины, которую заказали, иначе проверка длины клипа не
+ * проверяет ничего.
  */
-export function mockReplicateOutputUrl(capability: string, externalId: string): string {
+export function mockReplicateOutputUrl(
+  capability: string,
+  externalId: string,
+  outputDurationSec?: number | null,
+): string {
   const extension = OUTPUT_EXTENSION_BY_CAPABILITY[capability]
   if (!extension) {
     throw new Error(
@@ -63,7 +79,11 @@ export function mockReplicateOutputUrl(capability: string, externalId: string): 
       + "Добавьте способность в OUTPUT_EXTENSION_BY_CAPABILITY, иначе тест получит выход чужого типа.",
     )
   }
-  return `mock://replicate/${capability}/${externalId}.${extension}`
+  const base = `mock://replicate/${capability}/${externalId}.${extension}`
+  const duration = typeof outputDurationSec === "number" && Number.isFinite(outputDurationSec) && outputDurationSec > 0
+    ? outputDurationSec
+    : null
+  return duration === null ? base : `${base}?duration=${duration.toFixed(3)}`
 }
 
 export function createMockReplicateProvider(
@@ -83,7 +103,7 @@ export function createMockReplicateProvider(
       // Тип выхода фиксируем на сабмите: неизвестная способность должна падать
       // там же, где её отправили, а не выдавать mp4 под видом картинки.
       const outputUrl = options.outputUrl
-        ?? mockReplicateOutputUrl(request.model.capability, externalId)
+        ?? mockReplicateOutputUrl(request.model.capability, externalId, options.outputDurationSec)
 
       const prediction: NormalizedMediaPrediction = {
         externalId,

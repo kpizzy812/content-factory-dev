@@ -15,7 +15,9 @@
  *     `character-reference:{id}:variation:{preset}`)
  *
  * REPLICATE_MOCK_MODE=true: мок отдаёт детерминированный mock:// URL, а
- * `generateMockPlaceholder` пишет заглушку без сети и без ffmpeg.
+ * `generateMockPlaceholder` пишет заглушку без сети — с 17.08.2026 это
+ * настоящая картинка (вид выбирается по способности `image_to_image`), а не
+ * JSON под именем `.jpg`, как было раньше.
  *
  * @vitest-environment node
  */
