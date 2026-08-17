@@ -43,6 +43,9 @@ vi.mock("../../../server/utils/video-pipeline-db", () => ({
 vi.mock("../../../server/utils/render", () => ({
   normalizeSceneClips: async (paths: string[]) => [...paths],
   probeSceneClipDurations: async (paths: string[]) => paths.map(p => (p ? 5 : null)),
+  // Строгий замер: ворота подгона считают длины ИМ, тем же, что и решающий
+  // `fitClipsToTrack`, — неизмеримый файл обязан дать null, а не подставное «5».
+  probeMediaDuration: async (path: string) => (path ? 5 : null),
   probeClipDurations: async (paths: string[]) => paths.map(() => 5),
   adjustAudioTempo: async () => ({ outputPath: "x", durationSec: 1 }),
   trimAudio: async () => ({ outputPath: "x", durationSec: 1 }),

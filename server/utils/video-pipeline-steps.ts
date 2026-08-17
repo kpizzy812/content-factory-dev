@@ -28,7 +28,7 @@ import {
 import { getAccountStyleContext, formatAccountStyleForPrompt } from "./account-style-context"
 import { getAppScenarioContext, formatAppContextForPrompt } from "./app-context"
 import { synthesizeSpeech, buildVoiceoverTrack, type TtsSynthesisOptions, type TtsSynthesisResult } from "./tts"
-import { adjustAudioTempo, trimAudio, probeSceneClipDurations, extendVideoClip, planClipExtension } from "./render"
+import { adjustAudioTempo, trimAudio, probeSceneClipDurations, probeMediaDuration, extendVideoClip, planClipExtension } from "./render"
 import { mergeScriptLines } from "./voiceover/script-merge"
 import { buildTrackRequest, type TrackPause } from "./voiceover/track-builder"
 import { insertVoiceoverPauses } from "./voiceover/insert-pauses"
@@ -2853,15 +2853,26 @@ export async function runAssembly(
       )
     }
 
-    // Дешёвая проверка того же плана подгона, что посчитает render.ts. Замер
-    // здесь идёт по ИСХОДНЫМ клипам, а решающий подгон — по нормализованным
-    // (они короче на сотые доли кадра), поэтому этот проход именно ворота, а не
-    // замена: причины отказа, которые он ловит, от длительностей не зависят
-    // вовсе (нулевой интервал трека, порядок сцен, пустая карта позиций), а
-    // единственная зависящая — неизмеримый клип — до нормализации не
-    // «выздоравливает». Итоговое слово остаётся за render.ts ниже.
+    // Дешёвая проверка того же плана подгона, что посчитает render.ts.
+    //
+    // Мерим ТЕМ ЖЕ строгим `probeMediaDuration`, что и решающий `fitClipsToTrack`
+    // (render.ts), а не `probeSceneClipDurations`: тот неизмеримому файлу
+    // подставляет `FALLBACK_CLIP_DURATION_SEC`, и ворота с ним НИКОГДА не
+    // отказывали по причине «клип не измерен» — единственный отказ, зависящий от
+    // длительностей, уезжал ниже, под платный предпроход детектора ключевых слов,
+    // и на обречённом ролике предпроход оплачивался бы заново на каждом
+    // перезапуске. С одинаковым замером ворота — честное надмножество решения:
+    // все причины отказа `planAlignedClipTargets` (нулевой интервал трека,
+    // порядок сцен, две сцены на один клип, пустая карта позиций, неизмеримый
+    // клип) видны уже здесь.
+    //
+    // Замер здесь идёт по ИСХОДНЫМ клипам, а решающий подгон — по нормализованным
+    // (они короче на сотые доли кадра). Разница влияет только на ВЕСА пропорции
+    // внутри бакета, то есть на сами заказанные длины, но не на вердикт ok/не ok;
+    // а неизмеримый клип нормализацией не «выздоравливает» — `normalizeClip`
+    // на битом файле падает сам. Итоговое слово всё равно остаётся за render.ts.
     if (clipTrackAlignment) {
-      const preflightDurations = assemblyClips.length > 0 ? await probeSceneClipDurations(assemblyClips) : []
+      const preflightDurations = await Promise.all(assemblyClips.map(clip => probeMediaDuration(clip)))
       const preflight = planAlignedClipTargets({
         alignedScenes: clipTrackAlignment.alignedScenes,
         trackDurationSec: clipTrackAlignment.trackDurationSec,
@@ -2950,11 +2961,19 @@ export async function runAssembly(
         // что у §10 на упавшую после синтеза трека транскрипцию: «шаг падает
         // честно, ролик не помечается готовым».
         //
-        // Деньги отказ не теряет: все платные шаги (трек, транскрипция,
-        // картинки, клипы, lip-sync) уже лежат в своих снапшотах и на повторном
-        // прогоне не оплачиваются заново, а сама сборка бесплатна — локальный
-        // ffmpeg. Оператор чинит выравнивание (или выключает маршрут) и
-        // перезапускает ролик, доплачивая ноль.
+        // Деньги отказ не ТЕРЯЕТ: все платные шаги (трек, транскрипция,
+        // картинки, клипы, lip-sync) уже лежат в своих снапшотах, повторный
+        // прогон их не оплачивает, а сама сборка бесплатна — локальный ffmpeg.
+        //
+        // Но и бесплатного выхода отсюда нет — не обещай его читателю. Простой
+        // перезапуск воспроизведёт ТОТ ЖЕ отказ: причина детерминирована, а
+        // транскрипт кэшируется по отпечатку трека (`runVideoTranscription`
+        // выше), и выравнивание придёт ровно то же самое. «Починить
+        // выравнивание» означает перегнать транскрипцию (`rerunVideoStep`
+        // 'transcription' — платный вызов заново) или пересобрать трек, а новый
+        // трек обесценивает и куски, и уже снятые аватарные кадры. Выключить
+        // маршрут ролику с готовым треком тоже нельзя даром: `resolveVideoRoute`
+        // отвечает 409 «пересоберите ролик с нуля».
         //
         // ЧАСТИЧНОЕ схождение выравнивания (§10: «границы сцены делятся
         // пропорционально, WARN в лог шага») сюда НЕ попадает: там план

@@ -415,9 +415,21 @@ describe("шаг транскрипции", () => {
       language: "ru",
     })).rejects.toThrow(/^БД недоступна/)
 
-    // Ни один update не помечает шаг «упавшим по вине провайдера» — до
-    // подставной причины "alignment_missing" дело не дошло вовсе.
-    expect(h.updates.some(update => update.status === "failed")).toBe(false)
+    // Подставной причины нет НИГДЕ: ни в снапшоте шага (`failStep` кладёт её в
+    // `outputSnapshot.reason`), ни в тексте ошибки шага, ни в его логе. И
+    // «успешным» шаг тоже не объявлен — сбой не спрятался под другой конец.
+    //
+    // Проверяем именно отсутствие ПОДСТАВНОЙ причины, а не отсутствие статуса
+    // "failed": увести шаг в failed с НАСТОЯЩЕЙ причиной (обернуть `recordCost`,
+    // чтобы он не висел в running) — это улучшение, и запрещать его тестом
+    // нельзя. Смысл проверки в паре с броском `/^БД недоступна/` выше: наверх
+    // ушла сырая ошибка записи, а не пересказ про недостающие границы слов.
+    const snapshotReasons = h.updates.map(update =>
+      (update.outputSnapshot as { reason?: string } | null | undefined)?.reason)
+    expect(snapshotReasons).not.toContain("alignment_missing")
+    expect(h.updates.some(update => /границ/i.test(String(update.errorMessage ?? "")))).toBe(false)
+    expect(h.logs.some(line => /границ/i.test(line))).toBe(false)
+    expect(h.updates.some(update => update.status === "completed")).toBe(false)
   })
 
   it("отказ провайдера без ответа денег не пишет — списывать нечего", async () => {
