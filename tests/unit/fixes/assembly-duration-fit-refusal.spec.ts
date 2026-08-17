@@ -30,6 +30,12 @@ const h = vi.hoisted(() => ({
   assembleCalls: [] as Array<Record<string, unknown>>,
   keywordAgentCalls: 0,
   durationFit: undefined as ClipDurationFitSummary | undefined,
+  /**
+   * Путь клипа, который строгий `probeMediaDuration` не может измерить
+   * (битый файл, ffprobe отказал). По умолчанию null — измеряется всё, как
+   * раньше; тест «клип не измерен» подставляет сюда конкретный путь.
+   */
+  unmeasurableClip: null as string | null,
 }))
 
 vi.mock("../../../server/utils/video-pipeline-db", () => ({
@@ -45,7 +51,11 @@ vi.mock("../../../server/utils/render", () => ({
   probeSceneClipDurations: async (paths: string[]) => paths.map(p => (p ? 5 : null)),
   // Строгий замер: ворота подгона считают длины ИМ, тем же, что и решающий
   // `fitClipsToTrack`, — неизмеримый файл обязан дать null, а не подставное «5».
-  probeMediaDuration: async (path: string) => (path ? 5 : null),
+  // Компактированные клипы (после compactSceneClipPaths) всегда непустые строки,
+  // поэтому одного `path ? 5 : null` недостаточно, чтобы когда-либо вернуть
+  // null, — h.unmeasurableClip даёт тесту способ пометить конкретный клип
+  // «неизмеримым» так, как это делает битый файл на настоящем ffprobe.
+  probeMediaDuration: async (path: string) => (path && path !== h.unmeasurableClip ? 5 : null),
   probeClipDurations: async (paths: string[]) => paths.map(() => 5),
   adjustAudioTempo: async () => ({ outputPath: "x", durationSec: 1 }),
   trimAudio: async () => ({ outputPath: "x", durationSec: 1 }),
@@ -154,6 +164,7 @@ beforeEach(() => {
   h.assembleCalls.length = 0
   h.keywordAgentCalls = 0
   h.durationFit = undefined
+  h.unmeasurableClip = null
 })
 
 describe("runAssembly: отказ подгона длины под трек роняет сборку честно", () => {
@@ -273,6 +284,30 @@ describe("runAssembly: отказ подгона длины под трек ро
       }),
     ).rejects.toThrow(/подгон/i)
 
+    expect(h.keywordAgentCalls).toBe(0)
+    expect(h.assembleCalls).toHaveLength(0)
+    expect(stepFailed()).toBe(true)
+  })
+
+  it("клип не измерен (probeMediaDuration вернул null) — отказ до платного предпрохода", async () => {
+    const steps = await loadSteps()
+    // Второй клип «битый»: строгий замер (тот же probeMediaDuration, что и
+    // решающий fitClipsToTrack) не смог его открыть — как при повреждённом
+    // файле на настоящем ffprobe. Компактированный список клипов сам по себе
+    // пустых строк не содержит (compactSceneClipPaths их выкидывает), поэтому
+    // единственный способ увидеть null здесь — именно такой битый файл.
+    h.unmeasurableClip = "c1.mp4"
+
+    await expect(
+      steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", plan(), {
+        ...audioFirstExtras(),
+        subtitlePreset: "hormozi" as never,
+      }),
+    ).rejects.toThrow(/подгон/i)
+
+    expect(h.logs.some(l => l.includes("не измерен"))).toBe(true)
+    // Тот же порядок гарантий, что и у вырожденного выравнивания: отказ до
+    // платного вызова Anthropic и до рендера, а не после.
     expect(h.keywordAgentCalls).toBe(0)
     expect(h.assembleCalls).toHaveLength(0)
     expect(stepFailed()).toBe(true)

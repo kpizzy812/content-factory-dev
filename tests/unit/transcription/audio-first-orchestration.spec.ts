@@ -486,6 +486,68 @@ describe("оркестратор на маршруте audio-first", () => {
       where: { videoId: 44, stepKey: { in: ["voiceover_generation"] } },
     })
   })
+
+  it("ни одна сцена ведущего не синхронизирована — прогон падает до сборки, шаг lip-sync уходит в failed", async () => {
+    // Провайдер отказал на КАЖДОЙ из двух сцен ведущего (план() ниже даёт им
+    // обеим spokenLine, presenterSceneIndexes.size === 2): своего клипа у таких
+    // сцен нет, кадр каждой делает только lip-sync, и при нуле синхронизаций
+    // склейке нечего показать под непрерывную речь трека (video-pipeline.ts:943).
+    const lipSyncRunner = await import("../../../server/utils/lip-sync-runner")
+    vi.mocked(lipSyncRunner.runLipSyncStep).mockImplementationOnce(async (input: Record<string, unknown>) => {
+      calls.order.push("lip_sync_generation")
+      calls.lipSync.push(input)
+      return {
+        status: "completed",
+        clipPaths: [],
+        syncedSceneCount: 0,
+        resyncedSceneCount: 0,
+        totalCostUsd: 0.5,
+        modelId: "kling-lip-sync",
+      }
+    })
+    const db = await import("../../../server/utils/video-pipeline-db")
+    const runVideoPipeline = await loadPipeline()
+
+    await expect(runVideoPipeline(44)).rejects.toThrow(/ни одна сцена ведущего не синхронизирована/i)
+
+    // До сборки прогон не дошёл: ролика со статусом «готов» и одними
+    // перебивками под непрерывную речь быть не должно.
+    expect(calls.assembly).toHaveLength(0)
+    // Шаг lip_sync_generation явно помечен failed, а не остался completed/running.
+    expect(vi.mocked(db.updateStep).mock.calls.some(
+      ([, patch]) => (patch as Record<string, unknown>).status === "failed",
+    )).toBe(true)
+  })
+
+  it("частичная синхронизация сцен ведущего — штатная деградация, гейт её не роняет", async () => {
+    // Синхронизировалась ОДНА из двух сцен ведущего: `lip-sync-runner.ts`
+    // «последним рубежом» уже разобрался с несошедшимися сценами, и ролик с
+    // частью живых кадров лучше отказа — гейт реагирует строго на === 0.
+    const lipSyncRunner = await import("../../../server/utils/lip-sync-runner")
+    vi.mocked(lipSyncRunner.runLipSyncStep).mockImplementationOnce(async (input: Record<string, unknown>) => {
+      calls.order.push("lip_sync_generation")
+      calls.lipSync.push(input)
+      return {
+        status: "completed",
+        clipPaths: ["c0_lipsync.mp4"],
+        syncedSceneCount: 1,
+        resyncedSceneCount: 1,
+        totalCostUsd: 0.3,
+        modelId: "kling-lip-sync",
+      }
+    })
+    const db = await import("../../../server/utils/video-pipeline-db")
+    const runVideoPipeline = await loadPipeline()
+
+    await runVideoPipeline(44)
+
+    // Прогон дошёл до сборки — частичная синхронизация не повод падать.
+    expect(calls.order).toContain("assembly")
+    expect(calls.assembly).toHaveLength(1)
+    expect(vi.mocked(db.updateStep).mock.calls.some(
+      ([, patch]) => (patch as Record<string, unknown>).status === "failed",
+    )).toBe(false)
+  })
 })
 
 describe("оркестратор на старом маршруте", () => {
