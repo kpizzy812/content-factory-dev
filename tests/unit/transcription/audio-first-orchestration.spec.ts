@@ -387,6 +387,10 @@ describe("оркестратор на маршруте audio-first", () => {
 
     expect(assemblyExtras().voiceoverPath).toBe("/tmp/voiceover_track.mp3")
     expect(assemblyExtras().alignedScenes).toEqual(aligned.value)
+    // Дорожка клипа глушится в ноль ТОЛЬКО когда трек состоялся — иначе она
+    // звучала бы поверх уже звучащего на 1.0 трека (двойная речь с эхом,
+    // spec §6.4).
+    expect(assemblyExtras().clipVolumeWithVoiceover).toBe(0)
   })
 
   it("без модели транскрипции ролик идёт СТАРЫМ маршрутом и трек не оплачивается", async () => {
@@ -473,6 +477,14 @@ describe("оркестратор на маршруте audio-first", () => {
     // Подгон длины последнего клипа под трек (Task 10) недоступен без
     // выровненных сцен — на этом пути их не было и не будет.
     expect(assemblyExtras().voiceoverDurationSec).toBeUndefined()
+    // Кэш посценной озвучки обязан сбрасываться свежими клипами lip-sync
+    // (мок глобально отдаёт resyncedSceneCount: 2) ровно как на старом
+    // маршруте — этот шаг реально исполнился в этом прогоне, хотя маршрут
+    // и был выбран как audio-first.
+    expect(calls.stepUpdateMany).toHaveLength(1)
+    expect(calls.stepUpdateMany[0]).toMatchObject({
+      where: { videoId: 44, stepKey: { in: ["voiceover_generation"] } },
+    })
   })
 })
 

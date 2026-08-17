@@ -61,20 +61,33 @@ export function resolveEditPipelineFlag(env: Record<string, string | undefined>)
   return TRUTHY.has((env.EDIT_PIPELINE ?? "").trim().toLowerCase())
 }
 
-/** Громкость родных дорожек клипов под озвучкой — зависит от маршрута. */
-export function clipVolumeWithVoiceoverFor(editPipeline: boolean): number {
-  return editPipeline ? 0 : 0.3
+/**
+ * Громкость родных дорожек клипов под озвучкой — зависит от ФАКТА, состоялся
+ * ли единый трек audio-first, а не от выбранного маршрута ролика. Дорожка
+ * глушится в ноль только когда трек ДЕЙСТВИТЕЛЬНО заменяет её звук (он уже
+ * звучит на 1.0 из voiceoverPath) — иначе 0 оставил бы ведущего беззвучным
+ * (spec §6.4). Вызывающий обязан передавать `audioFirstTrackCompleted`, а не
+ * сырой флаг ролика: маршрут может быть выбран, а трек — не синтезироваться
+ * (`legacy_mode_no_single_track`, `empty_script`).
+ */
+export function clipVolumeWithVoiceoverFor(audioFirstTrackCompleted: boolean): number {
+  return audioFirstTrackCompleted ? 0 : 0.3
 }
 
 /**
  * Нужно ли мирить длину реплики с длиной клипа.
  *
- * На старом маршруте политика `voiceoverReconciliation` сжимает звук, режет его
- * или растягивает сцену. На audio-first мирить нечего: кадр нарезан по речи, а
- * подмена клипов файлами `*_ext.mp4` разошлась бы с таймлайном транскрипта.
+ * Зависит от ФАКТА, состоялся ли единый трек audio-first, а не от выбранного
+ * маршрута ролика: без старого маршрута политика `voiceoverReconciliation`
+ * сжимает звук, режет его или растягивает сцену — этот шаг сам синтезирует
+ * речь и обязан её мирить с клипом. На audio-first с состоявшимся треком
+ * мирить нечего: кадр нарезан по речи, а подмена клипов файлами `*_ext.mp4`
+ * разошлась бы с таймлайном транскрипта. Вызывающий обязан передавать
+ * `audioFirstTrackCompleted`, а не сырой флаг ролика — см. `editPipeline` в
+ * конфиге `runVoiceoverGeneration` (`video-pipeline-steps.ts`).
  */
-export function shouldReconcileVoiceover(editPipeline: boolean): boolean {
-  return !editPipeline
+export function shouldReconcileVoiceover(audioFirstTrackCompleted: boolean): boolean {
+  return !audioFirstTrackCompleted
 }
 
 /** Результат планирования заказанных длин клипов под трек — см. `planAlignedClipTargets`. */
