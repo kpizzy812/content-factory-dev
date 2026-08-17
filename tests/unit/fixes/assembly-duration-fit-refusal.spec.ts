@@ -22,6 +22,9 @@ import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import type { SubtitlePlacement } from "~~/shared/types/story"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 import type { ClipDurationFitSummary } from "~~/server/utils/render"
+// НЕ мокается в этом файле — используется НАПРЯМУЮ, чтобы доказать дуп-order-фикс
+// реальным поведением потребителя карты, а не тем, что вернул замоканный assembleVideo.
+import { planAlignedClipTargets } from "~~/server/utils/video-pipeline-run-policy"
 
 const h = vi.hoisted(() => ({
   step: { id: 12, attemptCount: 0, actualCost: 0, outputSnapshot: null as unknown },
@@ -122,6 +125,38 @@ function alignedScenes(): AlignedScene[] {
     { order: 2, startSec: 4.5, endSec: 8.0, words: [] },
     { order: 3, startSec: 8.5, endSec: 11.8, words: [] },
   ]
+}
+
+/**
+ * План с ЯВНО заданными order сцен (дуп-order-бриф) — три сцены, у первых двух
+ * order совпадает. Все со spokenLine: ровно так presenterOnly и определяется
+ * (`video-pipeline.ts`: `presenterSceneCount === storyScenes.length`), а без
+ * этого условия сцена без реплики выпала бы из трека (`script-merge.ts`) и
+ * инвариант «alignedScenes один-в-один с videoPlan.scenes» не держался бы.
+ */
+function planWithOrders(orders: number[]): StoryDrivenVideoPlan {
+  return {
+    mode: "story_driven",
+    scenes: orders.map((order, i) => ({
+      order,
+      durationSec: 5,
+      subtitleCopy: `Сцена ${i + 1}`,
+      subtitlePlacement: BOTTOM,
+      spokenLine: `реплика ${i + 1}`,
+      voiceoverLine: null,
+    })),
+    subtitleStyle: null,
+  } as unknown as StoryDrivenVideoPlan
+}
+
+/** Сцены выравнивания с теми же order, в ТОМ ЖЕ порядке, что и planWithOrders. */
+function alignedScenesWithOrders(orders: number[]): AlignedScene[] {
+  return orders.map((order, i) => ({
+    order,
+    startSec: i * 4 + 0.2,
+    endSec: i * 4 + 3.8,
+    words: [],
+  }))
 }
 
 /**
@@ -337,5 +372,134 @@ describe("runAssembly: отказ подгона длины под трек ро
     expect(result.duration).toBe(30)
     expect(stepCompleted()).toBe(true)
     expect(stepFailed()).toBe(false)
+  })
+})
+
+/**
+ * Дуп-order-бриф (2026-08-17-audio-first-preflight/dup-order-brief.md):
+ * дубль `order` в плане сцен на audio-first не должен ронять ролик там, где
+ * сопоставление сцены с клипом однозначно (случай А — порядок нарезки клипов
+ * не передан, ролик целиком снят ведущей), но обязан по-прежнему честно
+ * падать там, где оно неоднозначно (случай Б — порядок нарезки известен).
+ *
+ * `assembleVideo` в этом файле полностью замокан (см. `installGlobals`), а
+ * `durationFit` в его ответе — фикстура, а не результат реального подгона.
+ * Поэтому проверка «ролик собрался/упал» здесь ничего не доказывает про сам
+ * фикс — она лишь про то, что `runAssembly` честно реагирует на переданный ей
+ * durationFit. Доказательство фикса — ниже: карта `clipTrackAlignment`,
+ * которую `runAssembly` РЕАЛЬНО построила (перехвачена через h.assembleCalls),
+ * скармливается НАСТОЯЩЕМУ (не замоканному) `planAlignedClipTargets` —
+ * ровно тому потребителю, который до фикса ронял сборку на дубле order.
+ */
+describe("дубль order в плане сцен не роняет случай А, но не трогает случай Б", () => {
+  it("случай А (порядок нарезки не передан): дубль order не схлопывает сцены в одну позицию", async () => {
+    const steps = await loadSteps()
+    h.durationFit = { applied: true, trimmedCount: 3, heldCount: 0, totalDeltaSec: 0.5 }
+
+    const orders = [1, 1, 2] // дубль order=1 у ДВУХ РАЗНЫХ сцен плана
+    const result = await steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", planWithOrders(orders), {
+      // clipSceneOrders нет вовсе — случай А: ролик снят целиком ведущей.
+      alignedScenes: alignedScenesWithOrders(orders),
+      voiceoverDurationSec: 12,
+    })
+
+    expect(result.filePath).toBe("final.mp4")
+    expect(stepCompleted()).toBe(true)
+    expect(stepFailed()).toBe(false)
+
+    const alignment = h.assembleCalls[0]!.clipTrackAlignment as {
+      alignedScenes: AlignedScene[]
+      positionByOrder: Map<number, number>
+      trackDurationSec: number
+    }
+    // Карта не схлопнута: три сцены — три записи (до фикса дубль order давал
+    // здесь Map размера 2, и вторая сцена order=1 была ничьей).
+    expect(alignment.positionByOrder.size).toBe(3)
+
+    const clipPlan = planAlignedClipTargets({
+      alignedScenes: alignment.alignedScenes,
+      positionByOrder: alignment.positionByOrder,
+      trackDurationSec: alignment.trackDurationSec,
+      actualDurationsSec: [5, 5, 5],
+      clipCount: CLIPS.length,
+    })
+
+    // До фикса: обе сцены order=1 сопоставлялись с ОДНОЙ и той же позицией
+    // (0), planAlignedClipTargets видел два анкора на позиции 0 и честно
+    // отказывал — «две сцены выравнивания указывают на один и тот же клип».
+    expect(clipPlan.ok).toBe(true)
+    expect(clipPlan.targets).toHaveLength(3)
+    // Три РАЗНЫХ клипа получили СВОЮ заказанную длину (бакеты трека 12с,
+    // границы 0.2/4.2/8.2 — расчёт от границ анкоров, не от order).
+    expect(clipPlan.targets[0]).toBeCloseTo(4.2, 6)
+    expect(clipPlan.targets[1]).toBeCloseTo(4.0, 6)
+    expect(clipPlan.targets[2]).toBeCloseTo(3.8, 6)
+  })
+
+  it("случай Б (порядок нарезки известен): дубль order по-прежнему честно роняет подгон", async () => {
+    const steps = await loadSteps()
+
+    const orders = [1, 1, 2] // тот же дубль, но порядок нарезки клипов ТЕПЕРЬ известен
+    // runAssembly сама вызывает НАСТОЯЩИЙ planAlignedClipTargets в дешёвых
+    // воротах ДО рендера (video-pipeline-steps.ts:2911-2928, тот же preflight,
+    // что доказывают соседние тесты «ДО платного предпрохода») — durationFit
+    // здесь ни при чём, ворота стреляют раньше, чем assembleVideo вообще
+    // вызывается.
+    await expect(
+      steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", planWithOrders(orders), {
+        clipSceneOrders: orders, // случай Б: клипы нарезаны в этом же порядке — с тем же дублем
+        alignedScenes: alignedScenesWithOrders(orders),
+        voiceoverDurationSec: 12,
+      }),
+    ).rejects.toThrow(/подгон/i)
+
+    expect(stepFailed()).toBe(true)
+    expect(stepCompleted()).toBe(false)
+    // Причина отказа — ИМЕННО дубль order (а не что-то постороннее, например
+    // неизмеримый клип): та же формулировка, что видит оператор в логе шага.
+    expect(h.logs.some(l => l.includes("один и тот же клип"))).toBe(true)
+    // Ворота стреляют ДО assembleVideo и ДО платного предпрохода — карта
+    // схлопнулась ГЕНУИННО (order — единственный мост между videoPlan.scenes
+    // и clipSceneOrders, два разных массива), и трогать эту ветку было нельзя.
+    expect(h.assembleCalls).toHaveLength(0)
+    expect(h.keywordAgentCalls).toBe(0)
+  })
+
+  it("случай А без дублей: позиции и заказанные длины совпадают с прежним поведением", async () => {
+    const steps = await loadSteps()
+    h.durationFit = { applied: true, trimmedCount: 3, heldCount: 0, totalDeltaSec: 0.5 }
+
+    const orders = [1, 2, 3] // без дублей — тот же план, что и в plan()/alignedScenes()
+    const result = await steps.runAssembly(31, CLIPS, null, true, "", "", "portrait", planWithOrders(orders), {
+      alignedScenes: alignedScenesWithOrders(orders),
+      voiceoverDurationSec: 12,
+    })
+
+    expect(result.filePath).toBe("final.mp4")
+    expect(stepCompleted()).toBe(true)
+
+    const alignment = h.assembleCalls[0]!.clipTrackAlignment as {
+      alignedScenes: AlignedScene[]
+      positionByOrder: Map<number, number>
+      trackDurationSec: number
+    }
+    expect(alignment.positionByOrder.size).toBe(3)
+
+    const clipPlan = planAlignedClipTargets({
+      alignedScenes: alignment.alignedScenes,
+      positionByOrder: alignment.positionByOrder,
+      trackDurationSec: alignment.trackDurationSec,
+      actualDurationsSec: [5, 5, 5],
+      clipCount: CLIPS.length,
+    })
+
+    // Ровно те же цифры, что и в дублирующемся случае выше (границы анкоров
+    // одинаковые) — отсутствие дублей само по себе ничего не меняет, что и
+    // требуется: старое поведение (без дублей карта и без фикса была
+    // инъективной) сохранено побайтово.
+    expect(clipPlan.ok).toBe(true)
+    expect(clipPlan.targets[0]).toBeCloseTo(4.2, 6)
+    expect(clipPlan.targets[1]).toBeCloseTo(4.0, 6)
+    expect(clipPlan.targets[2]).toBeCloseTo(3.8, 6)
   })
 })

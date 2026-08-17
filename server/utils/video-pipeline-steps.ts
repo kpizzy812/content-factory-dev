@@ -2747,25 +2747,62 @@ export async function runAssembly(
     // разница между «карта пуста по устройству ролика» и «выравнивание
     // выродилось» стоит ролика: ведущая — флагманский сценарий этого маршрута,
     // и без фолбэка НИ ОДИН такой ролик не собрался бы вовсе.
-    const clipIndexByOrderForFit = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
-      allowPositionalFallback: true,
-    })
-    if (!extras?.clipSceneOrders?.length) {
+    const fitClipOrderKnown = !!extras?.clipSceneOrders?.length
+    const positionByOrder = new Map<number, number>()
+    // alignedScenesForFit — тот же массив, что и extras.alignedScenes, кроме
+    // случая А ниже, где .order каждой записи ЗАМЕНЯЕТСЯ на её позицию в этом
+    // массиве. Копия, extras.alignedScenes не мутируется: он же уходит выше по
+    // стеку в lip-sync с ДЕЙСТВИТЕЛЬНЫМ order, и трогать его здесь нельзя.
+    let alignedScenesForFit: readonly AlignedScene[] = extras.alignedScenes
+
+    if (fitClipOrderKnown) {
+      // Случай Б (дуп-order-бриф) — порядок нарезки клипов известен. `order` —
+      // ЕДИНСТВЕННЫЙ мост между videoPlan.scenes и extras.clipSceneOrders: это
+      // два независимых массива (нарезку клипов задаёт Claude в
+      // prompts.scenePrompts.scenes, и её порядок videoPlan.scenes не обязан
+      // повторять), и без order сопоставить их нечем. Если план заявляет два
+      // сцены с одним order, а клип с тем же order один — какой из двух сцен
+      // он принадлежит, не знает никто: это НАСТОЯЩАЯ неоднозначность, и карта
+      // ниже её честно наследует (buildSceneClipIndexMap схлопывает дубль в
+      // первую запись), а planAlignedClipTargets увидит два анкора на одной
+      // позиции и с полным правом откажет. Ветка не изменилась.
+      const clipIndexByOrderForFit = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
+        allowPositionalFallback: true,
+      })
+      for (const [order, sceneIndex] of clipIndexByOrderForFit.entries()) {
+        const position = compacted.positionBySceneIndex.get(sceneIndex)
+        if (position !== undefined) positionByOrder.set(order, position)
+      }
+    } else {
       fitPositionalOrderWarning = "Порядок нарезки клипов не передан — подгон длины под трек считает позиции по плану сцен. "
         + "Так приходит ролик, целиком снятый ведущей: text-to-video ему не запускали, чужих клипов не существует"
+      // Случай А (дуп-order-бриф) — порядок нарезки клипов не передан, ролик
+      // целиком снят ведущей: чужих клипов не существует, и сопоставление
+      // сцены с клипом однозначно даже без order — по её ПОЗИЦИИ в плане.
+      // Дубль order здесь — ЛОЖНАЯ неоднозначность, которую создаёт сама карта
+      // order → sceneIndex: у presenterOnly-ролика КАЖДАЯ сцена несёт
+      // spokenLine (иначе видео не presenterOnly), поэтому voiceover/script-merge
+      // и align.ts не роняют ни одной сцены — extras.alignedScenes идёт
+      // один-в-один и в ТОМ ЖЕ порядке, что videoPlan.scenes (см. дуп-order-бриф
+      // и align.ts:266-294). Значит позиция сцены В МАССИВЕ alignedScenes уже
+      // сама по себе однозначный ключ, и order для этой цели не нужен вовсе.
+      // Подменяем order на sceneIndex в производной копии — planAlignedClipTargets
+      // и alignedScenesByClipPosition по-прежнему читают только `scene.order`,
+      // второй формы карты не появляется, потребителю нечего угадывать.
+      alignedScenesForFit = extras.alignedScenes.map((scene, sceneIndex) => ({ ...scene, order: sceneIndex }))
+      for (let sceneIndex = 0; sceneIndex < extras.alignedScenes.length; sceneIndex += 1) {
+        const position = compacted.positionBySceneIndex.get(sceneIndex)
+        if (position !== undefined) positionByOrder.set(sceneIndex, position)
+      }
     }
-    const positionByOrder = new Map<number, number>()
-    for (const [order, sceneIndex] of clipIndexByOrderForFit.entries()) {
-      const position = compacted.positionBySceneIndex.get(sceneIndex)
-      if (position !== undefined) positionByOrder.set(order, position)
-    }
+
     // Карта позиций всё ещё может оказаться пустой (сцены выравнивания не
     // сошлись ни с одной ячейкой склейки) — передаём всё равно: render.ts
     // обязан честно отказаться от подгона и назвать причину (RULING 3, ревью
     // Task 10), а не получить undefined и промолчать, что подгон не пытался
     // исполниться вовсе.
     clipTrackAlignment = {
-      alignedScenes: extras.alignedScenes,
+      alignedScenes: alignedScenesForFit,
       positionByOrder,
       trackDurationSec: extras.voiceoverDurationSec,
     }
