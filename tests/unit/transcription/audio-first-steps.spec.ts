@@ -32,6 +32,8 @@ const h = vi.hoisted(() => ({
   updateStepFailsOnCostWrite: false,
   /** Что лежит в снапшоте шага озвучки этого ролика. */
   voiceoverSnapshot: null as unknown,
+  /** Записи VideoAsset(type=transcript) — по ним видно, зарегистрирован ли файл в БД. */
+  videoAssetWrites: [] as Array<{ op: "create" | "update", videoId?: number, type?: string }>,
   // Ответ провайдера по умолчанию совпадает со сценарием сцены (см. SCENES):
   // выравнивание сходится, и тест кэша проверяет кэш, а не отказ.
   transcriptionTask: vi.fn(async () => ({
@@ -113,7 +115,17 @@ function installGlobals() {
   g.getAssetsDir = () => assetsDir
   g.ensureDir = async () => {}
   g.prisma = {
-    videoAsset: { findFirst: async () => null, create: async () => ({}), update: async () => ({}) },
+    videoAsset: {
+      findFirst: async () => null,
+      create: async (args: { data: { videoId: number, type: string } }) => {
+        h.videoAssetWrites.push({ op: "create", videoId: args.data.videoId, type: args.data.type })
+        return {}
+      },
+      update: async () => {
+        h.videoAssetWrites.push({ op: "update" })
+        return {}
+      },
+    },
     character: { findUnique: async () => ({ name: "Ведущая" }) },
     // Снапшот шага озвучки — по нему видно, начинали ли ролик собирать от звука.
     videoGenerationStep: { findFirst: async () => ({ outputSnapshot: h.voiceoverSnapshot }) },
@@ -152,6 +164,7 @@ beforeEach(async () => {
   h.downloads.length = 0
   h.logs.length = 0
   h.ledger.length = 0
+  h.videoAssetWrites.length = 0
   h.downloadWrites = null
   h.voiceoverSnapshot = null
   h.updateStepFailsOnCostWrite = false
@@ -339,6 +352,9 @@ describe("шаг транскрипции", () => {
     // actualCost накоплен ДО отказа, иначе упавшая попытка обнулила бы траты.
     expect(h.updates.some(update => update.actualCost === 0.02)).toBe(true)
     expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
+    // Файл уже ушёл в хранилище (оплачен), а разбор упал — без строки
+    // VideoAsset он остался бы сиротой вне каскада удаления и orphan-scan.
+    expect(h.videoAssetWrites).toContainEqual({ op: "create", videoId: 44, type: "transcript" })
   })
 
   it("бросок внутри шага не теряет уже оплаченный расход", async () => {

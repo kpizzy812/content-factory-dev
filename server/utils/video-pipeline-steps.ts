@@ -2267,6 +2267,12 @@ export interface VideoTranscriptionResult {
  * ключу `StorageKeys.videoTranscript`), поэтому здесь только запись в БД: без
  * неё файл не попадёт ни в каскад удаления ролика, ни в orphan-scan. Сами
  * ВЫРОВНЕННЫЕ сцены живут в снапшоте шага — их читают дальнейшие шаги.
+ *
+ * Дефолт сразу для ДВУХ колбэков `runTranscriptionStep`: `saveTranscript`
+ * (успех/деградация — с уже выровненными сценами) и `persistRawAsset`
+ * (разбор ответа провалился — payload тот же, только без сцен). Сигнатура
+ * ниже принимает исключительно `{ videoId, localPath }`, поэтому годится для
+ * обоих — файл регистрируется независимо от того, удалось ли его разобрать.
  */
 async function persistTranscriptAsset(payload: {
   videoId: number
@@ -2428,6 +2434,7 @@ export async function runVideoTranscription(
         matchedRatio = payload.matchedRatio
         await persistTranscriptAsset({ videoId: payload.videoId, localPath: payload.localPath })
       }),
+      persistRawAsset: deps.persistRawAsset ?? persistTranscriptAsset,
       log: deps.log ?? appendStepLog,
     })
   } catch (error) {

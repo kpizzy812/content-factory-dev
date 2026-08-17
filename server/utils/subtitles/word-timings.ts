@@ -1,9 +1,12 @@
 /**
  * Word-timing helpers для karaoke-пресетов.
  *
- * Whisper word-level timings ещё не используются в pipeline (TTS возвращает только полную
- * длительность строки). MVP-fallback: распределяем длительность сегмента равномерно по
- * словам с минимумом 200 мс на слово (иначе глаз не успевает прочесть).
+ * Реальные word-level тайминги ТЕПЕРЬ используются: на маршруте «монтаж от
+ * звука» их достаёт `wordsForChunk` (`aligned-words.ts`) из выровненного
+ * транскрипта (`transcription/align.ts`) и передаёт в `AssSegmentInput.words`
+ * (`ass-builder/dialogue.ts`). Здесь остаётся FALLBACK для сцен без
+ * выравнивания: распределяем длительность сегмента равномерно по словам с
+ * минимумом 200 мс на слово (иначе глаз не успевает прочесть).
  */
 
 export interface EstimatedWord {
@@ -54,26 +57,4 @@ function splitWordsForTiming(text: string): string[] {
     .split(/\s+/)
     .map(w => w.replace(/^[.,;:!?…«»"'`()\[\]{}]+|[.,;:!?…«»"'`()\[\]{}]+$/g, ''))
     .filter(w => w.length > 0)
-}
-
-/**
- * Extension point для Phase 3: парсинг whisper word-level chunks.
- * Сейчас только тип, без реализации — pipeline ещё не передаёт word-level timings.
- */
-export interface WhisperWordChunk {
-  text: string
-  /** [start, end] в секундах */
-  timestamp: [number, number]
-}
-
-/**
- * Конвертирует whisper word chunks в нашу EstimatedWord-структуру.
- * Для Phase 3, когда pipeline начнёт извлекать word-level timings из транскрипции.
- */
-export function parseWhisperWords(chunks: WhisperWordChunk[]): EstimatedWord[] {
-  return chunks.map(c => ({
-    text: c.text.trim(),
-    startSec: c.timestamp[0],
-    endSec: c.timestamp[1],
-  })).filter(w => w.text.length > 0)
 }

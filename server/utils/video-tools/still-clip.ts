@@ -15,6 +15,7 @@
  */
 
 import { buildShotVariationFilter, pickShotVariationPlan } from "./shot-variation"
+import { TIMELINE_FPS } from "~~/shared/types/video-runtime"
 
 export interface StillClipRequest {
   imagePath: string
@@ -53,7 +54,7 @@ export function buildStillClipArgs(request: StillClipRequest): string[] {
     "-f", "lavfi",
     "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
     "-t", String(duration),
-    "-vf", `${fit},${motion},fps=30,format=yuv420p`,
+    "-vf", `${fit},${motion},fps=${TIMELINE_FPS},format=yuv420p`,
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-crf", "22",

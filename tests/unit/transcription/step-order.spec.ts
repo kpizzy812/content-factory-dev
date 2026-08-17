@@ -16,6 +16,11 @@ describe("порядок шагов на маршруте audio-first", () => {
     expect(order.indexOf("voiceover_generation")).toBeLessThan(order.indexOf("transcription"))
     expect(order.indexOf("transcription")).toBeLessThan(order.indexOf("clip_generation"))
     expect(order.indexOf("clip_generation")).toBeLessThan(order.indexOf("lip_sync_generation"))
+    // Озвучка и транскрипция стоят ДО картинки — раньше это проверял отдельный
+    // planPipelineRun(true) (удалён вместе с обёрткой, executionOrderFor и есть
+    // единственный источник порядка).
+    expect(order.indexOf("voiceover_generation")).toBeLessThan(order.indexOf("image_generation"))
+    expect(order.indexOf("transcription")).toBeLessThan(order.indexOf("image_generation"))
   })
 
   it("на старом маршруте порядок прежний — недоделанные ролики доживают по своим правилам", () => {

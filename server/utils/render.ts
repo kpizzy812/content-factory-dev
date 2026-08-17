@@ -648,7 +648,7 @@ async function normalizeClip(
         "-profile:v", "high",
         "-level", "4.1",
         "-pix_fmt", "yuv420p",
-        "-r", "30",
+        "-r", `${TIMELINE_FPS}`,
         "-video_track_timescale", "30000",
         "-c:a", "aac",
         "-ar", "44100",

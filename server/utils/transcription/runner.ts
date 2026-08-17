@@ -70,6 +70,16 @@ export interface TranscriptionStepDeps {
     matchedRatio: number
     localPath: string
   }) => Promise<void>
+  /**
+   * Регистрация СЫРОГО файла транскрипта в БД — вызывается, когда `runTask`
+   * уже отработал (провайдер ответил, `runMediaTask` персистит output в
+   * хранилище ДО того, как мы вообще пытаемся его разобрать), а разбор
+   * (`normalizeTranscriptPayload`) провалился. Без неё уже оплаченный и
+   * залитый файл остаётся в хранилище без строки VideoAsset — вне каскада
+   * удаления ролика и вне orphan-scan (см. `persistTranscriptAsset` в
+   * video-pipeline-steps.ts, которым по умолчанию и реализован этот колбэк).
+   */
+  persistRawAsset: (payload: { videoId: number, localPath: string }) => Promise<void>
   log: (stepId: number, message: string) => Promise<void>
 }
 
@@ -103,6 +113,16 @@ export async function runTranscriptionStep(
     transcript = normalizeTranscriptPayload(raw)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    // Файл уже в хранилище (см. TranscriptionStepDeps.persistRawAsset) — без
+    // регистрации он там и останется сиротой. Сама регистрация — учёт, не
+    // содержательная часть шага: сбой записи не должен прятать НАСТОЯЩУЮ
+    // причину (неразобранный ответ) под своей ошибкой, поэтому только предупреждение в лог.
+    try {
+      await deps.persistRawAsset({ videoId: input.videoId, localPath: input.outputPath })
+    } catch (assetError) {
+      const assetMessage = assetError instanceof Error ? assetError.message : String(assetError)
+      console.warn(`[transcription] не удалось зарегистрировать ассет неразобранного транскрипта видео ${input.videoId}: ${assetMessage}`)
+    }
     await deps.log(input.stepId, `Ответ транскрипции не разобран (${message}) — шаг будет провален вызывающим кодом`)
     return { status: "skipped", scenes: [], costUsd, warning: message }
   }

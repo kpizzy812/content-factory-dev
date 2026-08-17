@@ -31,6 +31,7 @@ function deps(overrides: Record<string, unknown> = {}) {
       },
     })),
     saveTranscript: vi.fn(async () => {}),
+    persistRawAsset: vi.fn(async () => {}),
     log: vi.fn(async () => {}),
     ...overrides,
   }
@@ -85,5 +86,33 @@ describe("шаг транскрипции", () => {
     expect(result.scenes).toEqual([])
     expect(result.warning).toMatch(/provider is down/)
     expect(dependencies.saveTranscript).not.toHaveBeenCalled()
+    expect(dependencies.persistRawAsset).not.toHaveBeenCalled()
+  })
+
+  it("провайдер ответил, но ответ не разобрался — файл уже в хранилище, регистрируем ассет, чтобы он не остался сиротой", async () => {
+    const dependencies = deps({
+      runTask: vi.fn(async () => ({ costUsd: 0.02, raw: { words: [] } })),
+    })
+
+    const result = await runTranscriptionStep(INPUT, dependencies as never)
+
+    expect(result.status).toBe("skipped")
+    expect(result.scenes).toEqual([])
+    expect(result.costUsd).toBeCloseTo(0.02, 6)
+    expect(dependencies.saveTranscript).not.toHaveBeenCalled()
+    expect(dependencies.persistRawAsset).toHaveBeenCalledTimes(1)
+    expect(dependencies.persistRawAsset).toHaveBeenCalledWith({ videoId: INPUT.videoId, localPath: INPUT.outputPath })
+  })
+
+  it("регистрация сиротского ассета сама не бросает — настоящая причина отказа (неразобранный ответ) не должна прятаться", async () => {
+    const dependencies = deps({
+      runTask: vi.fn(async () => ({ costUsd: 0.02, raw: { words: [] } })),
+      persistRawAsset: vi.fn(async () => { throw new Error("БД недоступна") }),
+    })
+
+    const result = await runTranscriptionStep(INPUT, dependencies as never)
+
+    expect(result.status).toBe("skipped")
+    expect(result.warning).toMatch(/границ/i)
   })
 })

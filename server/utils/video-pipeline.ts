@@ -12,6 +12,7 @@
  * - video-pipeline-db.ts (DB helpers, lock, fal request)
  */
 
+import { createError } from "h3"
 import { falProbeAccessBatch } from "./fal"
 import { normalizeSceneClips } from "./render"
 import { TIMELINE_FPS } from "~~/shared/types/video-runtime"
@@ -92,18 +93,6 @@ import {
 } from "./video-pipeline-run-policy"
 
 /**
- * Порядок, в котором оркестратор ведёт прогон КОНКРЕТНОГО ролика.
- *
- * Тонкая обёртка над `executionOrderFor`: маршрут — свойство ролика
- * (`Video.editPipeline`), а не глобальный флаг, и весь пайплайн обязан читать
- * его из одного места. По этому же порядку считается каскад перезапуска шага,
- * поэтому расходиться им нельзя.
- */
-export function planPipelineRun(editPipeline: boolean): readonly StepKey[] {
-  return executionOrderFor(editPipeline)
-}
-
-/**
  * Маршрут, по которому ролик пойдёт НА САМОМ ДЕЛЕ.
  *
  * Флага на ролике мало: audio-first держится на транскрипции, и без модели для
@@ -123,10 +112,15 @@ async function resolveVideoRoute(videoId: number, editPipeline: boolean): Promis
   if (isTranscriptionRouteAvailable()) return true
 
   if (await hasAudioFirstTrack(videoId)) {
-    throw new Error(
-      `Видео ${videoId} собрано от звука (единый трек уже синтезирован), но модель транскрипции отключена: `
-      + `включите MEDIA_MODEL_TRANSCRIPTION или пересоберите ролик с нуля`,
-    )
+    // 409, а не голый Error: это состояние ролика (конфликт настройки и уже
+    // синтезированного трека), а не внутренний сбой. Голый Error здесь отдавал
+    // бы 500 без объяснения на любом перезапуске шага такого ролика
+    // (rerun-step.post.ts) при снятой MEDIA_MODEL_TRANSCRIPTION.
+    throw createError({
+      statusCode: 409,
+      message: `Видео ${videoId} собрано от звука (единый трек уже синтезирован), но модель транскрипции отключена: `
+        + `включите MEDIA_MODEL_TRANSCRIPTION или пересоберите ролик с нуля`,
+    })
   }
   return false
 }
@@ -658,7 +652,7 @@ export async function runVideoPipeline(
     // Порядок здесь не косметика: на этом маршруте звук — эталон времени, и
     // границы слов из транскрипции задают, какой длины снимать каждый кадр.
     // Ролик, который идёт прежним маршрутом, через этот блок не проходит вовсе:
-    // у него порядок вызовов остаётся прежним (planPipelineRun(false)).
+    // у него порядок вызовов остаётся прежним (executionOrderFor(false)).
     let audioFirstTrack: Awaited<ReturnType<typeof runAudioFirstVoiceover>> | null = null
     let audioFirst: LipSyncAudioFirstInput | null = null
     /** Сцены с фактическими границами слов. На audio-first без них шаг падает. */
