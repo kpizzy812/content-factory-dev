@@ -34,7 +34,7 @@ import { buildTrackRequest, type TrackPause } from "./voiceover/track-builder"
 import { insertVoiceoverPauses } from "./voiceover/insert-pauses"
 import { presenterVoiceMissingMessage } from "./presenter/voice-defaults"
 import type { AlignedScene, AlignScene } from "./transcription/align"
-import { runTranscriptionStep, type TranscriptionStepDeps } from "./transcription/runner"
+import { runTranscriptionStep, type TranscriptionStepDeps, type TranscriptionStepResult } from "./transcription/runner"
 import { requestTranscription } from "./transcription/media-task"
 import { buildSceneClipTimeline, type SceneSubtitleInput } from "./subtitles/scene-timeline"
 import {
@@ -2328,40 +2328,70 @@ export async function runVideoTranscription(
   const assetsDir = getAssetsDir(videoId)
   await ensureDir(assetsDir)
 
-  let matchedRatio: number | null = null
-  const result = await runTranscriptionStep({
-    videoId,
-    stepId: step.id,
-    audioPath: input.track.path,
-    audioUrl,
-    scenes: input.scenes,
-    language: input.language,
-    outputPath: join(assetsDir, "transcript.json"),
-  }, {
-    runTask: deps.runTask ?? requestTranscription,
-    saveTranscript: deps.saveTranscript ?? (async (payload) => {
-      matchedRatio = payload.matchedRatio
-      await persistTranscriptAsset({ videoId: payload.videoId, localPath: payload.localPath })
-    }),
-    log: deps.log ?? appendStepLog,
-  })
-
-  // Деньги записываем ДО ветвления на успех и отказ: если провайдер ответил, а
-  // разобрать ответ не вышло, платёж уже состоялся, и падение шага не повод
-  // потерять его в отчёте.
-  const paid = result.costUsd > 0
-  if (paid) {
-    await updateStep(step.id, { actualCost: accumulateStepCost(costBefore, result.costUsd) })
+  // Расход пишется РОВНО один раз, как только становится известен, — до
+  // любого броска ниже по цепочке (выравнивание, сохранение транскрипта).
+  // Провайдеру уже заплачено к этому моменту, и падение шага не повод
+  // потерять деньги в отчёте.
+  let costRecorded = false
+  const recordCost = async (costUsd: number): Promise<void> => {
+    if (costUsd <= 0 || costRecorded) return
+    costRecorded = true
+    await updateStep(step.id, { actualCost: accumulateStepCost(costBefore, costUsd) })
     await logStepCost(
       step.id,
       "transcription",
       mapStepKeyToService("transcription", null),
-      result.costUsd,
+      costUsd,
       videoId,
       null,
       { attempt },
     )
   }
+
+  const baseRunTask = deps.runTask ?? requestTranscription
+  let matchedRatio: number | null = null
+  let result: TranscriptionStepResult
+  try {
+    result = await runTranscriptionStep({
+      videoId,
+      stepId: step.id,
+      audioPath: input.track.path,
+      audioUrl,
+      scenes: input.scenes,
+      language: input.language,
+      outputPath: join(assetsDir, "transcript.json"),
+    }, {
+      // Стоимость фиксируем сразу по ответу задачи: раннер дальше выравнивает
+      // и сохраняет транскрипт БЕЗ перехвата исключений (см. шапку runner.ts) —
+      // если один из этих шагов бросит, уже списанные провайдером деньги не
+      // должны потеряться вместе с исключением.
+      runTask: async (taskInput) => {
+        const task = await baseRunTask(taskInput)
+        await recordCost(task.costUsd)
+        return task
+      },
+      saveTranscript: deps.saveTranscript ?? (async (payload) => {
+        matchedRatio = payload.matchedRatio
+        await persistTranscriptAsset({ videoId: payload.videoId, localPath: payload.localPath })
+      }),
+      log: deps.log ?? appendStepLog,
+    })
+  } catch (error) {
+    // Раннер бросил не «мягким» skipped-результатом, а настоящим исключением
+    // (например, сохранение транскрипта упало на БД). Известный расход уже
+    // записан выше через recordCost — шагу остаётся честно уйти в failed, а не
+    // зависнуть в running.
+    const message = error instanceof Error ? error.message : String(error)
+    return failStep(
+      "transcription_step_threw",
+      `Транскрипция ролика: шаг упал (${message})`,
+    )
+  }
+
+  // Раннер мог отчитаться о стоимости только в самом результате (провайдер
+  // ответил, а costUsd стал известен уже на выходе) — recordCost сама не даст
+  // записать расход дважды, если он уже зафиксирован выше.
+  await recordCost(result.costUsd)
 
   // Границ нет — шаг падает. Трек к этому моменту уже синтезирован и оплачен,
   // а без выравнивания lip-sync не возьмёт звук НИ ОДНОЙ сцены ведущего: ролик

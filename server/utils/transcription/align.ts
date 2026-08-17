@@ -52,7 +52,12 @@ export interface AlignmentResult {
 const DEGRADED_THRESHOLD = 0.5
 
 interface ScriptToken {
-  sceneOrder: number
+  /**
+   * Позиция сцены во входном массиве, а не `order`: `order` может дублироваться
+   * (известная реальность проекта — см. WARN в `lip-sync-runner.ts`), и
+   * фильтрация по нему склеивала бы токены двух разных сцен в один срез.
+   */
+  sceneIndex: number
   raw: string
   normalized: string
   /** Сколько распознанных слов токен может занять: у многосложных больше одного. */
@@ -88,7 +93,7 @@ function numberSpan(raw: string): number {
   return Math.min(4, Math.max(1, Math.ceil(digits.length / 2) + 1))
 }
 
-function tokenizeScene(scene: AlignScene): ScriptToken[] {
+function tokenizeScene(scene: AlignScene, sceneIndex: number): ScriptToken[] {
   return scene.text
     .split(/\s+/)
     .map(word => word.trim())
@@ -96,7 +101,7 @@ function tokenizeScene(scene: AlignScene): ScriptToken[] {
     .map((raw) => {
       const normalized = normalizeToken(raw)
       const span = Math.max(1, abbreviationSpan(raw), numberSpan(raw))
-      return { sceneOrder: scene.order, raw, normalized, span }
+      return { sceneIndex, raw, normalized, span }
     })
     .filter(token => token.normalized.length > 0)
 }
@@ -266,7 +271,9 @@ export function alignScriptToTranscript(input: {
 
   for (let sceneIndex = 0; sceneIndex < input.scenes.length; sceneIndex += 1) {
     const scene = input.scenes[sceneIndex]!
-    const count = tokens.filter(token => token.sceneOrder === scene.order).length
+    // Адресация по индексу сцены, а не по `order`: `order` дублируется, а
+    // токены уже лежат в том порядке, в каком шли сцены на входе.
+    const count = tokens.filter(token => token.sceneIndex === sceneIndex).length
     if (count === 0) continue
 
     const words = aligned.slice(cursor, cursor + count)

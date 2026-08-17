@@ -318,6 +318,37 @@ describe("шаг транскрипции", () => {
     expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
   })
 
+  it("бросок внутри шага не теряет уже оплаченный расход", async () => {
+    // Провайдер ответил и деньги списаны, а дальше упало сохранение
+    // транскрипта (например, БД недоступна) — `runTranscriptionStep` в этом
+    // месте ничего не перехватывает и бросает наружу. Расход обязан попасть в
+    // ledger и в actualCost ДО того, как исключение уйдёт наверх. Иначе трек
+    // оплачен, транскрипция оплачена, а шаг навсегда виснет в running без
+    // следа в отчёте.
+    h.transcriptionTask.mockImplementationOnce(async () => ({
+      costUsd: 0.03,
+      raw: { words: [
+        { word: "первая", start: 0, end: 0.5 },
+        { word: "реплика", start: 0.5, end: 1.1 },
+      ] },
+    }))
+    const { runVideoTranscription } = await loadSteps()
+
+    await expect(runVideoTranscription({
+      videoId: 44,
+      track: TRACK,
+      scenes: SCENES,
+      language: "ru",
+    }, {
+      saveTranscript: async () => { throw new Error("хранилище транскриптов недоступно") },
+    })).rejects.toThrow()
+
+    expect(h.ledger).toEqual([{ stepKey: "transcription", costUsd: 0.03 }])
+    // actualCost накоплен ДО отказа, иначе упавшая попытка обнулила бы траты.
+    expect(h.updates.some(update => update.actualCost === 0.03)).toBe(true)
+    expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
+  })
+
   it("отказ провайдера без ответа денег не пишет — списывать нечего", async () => {
     h.transcriptionTask.mockImplementationOnce(async () => { throw new Error("provider is down") })
     const { runVideoTranscription } = await loadSteps()

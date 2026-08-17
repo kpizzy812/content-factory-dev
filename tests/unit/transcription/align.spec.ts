@@ -127,4 +127,25 @@ describe("выравнивание сценария по транскрипту"
     expect(result.matchedRatio).toBeLessThan(0.5)
     expect(result.scenes[0]!.endSec).toBeGreaterThan(0)
   })
+
+  it("не падает на дублирующемся order сцены", () => {
+    // Дубли order — известная реальность проекта: план сцен приходит от модели,
+    // и lip-sync-runner специально пишет о них WARN. Выравнивание обязано
+    // пережить это без исключения.
+    const result = alignScriptToTranscript({
+      scenes: [
+        { order: 1, text: "первая реплика" },
+        { order: 1, text: "вторая реплика" },
+      ],
+      transcript: transcript([
+        ["первая", 0, 0.5], ["реплика", 0.5, 1.0],
+        ["вторая", 1.2, 1.7], ["реплика", 1.7, 2.2],
+      ]),
+    })
+
+    expect(result.scenes).toHaveLength(2)
+    expect(result.scenes[0]!.words.map(w => w.text)).toEqual(["первая", "реплика"])
+    expect(result.scenes[1]!.words.map(w => w.text)).toEqual(["вторая", "реплика"])
+    expect(result.scenes[1]!.startSec).toBeGreaterThanOrEqual(result.scenes[0]!.endSec)
+  })
 })
