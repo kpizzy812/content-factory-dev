@@ -11,20 +11,27 @@
  *
  * Что доказывается (бриф Task 13):
  *  1. шаги выполнены в порядке audio-first;
- *  2. озвучка синтезирована ОДИН раз (один ассет единого трека);
+ *  2. озвучка синтезирована и ОПЛАЧЕНА ровно один раз;
  *  3. транскрипт сохранён и переживает повтор прогона;
  *  4. повторный прогон не создал новых оплаченных задач;
  *  5. финальный файл существует и его длина совпадает с длиной трека.
  *
- * ЧЕГО ЗДЕСЬ НЕТ и почему: lip-sync у ролика выключен. Шаг сам по себе в
- * маршруте есть (и в порядке шагов проверяется), но заставить его отработать
- * НА МОКАХ сегодня нельзя: `runLipSyncStep` принимает только Replicate-модель
+ * ⚠️ ГЛАВНОЕ, ЧЕГО ЭТОТ ТЕСТ НЕ ПРОВЕРЯЕТ.
+ *
+ * Lip-sync у ролика ВЫКЛЮЧЕН, а значит НЕ покрыта вся связка, ради которой
+ * маршрут и затевался: границы выравнивания → вырезанный кусок трека → клип
+ * lip-sync → его длина → склейка. Не покрыты притяжка границ к кадру,
+ * идемпотентность нарезки при повторе и маршрут-специфичный ключ отказа. Зелёный
+ * прогон этого файла НЕ означает, что монтаж от звука работает — он означает,
+ * что ролик собирается и его длина сходится с длиной трека. Нарезка кусков
+ * держится ТОЛЬКО на модульных тестах Task 8.
+ *
+ * Причина, а не оправдание: `runLipSyncStep` берёт только Replicate-модель
  * (`lip-sync-runner.ts`, ветка `preferredModel.provider…includes("replicate")`),
  * а мок Replicate по решению `server/utils/mock/fal-mock.ts` пишет вместо медиа
- * JSON-заглушку под именем `.mp4` (это зафиксировано отдельным тестом
+ * JSON-заглушку под именем `.mp4` (поведение закреплено тестом
  * `tests/unit/fixes/fal-mock-placeholder.spec.ts`). Такой «клип» ffmpeg не
- * склеит. Значит, нарезка кусков трека под губы сквозным прогоном пока не
- * покрыта — только модульными тестами Task 8.
+ * склеит. Оценка стоимости починки — в отчёте Task 13, находка 3.
  *
  * Почему globalThis: `server/utils/**` рассчитан на авто-импорты Nitro
  * (`prisma`, `logAgent`, `ensureDir`, `getAssetsDir`, `assembleVideo`…).
@@ -49,6 +56,24 @@ import { createError } from "h3"
 const globals = globalThis as Record<string, unknown>
 
 /**
+ * Файлы `server/utils/**`, которые НЕ являются модулями-библиотеками и авто-импорту
+ * не подлежат: у них нет ни одного экспорта, зато есть работа на верхнем уровне.
+ *
+ * `pipeline-code-worker.ts` — точка входа worker_threads: при импорте он сразу
+ * выполняется и пишет в `parentPort`. Под пулом vitest'а `threads` (штатный для
+ * репозитория) сам тестовый воркер И ЕСТЬ worker_thread, `parentPort` не пуст, и
+ * это сообщение прилетает в канал tinypool: прогон умирает целиком с
+ * `Unexpected message on Worker: { success: false, error: '"undefined" is not
+ * valid JSON' }` ещё до первого теста. Под `forks` `parentPort` пуст, модуль
+ * падает внутри try и молча пропускается — поэтому разницы не видно, пока не
+ * прогонишь штатной командой.
+ *
+ * Nitro такие файлы тоже не подтягивает: авто-импорт собирает ЭКСПОРТЫ, а их тут
+ * ноль. Так что исключение — не костыль теста, а повторение боевого поведения.
+ */
+const NOT_A_MODULE = ["/pipeline-code-worker.ts"]
+
+/**
  * Авто-импорты Nitro, которых нет в голом vitest.
  *
  * В бою Nitro раскладывает по глобальной области ВСЕ экспорты `server/utils/**`,
@@ -63,6 +88,7 @@ const globals = globalThis as Record<string, unknown>
 async function installNitroAutoImports(): Promise<void> {
   const modules = import.meta.glob("../../server/utils/**/*.ts")
   for (const path of Object.keys(modules).sort()) {
+    if (NOT_A_MODULE.some(tail => path.endsWith(tail))) continue
     try {
       const loaded = await modules[path]!() as Record<string, unknown>
       for (const [name, value] of Object.entries(loaded)) {
@@ -264,25 +290,60 @@ async function stepLog(videoId: number, stepKey: string): Promise<string[]> {
 
 let storageRoot: string
 
+/**
+ * Переменные окружения, которые файл подменяет. Прогон идёт одним процессом,
+ * `process.env` общий на всю сьюту: не вернув их, мы оставили бы следующим
+ * файлам путь в уже удалённый каталог и чужой драйвер хранилища.
+ */
+const PATCHED_ENV = [
+  "MEDIA_MODEL_TRANSCRIPTION",
+  "STORAGE_DRIVER",
+  "STORAGE_LOCAL_ROOT",
+  "UPLOADS_STORAGE_PATH",
+] as const
+const previousEnv = new Map<string, string | undefined>()
+
+function patchEnv(name: (typeof PATCHED_ENV)[number], value: string): void {
+  if (!previousEnv.has(name)) previousEnv.set(name, process.env[name])
+  process.env[name] = value
+}
+
 describe("маршрут «монтаж от звука» собирает ролик целиком (моки)", () => {
   beforeAll(async () => {
+    // Этот файл — единственный в репозитории, который проходит платный контур
+    // целиком. У разработчика с экспортированными ключами и ENABLE_PAID_APIS=true
+    // он ушёл бы в живых провайдеров и потратил бы деньги. Проверяем режим ДО
+    // первой строки прогона, а не надеемся на .env.test.
+    expect(process.env.REPLICATE_MOCK_MODE).toBe("true")
+    expect(process.env.ANTHROPIC_MOCK_MODE).toBe("true")
+    expect(process.env.FAL_MOCK_MODE).toBe("true")
+    expect(process.env.ENABLE_PAID_APIS).not.toBe("true")
+
     // Модель транскрипции в реестре integrated: false (цена не подтверждена
     // страницей модели). Штатный путь включения до canary — явная переменная:
     // при заданном requestedId реестр проверку integrated не делает.
-    process.env.MEDIA_MODEL_TRANSCRIPTION = "openai/whisper"
-    process.env.STORAGE_DRIVER = "local"
+    patchEnv("MEDIA_MODEL_TRANSCRIPTION", "openai/whisper")
+    patchEnv("STORAGE_DRIVER", "local")
     storageRoot = await mkdtemp(join(tmpdir(), "cf-audio-first-"))
     // Два разных корня: STORAGE_LOCAL_ROOT — постоянное хранилище (драйвер),
     // UPLOADS_STORAGE_PATH — рабочий каталог ассетов ролика. Оба уводим из
     // репозитория, чтобы прогон не оставлял мусор в ./storage.
-    process.env.STORAGE_LOCAL_ROOT = join(storageRoot, "bucket")
-    process.env.UPLOADS_STORAGE_PATH = join(storageRoot, "uploads")
+    patchEnv("STORAGE_LOCAL_ROOT", join(storageRoot, "bucket"))
+    patchEnv("UPLOADS_STORAGE_PATH", join(storageRoot, "uploads"))
     resetStorageDriver()
     await installNitroAutoImports()
   })
 
   afterAll(async () => {
-    delete process.env.MEDIA_MODEL_TRANSCRIPTION
+    // Порядок важен: сначала вернуть переменные, потом сбросить драйвер, и
+    // только потом удалять каталог — иначе закэшированный драйвер останется
+    // смотреть в удалённый корень.
+    for (const [name, value] of previousEnv) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+    previousEnv.clear()
+    resetStorageDriver()
     await rm(storageRoot, { recursive: true, force: true }).catch(() => {})
   })
 
@@ -305,10 +366,46 @@ describe("маршрут «монтаж от звука» собирает ро�
     ])
 
     // 2. Озвучка синтезирована ОДИН раз.
+    //
+    // Считать ассеты микса для этого нельзя: ОБА маршрута пишут его через
+    // «найти → обновить, иначе создать» (`runAudioFirstVoiceover`,
+    // `runVoiceoverGeneration`), поэтому второго ассета этого типа не бывает
+    // никогда — сколько бы раз речь ни синтезировали. Такое утверждение
+    // выполняет букву брифа и не проверяет его смысл.
+    //
+    // Ловим сам ФАКТ оплаченного синтеза, тремя независимыми следами:
+    //  - строка расхода в ledger: `logStepCost` дедуплицирует по
+    //    (videoId, stepKey, service, ПОПЫТКА), значит второй синтез — вторая
+    //    строка, а не перезапись первой;
+    //  - `attemptCount` шага: растёт только когда шаг реально пошёл в провайдера;
+    //  - ноль ПОСЦЕННЫХ ассетов `voiceover`: их пишет прежний маршрут, и их
+    //    появление означало бы, что речь записали второй раз другим способом.
+    //
+    // `MediaPrediction` здесь не инструмент: `synthesizeSpeech` зовёт
+    // `runMediaTask` без `persist`, а fal-ветка пишет prediction только когда
+    // результат перенесён в постоянное хранилище (`if (storage && identity)`),
+    // так что у TTS записи нет вовсе — проверено прогоном (в ролике только
+    // 3 × text_to_image и 1 × transcription).
+    expect(await prisma.videoAsset.count({ where: { videoId, type: "voiceover_mix" as never } })).toBe(1)
+    expect(await prisma.videoAsset.count({ where: { videoId, type: "voiceover" as never } })).toBe(0)
+
+    const voiceoverCosts = await prisma.aiAuditLog.findMany({
+      where: { videoId, stepKey: "voiceover_generation" },
+      select: { service: true, costUsd: true },
+    })
+    expect(voiceoverCosts).toHaveLength(1)
+    expect(Number(voiceoverCosts[0]!.costUsd)).toBeGreaterThan(0)
+
+    const voiceoverStep = await prisma.videoGenerationStep.findFirst({
+      where: { videoId, stepKey: "voiceover_generation" as never },
+      select: { attemptCount: true, status: true },
+    })
+    expect(voiceoverStep?.status).toBe("completed")
+    expect(voiceoverStep?.attemptCount).toBe(1)
+
     const voiceoverAssets = await prisma.videoAsset.findMany({
       where: { videoId, type: "voiceover_mix" as never },
     })
-    expect(voiceoverAssets).toHaveLength(1)
 
     // 3. Транскрипт сохранён.
     const transcriptAsset = await prisma.videoAsset.findFirst({
@@ -365,6 +462,10 @@ describe("маршрут «монтаж от звука» собирает ро�
     expect(await prisma.mediaPrediction.count({ where: { videoId } }) - predictionsBefore).toBe(0)
     expect(await prisma.videoAsset.count({ where: { videoId } }) - assetsBefore).toBe(0)
     expect(await paidStepAttempts(videoId)).toEqual(attemptsBefore)
+    // Речь не пересинтезирована: вторая оплата была бы второй строкой ledger'а.
+    expect(await prisma.aiAuditLog.count({
+      where: { videoId, stepKey: "voiceover_generation" },
+    })).toBe(1)
 
     // 3 (вторая половина). Транскрипт ПЕРЕЖИЛ повтор прогона, трек не пересинтезирован.
     expect(await prisma.videoAsset.count({ where: { videoId, type: "transcript" as never } })).toBe(1)
