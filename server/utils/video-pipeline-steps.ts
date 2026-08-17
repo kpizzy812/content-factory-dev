@@ -2328,10 +2328,15 @@ export async function runVideoTranscription(
   const assetsDir = getAssetsDir(videoId)
   await ensureDir(assetsDir)
 
-  // Расход пишется РОВНО один раз, как только становится известен, — до
-  // любого броска ниже по цепочке (выравнивание, сохранение транскрипта).
-  // Провайдеру уже заплачено к этому моменту, и падение шага не повод
-  // потерять деньги в отчёте.
+  // Запись расхода — идемпотентна (флаг ниже), но САМА по себе не выполняется
+  // внутри раннера: `runner.ts:83-99` оборачивает вызов `runTask` в try/catch,
+  // который любое исключение (в том числе из записи в БД) превращает в
+  // `{ status: "skipped", costUsd: 0 }`. Если бы recordCost писала в БД из
+  // обёртки runTask, сбой самой записи (обрыв соединения, конфликт) молча
+  // притворился бы отказом провайдера, а уже известная стоимость потерялась
+  // бы. Поэтому обёртка runTask ниже только ЗАПОМИНАЕТ стоимость, а сама
+  // запись выполняется СНАРУЖИ `runTranscriptionStep` — на обоих путях,
+  // успешном и бросковом.
   let costRecorded = false
   const recordCost = async (costUsd: number): Promise<void> => {
     if (costUsd <= 0 || costRecorded) return
@@ -2350,6 +2355,8 @@ export async function runVideoTranscription(
 
   const baseRunTask = deps.runTask ?? requestTranscription
   let matchedRatio: number | null = null
+  /** Стоимость, о которой отчитался провайдер, — до любой записи в БД. */
+  let observedCost = 0
   let result: TranscriptionStepResult
   try {
     result = await runTranscriptionStep({
@@ -2361,13 +2368,12 @@ export async function runVideoTranscription(
       language: input.language,
       outputPath: join(assetsDir, "transcript.json"),
     }, {
-      // Стоимость фиксируем сразу по ответу задачи: раннер дальше выравнивает
-      // и сохраняет транскрипт БЕЗ перехвата исключений (см. шапку runner.ts) —
-      // если один из этих шагов бросит, уже списанные провайдером деньги не
-      // должны потеряться вместе с исключением.
+      // Только запоминаем стоимость, без записи в БД: этот колбэк выполняется
+      // внутри try/catch раннера (см. комментарий выше), и запись отсюда
+      // рисковала бы быть проглоченной вместе с любым сбоем самой записи.
       runTask: async (taskInput) => {
         const task = await baseRunTask(taskInput)
-        await recordCost(task.costUsd)
+        observedCost = task.costUsd
         return task
       },
       saveTranscript: deps.saveTranscript ?? (async (payload) => {
@@ -2378,9 +2384,11 @@ export async function runVideoTranscription(
     })
   } catch (error) {
     // Раннер бросил не «мягким» skipped-результатом, а настоящим исключением
-    // (например, сохранение транскрипта упало на БД). Известный расход уже
-    // записан выше через recordCost — шагу остаётся честно уйти в failed, а не
-    // зависнуть в running.
+    // (например, сохранение транскрипта упало на БД). Пишем известную
+    // стоимость СНАРУЖИ swallow-зоны раннера — сбой самой записи здесь уже не
+    // спрячется под чужой причиной, а уйдёт наверх честно. Только потом шаг
+    // уходит в failed, а не зависает в running.
+    await recordCost(observedCost)
     const message = error instanceof Error ? error.message : String(error)
     return failStep(
       "transcription_step_threw",
@@ -2388,10 +2396,9 @@ export async function runVideoTranscription(
     )
   }
 
-  // Раннер мог отчитаться о стоимости только в самом результате (провайдер
-  // ответил, а costUsd стал известен уже на выходе) — recordCost сама не даст
-  // записать расход дважды, если он уже зафиксирован выше.
-  await recordCost(result.costUsd)
+  // Раннер завершился без исключения — на этом пути расход ещё не записан
+  // (запись из catch выше не выполнялась), пишем его здесь той же функцией.
+  await recordCost(observedCost)
 
   // Границ нет — шаг падает. Трек к этому моменту уже синтезирован и оплачен,
   // а без выравнивания lip-sync не возьмёт звук НИ ОДНОЙ сцены ведущего: ролик

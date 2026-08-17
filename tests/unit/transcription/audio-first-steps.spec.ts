@@ -28,6 +28,8 @@ const h = vi.hoisted(() => ({
   ledger: [] as Array<{ stepKey: string, costUsd: number }>,
   /** Файл, который «скачивается» из хранилища, и его содержимое. */
   downloadWrites: null as null | (() => Promise<void>),
+  /** Симулирует сбой самой записи расхода (обрыв БД) — не отказ провайдера. */
+  updateStepFailsOnCostWrite: false,
   /** Что лежит в снапшоте шага озвучки этого ролика. */
   voiceoverSnapshot: null as unknown,
   // Ответ провайдера по умолчанию совпадает со сценарием сцены (см. SCENES):
@@ -48,7 +50,15 @@ vi.mock("../../../server/utils/video-pipeline-db", () => ({
     "transcription",
   ],
   ensureStep: async () => h.step,
-  updateStep: async (_id: number, data: Record<string, unknown>) => { h.updates.push(data) },
+  updateStep: async (_id: number, data: Record<string, unknown>) => {
+    // "actualCost" в data — это именно запись расхода (recordCost), а не смена
+    // статуса шага: сбой моделируем точечно, чтобы отличить его от отказа
+    // провайдера.
+    if (h.updateStepFailsOnCostWrite && "actualCost" in data) {
+      throw new Error("БД недоступна: запись расхода не выполнена")
+    }
+    h.updates.push(data)
+  },
   appendStepLog: async (_id: number, message: string) => { h.logs.push(message) },
   isStepCompleted: () => h.stepCompleted,
   updateVideoStatus: async () => {},
@@ -144,6 +154,7 @@ beforeEach(async () => {
   h.ledger.length = 0
   h.downloadWrites = null
   h.voiceoverSnapshot = null
+  h.updateStepFailsOnCostWrite = false
   h.transcriptionTask.mockClear()
 })
 
@@ -347,6 +358,38 @@ describe("шаг транскрипции", () => {
     // actualCost накоплен ДО отказа, иначе упавшая попытка обнулила бы траты.
     expect(h.updates.some(update => update.actualCost === 0.03)).toBe(true)
     expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
+  })
+
+  it("сбой самой записи расхода не выдаётся за отказ провайдера", async () => {
+    // Провайдер ответил и назвал стоимость, а запись actualCost в БД упала
+    // (обрыв соединения, конфликт). Если бы запись расхода выполнялась внутри
+    // runTask-колбэка, который раннер (`runner.ts:83-99`) оборачивает в
+    // try/catch, сбой самой записи превратился бы в «провайдер не ответил»:
+    // costUsd обнулился бы, а шаг ушёл бы в failed с ПОДСТАВНОЙ причиной
+    // "alignment_missing", где текст настоящей ошибки БД спрятан внутри
+    // формулировки про недостающие границы слов. Запись — снаружи runTask,
+    // поэтому сбой обязан дойти до вызывающего кода СЫРЫМ: сообщение должно
+    // НАЧИНАТЬСЯ с текста ошибки БД, а не быть подстрокой внутри чужой.
+    h.transcriptionTask.mockImplementationOnce(async () => ({
+      costUsd: 0.05,
+      raw: { words: [
+        { word: "первая", start: 0, end: 0.5 },
+        { word: "реплика", start: 0.5, end: 1.1 },
+      ] },
+    }))
+    h.updateStepFailsOnCostWrite = true
+    const { runVideoTranscription } = await loadSteps()
+
+    await expect(runVideoTranscription({
+      videoId: 44,
+      track: TRACK,
+      scenes: SCENES,
+      language: "ru",
+    })).rejects.toThrow(/^БД недоступна/)
+
+    // Ни один update не помечает шаг «упавшим по вине провайдера» — до
+    // подставной причины "alignment_missing" дело не дошло вовсе.
+    expect(h.updates.some(update => update.status === "failed")).toBe(false)
   })
 
   it("отказ провайдера без ответа денег не пишет — списывать нечего", async () => {
