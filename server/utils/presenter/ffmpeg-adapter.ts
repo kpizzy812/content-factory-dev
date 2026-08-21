@@ -171,6 +171,27 @@ async function cutSegment(
   )
 }
 
+/**
+ * Вырезка произвольного окна записи под кадр.
+ *
+ * Отличается от `cutSegment` (ingest) только тем, что длительность приходит
+ * снаружи и потолком модели не ограничена: длину диктует звук, а не библиотека.
+ * Аргументы те же — `buildPresenterCutArgs` уже режет с перекодированием и
+ * вписывает кадр в пределы lip-sync модели.
+ */
+export async function cutRecordingWindow(input: {
+  recordingPath: string
+  startSec: number
+  durationSec: number
+  outputPath: string
+}): Promise<void> {
+  await runFfmpeg(
+    buildPresenterCutArgs(input.recordingPath, input.startSec, input.durationSec, input.outputPath),
+    CUT_TIMEOUT_MS,
+    false,
+  )
+}
+
 /** Нормализация длинной записи целиком (H.264 / 30 fps / AAC, без кропа). */
 export async function normalizeRecording(inputPath: string, outputPath: string): Promise<void> {
   await runFfmpeg(buildRecordingNormalizeArgs(inputPath, outputPath), NORMALIZE_TIMEOUT_MS, false)

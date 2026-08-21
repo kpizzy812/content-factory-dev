@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { prisma } from "~~/server/utils/prisma"
 import { ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
 import { ingestPresenterRecording } from "~~/server/utils/presenter/ingest-runner"
+import { reserveRecordingWindow } from "~~/server/utils/presenter-recording-selector"
 import {
   RecordingIngestRunningError,
   markIngestCompleted,
@@ -721,4 +722,76 @@ describe("повторная нарезка записи", () => {
     const reloadedStale = await prisma.presenterSourceClip.findUnique({ where: { id: staleClip.id } })
     expect(reloadedStale?.isActive).toBe(true)
   }, 30_000)
+})
+
+// Фикстуры здесь СВОИ в каждом it, а не унаследованные от предыдущего теста:
+// tests/setup.ts делает TRUNCATE всей public-схемы ПОСЛЕ КАЖДОГО it (см. выше),
+// поэтому запись, созданная в одном тесте, не видна следующему. Сценарии и
+// проверки — из брифа задачи 5, фикстуры приведены к этому харнессу.
+describe("резервирование окна записи", () => {
+  it("два параллельных прогона получают разные участки", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/eeee5555.mp4`,
+        sha1: "eeee5555",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+
+    const [first, second] = await Promise.all([
+      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null }),
+      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null }),
+    ])
+
+    expect(first).not.toBeNull()
+    expect(second).not.toBeNull()
+    // Один и тот же участок двум прогонам — это два одинаковых кадра в двух
+    // роликах, ровно тот дубль, который запрещает PROJECT_CONTEXT §7.
+    const intersect = Math.min(first!.endSec, second!.endSec) - Math.max(first!.startSec, second!.startSec)
+    expect(intersect).toBeLessThanOrEqual(0)
+    expect(await prisma.presenterRecordingUsage.count({ where: { recordingId: recording.id } })).toBe(2)
+  })
+
+  // Решение задачи, п.1: запись и оба взятых интервала заводим ВНУТРИ этого
+  // теста двумя последовательными резервированиями — findFirst по "остатку от
+  // предыдущего it" на этом харнессе ничего не найдёт (TRUNCATE после каждого).
+  it("окно вчерашнего ролика не берётся, пока в записи есть нетронутое", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/ffff6666.mp4`,
+        sha1: "ffff6666",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+
+    const firstTaken = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null })
+    const secondTaken = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null })
+    expect(firstTaken).not.toBeNull()
+    expect(secondTaken).not.toBeNull()
+
+    const taken = await prisma.presenterRecordingUsage.findMany({ where: { recordingId: recording.id } })
+    expect(taken).toHaveLength(2)
+
+    const next = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null })
+    expect(next).not.toBeNull()
+
+    for (const used of taken) {
+      const intersect = Math.min(next!.endSec, used.endSec) - Math.max(next!.startSec, used.startSec)
+      expect(intersect).toBeLessThanOrEqual(0)
+    }
+  })
+
+  it("возвращает null, когда у персонажа нет ни одной завершённой записи", async () => {
+    const other = await prisma.character.create({ data: { appId, name: "Без записей" } })
+
+    expect(await reserveRecordingWindow({
+      characterId: other.id, requiredSec: 5, fps: 30, videoId: null,
+    })).toBeNull()
+  })
 })
