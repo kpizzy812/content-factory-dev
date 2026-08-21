@@ -41,15 +41,23 @@ vi.mock("~~/server/utils/prisma", () => ({
   },
 }))
 
-vi.mock("~~/server/utils/presenter-recording-selector", () => ({
-  reserveRecordingWindow: h.reserveRecordingWindow,
-  // Реальная реализация тривиальна (чистая проверка error.code) — переиспользовать
-  // модуль целиком нельзя, он статически тянет prisma, поэтому копия здесь же.
-  prismaErrorCode: (error: unknown) =>
-    error && typeof error === "object" && "code" in error
-      ? String((error as { code?: unknown }).code)
-      : "",
-}))
+// Nit 5, ре-ревью фикс-раунда 1: раньше здесь была рукописная копия
+// prismaErrorCode — мёртвый груз (в обоих тестах ниже delete() всегда
+// резолвится, .catch не срабатывает вовсе), которая к тому же повторяла ту
+// самую ошибку, за которую поймали Important 1 (переписанная в тест
+// продакшн-логика). vi.importActual тянет НАСТОЯЩИЙ модуль — это безопасно,
+// его собственный `import { prisma } from "./prisma"` перехватывается тем же
+// vi.mock("~~/server/utils/prisma", ...) выше, реального подключения к БД не
+// происходит.
+vi.mock("~~/server/utils/presenter-recording-selector", async () => {
+  const actual = await vi.importActual<typeof import("~~/server/utils/presenter-recording-selector")>(
+    "~~/server/utils/presenter-recording-selector",
+  )
+  return {
+    ...actual,
+    reserveRecordingWindow: h.reserveRecordingWindow,
+  }
+})
 
 vi.mock("~~/server/utils/presenter/ffmpeg-adapter", () => ({
   cutRecordingWindow: h.cutRecordingWindow,

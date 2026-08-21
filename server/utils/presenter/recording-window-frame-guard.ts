@@ -125,6 +125,16 @@ export interface GuardRecordingWindowFrameResult {
  * Восстановление тоже может не задаться (БД недоступна) — тогда это не
  * повод завершиться молча (было раньше): пишем в консоль, у guard нет доступа
  * к логу шага (это знает только вызывающий), это единственный канал.
+ *
+ * `useIdempotencyKey: false` вместе с непустым `replacedUsageId` — противоречивый
+ * вызов, а не легитимный вход (Nit 2, ре-ревью фикс-раунда 1 долга плана A):
+ * `update()` ниже переписывает строку ПО ID и `useIdempotencyKey` не смотрит
+ * вовсе, поэтому такая комбинация переписала бы ЧУЖУЮ строку ровно так, как
+ * `useIdempotencyKey: false` обязан предотвращать. Сегодня единственный
+ * вызывающий (`guardRecordingWindowFrame`) гарантирует `replacedUsageId: null`
+ * на этой комбинации (см. `retriedUsageId`/`retriedUsageBelongsToOther` там), но
+ * эта функция не должна полагаться на честность вызывающего — отказ явный, а
+ * не молчаливое переписывание.
  */
 async function restoreOriginalUsage(
   input: GuardRecordingWindowFrameInput,
@@ -133,6 +143,14 @@ async function restoreOriginalUsage(
   options: { useIdempotencyKey?: boolean } = {},
 ): Promise<void> {
   const useIdempotencyKey = options.useIdempotencyKey ?? true
+  if (!useIdempotencyKey && replacedUsageId) {
+    logRestoreFailure(
+      input,
+      `противоречивый вызов restoreOriginalUsage: useIdempotencyKey=false вместе с `
+      + `replacedUsageId=${replacedUsageId} — отказ вместо переписывания чужой строки`,
+    )
+    return
+  }
   try {
     if (replacedUsageId) {
       await prisma.presenterRecordingUsage.update({
@@ -283,6 +301,19 @@ export async function guardRecordingWindowFrame(
     // сам бросил, retriedUsageId === null), либо есть строка ВТОРОГО окна
     // (retriedUsageId задан) — её нужно откатить на границы первого, а не
     // плодить рядом новую; ключ идемпотентности при этом настоящий.
+    if (retriedUsageBelongsToOther) {
+      // Не отказ восстановления (он ниже либо пройдёт, либо сам отчитается
+      // через logRestoreFailure) — факт самой гонки: ключ идемпотентности
+      // этой сцены перехватил параллельный прогон. Раньше это событие не
+      // оставляло в логе никакого следа при успешном create() ниже (Nit 4,
+      // ре-ревью фикс-раунда 1) — единственный канал у guard тот же, что и у
+      // отказов восстановления.
+      console.error(
+        `[recording-window-frame-guard] ключ идемпотентности (videoId=${input.videoId}, `
+        + `sceneIndex=${input.sceneIndex}) занят параллельным прогоном этой же сцены — `
+        + `интервал первого окна (usageId=${input.window.usageId}) защищён служебной строкой без ключа`,
+      )
+    }
     await restoreOriginalUsage(input, hash, retriedUsageId, {
       useIdempotencyKey: !retriedUsageBelongsToOther,
     })

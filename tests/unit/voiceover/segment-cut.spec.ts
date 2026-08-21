@@ -434,7 +434,7 @@ describe("temp+rename для скачивания записи ведущего 
     expect(existsSync(localRecordingPath)).toBe(false)
   })
 
-  it("временный файл записан целиком, но переименование падает (гонка/блокировка) — целевой путь остаётся нетронутым, не обрезанным", async () => {
+  it("временный файл записан целиком, но переименование падает (гонка/блокировка) — исходный temp остаётся нетронутым, целевой путь не обрезан", async () => {
     const localRecordingPath = join(SCRATCH_DIR, "recording_raced321.mp4")
     const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
     await writeFile(tempRecordingPath, "нормализованная-запись-целиком")
@@ -445,14 +445,22 @@ describe("temp+rename для скачивания записи ведущего 
     // просто не передаёт его и получает дефолтный `rename` из node:fs/promises.
     // Здесь имитируем ситуацию "переименование в принципе невозможно"
     // (например ENOENT на исчезнувшем во время гонки temp-файле) — цель не в
-    // причине отказа (она уже покрыта тестами EPERM/EBUSY/ENOENT ниже), а в
-    // том, что провалившийся rename не оставляет обрезанный файл по целевому
-    // пути, даже когда временный файл был записан полностью.
+    // причине отказа (она уже покрыта тестами EPERM/EBUSY/ENOENT выше), а в
+    // том, что провалившееся переименование не портит и не удаляет исходный
+    // temp-файл, а не только "не создаёт целевой". Nit 3, ре-ревью
+    // фикс-раунда 1: заглушка не трогает файловую систему сама, поэтому
+    // прежняя единственная проверка (`existsSync(target) === false`) не могла
+    // упасть НИ ПРИ КАКОЙ правке продакшн-кода — target тут неоткуда взяться
+    // в принципе. Проверка на temp — настоящая: она упадёт, если
+    // renameWithRetry когда-нибудь начнёт трогать/удалять исходный файл при
+    // отказе (например "оптимизация" вида copy+delete вместо rename).
     const renameFile = async () => { throw Object.assign(new Error("рукотворный отказ переименования"), { code: "ENOENT" }) }
 
     await expect(renameWithRetry(tempRecordingPath, localRecordingPath, 1, renameFile))
       .rejects.toMatchObject({ code: "ENOENT" })
 
+    expect(existsSync(tempRecordingPath)).toBe(true)
+    expect(readFileSync(tempRecordingPath, "utf8")).toBe("нормализованная-запись-целиком")
     expect(existsSync(localRecordingPath)).toBe(false)
   })
 
