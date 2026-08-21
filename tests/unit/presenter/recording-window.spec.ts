@@ -72,6 +72,36 @@ describe("выбор окна внутри записи ведущего", () =>
     expect(planRecordingWindow(base({ recordingDurationSec: 3, requiredSec: 5 }))).toBeNull()
   })
 
+  it("даёт окно на записи ровно требуемой длины, невыровненной по кадру", () => {
+    // recordingDurationSec === requiredSec, но ни то ни другое не кратно 1/30.
+    // Конец окна, округлённый вверх, вылезает за запись на 17мс — это меньше
+    // кадра (33мс), поэтому окно принимается, прижатое к последнему кадру записи.
+    const window = planRecordingWindow(base({ recordingDurationSec: 5.017, requiredSec: 5.017 }))
+
+    expect(window).not.toBeNull()
+    expect(window!.startSec).toBe(0)
+    expect(window!.endSec).toBeCloseTo(5, 3)
+    expect(window!.durationSec).toBeCloseTo(5, 3)
+    // Недостача — доли кадра, не кадр целиком.
+    expect(5.017 - window!.durationSec).toBeLessThan(1 / 30)
+  })
+
+  it("даёт окно, когда запись длиннее требуемого на несколько миллисекунд", () => {
+    // Раньше здесь тоже уходило в null: округление конца окна к БЛИЖАЙШЕМУ
+    // кадру (5.0333) вылезало за фактическую длину записи (5.02) точно так же,
+    // хотя запись и длиннее заказанного.
+    const window = planRecordingWindow(base({ recordingDurationSec: 5.02, requiredSec: 5.017 }))
+
+    expect(window).not.toBeNull()
+    expect(window!.durationSec).toBeCloseTo(5, 3)
+  })
+
+  it("отказывает, когда запись короче требуемого больше чем на кадр", () => {
+    // Недостача 117мс — заметно больше одного кадра (33мс). Ни одна позиция
+    // не проходит допуск, результат честный null.
+    expect(planRecordingWindow(base({ recordingDurationSec: 4.9, requiredSec: 5.017 }))).toBeNull()
+  })
+
   it("отказывает на бессмысленном входе, а не выдумывает окно", () => {
     expect(planRecordingWindow(base({ requiredSec: 0 }))).toBeNull()
     expect(planRecordingWindow(base({ requiredSec: Number.NaN }))).toBeNull()
@@ -82,5 +112,35 @@ describe("выбор окна внутри записи ведущего", () =>
     const window = planRecordingWindow(base({ fps: 0, requiredSec: 4.017 }))!
 
     expect(window.durationSec).toBeCloseTo(4.017, 3)
+  })
+
+  it("предпочитает нетронутый хвост остывшей голове, а не первую позицию по сканированию", () => {
+    // Голова 0-5 занята, но 48 часов назад — cooldown (24ч) давно истёк, она
+    // остыла. Хвост 5-10 не тронут вовсе. У обоих overlapSec (по горячим
+    // интервалам) одинаково нулевой — до правки при равенстве побеждала первая
+    // по сканированию позиция, то есть остывшая голова. Победить обязан хвост.
+    const window = planRecordingWindow(base({
+      recordingDurationSec: 10,
+      requiredSec: 5,
+      usedIntervals: [{ startSec: 0, endSec: 5, usedAtMs: NOW - 48 * HOUR }],
+    }))!
+
+    expect(window.startSec).toBeGreaterThanOrEqual(5)
+    expect(window.overlapSec).toBe(0)
+    expect(window.reused).toBe(false)
+  })
+
+  it("не отравляется интервалом с нечисловыми границами", () => {
+    // startSec: NaN — overlap() с ним даёт NaN, и без фильтра первый же
+    // кандидат намертво застревает в best, хотя вся запись за вычетом мусорного
+    // интервала свободна.
+    const window = planRecordingWindow(base({
+      recordingDurationSec: 20,
+      requiredSec: 5,
+      usedIntervals: [{ startSec: Number.NaN, endSec: 5, usedAtMs: NOW - HOUR }],
+    }))!
+
+    expect(window.overlapSec).toBe(0)
+    expect(window.reused).toBe(false)
   })
 })
