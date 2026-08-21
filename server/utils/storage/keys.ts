@@ -63,6 +63,10 @@ export const StorageKeys = {
   appReferenceImage: (appId: number | string, sha1: string, ext = "png"): string =>
     `${STORAGE_PATH_PREFIX}apps/${appId}/references/${sha1}.${ext}`,
 
+  /** Фон из библиотеки монтажа. Дедуп по sha1 в пределах приложения. */
+  backgroundClip: (appId: number | string, sha1: string, ext = "mp4"): string =>
+    `${STORAGE_PATH_PREFIX}apps/${appId}/backgrounds/${sha1}.${ext}`,
+
   /** Character reference image (F1) — per-character папка с dedup по sha1 на уровне characterId.
    *  GCS path: `zavodcamp/apps/{appId}/characters/{characterId}/{sha1}.{ext}`. */
   characterReferenceImage: (appId: number | string, characterId: string, sha1: string, ext = "png"): string =>

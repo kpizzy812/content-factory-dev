@@ -123,6 +123,9 @@ export const ModelName = {
   TaxonomyItem: 'TaxonomyItem',
   AiAuditLog: 'AiAuditLog',
   ServiceBalanceEntry: 'ServiceBalanceEntry',
+  EditProfile: 'EditProfile',
+  BackgroundClip: 'BackgroundClip',
+  VideoShot: 'VideoShot',
   ScenarioGenerationProfile: 'ScenarioGenerationProfile',
   ScenarioFeedback: 'ScenarioFeedback',
   ScenarioMemory: 'ScenarioMemory',
@@ -654,7 +657,9 @@ export const VideoScalarFieldEnum = {
   framePassRunAt: 'framePassRunAt',
   analysisDurationSec: 'analysisDurationSec',
   fitScore: 'fitScore',
-  fitRationale: 'fitRationale'
+  fitRationale: 'fitRationale',
+  editProfileId: 'editProfileId',
+  editOverrides: 'editOverrides'
 } as const
 
 export type VideoScalarFieldEnum = (typeof VideoScalarFieldEnum)[keyof typeof VideoScalarFieldEnum]
@@ -1783,6 +1788,81 @@ export const ServiceBalanceEntryScalarFieldEnum = {
 } as const
 
 export type ServiceBalanceEntryScalarFieldEnum = (typeof ServiceBalanceEntryScalarFieldEnum)[keyof typeof ServiceBalanceEntryScalarFieldEnum]
+
+
+export const EditProfileScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  name: 'name',
+  description: 'description',
+  isDefault: 'isDefault',
+  editPrompt: 'editPrompt',
+  brollRatio: 'brollRatio',
+  shotChangeSec: 'shotChangeSec',
+  pipEnabled: 'pipEnabled',
+  pipPosition: 'pipPosition',
+  pipSize: 'pipSize',
+  generativeVideoEnabled: 'generativeVideoEnabled',
+  generativeVideoBudgetUsd: 'generativeVideoBudgetUsd',
+  generativeVideoResolution: 'generativeVideoResolution',
+  stepwiseApproval: 'stepwiseApproval',
+  llmModelId: 'llmModelId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EditProfileScalarFieldEnum = (typeof EditProfileScalarFieldEnum)[keyof typeof EditProfileScalarFieldEnum]
+
+
+export const BackgroundClipScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  name: 'name',
+  storageKey: 'storageKey',
+  storageProvider: 'storageProvider',
+  sha1: 'sha1',
+  mimeType: 'mimeType',
+  bytes: 'bytes',
+  durationSec: 'durationSec',
+  width: 'width',
+  height: 'height',
+  kind: 'kind',
+  tags: 'tags',
+  isActive: 'isActive',
+  usageCount: 'usageCount',
+  lastUsedAt: 'lastUsedAt',
+  perceptualHash: 'perceptualHash',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BackgroundClipScalarFieldEnum = (typeof BackgroundClipScalarFieldEnum)[keyof typeof BackgroundClipScalarFieldEnum]
+
+
+export const VideoShotScalarFieldEnum = {
+  id: 'id',
+  videoId: 'videoId',
+  order: 'order',
+  startSec: 'startSec',
+  endSec: 'endSec',
+  sceneOrder: 'sceneOrder',
+  foreground: 'foreground',
+  background: 'background',
+  backgroundClipId: 'backgroundClipId',
+  appReferenceId: 'appReferenceId',
+  idea: 'idea',
+  pipEnabled: 'pipEnabled',
+  status: 'status',
+  assetPath: 'assetPath',
+  costUsd: 'costUsd',
+  perceptualHash: 'perceptualHash',
+  degradeReason: 'degradeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VideoShotScalarFieldEnum = (typeof VideoShotScalarFieldEnum)[keyof typeof VideoShotScalarFieldEnum]
 
 
 export const ScenarioGenerationProfileScalarFieldEnum = {

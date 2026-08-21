@@ -436,6 +436,35 @@ export type AiAuditLog = Prisma.AiAuditLogModel
  */
 export type ServiceBalanceEntry = Prisma.ServiceBalanceEntryModel
 /**
+ * Model EditProfile
+ * Монтажный профиль бренда: правила, по которым режется ролик.
+ * 
+ * Правил монтажа как сущности в проекте не было вовсе — всё, что можно было
+ * сделать, это переписать промпт сценариста (spec §1.4). Профиль принадлежит
+ * приложению (бренду); ролик наследует его и может перебить отдельными полями
+ * через Video.editOverrides.
+ */
+export type EditProfile = Prisma.EditProfileModel
+/**
+ * Model BackgroundClip
+ * Библиотека загружаемых фонов: запись экрана, лид-магнит, канал, готовая съёмка.
+ * 
+ * Устроена как PresenterSourceClip — файл в хранилище, sha1 для дедупа,
+ * перцептивный хэш и история использования для cooldown (§5.2).
+ */
+export type BackgroundClip = Prisma.BackgroundClipModel
+/**
+ * Model VideoShot
+ * Кадр смонтированного ролика.
+ * 
+ * Отдельная таблица, а не Json на ролике: она даёт перегенерацию одного кадра
+ * без пересборки соседей, идемпотентность шага и аудит стоимости по кадрам
+ * (§5.2). Перцептивный хэш кадра здесь не для галочки — при шаге монтажа
+ * 1.5-2 с граница кадра почти совпадает с шагом сэмплирования отпечатка
+ * ролика, и отдельный проход по готовому файлу становится не нужен.
+ */
+export type VideoShot = Prisma.VideoShotModel
+/**
  * Model ScenarioGenerationProfile
  * 
  */

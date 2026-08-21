@@ -456,6 +456,9 @@ export const ModelName = {
   TaxonomyItem: 'TaxonomyItem',
   AiAuditLog: 'AiAuditLog',
   ServiceBalanceEntry: 'ServiceBalanceEntry',
+  EditProfile: 'EditProfile',
+  BackgroundClip: 'BackgroundClip',
+  VideoShot: 'VideoShot',
   ScenarioGenerationProfile: 'ScenarioGenerationProfile',
   ScenarioFeedback: 'ScenarioFeedback',
   ScenarioMemory: 'ScenarioMemory',
@@ -483,7 +486,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "presenterRecording" | "presenterRecordingUsage" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption" | "savedView"
+    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "presenterRecording" | "presenterRecordingUsage" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "editProfile" | "backgroundClip" | "videoShot" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption" | "savedView"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -5815,6 +5818,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    EditProfile: {
+      payload: Prisma.$EditProfilePayload<ExtArgs>
+      fields: Prisma.EditProfileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EditProfileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EditProfileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>
+        }
+        findFirst: {
+          args: Prisma.EditProfileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EditProfileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>
+        }
+        findMany: {
+          args: Prisma.EditProfileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>[]
+        }
+        create: {
+          args: Prisma.EditProfileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>
+        }
+        createMany: {
+          args: Prisma.EditProfileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EditProfileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>[]
+        }
+        delete: {
+          args: Prisma.EditProfileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>
+        }
+        update: {
+          args: Prisma.EditProfileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>
+        }
+        deleteMany: {
+          args: Prisma.EditProfileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EditProfileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EditProfileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>[]
+        }
+        upsert: {
+          args: Prisma.EditProfileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EditProfilePayload>
+        }
+        aggregate: {
+          args: Prisma.EditProfileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEditProfile>
+        }
+        groupBy: {
+          args: Prisma.EditProfileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EditProfileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EditProfileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EditProfileCountAggregateOutputType> | number
+        }
+      }
+    }
+    BackgroundClip: {
+      payload: Prisma.$BackgroundClipPayload<ExtArgs>
+      fields: Prisma.BackgroundClipFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BackgroundClipFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BackgroundClipFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>
+        }
+        findFirst: {
+          args: Prisma.BackgroundClipFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BackgroundClipFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>
+        }
+        findMany: {
+          args: Prisma.BackgroundClipFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>[]
+        }
+        create: {
+          args: Prisma.BackgroundClipCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>
+        }
+        createMany: {
+          args: Prisma.BackgroundClipCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BackgroundClipCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>[]
+        }
+        delete: {
+          args: Prisma.BackgroundClipDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>
+        }
+        update: {
+          args: Prisma.BackgroundClipUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>
+        }
+        deleteMany: {
+          args: Prisma.BackgroundClipDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BackgroundClipUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BackgroundClipUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>[]
+        }
+        upsert: {
+          args: Prisma.BackgroundClipUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundClipPayload>
+        }
+        aggregate: {
+          args: Prisma.BackgroundClipAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBackgroundClip>
+        }
+        groupBy: {
+          args: Prisma.BackgroundClipGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackgroundClipGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BackgroundClipCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackgroundClipCountAggregateOutputType> | number
+        }
+      }
+    }
+    VideoShot: {
+      payload: Prisma.$VideoShotPayload<ExtArgs>
+      fields: Prisma.VideoShotFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.VideoShotFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.VideoShotFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>
+        }
+        findFirst: {
+          args: Prisma.VideoShotFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.VideoShotFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>
+        }
+        findMany: {
+          args: Prisma.VideoShotFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>[]
+        }
+        create: {
+          args: Prisma.VideoShotCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>
+        }
+        createMany: {
+          args: Prisma.VideoShotCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.VideoShotCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>[]
+        }
+        delete: {
+          args: Prisma.VideoShotDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>
+        }
+        update: {
+          args: Prisma.VideoShotUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>
+        }
+        deleteMany: {
+          args: Prisma.VideoShotDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.VideoShotUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.VideoShotUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>[]
+        }
+        upsert: {
+          args: Prisma.VideoShotUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VideoShotPayload>
+        }
+        aggregate: {
+          args: Prisma.VideoShotAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateVideoShot>
+        }
+        groupBy: {
+          args: Prisma.VideoShotGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.VideoShotGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.VideoShotCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.VideoShotCountAggregateOutputType> | number
+        }
+      }
+    }
     ScenarioGenerationProfile: {
       payload: Prisma.$ScenarioGenerationProfilePayload<ExtArgs>
       fields: Prisma.ScenarioGenerationProfileFieldRefs
@@ -7243,7 +7468,9 @@ export const VideoScalarFieldEnum = {
   framePassRunAt: 'framePassRunAt',
   analysisDurationSec: 'analysisDurationSec',
   fitScore: 'fitScore',
-  fitRationale: 'fitRationale'
+  fitRationale: 'fitRationale',
+  editProfileId: 'editProfileId',
+  editOverrides: 'editOverrides'
 } as const
 
 export type VideoScalarFieldEnum = (typeof VideoScalarFieldEnum)[keyof typeof VideoScalarFieldEnum]
@@ -8372,6 +8599,81 @@ export const ServiceBalanceEntryScalarFieldEnum = {
 } as const
 
 export type ServiceBalanceEntryScalarFieldEnum = (typeof ServiceBalanceEntryScalarFieldEnum)[keyof typeof ServiceBalanceEntryScalarFieldEnum]
+
+
+export const EditProfileScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  name: 'name',
+  description: 'description',
+  isDefault: 'isDefault',
+  editPrompt: 'editPrompt',
+  brollRatio: 'brollRatio',
+  shotChangeSec: 'shotChangeSec',
+  pipEnabled: 'pipEnabled',
+  pipPosition: 'pipPosition',
+  pipSize: 'pipSize',
+  generativeVideoEnabled: 'generativeVideoEnabled',
+  generativeVideoBudgetUsd: 'generativeVideoBudgetUsd',
+  generativeVideoResolution: 'generativeVideoResolution',
+  stepwiseApproval: 'stepwiseApproval',
+  llmModelId: 'llmModelId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EditProfileScalarFieldEnum = (typeof EditProfileScalarFieldEnum)[keyof typeof EditProfileScalarFieldEnum]
+
+
+export const BackgroundClipScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  name: 'name',
+  storageKey: 'storageKey',
+  storageProvider: 'storageProvider',
+  sha1: 'sha1',
+  mimeType: 'mimeType',
+  bytes: 'bytes',
+  durationSec: 'durationSec',
+  width: 'width',
+  height: 'height',
+  kind: 'kind',
+  tags: 'tags',
+  isActive: 'isActive',
+  usageCount: 'usageCount',
+  lastUsedAt: 'lastUsedAt',
+  perceptualHash: 'perceptualHash',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BackgroundClipScalarFieldEnum = (typeof BackgroundClipScalarFieldEnum)[keyof typeof BackgroundClipScalarFieldEnum]
+
+
+export const VideoShotScalarFieldEnum = {
+  id: 'id',
+  videoId: 'videoId',
+  order: 'order',
+  startSec: 'startSec',
+  endSec: 'endSec',
+  sceneOrder: 'sceneOrder',
+  foreground: 'foreground',
+  background: 'background',
+  backgroundClipId: 'backgroundClipId',
+  appReferenceId: 'appReferenceId',
+  idea: 'idea',
+  pipEnabled: 'pipEnabled',
+  status: 'status',
+  assetPath: 'assetPath',
+  costUsd: 'costUsd',
+  perceptualHash: 'perceptualHash',
+  degradeReason: 'degradeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VideoShotScalarFieldEnum = (typeof VideoShotScalarFieldEnum)[keyof typeof VideoShotScalarFieldEnum]
 
 
 export const ScenarioGenerationProfileScalarFieldEnum = {
@@ -9518,6 +9820,9 @@ export type GlobalOmitConfig = {
   taxonomyItem?: Prisma.TaxonomyItemOmit
   aiAuditLog?: Prisma.AiAuditLogOmit
   serviceBalanceEntry?: Prisma.ServiceBalanceEntryOmit
+  editProfile?: Prisma.EditProfileOmit
+  backgroundClip?: Prisma.BackgroundClipOmit
+  videoShot?: Prisma.VideoShotOmit
   scenarioGenerationProfile?: Prisma.ScenarioGenerationProfileOmit
   scenarioFeedback?: Prisma.ScenarioFeedbackOmit
   scenarioMemory?: Prisma.ScenarioMemoryOmit

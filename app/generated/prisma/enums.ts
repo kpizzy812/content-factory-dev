@@ -198,7 +198,8 @@ export const VideoStepKey = {
   music_generation: 'music_generation',
   lip_sync_generation: 'lip_sync_generation',
   assembly: 'assembly',
-  transcription: 'transcription'
+  transcription: 'transcription',
+  edit_plan: 'edit_plan'
 } as const
 
 export type VideoStepKey = (typeof VideoStepKey)[keyof typeof VideoStepKey]

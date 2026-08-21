@@ -456,6 +456,8 @@ export type AppWhereInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileListRelationFilter
   enrichmentLogs?: Prisma.AppEnrichmentLogListRelationFilter
   generationProfiles?: Prisma.ScenarioGenerationProfileListRelationFilter
+  editProfiles?: Prisma.EditProfileListRelationFilter
+  backgroundClips?: Prisma.BackgroundClipListRelationFilter
   scenarioMemories?: Prisma.ScenarioMemoryListRelationFilter
   favoritePrompts?: Prisma.FavoritePromptListRelationFilter
   referenceImages?: Prisma.AppReferenceImageListRelationFilter
@@ -517,6 +519,8 @@ export type AppOrderByWithRelationInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileOrderByRelationAggregateInput
   enrichmentLogs?: Prisma.AppEnrichmentLogOrderByRelationAggregateInput
   generationProfiles?: Prisma.ScenarioGenerationProfileOrderByRelationAggregateInput
+  editProfiles?: Prisma.EditProfileOrderByRelationAggregateInput
+  backgroundClips?: Prisma.BackgroundClipOrderByRelationAggregateInput
   scenarioMemories?: Prisma.ScenarioMemoryOrderByRelationAggregateInput
   favoritePrompts?: Prisma.FavoritePromptOrderByRelationAggregateInput
   referenceImages?: Prisma.AppReferenceImageOrderByRelationAggregateInput
@@ -581,6 +585,8 @@ export type AppWhereUniqueInput = Prisma.AtLeast<{
   trendwatcherProfiles?: Prisma.TrendwatcherProfileListRelationFilter
   enrichmentLogs?: Prisma.AppEnrichmentLogListRelationFilter
   generationProfiles?: Prisma.ScenarioGenerationProfileListRelationFilter
+  editProfiles?: Prisma.EditProfileListRelationFilter
+  backgroundClips?: Prisma.BackgroundClipListRelationFilter
   scenarioMemories?: Prisma.ScenarioMemoryListRelationFilter
   favoritePrompts?: Prisma.FavoritePromptListRelationFilter
   referenceImages?: Prisma.AppReferenceImageListRelationFilter
@@ -733,6 +739,8 @@ export type AppCreateInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -794,6 +802,8 @@ export type AppUncheckedCreateInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -854,6 +864,8 @@ export type AppUpdateInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -915,6 +927,8 @@ export type AppUncheckedUpdateInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -1480,6 +1494,36 @@ export type AppUpdateOneRequiredWithoutTrendwatcherProfilesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutTrendwatcherProfilesInput, Prisma.AppUpdateWithoutTrendwatcherProfilesInput>, Prisma.AppUncheckedUpdateWithoutTrendwatcherProfilesInput>
 }
 
+export type AppCreateNestedOneWithoutEditProfilesInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutEditProfilesInput, Prisma.AppUncheckedCreateWithoutEditProfilesInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutEditProfilesInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneWithoutEditProfilesNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutEditProfilesInput, Prisma.AppUncheckedCreateWithoutEditProfilesInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutEditProfilesInput
+  upsert?: Prisma.AppUpsertWithoutEditProfilesInput
+  disconnect?: Prisma.AppWhereInput | boolean
+  delete?: Prisma.AppWhereInput | boolean
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutEditProfilesInput, Prisma.AppUpdateWithoutEditProfilesInput>, Prisma.AppUncheckedUpdateWithoutEditProfilesInput>
+}
+
+export type AppCreateNestedOneWithoutBackgroundClipsInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutBackgroundClipsInput, Prisma.AppUncheckedCreateWithoutBackgroundClipsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutBackgroundClipsInput
+  connect?: Prisma.AppWhereUniqueInput
+}
+
+export type AppUpdateOneRequiredWithoutBackgroundClipsNestedInput = {
+  create?: Prisma.XOR<Prisma.AppCreateWithoutBackgroundClipsInput, Prisma.AppUncheckedCreateWithoutBackgroundClipsInput>
+  connectOrCreate?: Prisma.AppCreateOrConnectWithoutBackgroundClipsInput
+  upsert?: Prisma.AppUpsertWithoutBackgroundClipsInput
+  connect?: Prisma.AppWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppUpdateToOneWithWhereWithoutBackgroundClipsInput, Prisma.AppUpdateWithoutBackgroundClipsInput>, Prisma.AppUncheckedUpdateWithoutBackgroundClipsInput>
+}
+
 export type AppCreateNestedOneWithoutGenerationProfilesInput = {
   create?: Prisma.XOR<Prisma.AppCreateWithoutGenerationProfilesInput, Prisma.AppUncheckedCreateWithoutGenerationProfilesInput>
   connectOrCreate?: Prisma.AppCreateOrConnectWithoutGenerationProfilesInput
@@ -1591,6 +1635,8 @@ export type AppCreateWithoutCharactersInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -1651,6 +1697,8 @@ export type AppUncheckedCreateWithoutCharactersInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -1726,6 +1774,8 @@ export type AppUpdateWithoutCharactersInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -1786,6 +1836,8 @@ export type AppUncheckedUpdateWithoutCharactersInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -1845,6 +1897,8 @@ export type AppCreateWithoutScenesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -1905,6 +1959,8 @@ export type AppUncheckedCreateWithoutScenesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -1980,6 +2036,8 @@ export type AppUpdateWithoutScenesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -2040,6 +2098,8 @@ export type AppUncheckedUpdateWithoutScenesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -2099,6 +2159,8 @@ export type AppCreateWithoutReferenceImagesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
@@ -2159,6 +2221,8 @@ export type AppUncheckedCreateWithoutReferenceImagesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
@@ -2234,6 +2298,8 @@ export type AppUpdateWithoutReferenceImagesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
@@ -2294,6 +2360,8 @@ export type AppUncheckedUpdateWithoutReferenceImagesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
@@ -2352,6 +2420,8 @@ export type AppCreateWithoutEnrichmentLogsInput = {
   ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -2412,6 +2482,8 @@ export type AppUncheckedCreateWithoutEnrichmentLogsInput = {
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -2487,6 +2559,8 @@ export type AppUpdateWithoutEnrichmentLogsInput = {
   ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -2547,6 +2621,8 @@ export type AppUncheckedUpdateWithoutEnrichmentLogsInput = {
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -2606,6 +2682,8 @@ export type AppCreateWithoutTrendsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -2666,6 +2744,8 @@ export type AppUncheckedCreateWithoutTrendsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -2741,6 +2821,8 @@ export type AppUpdateWithoutTrendsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -2801,6 +2883,8 @@ export type AppUncheckedUpdateWithoutTrendsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -2860,6 +2944,8 @@ export type AppCreateWithoutSocialAccountsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -2920,6 +3006,8 @@ export type AppUncheckedCreateWithoutSocialAccountsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -2995,6 +3083,8 @@ export type AppUpdateWithoutSocialAccountsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -3055,6 +3145,8 @@ export type AppUncheckedUpdateWithoutSocialAccountsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -3114,6 +3206,8 @@ export type AppCreateWithoutAccountGroupsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -3174,6 +3268,8 @@ export type AppUncheckedCreateWithoutAccountGroupsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -3249,6 +3345,8 @@ export type AppUpdateWithoutAccountGroupsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -3309,6 +3407,8 @@ export type AppUncheckedUpdateWithoutAccountGroupsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -3368,6 +3468,8 @@ export type AppCreateWithoutCyclesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -3428,6 +3530,8 @@ export type AppUncheckedCreateWithoutCyclesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -3503,6 +3607,8 @@ export type AppUpdateWithoutCyclesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -3563,6 +3669,8 @@ export type AppUncheckedUpdateWithoutCyclesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -3623,6 +3731,8 @@ export type AppCreateWithoutLeadMagnetsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -3683,6 +3793,8 @@ export type AppUncheckedCreateWithoutLeadMagnetsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -3758,6 +3870,8 @@ export type AppUpdateWithoutLeadMagnetsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -3818,6 +3932,8 @@ export type AppUncheckedUpdateWithoutLeadMagnetsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -3877,6 +3993,8 @@ export type AppCreateWithoutContentFunnelsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -3937,6 +4055,8 @@ export type AppUncheckedCreateWithoutContentFunnelsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -4012,6 +4132,8 @@ export type AppUpdateWithoutContentFunnelsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -4072,6 +4194,8 @@ export type AppUncheckedUpdateWithoutContentFunnelsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -4131,6 +4255,8 @@ export type AppCreateWithoutContentHypothesesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -4191,6 +4317,8 @@ export type AppUncheckedCreateWithoutContentHypothesesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -4266,6 +4394,8 @@ export type AppUpdateWithoutContentHypothesesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -4326,6 +4456,8 @@ export type AppUncheckedUpdateWithoutContentHypothesesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -4385,6 +4517,8 @@ export type AppCreateWithoutFactoryPublicationsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -4445,6 +4579,8 @@ export type AppUncheckedCreateWithoutFactoryPublicationsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -4520,6 +4656,8 @@ export type AppUpdateWithoutFactoryPublicationsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -4580,6 +4718,8 @@ export type AppUncheckedUpdateWithoutFactoryPublicationsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -4639,6 +4779,8 @@ export type AppCreateWithoutFactoryQaReviewsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -4699,6 +4841,8 @@ export type AppUncheckedCreateWithoutFactoryQaReviewsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -4774,6 +4918,8 @@ export type AppUpdateWithoutFactoryQaReviewsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -4834,6 +4980,8 @@ export type AppUncheckedUpdateWithoutFactoryQaReviewsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -4892,6 +5040,8 @@ export type AppCreateWithoutIdeasInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -4952,6 +5102,8 @@ export type AppUncheckedCreateWithoutIdeasInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -5027,6 +5179,8 @@ export type AppUpdateWithoutIdeasInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -5087,6 +5241,8 @@ export type AppUncheckedUpdateWithoutIdeasInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -5146,6 +5302,8 @@ export type AppCreateWithoutTrendwatcherProfilesInput = {
   ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -5206,6 +5364,8 @@ export type AppUncheckedCreateWithoutTrendwatcherProfilesInput = {
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -5281,6 +5441,8 @@ export type AppUpdateWithoutTrendwatcherProfilesInput = {
   ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -5341,6 +5503,532 @@ export type AppUncheckedUpdateWithoutTrendwatcherProfilesInput = {
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutEditProfilesInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutEditProfilesInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutEditProfilesInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutEditProfilesInput, Prisma.AppUncheckedCreateWithoutEditProfilesInput>
+}
+
+export type AppUpsertWithoutEditProfilesInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutEditProfilesInput, Prisma.AppUncheckedUpdateWithoutEditProfilesInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutEditProfilesInput, Prisma.AppUncheckedCreateWithoutEditProfilesInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutEditProfilesInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutEditProfilesInput, Prisma.AppUncheckedUpdateWithoutEditProfilesInput>
+}
+
+export type AppUpdateWithoutEditProfilesInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutEditProfilesInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUncheckedUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUncheckedUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedUpdateManyWithoutAppNestedInput
+}
+
+export type AppCreateWithoutBackgroundClipsInput = {
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewCreateNestedManyWithoutAppInput
+}
+
+export type AppUncheckedCreateWithoutBackgroundClipsInput = {
+  id?: number
+  externalId?: number | null
+  name: string
+  description?: string | null
+  keywords?: Prisma.AppCreatekeywordsInput | string[]
+  geo?: string | null
+  language?: string | null
+  appStoreUrl?: string | null
+  playStoreUrl?: string | null
+  storePlatforms?: Prisma.AppCreatestorePlatformsInput | string[]
+  productName?: string | null
+  subtitle?: string | null
+  longDescription?: string | null
+  developer?: string | null
+  categories?: Prisma.AppCreatecategoriesInput | string[]
+  targetAudience?: string | null
+  pricingNotes?: string | null
+  iconUrl?: string | null
+  screenshotUrls?: Prisma.AppCreatescreenshotUrlsInput | string[]
+  heroImageUrl?: string | null
+  referenceImageUrls?: Prisma.AppCreatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppCreatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppCreateasoKeywordsInput | string[]
+  onboardingSummary?: string | null
+  aiSummary?: string | null
+  brandTone?: string | null
+  visualCues?: string | null
+  forbiddenClaims?: Prisma.AppCreateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppCreateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: string | null
+  corePain?: string | null
+  coreOutcome?: string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: string | null
+  lastEnrichedAt?: Date | string | null
+  enrichmentError?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  trends?: Prisma.TrendUncheckedCreateNestedManyWithoutAppInput
+  socialAccounts?: Prisma.SocialAccountUncheckedCreateNestedManyWithoutAppInput
+  accountGroups?: Prisma.AccountGroupUncheckedCreateNestedManyWithoutAppInput
+  cycles?: Prisma.ProductionCycleUncheckedCreateNestedManyWithoutAppInput
+  ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
+  favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
+  referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
+  characters?: Prisma.CharacterUncheckedCreateNestedManyWithoutAppInput
+  scenes?: Prisma.SceneUncheckedCreateNestedManyWithoutAppInput
+  leadMagnets?: Prisma.LeadMagnetUncheckedCreateNestedManyWithoutAppInput
+  contentFunnels?: Prisma.ContentFunnelUncheckedCreateNestedManyWithoutAppInput
+  contentHypotheses?: Prisma.ContentHypothesisUncheckedCreateNestedManyWithoutAppInput
+  factoryPublications?: Prisma.FactoryPublicationUncheckedCreateNestedManyWithoutAppInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUncheckedCreateNestedManyWithoutAppInput
+}
+
+export type AppCreateOrConnectWithoutBackgroundClipsInput = {
+  where: Prisma.AppWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppCreateWithoutBackgroundClipsInput, Prisma.AppUncheckedCreateWithoutBackgroundClipsInput>
+}
+
+export type AppUpsertWithoutBackgroundClipsInput = {
+  update: Prisma.XOR<Prisma.AppUpdateWithoutBackgroundClipsInput, Prisma.AppUncheckedUpdateWithoutBackgroundClipsInput>
+  create: Prisma.XOR<Prisma.AppCreateWithoutBackgroundClipsInput, Prisma.AppUncheckedCreateWithoutBackgroundClipsInput>
+  where?: Prisma.AppWhereInput
+}
+
+export type AppUpdateToOneWithWhereWithoutBackgroundClipsInput = {
+  where?: Prisma.AppWhereInput
+  data: Prisma.XOR<Prisma.AppUpdateWithoutBackgroundClipsInput, Prisma.AppUncheckedUpdateWithoutBackgroundClipsInput>
+}
+
+export type AppUpdateWithoutBackgroundClipsInput = {
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
+  favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
+  referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
+  warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
+  characters?: Prisma.CharacterUpdateManyWithoutAppNestedInput
+  scenes?: Prisma.SceneUpdateManyWithoutAppNestedInput
+  leadMagnets?: Prisma.LeadMagnetUpdateManyWithoutAppNestedInput
+  contentFunnels?: Prisma.ContentFunnelUpdateManyWithoutAppNestedInput
+  contentHypotheses?: Prisma.ContentHypothesisUpdateManyWithoutAppNestedInput
+  factoryPublications?: Prisma.FactoryPublicationUpdateManyWithoutAppNestedInput
+  factoryQaReviews?: Prisma.FactoryQualityReviewUpdateManyWithoutAppNestedInput
+}
+
+export type AppUncheckedUpdateWithoutBackgroundClipsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  externalId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.AppUpdatekeywordsInput | string[]
+  geo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  playStoreUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storePlatforms?: Prisma.AppUpdatestorePlatformsInput | string[]
+  productName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subtitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  longDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  developer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  categories?: Prisma.AppUpdatecategoriesInput | string[]
+  targetAudience?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pricingNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iconUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  screenshotUrls?: Prisma.AppUpdatescreenshotUrlsInput | string[]
+  heroImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceImageUrls?: Prisma.AppUpdatereferenceImageUrlsInput | string[]
+  featureBullets?: Prisma.AppUpdatefeatureBulletsInput | string[]
+  asoKeywords?: Prisma.AppUpdateasoKeywordsInput | string[]
+  onboardingSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  brandTone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visualCues?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  forbiddenClaims?: Prisma.AppUpdateforbiddenClaimsInput | string[]
+  riskyClaims?: Prisma.AppUpdateriskyClaimsInput | string[]
+  creativeAngles?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  transformationPromise?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  corePain?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coreOutcome?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  scenarioContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  enrichmentStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastEnrichedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  enrichmentError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  trends?: Prisma.TrendUncheckedUpdateManyWithoutAppNestedInput
+  socialAccounts?: Prisma.SocialAccountUncheckedUpdateManyWithoutAppNestedInput
+  accountGroups?: Prisma.AccountGroupUncheckedUpdateManyWithoutAppNestedInput
+  cycles?: Prisma.ProductionCycleUncheckedUpdateManyWithoutAppNestedInput
+  ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
+  trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
+  enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -5400,6 +6088,8 @@ export type AppCreateWithoutGenerationProfilesInput = {
   ideas?: Prisma.IdeaCreateNestedManyWithoutAppInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -5460,6 +6150,8 @@ export type AppUncheckedCreateWithoutGenerationProfilesInput = {
   ideas?: Prisma.IdeaUncheckedCreateNestedManyWithoutAppInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -5535,6 +6227,8 @@ export type AppUpdateWithoutGenerationProfilesInput = {
   ideas?: Prisma.IdeaUpdateManyWithoutAppNestedInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -5595,6 +6289,8 @@ export type AppUncheckedUpdateWithoutGenerationProfilesInput = {
   ideas?: Prisma.IdeaUncheckedUpdateManyWithoutAppNestedInput
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -5655,6 +6351,8 @@ export type AppCreateWithoutScenarioMemoriesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
@@ -5715,6 +6413,8 @@ export type AppUncheckedCreateWithoutScenarioMemoriesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
@@ -5790,6 +6490,8 @@ export type AppUpdateWithoutScenarioMemoriesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
@@ -5850,6 +6552,8 @@ export type AppUncheckedUpdateWithoutScenarioMemoriesInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
@@ -5909,6 +6613,8 @@ export type AppCreateWithoutFavoritePromptsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolCreateNestedManyWithoutAppInput
@@ -5969,6 +6675,8 @@ export type AppUncheckedCreateWithoutFavoritePromptsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedCreateNestedManyWithoutAppInput
@@ -6044,6 +6752,8 @@ export type AppUpdateWithoutFavoritePromptsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUpdateManyWithoutAppNestedInput
@@ -6104,6 +6814,8 @@ export type AppUncheckedUpdateWithoutFavoritePromptsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
   warmupKeywordPools?: Prisma.WarmupKeywordPoolUncheckedUpdateManyWithoutAppNestedInput
@@ -6163,6 +6875,8 @@ export type AppCreateWithoutWarmupKeywordPoolsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageCreateNestedManyWithoutAppInput
@@ -6223,6 +6937,8 @@ export type AppUncheckedCreateWithoutWarmupKeywordPoolsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedCreateNestedManyWithoutAppInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedCreateNestedManyWithoutAppInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedCreateNestedManyWithoutAppInput
+  editProfiles?: Prisma.EditProfileUncheckedCreateNestedManyWithoutAppInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedCreateNestedManyWithoutAppInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedCreateNestedManyWithoutAppInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedCreateNestedManyWithoutAppInput
   referenceImages?: Prisma.AppReferenceImageUncheckedCreateNestedManyWithoutAppInput
@@ -6298,6 +7014,8 @@ export type AppUpdateWithoutWarmupKeywordPoolsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUpdateManyWithoutAppNestedInput
@@ -6358,6 +7076,8 @@ export type AppUncheckedUpdateWithoutWarmupKeywordPoolsInput = {
   trendwatcherProfiles?: Prisma.TrendwatcherProfileUncheckedUpdateManyWithoutAppNestedInput
   enrichmentLogs?: Prisma.AppEnrichmentLogUncheckedUpdateManyWithoutAppNestedInput
   generationProfiles?: Prisma.ScenarioGenerationProfileUncheckedUpdateManyWithoutAppNestedInput
+  editProfiles?: Prisma.EditProfileUncheckedUpdateManyWithoutAppNestedInput
+  backgroundClips?: Prisma.BackgroundClipUncheckedUpdateManyWithoutAppNestedInput
   scenarioMemories?: Prisma.ScenarioMemoryUncheckedUpdateManyWithoutAppNestedInput
   favoritePrompts?: Prisma.FavoritePromptUncheckedUpdateManyWithoutAppNestedInput
   referenceImages?: Prisma.AppReferenceImageUncheckedUpdateManyWithoutAppNestedInput
@@ -6384,6 +7104,8 @@ export type AppCountOutputType = {
   trendwatcherProfiles: number
   enrichmentLogs: number
   generationProfiles: number
+  editProfiles: number
+  backgroundClips: number
   scenarioMemories: number
   favoritePrompts: number
   referenceImages: number
@@ -6406,6 +7128,8 @@ export type AppCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.In
   trendwatcherProfiles?: boolean | AppCountOutputTypeCountTrendwatcherProfilesArgs
   enrichmentLogs?: boolean | AppCountOutputTypeCountEnrichmentLogsArgs
   generationProfiles?: boolean | AppCountOutputTypeCountGenerationProfilesArgs
+  editProfiles?: boolean | AppCountOutputTypeCountEditProfilesArgs
+  backgroundClips?: boolean | AppCountOutputTypeCountBackgroundClipsArgs
   scenarioMemories?: boolean | AppCountOutputTypeCountScenarioMemoriesArgs
   favoritePrompts?: boolean | AppCountOutputTypeCountFavoritePromptsArgs
   referenceImages?: boolean | AppCountOutputTypeCountReferenceImagesArgs
@@ -6483,6 +7207,20 @@ export type AppCountOutputTypeCountEnrichmentLogsArgs<ExtArgs extends runtime.Ty
  */
 export type AppCountOutputTypeCountGenerationProfilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ScenarioGenerationProfileWhereInput
+}
+
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountEditProfilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.EditProfileWhereInput
+}
+
+/**
+ * AppCountOutputType without action
+ */
+export type AppCountOutputTypeCountBackgroundClipsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.BackgroundClipWhereInput
 }
 
 /**
@@ -6611,6 +7349,8 @@ export type AppSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
   trendwatcherProfiles?: boolean | Prisma.App$trendwatcherProfilesArgs<ExtArgs>
   enrichmentLogs?: boolean | Prisma.App$enrichmentLogsArgs<ExtArgs>
   generationProfiles?: boolean | Prisma.App$generationProfilesArgs<ExtArgs>
+  editProfiles?: boolean | Prisma.App$editProfilesArgs<ExtArgs>
+  backgroundClips?: boolean | Prisma.App$backgroundClipsArgs<ExtArgs>
   scenarioMemories?: boolean | Prisma.App$scenarioMemoriesArgs<ExtArgs>
   favoritePrompts?: boolean | Prisma.App$favoritePromptsArgs<ExtArgs>
   referenceImages?: boolean | Prisma.App$referenceImagesArgs<ExtArgs>
@@ -6761,6 +7501,8 @@ export type AppInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   trendwatcherProfiles?: boolean | Prisma.App$trendwatcherProfilesArgs<ExtArgs>
   enrichmentLogs?: boolean | Prisma.App$enrichmentLogsArgs<ExtArgs>
   generationProfiles?: boolean | Prisma.App$generationProfilesArgs<ExtArgs>
+  editProfiles?: boolean | Prisma.App$editProfilesArgs<ExtArgs>
+  backgroundClips?: boolean | Prisma.App$backgroundClipsArgs<ExtArgs>
   scenarioMemories?: boolean | Prisma.App$scenarioMemoriesArgs<ExtArgs>
   favoritePrompts?: boolean | Prisma.App$favoritePromptsArgs<ExtArgs>
   referenceImages?: boolean | Prisma.App$referenceImagesArgs<ExtArgs>
@@ -6788,6 +7530,8 @@ export type $AppPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     trendwatcherProfiles: Prisma.$TrendwatcherProfilePayload<ExtArgs>[]
     enrichmentLogs: Prisma.$AppEnrichmentLogPayload<ExtArgs>[]
     generationProfiles: Prisma.$ScenarioGenerationProfilePayload<ExtArgs>[]
+    editProfiles: Prisma.$EditProfilePayload<ExtArgs>[]
+    backgroundClips: Prisma.$BackgroundClipPayload<ExtArgs>[]
     scenarioMemories: Prisma.$ScenarioMemoryPayload<ExtArgs>[]
     favoritePrompts: Prisma.$FavoritePromptPayload<ExtArgs>[]
     referenceImages: Prisma.$AppReferenceImagePayload<ExtArgs>[]
@@ -7242,6 +7986,8 @@ export interface Prisma__AppClient<T, Null = never, ExtArgs extends runtime.Type
   trendwatcherProfiles<T extends Prisma.App$trendwatcherProfilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$trendwatcherProfilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TrendwatcherProfilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   enrichmentLogs<T extends Prisma.App$enrichmentLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$enrichmentLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AppEnrichmentLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   generationProfiles<T extends Prisma.App$generationProfilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$generationProfilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ScenarioGenerationProfilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  editProfiles<T extends Prisma.App$editProfilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$editProfilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$EditProfilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  backgroundClips<T extends Prisma.App$backgroundClipsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$backgroundClipsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BackgroundClipPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   scenarioMemories<T extends Prisma.App$scenarioMemoriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$scenarioMemoriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ScenarioMemoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   favoritePrompts<T extends Prisma.App$favoritePromptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$favoritePromptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FavoritePromptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   referenceImages<T extends Prisma.App$referenceImagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.App$referenceImagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AppReferenceImagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -7903,6 +8649,54 @@ export type App$generationProfilesArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.ScenarioGenerationProfileScalarFieldEnum | Prisma.ScenarioGenerationProfileScalarFieldEnum[]
+}
+
+/**
+ * App.editProfiles
+ */
+export type App$editProfilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the EditProfile
+   */
+  select?: Prisma.EditProfileSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the EditProfile
+   */
+  omit?: Prisma.EditProfileOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.EditProfileInclude<ExtArgs> | null
+  where?: Prisma.EditProfileWhereInput
+  orderBy?: Prisma.EditProfileOrderByWithRelationInput | Prisma.EditProfileOrderByWithRelationInput[]
+  cursor?: Prisma.EditProfileWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.EditProfileScalarFieldEnum | Prisma.EditProfileScalarFieldEnum[]
+}
+
+/**
+ * App.backgroundClips
+ */
+export type App$backgroundClipsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the BackgroundClip
+   */
+  select?: Prisma.BackgroundClipSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the BackgroundClip
+   */
+  omit?: Prisma.BackgroundClipOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.BackgroundClipInclude<ExtArgs> | null
+  where?: Prisma.BackgroundClipWhereInput
+  orderBy?: Prisma.BackgroundClipOrderByWithRelationInput | Prisma.BackgroundClipOrderByWithRelationInput[]
+  cursor?: Prisma.BackgroundClipWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.BackgroundClipScalarFieldEnum | Prisma.BackgroundClipScalarFieldEnum[]
 }
 
 /**

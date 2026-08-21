@@ -227,6 +227,8 @@ model App {
   trendwatcherProfiles TrendwatcherProfile[]
   enrichmentLogs       AppEnrichmentLog[]
   generationProfiles   ScenarioGenerationProfile[]
+  editProfiles         EditProfile[]
+  backgroundClips      BackgroundClip[]
   scenarioMemories     ScenarioMemory[]
   favoritePrompts      FavoritePrompt[]
   referenceImages      AppReferenceImage[]
@@ -673,6 +675,7 @@ enum VideoStepKey {
   lip_sync_generation
   assembly
   transcription
+  edit_plan
 }
 
 enum VideoStepStatus {
@@ -956,6 +959,14 @@ model Video {
   fitScore                 Float?
   fitRationale             String?
   frames                   VideoFrame[]
+  /// Монтажный профиль ролика. null — правила берутся из профиля приложения по
+  /// умолчанию, а если и его нет — из констант edit-plan/profile.ts.
+  editProfileId            Int?
+  editProfile              EditProfile?          @relation(fields: [editProfileId], references: [id], onDelete: SetNull)
+  /// Переопределения полей профиля на этом ролике. Частичный объект тех же
+  /// полей; слияние делает resolveEditProfile.
+  editOverrides            Json?
+  shots                    VideoShot[]
 
   @@index([scenarioId, status])
   @@index([status])
@@ -965,6 +976,7 @@ model Video {
   @@index([externalSource, externalSourceId])
   @@index([framePassRunAt])
   @@index([storageProvider])
+  @@index([editProfileId])
 }
 
 /// Per-frame DB row для marketing-grade анализа видео.
@@ -2551,6 +2563,137 @@ model ServiceBalanceEntry {
 }
 
 // --- Story-driven scenario models ---
+
+/// Монтажный профиль бренда: правила, по которым режется ролик.
+///
+/// Правил монтажа как сущности в проекте не было вовсе — всё, что можно было
+/// сделать, это переписать промпт сценариста (spec §1.4). Профиль принадлежит
+/// приложению (бренду); ролик наследует его и может перебить отдельными полями
+/// через Video.editOverrides.
+model EditProfile {
+  id                         Int      @id @default(autoincrement())
+  appId                      Int?
+  app                        App?     @relation(fields: [appId], references: [id], onDelete: SetNull)
+  name                       String
+  description                String?
+  isDefault                  Boolean  @default(false)
+  /// Правила словами: чередование ведущих, что под кого подставлять, чем
+  /// открывать ролик. Уходит в системный промпт монтажного агента.
+  editPrompt                 String?
+  /// Целевая доля перебивок по хронометражу. 0.4 — решение от 14.08.2026.
+  brollRatio                 Float    @default(0.4)
+  /// Целевой шаг смены картинки. 1.5-2 с — практика короткого видео (§1.3).
+  shotChangeSec              Float    @default(1.8)
+  pipEnabled                 Boolean  @default(false)
+  /// Угол наложения: top_left | top_right | bottom_left | bottom_right.
+  pipPosition                String   @default("bottom_right")
+  /// Доля ширины кадра под PiP-окно.
+  pipSize                    Float    @default(0.28)
+  /// Разворот решения от 14.08: генеративное видео на фон разрешено ОПЦИЕЙ
+  /// профиля и только для кадров от 5 секунд (§7). По умолчанию выключено.
+  generativeVideoEnabled     Boolean  @default(false)
+  /// Потолок расхода на генеративные фоны в пределах одного ролика.
+  generativeVideoBudgetUsd   Float    @default(0.5)
+  /// Разрешение генеративного фона — значение из constraints спеки модели.
+  generativeVideoResolution  String   @default("720p")
+  /// Пошаговый режим: пайплайн ждёт решения оператора после каждого шага.
+  /// Механизм ожидания — план 4 (§9); здесь только сам флаг профиля.
+  stepwiseApproval           Boolean  @default(false)
+  /// Конкретная версия модели монтажа. Полуавтоматические системы тестируются
+  /// на конкретной версии: смена версии молча меняет поведение (§5.2).
+  llmModelId                 String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  videos                     Video[]
+
+  @@index([appId, isDefault])
+}
+
+/// Библиотека загружаемых фонов: запись экрана, лид-магнит, канал, готовая съёмка.
+///
+/// Устроена как PresenterSourceClip — файл в хранилище, sha1 для дедупа,
+/// перцептивный хэш и история использования для cooldown (§5.2).
+model BackgroundClip {
+  id              String      @id @default(cuid())
+  appId           Int
+  app             App         @relation(fields: [appId], references: [id], onDelete: Cascade)
+  name            String?
+  storageKey      String
+  storageProvider String      @default("gcs")
+  sha1            String
+  mimeType        String?
+  /// Размер файла. BigInt, не Int: библиотека фонов — записи экрана и готовая
+  /// съёмка, INTEGER (потолок 2 147 483 647) переполняется ровно на 2 ГБ —
+  /// тот же дефект уже чинили для PresenterRecording (миграция
+  /// 20260821030000_widen_presenter_recording_bytes_to_bigint).
+  bytes           BigInt?
+  /// null у статичной картинки — её длительность задаёт монтаж.
+  durationSec     Float?
+  width           Int?
+  height          Int?
+  /// screen_recording | footage | image
+  kind            String      @default("footage")
+  tags            String[]
+  isActive        Boolean     @default(true)
+  usageCount      Int         @default(0)
+  lastUsedAt      DateTime?
+  /// dHash первого кадра: контроль похожести (PROJECT_CONTEXT §7).
+  perceptualHash  String?
+  uploadedById    Int?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  shots           VideoShot[]
+
+  @@unique([appId, sha1])
+  @@index([appId, isActive, lastUsedAt])
+  @@index([appId, kind])
+}
+
+/// Кадр смонтированного ролика.
+///
+/// Отдельная таблица, а не Json на ролике: она даёт перегенерацию одного кадра
+/// без пересборки соседей, идемпотентность шага и аудит стоимости по кадрам
+/// (§5.2). Перцептивный хэш кадра здесь не для галочки — при шаге монтажа
+/// 1.5-2 с граница кадра почти совпадает с шагом сэмплирования отпечатка
+/// ролика, и отдельный проход по готовому файлу становится не нужен.
+model VideoShot {
+  id               String          @id @default(cuid())
+  videoId          Int
+  video            Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  /// Позиция на таймлайне. Пара (videoId, order) уникальна.
+  order            Int
+  startSec         Float
+  endSec           Float
+  /// Смысловая сцена сценария, которой принадлежит кадр. null — кадр
+  /// перебивки, не привязанный к реплике.
+  sceneOrder       Int?
+  /// presenter | none
+  foreground       String          @default("none")
+  /// library | image | video | app_screen | none
+  background       String          @default("none")
+  backgroundClipId String?
+  backgroundClip   BackgroundClip? @relation(fields: [backgroundClipId], references: [id], onDelete: SetNull)
+  /// Скрин приложения как фон: id AppReferenceImage. Отдельным полем, а не
+  /// общей ссылкой: у скринов свой жизненный цикл и свой каскад.
+  appReferenceId   String?
+  /// Смысл кадра словами — из него собирается промпт генерации фона (§7).
+  idea             String?
+  pipEnabled       Boolean         @default(false)
+  /// planned | rendering | completed | failed | degraded
+  status           String          @default("planned")
+  /// Готовый файл кадра (после фона, lip-sync и композиции).
+  assetPath        String?
+  costUsd          Float           @default(0)
+  perceptualHash   String?
+  /// Почему кадр деградировал: исчерпан потолок, фон не нашёлся и т.п.
+  degradeReason    String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([videoId, order])
+  @@index([videoId, startSec])
+  @@index([backgroundClipId])
+}
 
 model ScenarioGenerationProfile {
   id          Int        @id @default(autoincrement())
