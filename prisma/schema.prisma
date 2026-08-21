@@ -306,7 +306,7 @@ model CharacterReferenceImage {
   uploadedById        Int?
   createdAt           DateTime  @default(now())
   // AI vision analysis: ["young_adult", "short_hair", "blue_jacket", "smile"]
-  aiTags              String[]
+  aiTags              String[]  @default([])
   // 1-2 предложения с описанием персонажа на фото
   aiCaption           String?
   // Расширенный визуальный prompt-инжектор для генерации видео (EN)
@@ -492,7 +492,7 @@ model SceneReferenceImage {
   order               Int       @default(0)
   uploadedById        Int?
   createdAt           DateTime  @default(now())
-  aiTags              String[]
+  aiTags              String[]  @default([])
   aiCaption           String?
   // Расширенный визуальный prompt-инжектор (EN) — описание атмосферы/палитры/композиции,
   // которое composeScene склеит в финальный промпт сцены.
@@ -1202,6 +1202,7 @@ model SocialAccount {
   @@index([appId, platform, status])
   @@index([proxyId])
   @@index([warmupStatus])
+  @@index([postingMethod])
 }
 
 // --- Apify Account Metrics (Часть C) ---
@@ -2080,6 +2081,7 @@ model WorkflowRun {
   @@index([status])
   @@index([parentRunId])
   @@index([cycleId, status])
+  @@index([finishedAt(sort: Desc)])
 }
 
 model WorkflowStep {
