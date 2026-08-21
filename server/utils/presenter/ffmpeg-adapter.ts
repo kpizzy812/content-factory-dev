@@ -15,11 +15,16 @@ import {
 } from "../video-tools/silence-detect"
 import { getVideoDuration } from "../video-tools/ffmpeg"
 import { DHASH_HEIGHT, DHASH_WIDTH } from "./perceptual-hash"
+import { buildRecordingNormalizeArgs } from "./recording-normalize"
 import type { IngestPresenterDependencies } from "./ingest-runner"
 
 const FFMPEG_BIN = process.env.FFMPEG_PATH || process.env.FFMPEG_BIN || "ffmpeg"
+const FFPROBE_BIN = process.env.FFPROBE_PATH || process.env.FFPROBE_BIN || "ffprobe"
 const CUT_TIMEOUT_MS = 5 * 60_000
 const THUMBNAIL_TIMEOUT_MS = 60_000
+/** Нормализация записи целиком. Долгая операция: таймаут отдельный. */
+const NORMALIZE_TIMEOUT_MS = 60 * 60_000
+const PROBE_TIMEOUT_MS = 60_000
 
 interface RunResult {
   stdout: Buffer
@@ -52,6 +57,44 @@ function runFfmpeg(args: string[], timeoutMs: number, collectStdout: boolean): P
       clearTimeout(timer)
       if (code !== 0) {
         reject(new Error(`ffmpeg завершился с кодом ${code}: ${stderr.slice(-400)}`))
+        return
+      }
+      resolve({ stdout: Buffer.concat(chunks), stderr })
+    })
+  })
+}
+
+/**
+ * Запуск ffprobe тем же способом, что и `runFfmpeg` — отдельный бинарь,
+ * тот же паттерн spawn/timeout/сбор stdout. Второй реализации замера
+ * длительности заводить не нужно: она уже есть в `getVideoDuration`.
+ */
+function runFfprobe(args: string[]): Promise<RunResult> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(FFPROBE_BIN, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+
+    const chunks: Buffer[] = []
+    let stderr = ""
+
+    const timer = setTimeout(() => {
+      try { proc.kill("SIGKILL") }
+      catch { /* процесс уже мёртв */ }
+      reject(new Error(`ffprobe: таймаут ${Math.round(PROBE_TIMEOUT_MS / 1000)}s`))
+    }, PROBE_TIMEOUT_MS)
+
+    proc.stdout?.on("data", (chunk: Buffer) => chunks.push(chunk))
+    proc.stderr?.on("data", (chunk: Buffer) => { stderr += chunk.toString("utf8") })
+
+    proc.on("error", (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+    proc.on("close", (code) => {
+      clearTimeout(timer)
+      if (code !== 0) {
+        reject(new Error(`ffprobe завершился с кодом ${code}: ${stderr.slice(-400)}`))
         return
       }
       resolve({ stdout: Buffer.concat(chunks), stderr })
@@ -123,6 +166,48 @@ async function cutSegment(
     CUT_TIMEOUT_MS,
     false,
   )
+}
+
+/** Нормализация длинной записи целиком (H.264 / 30 fps / AAC, без кропа). */
+export async function normalizeRecording(inputPath: string, outputPath: string): Promise<void> {
+  await runFfmpeg(buildRecordingNormalizeArgs(inputPath, outputPath), NORMALIZE_TIMEOUT_MS, false)
+}
+
+export interface RecordingMeta {
+  durationSec: number
+  fps: number | null
+  width: number | null
+  height: number | null
+}
+
+/**
+ * Параметры нормализованного файла. Длительность берём через уже существующий
+ * `getVideoDuration` (не переписываем замер второй раз), а параметры потока
+ * (width/height/r_frame_rate) — локальным запуском ffprobe: она станет верхней
+ * границей любого окна реза, и врать здесь нельзя.
+ */
+export async function probeRecordingMeta(path: string): Promise<RecordingMeta> {
+  const durationSec = await getVideoDuration(path)
+  const { stdout } = await runFfprobe([
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-show_entries", "stream=width,height,r_frame_rate",
+    "-of", "default=noprint_wrappers=1:nokey=1",
+    path,
+  ])
+  const [rawWidth, rawHeight, rawRate] = stdout.toString("utf8").trim().split(/\s+/)
+  // Через Number(...) отдельно, а не .map(Number) с деструктуризацией: под
+  // noUncheckedIndexedAccess элементы массива — `string | undefined`, и после
+  // .map(Number) остались бы `number | undefined` в num/den ниже.
+  const [rawNum, rawDen] = (rawRate ?? "").split("/")
+  const num = Number(rawNum)
+  const den = Number(rawDen)
+  return {
+    durationSec,
+    fps: Number.isFinite(num) && Number.isFinite(den) && den !== 0 ? num / den : null,
+    width: Number.parseInt(rawWidth ?? "", 10) || null,
+    height: Number.parseInt(rawHeight ?? "", 10) || null,
+  }
 }
 
 /**

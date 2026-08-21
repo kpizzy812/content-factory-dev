@@ -20,6 +20,12 @@ import { StorageKeys } from "~~/server/utils/storage/keys"
 import { storageKeyToLegacyUrl } from "~~/server/utils/storage/download-to-storage"
 import { ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
 import { ingestPresenterRecording } from "~~/server/utils/presenter/ingest-runner"
+import {
+  markIngestCompleted,
+  markIngestFailed,
+  markIngestRunning,
+  saveRecording,
+} from "~~/server/utils/presenter/recording-store"
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024
 const DEFAULT_MAX_CLIPS = 20
@@ -87,70 +93,99 @@ export default defineEventHandler(async (event) => {
 
   const workDir = await mkdtemp(join(tmpdir(), "presenter-ingest-"))
   const recordingPath = join(workDir, `recording.${ext}`)
+  const normalizedPath = join(workDir, "recording-normalized.mp4")
+  const recordingName = filePart.filename || `recording.${ext}`
 
   try {
     await writeFile(recordingPath, filePart.data)
 
-    const result = await ingestPresenterRecording(
-      { recordingPath, outputDir: workDir, existingHashes, maxClips },
-      ffmpegIngestDependencies,
-    )
+    // Запись сохраняется нормализованной независимо от исхода нарезки на клипы —
+    // она источник для будущего монтажа "от звука" (реза под фактическую длину
+    // реплики), и терять её из-за сбоя в разметке сцен нельзя.
+    const saved = await saveRecording({
+      appId: character.appId,
+      characterId,
+      originalPath: recordingPath,
+      normalizedPath,
+      originalName: recordingName,
+      originalBytes: filePart.data.length,
+      uploadedById: user.id,
+    })
 
-    const storage = getStorageDriver()
-    const recordingName = filePart.filename || `recording.${ext}`
-    const created: string[] = []
+    await markIngestRunning(saved.recordingId)
 
-    for (const clip of result.clips) {
-      const data = await readFile(clip.filePath)
-      const sha1 = createHash("sha1").update(data).digest("hex").slice(0, 16)
+    try {
+      // Нарезка идёт даже в дедуп-ветке: оператор мог залить ту же запись
+      // повторно, чтобы перенарезать её по новым правилам.
+      const result = await ingestPresenterRecording(
+        { recordingPath, outputDir: workDir, existingHashes, maxClips },
+        ffmpegIngestDependencies,
+      )
 
-      const existing = await prisma.presenterSourceClip.findUnique({
-        where: { characterId_sha1: { characterId, sha1 } },
-        select: { id: true },
-      })
-      if (existing) continue
+      const storage = getStorageDriver()
+      const created: string[] = []
 
-      const storageKey = StorageKeys.presenterSourceClip(character.appId, characterId, sha1, "mp4")
-      await storage.uploadBuffer(storageKey, data, { contentType: "video/mp4" })
+      for (const clip of result.clips) {
+        const data = await readFile(clip.filePath)
+        const sha1 = createHash("sha1").update(data).digest("hex").slice(0, 16)
 
-      const row = await prisma.presenterSourceClip.create({
+        const existing = await prisma.presenterSourceClip.findUnique({
+          where: { characterId_sha1: { characterId, sha1 } },
+          select: { id: true },
+        })
+        if (existing) continue
+
+        const storageKey = StorageKeys.presenterSourceClip(character.appId, characterId, sha1, "mp4")
+        await storage.uploadBuffer(storageKey, data, { contentType: "video/mp4" })
+
+        const row = await prisma.presenterSourceClip.create({
+          data: {
+            characterId,
+            recordingId: saved.recordingId,
+            name: `${recordingName} · ${clip.startSec.toFixed(1)}-${clip.endSec.toFixed(1)}s`,
+            fileUrl: storageKeyToLegacyUrl(storageKey),
+            storageKey,
+            storageProvider: storage.providerName,
+            sha1,
+            mimeType: "video/mp4",
+            bytes: data.length,
+            durationSec: clip.durationSec,
+            tags,
+            outfit,
+            background,
+            gesture,
+            perceptualHash: clip.perceptualHash,
+            sourceRecording: recordingName,
+            sourceStartSec: clip.startSec,
+            uploadedById: user.id,
+          },
+        })
+        created.push(row.id)
+      }
+
+      await markIngestCompleted(saved.recordingId)
+
+      return {
         data: {
-          characterId,
-          name: `${recordingName} · ${clip.startSec.toFixed(1)}-${clip.endSec.toFixed(1)}s`,
-          fileUrl: storageKeyToLegacyUrl(storageKey),
-          storageKey,
-          storageProvider: storage.providerName,
-          sha1,
-          mimeType: "video/mp4",
-          bytes: data.length,
-          durationSec: clip.durationSec,
-          tags,
-          outfit,
-          background,
-          gesture,
-          perceptualHash: clip.perceptualHash,
-          sourceRecording: recordingName,
-          sourceStartSec: clip.startSec,
-          uploadedById: user.id,
+          recordingId: saved.recordingId,
+          deduped: saved.deduped,
+          recordingName,
+          durationSec: result.durationSec,
+          sceneDetectionFailed: result.sceneDetectionFailed,
+          // Чем размечены границы: `silence` — паузами речи, `scene` — склейками,
+          // `none` — ничем, запись поделена по таймеру и резы попали в середину
+          // слов. Последнее оператор обязан видеть.
+          boundarySource: result.boundarySource,
+          similarClips: result.similarClips,
+          createdIds: created,
+          acceptedCount: created.length,
+          skipped: result.skipped,
         },
-      })
-      created.push(row.id)
+      }
     }
-
-    return {
-      data: {
-        recordingName,
-        durationSec: result.durationSec,
-        sceneDetectionFailed: result.sceneDetectionFailed,
-        // Чем размечены границы: `silence` — паузами речи, `scene` — склейками,
-        // `none` — ничем, запись поделена по таймеру и резы попали в середину
-        // слов. Последнее оператор обязан видеть.
-        boundarySource: result.boundarySource,
-        similarClips: result.similarClips,
-        createdIds: created,
-        acceptedCount: created.length,
-        skipped: result.skipped,
-      },
+    catch (error) {
+      await markIngestFailed(saved.recordingId, error)
+      throw error
     }
   }
   finally {

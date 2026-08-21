@@ -48,6 +48,7 @@ export default defineConfig({
       "tests/unit/fixes/**/*.spec.ts",
       "tests/unit/transcription/**/*.spec.ts",
       "tests/unit/voiceover/**/*.spec.ts",
+      "tests/unit/presenter/**/*.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },
