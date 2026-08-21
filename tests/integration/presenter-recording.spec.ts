@@ -758,7 +758,13 @@ describe("резервирование окна записи", () => {
   // Решение задачи, п.1: запись и оба взятых интервала заводим ВНУТРИ этого
   // теста двумя последовательными резервированиями — findFirst по "остатку от
   // предыдущего it" на этом харнессе ничего не найдёт (TRUNCATE после каждого).
-  it("окно вчерашнего ролика не берётся, пока в записи есть нетронутое", async () => {
+  //
+  // Minor 2 из ревью (раунд 1): исходное имя теста обещало "вчерашний"
+  // интервал, но тело ничего не сдвигало во времени и проверяло то же самое
+  // свойство, что и первый тест (просто последовательно, а не параллельно).
+  // Переименовано честно под то, что тест реально делает; настоящий тест на
+  // "вчерашний" (остывший) интервал — следующий.
+  it("третье резервирование не пересекается ни с одним из двух ранее занятых интервалов", async () => {
     const recording = await prisma.presenterRecording.create({
       data: {
         characterId,
@@ -785,6 +791,74 @@ describe("резервирование окна записи", () => {
       const intersect = Math.min(next!.endSec, used.endSec) - Math.max(next!.startSec, used.startSec)
       expect(intersect).toBeLessThanOrEqual(0)
     }
+  })
+
+  // Регрессия на Important из ревью (раунд 1): usages фильтровались по
+  // cooldown ДО передачи в planRecordingWindow, поэтому usage старше суток
+  // выпадал из выборки целиком, а не просто переставал считаться "горячим".
+  // planRecordingWindow не мог отличить остывший интервал от нетронутого —
+  // окно поверх вчера уже отснятого куска возвращалось бы с reused=false,
+  // то есть тот же кусок дважды (дубль по PROJECT_CONTEXT §7, отложенный на
+  // сутки). Запись длиной РОВНО в два кадра (10с при requiredSec=5с) делает
+  // эффект детерминированным: без фикса второе резервирование обязано
+  // вернуть тот же участок [0, 5) заново, с этим же учётом это была первая
+  // (и единственная) позиция, на которой planRecordingWindow останавливает
+  // перебор при пустом usedIntervals.
+  it("остывший (старше суток) интервал не выдаётся заново как нетронутый", async () => {
+    await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/aaaa7777.mp4`,
+        sha1: "aaaa7777",
+        durationSec: 10,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+
+    const now = Date.now()
+    const first = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, now })
+    expect(first).not.toBeNull()
+
+    // За пределами суточного RECORDING_WINDOW_COOLDOWN_MS — интервал уже остыл.
+    const later = now + 25 * 3600_000
+    const second = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, now: later })
+    expect(second).not.toBeNull()
+
+    const intersect = Math.min(second!.endSec, first!.endSec) - Math.max(second!.startSec, first!.startSec)
+    if (intersect > 0) {
+      // Пересечение с остывшим участком допустимо, только если он честно
+      // помечен как повторно использованный — не как нетронутый.
+      expect(second!.reused).toBe(true)
+    }
+    else {
+      // Запись из двух кадров: непересекающийся результат означает, что
+      // выбран второй, ранее нетронутый кусок — именно то, что требует имя
+      // предыдущего теста этой группы ("вчерашнее" не берётся, пока есть
+      // нетронутое).
+      expect(second!.reused).toBe(false)
+    }
+  })
+
+  // Minor 4 из ревью (раунд 1): фильтр по ingestStatus: "completed" был
+  // сформулирован жёстко в комментарии кода, но не проверен тестом — третий
+  // тест этой группы заводит персонажа вообще БЕЗ записей, а не персонажа с
+  // единственной незавершённой записью.
+  it("возвращает null, когда единственная запись персонажа ещё не завершена (running)", async () => {
+    await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/bbbb8888.mp4`,
+        sha1: "bbbb8888",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "running",
+      },
+    })
+
+    expect(await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: null,
+    })).toBeNull()
   })
 
   it("возвращает null, когда у персонажа нет ни одной завершённой записи", async () => {

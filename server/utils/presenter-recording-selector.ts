@@ -17,6 +17,22 @@ import { planRecordingWindow, RECORDING_WINDOW_COOLDOWN_MS } from "./presenter/r
 
 const MAX_RESERVATION_ATTEMPTS = 3
 
+/**
+ * Насколько глубоко тянуть историю использований записи для планировщика.
+ *
+ * `planRecordingWindow` рассчитан на то, что ему приносят ВСЕ использования —
+ * он сам делит их на горячие и остывшие (`recording-window.ts:98`) и считает
+ * по ним два разных ключа ранжирования (там же, ~152-159). Предфильтр по
+ * cooldown здесь стирал бы вторую половину контракта: usage старше суток
+ * выпадал бы из выборки целиком, `reused` вырождался бы в `overlapSec > 0` и
+ * окно поверх вчера уже отснятого куска возвращалось бы неотличимым от
+ * нетронутого материала — Important из ревью, ровно тот дубль по
+ * docs/PROJECT_CONTEXT.md §7, только отложенный на сутки. Берём окно заметно
+ * шире cooldown, а не всю историю без границ: у много раз использованной
+ * записи выборка иначе росла бы неограниченно.
+ */
+const USAGE_HISTORY_WINDOW_MS = 30 * RECORDING_WINDOW_COOLDOWN_MS
+
 export interface ReserveRecordingWindowInput {
   characterId: string
   /** Длина кадра — обычно длина вырезанного куска трека. */
@@ -36,6 +52,14 @@ export interface ReservedRecordingWindow {
   usageId: string
   /** true — нетронутого места не осталось, взят остывший участок. */
   reused: boolean
+  /**
+   * Секунды пересечения с ещё не остывшими интервалами (0 в норме).
+   * Ненулевое значение — сигнал деградации: интервалы, занятые резервированием,
+   * освобождать некому (см. комментарий у reserveRecordingWindow), и в
+   * крэш-петле на одной записи библиотека свободных слотов выедается быстро.
+   * Единственное место, где это видно, — это поле в логе шага.
+   */
+  overlapSec: number
 }
 
 export async function reserveRecordingWindow(
@@ -57,7 +81,10 @@ export async function reserveRecordingWindow(
           orderBy: [{ createdAt: "asc" }],
           include: {
             usages: {
-              where: { usedAt: { gte: new Date(now - RECORDING_WINDOW_COOLDOWN_MS) } },
+              // Не cooldown — см. USAGE_HISTORY_WINDOW_MS: planRecordingWindow
+              // обязан увидеть и остывшие интервалы тоже, иначе он не сможет
+              // отличить их от нетронутого места.
+              where: { usedAt: { gte: new Date(now - USAGE_HISTORY_WINDOW_MS) } },
               select: { startSec: true, endSec: true, usedAt: true },
             },
           },
@@ -71,7 +98,7 @@ export async function reserveRecordingWindow(
         // по этому ключу, а без второго на уровне выбора записи вернулся бы
         // ровно тот дефект, который уже починен внутри planRecordingWindow
         // (решение задачи, п.2).
-        let best: (ReservedRecordingWindow & { overlapSec: number }) | null = null
+        let best: ReservedRecordingWindow | null = null
         for (const recording of recordings) {
           const window = planRecordingWindow({
             recordingDurationSec: recording.durationSec,
@@ -119,8 +146,7 @@ export async function reserveRecordingWindow(
           },
         })
 
-        const { overlapSec: _overlapSec, ...result } = best
-        return { ...result, usageId: usage.id }
+        return { ...best, usageId: usage.id }
       }, { isolationLevel: "Serializable" })
     }
     catch (error) {
