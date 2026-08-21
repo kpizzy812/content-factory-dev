@@ -353,6 +353,7 @@ export type AppReferenceImageWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"AppReferenceImage"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AppReferenceImage"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
+  shots?: Prisma.VideoShotListRelationFilter
 }
 
 export type AppReferenceImageOrderByWithRelationInput = {
@@ -377,6 +378,7 @@ export type AppReferenceImageOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   app?: Prisma.AppOrderByWithRelationInput
+  shots?: Prisma.VideoShotOrderByRelationAggregateInput
 }
 
 export type AppReferenceImageWhereUniqueInput = Prisma.AtLeast<{
@@ -405,6 +407,7 @@ export type AppReferenceImageWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"AppReferenceImage"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AppReferenceImage"> | Date | string
   app?: Prisma.XOR<Prisma.AppScalarRelationFilter, Prisma.AppWhereInput>
+  shots?: Prisma.VideoShotListRelationFilter
 }, "id" | "appId_sha1">
 
 export type AppReferenceImageOrderByWithAggregationInput = {
@@ -482,6 +485,7 @@ export type AppReferenceImageCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   app: Prisma.AppCreateNestedOneWithoutReferenceImagesInput
+  shots?: Prisma.VideoShotCreateNestedManyWithoutAppReferenceInput
 }
 
 export type AppReferenceImageUncheckedCreateInput = {
@@ -505,6 +509,7 @@ export type AppReferenceImageUncheckedCreateInput = {
   uploadedById?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  shots?: Prisma.VideoShotUncheckedCreateNestedManyWithoutAppReferenceInput
 }
 
 export type AppReferenceImageUpdateInput = {
@@ -528,6 +533,7 @@ export type AppReferenceImageUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   app?: Prisma.AppUpdateOneRequiredWithoutReferenceImagesNestedInput
+  shots?: Prisma.VideoShotUpdateManyWithoutAppReferenceNestedInput
 }
 
 export type AppReferenceImageUncheckedUpdateInput = {
@@ -551,6 +557,7 @@ export type AppReferenceImageUncheckedUpdateInput = {
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  shots?: Prisma.VideoShotUncheckedUpdateManyWithoutAppReferenceNestedInput
 }
 
 export type AppReferenceImageCreateManyInput = {
@@ -721,6 +728,11 @@ export type AppReferenceImageSumOrderByAggregateInput = {
   uploadedById?: Prisma.SortOrder
 }
 
+export type AppReferenceImageNullableScalarRelationFilter = {
+  is?: Prisma.AppReferenceImageWhereInput | null
+  isNot?: Prisma.AppReferenceImageWhereInput | null
+}
+
 export type AppReferenceImageCreateNestedManyWithoutAppInput = {
   create?: Prisma.XOR<Prisma.AppReferenceImageCreateWithoutAppInput, Prisma.AppReferenceImageUncheckedCreateWithoutAppInput> | Prisma.AppReferenceImageCreateWithoutAppInput[] | Prisma.AppReferenceImageUncheckedCreateWithoutAppInput[]
   connectOrCreate?: Prisma.AppReferenceImageCreateOrConnectWithoutAppInput | Prisma.AppReferenceImageCreateOrConnectWithoutAppInput[]
@@ -776,6 +788,22 @@ export type NullableBoolFieldUpdateOperationsInput = {
   set?: boolean | null
 }
 
+export type AppReferenceImageCreateNestedOneWithoutShotsInput = {
+  create?: Prisma.XOR<Prisma.AppReferenceImageCreateWithoutShotsInput, Prisma.AppReferenceImageUncheckedCreateWithoutShotsInput>
+  connectOrCreate?: Prisma.AppReferenceImageCreateOrConnectWithoutShotsInput
+  connect?: Prisma.AppReferenceImageWhereUniqueInput
+}
+
+export type AppReferenceImageUpdateOneWithoutShotsNestedInput = {
+  create?: Prisma.XOR<Prisma.AppReferenceImageCreateWithoutShotsInput, Prisma.AppReferenceImageUncheckedCreateWithoutShotsInput>
+  connectOrCreate?: Prisma.AppReferenceImageCreateOrConnectWithoutShotsInput
+  upsert?: Prisma.AppReferenceImageUpsertWithoutShotsInput
+  disconnect?: Prisma.AppReferenceImageWhereInput | boolean
+  delete?: Prisma.AppReferenceImageWhereInput | boolean
+  connect?: Prisma.AppReferenceImageWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AppReferenceImageUpdateToOneWithWhereWithoutShotsInput, Prisma.AppReferenceImageUpdateWithoutShotsInput>, Prisma.AppReferenceImageUncheckedUpdateWithoutShotsInput>
+}
+
 export type AppReferenceImageCreateWithoutAppInput = {
   id?: string
   fileUrl: string
@@ -796,6 +824,7 @@ export type AppReferenceImageCreateWithoutAppInput = {
   uploadedById?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  shots?: Prisma.VideoShotCreateNestedManyWithoutAppReferenceInput
 }
 
 export type AppReferenceImageUncheckedCreateWithoutAppInput = {
@@ -818,6 +847,7 @@ export type AppReferenceImageUncheckedCreateWithoutAppInput = {
   uploadedById?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  shots?: Prisma.VideoShotUncheckedCreateNestedManyWithoutAppReferenceInput
 }
 
 export type AppReferenceImageCreateOrConnectWithoutAppInput = {
@@ -872,6 +902,114 @@ export type AppReferenceImageScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"AppReferenceImage"> | Date | string
 }
 
+export type AppReferenceImageCreateWithoutShotsInput = {
+  id?: string
+  fileUrl: string
+  sha1: string
+  mimeType?: string | null
+  bytes?: number | null
+  width?: number | null
+  height?: number | null
+  storageKey?: string | null
+  storageProvider?: string
+  aiTags?: Prisma.AppReferenceImageCreateaiTagsInput | string[]
+  aiCaption?: string | null
+  aiHasUI?: boolean | null
+  aiPrimaryAction?: string | null
+  aiAnalyzedAt?: Date | string | null
+  aiError?: string | null
+  aiAttempts?: number
+  uploadedById?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  app: Prisma.AppCreateNestedOneWithoutReferenceImagesInput
+}
+
+export type AppReferenceImageUncheckedCreateWithoutShotsInput = {
+  id?: string
+  appId: number
+  fileUrl: string
+  sha1: string
+  mimeType?: string | null
+  bytes?: number | null
+  width?: number | null
+  height?: number | null
+  storageKey?: string | null
+  storageProvider?: string
+  aiTags?: Prisma.AppReferenceImageCreateaiTagsInput | string[]
+  aiCaption?: string | null
+  aiHasUI?: boolean | null
+  aiPrimaryAction?: string | null
+  aiAnalyzedAt?: Date | string | null
+  aiError?: string | null
+  aiAttempts?: number
+  uploadedById?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type AppReferenceImageCreateOrConnectWithoutShotsInput = {
+  where: Prisma.AppReferenceImageWhereUniqueInput
+  create: Prisma.XOR<Prisma.AppReferenceImageCreateWithoutShotsInput, Prisma.AppReferenceImageUncheckedCreateWithoutShotsInput>
+}
+
+export type AppReferenceImageUpsertWithoutShotsInput = {
+  update: Prisma.XOR<Prisma.AppReferenceImageUpdateWithoutShotsInput, Prisma.AppReferenceImageUncheckedUpdateWithoutShotsInput>
+  create: Prisma.XOR<Prisma.AppReferenceImageCreateWithoutShotsInput, Prisma.AppReferenceImageUncheckedCreateWithoutShotsInput>
+  where?: Prisma.AppReferenceImageWhereInput
+}
+
+export type AppReferenceImageUpdateToOneWithWhereWithoutShotsInput = {
+  where?: Prisma.AppReferenceImageWhereInput
+  data: Prisma.XOR<Prisma.AppReferenceImageUpdateWithoutShotsInput, Prisma.AppReferenceImageUncheckedUpdateWithoutShotsInput>
+}
+
+export type AppReferenceImageUpdateWithoutShotsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  fileUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  sha1?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  aiTags?: Prisma.AppReferenceImageUpdateaiTagsInput | string[]
+  aiCaption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiHasUI?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  aiPrimaryAction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiAnalyzedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  aiError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  app?: Prisma.AppUpdateOneRequiredWithoutReferenceImagesNestedInput
+}
+
+export type AppReferenceImageUncheckedUpdateWithoutShotsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  appId?: Prisma.IntFieldUpdateOperationsInput | number
+  fileUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  sha1?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageProvider?: Prisma.StringFieldUpdateOperationsInput | string
+  aiTags?: Prisma.AppReferenceImageUpdateaiTagsInput | string[]
+  aiCaption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiHasUI?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  aiPrimaryAction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiAnalyzedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  aiError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type AppReferenceImageCreateManyAppInput = {
   id?: string
   fileUrl: string
@@ -914,6 +1052,7 @@ export type AppReferenceImageUpdateWithoutAppInput = {
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  shots?: Prisma.VideoShotUpdateManyWithoutAppReferenceNestedInput
 }
 
 export type AppReferenceImageUncheckedUpdateWithoutAppInput = {
@@ -936,6 +1075,7 @@ export type AppReferenceImageUncheckedUpdateWithoutAppInput = {
   uploadedById?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  shots?: Prisma.VideoShotUncheckedUpdateManyWithoutAppReferenceNestedInput
 }
 
 export type AppReferenceImageUncheckedUpdateManyWithoutAppInput = {
@@ -961,6 +1101,35 @@ export type AppReferenceImageUncheckedUpdateManyWithoutAppInput = {
 }
 
 
+/**
+ * Count Type AppReferenceImageCountOutputType
+ */
+
+export type AppReferenceImageCountOutputType = {
+  shots: number
+}
+
+export type AppReferenceImageCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  shots?: boolean | AppReferenceImageCountOutputTypeCountShotsArgs
+}
+
+/**
+ * AppReferenceImageCountOutputType without action
+ */
+export type AppReferenceImageCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AppReferenceImageCountOutputType
+   */
+  select?: Prisma.AppReferenceImageCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * AppReferenceImageCountOutputType without action
+ */
+export type AppReferenceImageCountOutputTypeCountShotsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.VideoShotWhereInput
+}
+
 
 export type AppReferenceImageSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -984,6 +1153,8 @@ export type AppReferenceImageSelect<ExtArgs extends runtime.Types.Extensions.Int
   createdAt?: boolean
   updatedAt?: boolean
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  shots?: boolean | Prisma.AppReferenceImage$shotsArgs<ExtArgs>
+  _count?: boolean | Prisma.AppReferenceImageCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appReferenceImage"]>
 
 export type AppReferenceImageSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1060,6 +1231,8 @@ export type AppReferenceImageSelectScalar = {
 export type AppReferenceImageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "fileUrl" | "sha1" | "mimeType" | "bytes" | "width" | "height" | "storageKey" | "storageProvider" | "aiTags" | "aiCaption" | "aiHasUI" | "aiPrimaryAction" | "aiAnalyzedAt" | "aiError" | "aiAttempts" | "uploadedById" | "createdAt" | "updatedAt", ExtArgs["result"]["appReferenceImage"]>
 export type AppReferenceImageInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
+  shots?: boolean | Prisma.AppReferenceImage$shotsArgs<ExtArgs>
+  _count?: boolean | Prisma.AppReferenceImageCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AppReferenceImageIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.AppDefaultArgs<ExtArgs>
@@ -1072,6 +1245,7 @@ export type $AppReferenceImagePayload<ExtArgs extends runtime.Types.Extensions.I
   name: "AppReferenceImage"
   objects: {
     app: Prisma.$AppPayload<ExtArgs>
+    shots: Prisma.$VideoShotPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1489,6 +1663,7 @@ readonly fields: AppReferenceImageFieldRefs;
 export interface Prisma__AppReferenceImageClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   app<T extends Prisma.AppDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AppDefaultArgs<ExtArgs>>): Prisma.Prisma__AppClient<runtime.Types.Result.GetResult<Prisma.$AppPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  shots<T extends Prisma.AppReferenceImage$shotsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AppReferenceImage$shotsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VideoShotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1936,6 +2111,30 @@ export type AppReferenceImageDeleteManyArgs<ExtArgs extends runtime.Types.Extens
    * Limit how many AppReferenceImages to delete.
    */
   limit?: number
+}
+
+/**
+ * AppReferenceImage.shots
+ */
+export type AppReferenceImage$shotsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the VideoShot
+   */
+  select?: Prisma.VideoShotSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the VideoShot
+   */
+  omit?: Prisma.VideoShotOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.VideoShotInclude<ExtArgs> | null
+  where?: Prisma.VideoShotWhereInput
+  orderBy?: Prisma.VideoShotOrderByWithRelationInput | Prisma.VideoShotOrderByWithRelationInput[]
+  cursor?: Prisma.VideoShotWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.VideoShotScalarFieldEnum | Prisma.VideoShotScalarFieldEnum[]
 }
 
 /**

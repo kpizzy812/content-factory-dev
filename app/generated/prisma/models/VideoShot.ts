@@ -356,6 +356,7 @@ export type VideoShotWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"VideoShot"> | Date | string
   video?: Prisma.XOR<Prisma.VideoScalarRelationFilter, Prisma.VideoWhereInput>
   backgroundClip?: Prisma.XOR<Prisma.BackgroundClipNullableScalarRelationFilter, Prisma.BackgroundClipWhereInput> | null
+  appReference?: Prisma.XOR<Prisma.AppReferenceImageNullableScalarRelationFilter, Prisma.AppReferenceImageWhereInput> | null
 }
 
 export type VideoShotOrderByWithRelationInput = {
@@ -380,6 +381,7 @@ export type VideoShotOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   video?: Prisma.VideoOrderByWithRelationInput
   backgroundClip?: Prisma.BackgroundClipOrderByWithRelationInput
+  appReference?: Prisma.AppReferenceImageOrderByWithRelationInput
 }
 
 export type VideoShotWhereUniqueInput = Prisma.AtLeast<{
@@ -408,6 +410,7 @@ export type VideoShotWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"VideoShot"> | Date | string
   video?: Prisma.XOR<Prisma.VideoScalarRelationFilter, Prisma.VideoWhereInput>
   backgroundClip?: Prisma.XOR<Prisma.BackgroundClipNullableScalarRelationFilter, Prisma.BackgroundClipWhereInput> | null
+  appReference?: Prisma.XOR<Prisma.AppReferenceImageNullableScalarRelationFilter, Prisma.AppReferenceImageWhereInput> | null
 }, "id" | "videoId_order">
 
 export type VideoShotOrderByWithAggregationInput = {
@@ -470,7 +473,6 @@ export type VideoShotCreateInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
-  appReferenceId?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -482,6 +484,7 @@ export type VideoShotCreateInput = {
   updatedAt?: Date | string
   video: Prisma.VideoCreateNestedOneWithoutShotsInput
   backgroundClip?: Prisma.BackgroundClipCreateNestedOneWithoutShotsInput
+  appReference?: Prisma.AppReferenceImageCreateNestedOneWithoutShotsInput
 }
 
 export type VideoShotUncheckedCreateInput = {
@@ -514,7 +517,6 @@ export type VideoShotUpdateInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
-  appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -526,6 +528,7 @@ export type VideoShotUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   video?: Prisma.VideoUpdateOneRequiredWithoutShotsNestedInput
   backgroundClip?: Prisma.BackgroundClipUpdateOneWithoutShotsNestedInput
+  appReference?: Prisma.AppReferenceImageUpdateOneWithoutShotsNestedInput
 }
 
 export type VideoShotUncheckedUpdateInput = {
@@ -580,7 +583,6 @@ export type VideoShotUpdateManyMutationInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
-  appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -713,6 +715,48 @@ export type VideoShotSumOrderByAggregateInput = {
   costUsd?: Prisma.SortOrder
 }
 
+export type VideoShotCreateNestedManyWithoutAppReferenceInput = {
+  create?: Prisma.XOR<Prisma.VideoShotCreateWithoutAppReferenceInput, Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput> | Prisma.VideoShotCreateWithoutAppReferenceInput[] | Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput[]
+  connectOrCreate?: Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput | Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput[]
+  createMany?: Prisma.VideoShotCreateManyAppReferenceInputEnvelope
+  connect?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+}
+
+export type VideoShotUncheckedCreateNestedManyWithoutAppReferenceInput = {
+  create?: Prisma.XOR<Prisma.VideoShotCreateWithoutAppReferenceInput, Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput> | Prisma.VideoShotCreateWithoutAppReferenceInput[] | Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput[]
+  connectOrCreate?: Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput | Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput[]
+  createMany?: Prisma.VideoShotCreateManyAppReferenceInputEnvelope
+  connect?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+}
+
+export type VideoShotUpdateManyWithoutAppReferenceNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoShotCreateWithoutAppReferenceInput, Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput> | Prisma.VideoShotCreateWithoutAppReferenceInput[] | Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput[]
+  connectOrCreate?: Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput | Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput[]
+  upsert?: Prisma.VideoShotUpsertWithWhereUniqueWithoutAppReferenceInput | Prisma.VideoShotUpsertWithWhereUniqueWithoutAppReferenceInput[]
+  createMany?: Prisma.VideoShotCreateManyAppReferenceInputEnvelope
+  set?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  disconnect?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  delete?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  connect?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  update?: Prisma.VideoShotUpdateWithWhereUniqueWithoutAppReferenceInput | Prisma.VideoShotUpdateWithWhereUniqueWithoutAppReferenceInput[]
+  updateMany?: Prisma.VideoShotUpdateManyWithWhereWithoutAppReferenceInput | Prisma.VideoShotUpdateManyWithWhereWithoutAppReferenceInput[]
+  deleteMany?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
+}
+
+export type VideoShotUncheckedUpdateManyWithoutAppReferenceNestedInput = {
+  create?: Prisma.XOR<Prisma.VideoShotCreateWithoutAppReferenceInput, Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput> | Prisma.VideoShotCreateWithoutAppReferenceInput[] | Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput[]
+  connectOrCreate?: Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput | Prisma.VideoShotCreateOrConnectWithoutAppReferenceInput[]
+  upsert?: Prisma.VideoShotUpsertWithWhereUniqueWithoutAppReferenceInput | Prisma.VideoShotUpsertWithWhereUniqueWithoutAppReferenceInput[]
+  createMany?: Prisma.VideoShotCreateManyAppReferenceInputEnvelope
+  set?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  disconnect?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  delete?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  connect?: Prisma.VideoShotWhereUniqueInput | Prisma.VideoShotWhereUniqueInput[]
+  update?: Prisma.VideoShotUpdateWithWhereUniqueWithoutAppReferenceInput | Prisma.VideoShotUpdateWithWhereUniqueWithoutAppReferenceInput[]
+  updateMany?: Prisma.VideoShotUpdateManyWithWhereWithoutAppReferenceInput | Prisma.VideoShotUpdateManyWithWhereWithoutAppReferenceInput[]
+  deleteMany?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
+}
+
 export type VideoShotCreateNestedManyWithoutVideoInput = {
   create?: Prisma.XOR<Prisma.VideoShotCreateWithoutVideoInput, Prisma.VideoShotUncheckedCreateWithoutVideoInput> | Prisma.VideoShotCreateWithoutVideoInput[] | Prisma.VideoShotUncheckedCreateWithoutVideoInput[]
   connectOrCreate?: Prisma.VideoShotCreateOrConnectWithoutVideoInput | Prisma.VideoShotCreateOrConnectWithoutVideoInput[]
@@ -797,6 +841,99 @@ export type VideoShotUncheckedUpdateManyWithoutBackgroundClipNestedInput = {
   deleteMany?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
 }
 
+export type VideoShotCreateWithoutAppReferenceInput = {
+  id?: string
+  order: number
+  startSec: number
+  endSec: number
+  sceneOrder?: number | null
+  foreground?: string
+  background?: string
+  idea?: string | null
+  pipEnabled?: boolean
+  status?: string
+  assetPath?: string | null
+  costUsd?: number
+  perceptualHash?: string | null
+  degradeReason?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  video: Prisma.VideoCreateNestedOneWithoutShotsInput
+  backgroundClip?: Prisma.BackgroundClipCreateNestedOneWithoutShotsInput
+}
+
+export type VideoShotUncheckedCreateWithoutAppReferenceInput = {
+  id?: string
+  videoId: number
+  order: number
+  startSec: number
+  endSec: number
+  sceneOrder?: number | null
+  foreground?: string
+  background?: string
+  backgroundClipId?: string | null
+  idea?: string | null
+  pipEnabled?: boolean
+  status?: string
+  assetPath?: string | null
+  costUsd?: number
+  perceptualHash?: string | null
+  degradeReason?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type VideoShotCreateOrConnectWithoutAppReferenceInput = {
+  where: Prisma.VideoShotWhereUniqueInput
+  create: Prisma.XOR<Prisma.VideoShotCreateWithoutAppReferenceInput, Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput>
+}
+
+export type VideoShotCreateManyAppReferenceInputEnvelope = {
+  data: Prisma.VideoShotCreateManyAppReferenceInput | Prisma.VideoShotCreateManyAppReferenceInput[]
+  skipDuplicates?: boolean
+}
+
+export type VideoShotUpsertWithWhereUniqueWithoutAppReferenceInput = {
+  where: Prisma.VideoShotWhereUniqueInput
+  update: Prisma.XOR<Prisma.VideoShotUpdateWithoutAppReferenceInput, Prisma.VideoShotUncheckedUpdateWithoutAppReferenceInput>
+  create: Prisma.XOR<Prisma.VideoShotCreateWithoutAppReferenceInput, Prisma.VideoShotUncheckedCreateWithoutAppReferenceInput>
+}
+
+export type VideoShotUpdateWithWhereUniqueWithoutAppReferenceInput = {
+  where: Prisma.VideoShotWhereUniqueInput
+  data: Prisma.XOR<Prisma.VideoShotUpdateWithoutAppReferenceInput, Prisma.VideoShotUncheckedUpdateWithoutAppReferenceInput>
+}
+
+export type VideoShotUpdateManyWithWhereWithoutAppReferenceInput = {
+  where: Prisma.VideoShotScalarWhereInput
+  data: Prisma.XOR<Prisma.VideoShotUpdateManyMutationInput, Prisma.VideoShotUncheckedUpdateManyWithoutAppReferenceInput>
+}
+
+export type VideoShotScalarWhereInput = {
+  AND?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
+  OR?: Prisma.VideoShotScalarWhereInput[]
+  NOT?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
+  id?: Prisma.StringFilter<"VideoShot"> | string
+  videoId?: Prisma.IntFilter<"VideoShot"> | number
+  order?: Prisma.IntFilter<"VideoShot"> | number
+  startSec?: Prisma.FloatFilter<"VideoShot"> | number
+  endSec?: Prisma.FloatFilter<"VideoShot"> | number
+  sceneOrder?: Prisma.IntNullableFilter<"VideoShot"> | number | null
+  foreground?: Prisma.StringFilter<"VideoShot"> | string
+  background?: Prisma.StringFilter<"VideoShot"> | string
+  backgroundClipId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
+  appReferenceId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
+  idea?: Prisma.StringNullableFilter<"VideoShot"> | string | null
+  pipEnabled?: Prisma.BoolFilter<"VideoShot"> | boolean
+  status?: Prisma.StringFilter<"VideoShot"> | string
+  assetPath?: Prisma.StringNullableFilter<"VideoShot"> | string | null
+  costUsd?: Prisma.FloatFilter<"VideoShot"> | number
+  perceptualHash?: Prisma.StringNullableFilter<"VideoShot"> | string | null
+  degradeReason?: Prisma.StringNullableFilter<"VideoShot"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"VideoShot"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"VideoShot"> | Date | string
+}
+
 export type VideoShotCreateWithoutVideoInput = {
   id?: string
   order: number
@@ -805,7 +942,6 @@ export type VideoShotCreateWithoutVideoInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
-  appReferenceId?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -816,6 +952,7 @@ export type VideoShotCreateWithoutVideoInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   backgroundClip?: Prisma.BackgroundClipCreateNestedOneWithoutShotsInput
+  appReference?: Prisma.AppReferenceImageCreateNestedOneWithoutShotsInput
 }
 
 export type VideoShotUncheckedCreateWithoutVideoInput = {
@@ -865,31 +1002,6 @@ export type VideoShotUpdateManyWithWhereWithoutVideoInput = {
   data: Prisma.XOR<Prisma.VideoShotUpdateManyMutationInput, Prisma.VideoShotUncheckedUpdateManyWithoutVideoInput>
 }
 
-export type VideoShotScalarWhereInput = {
-  AND?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
-  OR?: Prisma.VideoShotScalarWhereInput[]
-  NOT?: Prisma.VideoShotScalarWhereInput | Prisma.VideoShotScalarWhereInput[]
-  id?: Prisma.StringFilter<"VideoShot"> | string
-  videoId?: Prisma.IntFilter<"VideoShot"> | number
-  order?: Prisma.IntFilter<"VideoShot"> | number
-  startSec?: Prisma.FloatFilter<"VideoShot"> | number
-  endSec?: Prisma.FloatFilter<"VideoShot"> | number
-  sceneOrder?: Prisma.IntNullableFilter<"VideoShot"> | number | null
-  foreground?: Prisma.StringFilter<"VideoShot"> | string
-  background?: Prisma.StringFilter<"VideoShot"> | string
-  backgroundClipId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
-  appReferenceId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
-  idea?: Prisma.StringNullableFilter<"VideoShot"> | string | null
-  pipEnabled?: Prisma.BoolFilter<"VideoShot"> | boolean
-  status?: Prisma.StringFilter<"VideoShot"> | string
-  assetPath?: Prisma.StringNullableFilter<"VideoShot"> | string | null
-  costUsd?: Prisma.FloatFilter<"VideoShot"> | number
-  perceptualHash?: Prisma.StringNullableFilter<"VideoShot"> | string | null
-  degradeReason?: Prisma.StringNullableFilter<"VideoShot"> | string | null
-  createdAt?: Prisma.DateTimeFilter<"VideoShot"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"VideoShot"> | Date | string
-}
-
 export type VideoShotCreateWithoutBackgroundClipInput = {
   id?: string
   order: number
@@ -898,7 +1010,6 @@ export type VideoShotCreateWithoutBackgroundClipInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
-  appReferenceId?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -909,6 +1020,7 @@ export type VideoShotCreateWithoutBackgroundClipInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   video: Prisma.VideoCreateNestedOneWithoutShotsInput
+  appReference?: Prisma.AppReferenceImageCreateNestedOneWithoutShotsInput
 }
 
 export type VideoShotUncheckedCreateWithoutBackgroundClipInput = {
@@ -958,6 +1070,90 @@ export type VideoShotUpdateManyWithWhereWithoutBackgroundClipInput = {
   data: Prisma.XOR<Prisma.VideoShotUpdateManyMutationInput, Prisma.VideoShotUncheckedUpdateManyWithoutBackgroundClipInput>
 }
 
+export type VideoShotCreateManyAppReferenceInput = {
+  id?: string
+  videoId: number
+  order: number
+  startSec: number
+  endSec: number
+  sceneOrder?: number | null
+  foreground?: string
+  background?: string
+  backgroundClipId?: string | null
+  idea?: string | null
+  pipEnabled?: boolean
+  status?: string
+  assetPath?: string | null
+  costUsd?: number
+  perceptualHash?: string | null
+  degradeReason?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type VideoShotUpdateWithoutAppReferenceInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  startSec?: Prisma.FloatFieldUpdateOperationsInput | number
+  endSec?: Prisma.FloatFieldUpdateOperationsInput | number
+  sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  foreground?: Prisma.StringFieldUpdateOperationsInput | string
+  background?: Prisma.StringFieldUpdateOperationsInput | string
+  idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  assetPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costUsd?: Prisma.FloatFieldUpdateOperationsInput | number
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  degradeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  video?: Prisma.VideoUpdateOneRequiredWithoutShotsNestedInput
+  backgroundClip?: Prisma.BackgroundClipUpdateOneWithoutShotsNestedInput
+}
+
+export type VideoShotUncheckedUpdateWithoutAppReferenceInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  videoId?: Prisma.IntFieldUpdateOperationsInput | number
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  startSec?: Prisma.FloatFieldUpdateOperationsInput | number
+  endSec?: Prisma.FloatFieldUpdateOperationsInput | number
+  sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  foreground?: Prisma.StringFieldUpdateOperationsInput | string
+  background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  assetPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costUsd?: Prisma.FloatFieldUpdateOperationsInput | number
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  degradeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type VideoShotUncheckedUpdateManyWithoutAppReferenceInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  videoId?: Prisma.IntFieldUpdateOperationsInput | number
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  startSec?: Prisma.FloatFieldUpdateOperationsInput | number
+  endSec?: Prisma.FloatFieldUpdateOperationsInput | number
+  sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  foreground?: Prisma.StringFieldUpdateOperationsInput | string
+  background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  assetPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  costUsd?: Prisma.FloatFieldUpdateOperationsInput | number
+  perceptualHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  degradeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type VideoShotCreateManyVideoInput = {
   id?: string
   order: number
@@ -987,7 +1183,6 @@ export type VideoShotUpdateWithoutVideoInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
-  appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -998,6 +1193,7 @@ export type VideoShotUpdateWithoutVideoInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   backgroundClip?: Prisma.BackgroundClipUpdateOneWithoutShotsNestedInput
+  appReference?: Prisma.AppReferenceImageUpdateOneWithoutShotsNestedInput
 }
 
 export type VideoShotUncheckedUpdateWithoutVideoInput = {
@@ -1071,7 +1267,6 @@ export type VideoShotUpdateWithoutBackgroundClipInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
-  appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1082,6 +1277,7 @@ export type VideoShotUpdateWithoutBackgroundClipInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   video?: Prisma.VideoUpdateOneRequiredWithoutShotsNestedInput
+  appReference?: Prisma.AppReferenceImageUpdateOneWithoutShotsNestedInput
 }
 
 export type VideoShotUncheckedUpdateWithoutBackgroundClipInput = {
@@ -1150,6 +1346,7 @@ export type VideoShotSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   updatedAt?: boolean
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
+  appReference?: boolean | Prisma.VideoShot$appReferenceArgs<ExtArgs>
 }, ExtArgs["result"]["videoShot"]>
 
 export type VideoShotSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1174,6 +1371,7 @@ export type VideoShotSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   updatedAt?: boolean
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
+  appReference?: boolean | Prisma.VideoShot$appReferenceArgs<ExtArgs>
 }, ExtArgs["result"]["videoShot"]>
 
 export type VideoShotSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1198,6 +1396,7 @@ export type VideoShotSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   updatedAt?: boolean
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
+  appReference?: boolean | Prisma.VideoShot$appReferenceArgs<ExtArgs>
 }, ExtArgs["result"]["videoShot"]>
 
 export type VideoShotSelectScalar = {
@@ -1226,14 +1425,17 @@ export type VideoShotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs 
 export type VideoShotInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
+  appReference?: boolean | Prisma.VideoShot$appReferenceArgs<ExtArgs>
 }
 export type VideoShotIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
+  appReference?: boolean | Prisma.VideoShot$appReferenceArgs<ExtArgs>
 }
 export type VideoShotIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
+  appReference?: boolean | Prisma.VideoShot$appReferenceArgs<ExtArgs>
 }
 
 export type $VideoShotPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1241,6 +1443,7 @@ export type $VideoShotPayload<ExtArgs extends runtime.Types.Extensions.InternalA
   objects: {
     video: Prisma.$VideoPayload<ExtArgs>
     backgroundClip: Prisma.$BackgroundClipPayload<ExtArgs> | null
+    appReference: Prisma.$AppReferenceImagePayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1687,6 +1890,7 @@ export interface Prisma__VideoShotClient<T, Null = never, ExtArgs extends runtim
   readonly [Symbol.toStringTag]: "PrismaPromise"
   video<T extends Prisma.VideoDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VideoDefaultArgs<ExtArgs>>): Prisma.Prisma__VideoClient<runtime.Types.Result.GetResult<Prisma.$VideoPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   backgroundClip<T extends Prisma.VideoShot$backgroundClipArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VideoShot$backgroundClipArgs<ExtArgs>>): Prisma.Prisma__BackgroundClipClient<runtime.Types.Result.GetResult<Prisma.$BackgroundClipPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  appReference<T extends Prisma.VideoShot$appReferenceArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.VideoShot$appReferenceArgs<ExtArgs>>): Prisma.Prisma__AppReferenceImageClient<runtime.Types.Result.GetResult<Prisma.$AppReferenceImagePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2152,6 +2356,25 @@ export type VideoShot$backgroundClipArgs<ExtArgs extends runtime.Types.Extension
    */
   include?: Prisma.BackgroundClipInclude<ExtArgs> | null
   where?: Prisma.BackgroundClipWhereInput
+}
+
+/**
+ * VideoShot.appReference
+ */
+export type VideoShot$appReferenceArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AppReferenceImage
+   */
+  select?: Prisma.AppReferenceImageSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AppReferenceImage
+   */
+  omit?: Prisma.AppReferenceImageOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AppReferenceImageInclude<ExtArgs> | null
+  where?: Prisma.AppReferenceImageWhereInput
 }
 
 /**

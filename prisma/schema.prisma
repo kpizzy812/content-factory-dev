@@ -572,6 +572,7 @@ model AppReferenceImage {
   uploadedById    Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  shots           VideoShot[]
 
   @@unique([appId, sha1])
   @@index([appId])
@@ -2562,7 +2563,7 @@ model ServiceBalanceEntry {
   @@index([enteredAt])
 }
 
-// --- Story-driven scenario models ---
+// --- Монтаж: профиль, библиотека фонов, кадры ролика (edit-plan) ---
 
 /// Монтажный профиль бренда: правила, по которым режется ролик.
 ///
@@ -2676,6 +2677,7 @@ model VideoShot {
   /// Скрин приложения как фон: id AppReferenceImage. Отдельным полем, а не
   /// общей ссылкой: у скринов свой жизненный цикл и свой каскад.
   appReferenceId   String?
+  appReference     AppReferenceImage? @relation(fields: [appReferenceId], references: [id], onDelete: SetNull)
   /// Смысл кадра словами — из него собирается промпт генерации фона (§7).
   idea             String?
   pipEnabled       Boolean         @default(false)
@@ -2693,7 +2695,10 @@ model VideoShot {
   @@unique([videoId, order])
   @@index([videoId, startSec])
   @@index([backgroundClipId])
+  @@index([appReferenceId])
 }
+
+// --- Story-driven scenario models ---
 
 model ScenarioGenerationProfile {
   id          Int        @id @default(autoincrement())
