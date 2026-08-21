@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { randomUUID } from "node:crypto"
 import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -69,6 +70,41 @@ describe("схема записей ведущего", () => {
         originalName: "dubl-01-copy.mov",
       },
     })).rejects.toThrow()
+  })
+
+  // Minor 3 из финального ревью: bytes/originalBytes были INTEGER (потолок
+  // 2 147 483 647) — приём ограничен MAX_FILE_BYTES = 2 GiB
+  // (source-recordings/index.post.ts), то есть originalBytes переполнял бы
+  // INTEGER ровно на границе приёма, а нормализованный файл при 30-37 МБ/мин
+  // переступает 2 ГБ уже на ~60 минутах записи. saveRecording падал бы на
+  // create молча. Значение ниже больше старого потолка INTEGER — до миграции
+  // BigInt этот create падал бы с ошибкой переполнения.
+  it("принимает bytes/originalBytes больше потолка INTEGER (BigInt)", async () => {
+    const overInt32 = 2_500_000_000
+
+    const created = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-bigint-bytes",
+        sha1: "bigintbytessha1",
+        durationSec: 3600,
+        bytes: overInt32,
+        originalBytes: overInt32 + 100,
+      },
+    })
+
+    expect(created.bytes).toBe(BigInt(overInt32))
+    expect(created.originalBytes).toBe(BigInt(overInt32 + 100))
+
+    // Чтение наружу (server/api/characters/[id]/recordings/index.get.ts,
+    // суммарный объём): сумма BigInt-полей, а не number + bigint — последнее
+    // кидает TypeError на рантайме, а не просто даёт неверное число.
+    const rows = await prisma.presenterRecording.findMany({
+      where: { characterId },
+      select: { bytes: true },
+    })
+    const totalBytes = rows.reduce((sum, row) => sum + (row.bytes ?? 0n), 0n)
+    expect(totalBytes).toBe(BigInt(overInt32))
   })
 
   it("связывает клип с записью-родителем, но не требует её", async () => {
@@ -726,6 +762,77 @@ describe("повторная нарезка записи", () => {
     const reloadedStale = await prisma.presenterSourceClip.findUnique({ where: { id: staleClip.id } })
     expect(reloadedStale?.isActive).toBe(true)
   }, 30_000)
+
+  // Important 2 из финального ревью: эндпоинт заливки (source-recordings/index.post.ts)
+  // на дедуп-ветке (та же запись залита второй раз) больше не режет клипы
+  // инлайн собственным набором хешей — он делегирует ВСЮ повторную нарезку
+  // сюда, передавая метаданные формы параметром. Без этого параметра оператор
+  // молча терял бы tags/outfit/background/gesture/uploadedById на КАЖДОЙ
+  // перенарезке — первичная заливка их проставляет, а голый reingestRecording
+  // без options — нет.
+  it("применяет метаданные формы к клипам повторной нарезки и не оставляет активным старый разрез", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-metadata",
+        sha1: "metadatasha1",
+        durationSec: 12,
+        originalName: "metadata.mov",
+      },
+    })
+    // Представляет клип от ПЕРВОЙ заливки (эндпоинт режет её инлайн из
+    // оригинала — эта ветка не меняется этой правкой, не переигрываем её
+    // здесь настоящим ffmpeg, как и соседние тесты этого describe).
+    const staleClip = await prisma.presenterSourceClip.create({
+      data: {
+        characterId,
+        recordingId: recording.id,
+        fileUrl: "https://cdn/first-upload-cut.mp4",
+        sha1: "first-upload-cut-not-reproduced",
+        durationSec: 4,
+        isActive: true,
+      },
+    })
+
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    const result = await reingestRecording(recording.id, {
+      tags: ["новый-жест"],
+      outfit: "деловой костюм",
+      background: "студия",
+      gesture: "указывает рукой",
+      uploadedById: 7,
+    }, deps)
+
+    expect(result.createdIds.length).toBeGreaterThan(0)
+    // Старый разрез первой заливки не подтверждён новым прогоном — гашен, а
+    // не остаётся активным рядом с новым (ровно тот дубль по
+    // docs/PROJECT_CONTEXT.md §7, который допускал старый инлайн-код
+    // эндпоинта на boundarySource === "silence" — известный сценарий реальной
+    // записи ведущей).
+    expect(result.deactivatedClips).toBe(1)
+    const reloadedStale = await prisma.presenterSourceClip.findUnique({ where: { id: staleClip.id } })
+    expect(reloadedStale?.isActive).toBe(false)
+
+    const activeClips = await prisma.presenterSourceClip.findMany({
+      where: { recordingId: recording.id, isActive: true },
+      orderBy: { createdAt: "asc" },
+    })
+    expect(activeClips).toHaveLength(result.createdIds.length)
+    for (const clip of activeClips) {
+      expect(clip.tags).toEqual(["новый-жест"])
+      expect(clip.outfit).toBe("деловой костюм")
+      expect(clip.background).toBe("студия")
+      expect(clip.gesture).toBe("указывает рукой")
+      expect(clip.uploadedById).toBe(7)
+    }
+
+    // Ответ несёт то же по форме содержимое, что и первая заливка эндпоинта —
+    // skipped снова полный список (не просто счётчик), sceneDetectionFailed и
+    // durationSec заполнены, а не потеряны при делегировании.
+    expect(Array.isArray(result.skipped)).toBe(true)
+    expect(typeof result.sceneDetectionFailed).toBe("boolean")
+    expect(result.durationSec).toBeGreaterThan(0)
+  }, 30_000)
 })
 
 // Фикстуры здесь СВОИ в каждом it, а не унаследованные от предыдущего теста:
@@ -1372,6 +1479,10 @@ describe("применение правила хранения (applyRecordingRe
         durationSec: 60,
         createdAt: new Date(Date.now() - 200 * 24 * 3600 * 1000),
         ingestStatus: "running",
+        // Minor 4 из финального ревью: "running" защищает только моложе
+        // STALE_RUNNING_THRESHOLD_MS — без отметки о начале строка считалась
+        // бы зависшей, а не работающей прямо сейчас (см. тест ниже).
+        ingestStartedAt: new Date(),
       },
     })
 
@@ -1379,6 +1490,34 @@ describe("применение правила хранения (applyRecordingRe
 
     expect(decisions.find(d => d.recordingId === recording.id)?.action).toBe("keep")
     expect(await prisma.presenterRecording.findUnique({ where: { id: recording.id } })).not.toBeNull()
+  })
+
+  // Minor 4 из финального ревью: строка, застрявшая в running после убитого
+  // процесса (kill -9, деплой, OOM), раньше была защищена от удаления и
+  // охлаждения НАВСЕГДА — "running" сам по себе принимался за живой процесс
+  // без учёта возраста отметки.
+  it("удаляет auto-запись без клипов, у которой running завис дольше порога зависания", async () => {
+    const storageKey = StorageKeys.presenterRecording(appId, characterId, "stalerunning")
+    await getStorageDriver().uploadBuffer(storageKey, Buffer.from("normalized-recording-bytes"))
+
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey,
+        sha1: "stalerunning",
+        durationSec: 60,
+        createdAt: new Date(Date.now() - 200 * 24 * 3600 * 1000),
+        ingestStatus: "running",
+        // Больше двух часов назад (STALE_RUNNING_THRESHOLD_MS в recording-store.ts) —
+        // процесс, который это ставил, давно мёртв.
+        ingestStartedAt: new Date(Date.now() - 3 * 3600 * 1000),
+      },
+    })
+
+    const decisions = await applyRecordingRetention()
+
+    expect(decisions.find(d => d.recordingId === recording.id)?.action).toBe("delete")
+    expect(await prisma.presenterRecording.findUnique({ where: { id: recording.id } })).toBeNull()
   })
 
   // Требование "ОСТОРОЖНО" из задачи: проход обязан быть безопасен при
@@ -1437,4 +1576,72 @@ describe("применение правила хранения (applyRecordingRe
     expect(await prisma.presenterRecording.findUnique({ where: { id: healthy.id } })).toBeNull()
     expect(await getStorageDriver().exists(healthyKey)).toBe(false)
   })
+
+  // Important из финального ревью: раньше `where` брал ЛЮБУЮ auto-строку.
+  // Запись, которую правило признаёт живой (activeClipCount > 0 — то есть
+  // любая нормально нарезанная и УЖЕ ОХЛАЖДЁННАЯ запись), никогда больше не
+  // меняет состояние — но отсортированная по возрасту, она навсегда занимает
+  // голову очереди. При ~300 единиц материала в месяц набирается
+  // RETENTION_BATCH_LIMIT (200) таких строк примерно за три недели, и дальше
+  // проход каждый раз забирает один и тот же вечно-живой пакет, до более
+  // новых кандидатов не доходя уже никогда.
+  //
+  // Число вечно-живых здесь заметно больше лимита пакета (200) — иначе тест
+  // ничего не доказывал бы: при меньшем числе кандидат из хвоста поместился
+  // бы в выборку и по старому `where` тоже.
+  it("вечно-живые (охлаждённые, с активными клипами) записи не вытесняют более молодого кандидата из лимита пакета", async () => {
+    const evergreenCount = 210
+    const evergreenCreatedAt = new Date(Date.now() - 250 * 24 * 3600 * 1000)
+    const evergreenCooledAt = new Date(Date.now() - 40 * 24 * 3600 * 1000)
+    const evergreenIds = Array.from({ length: evergreenCount }, () => randomUUID())
+
+    await prisma.presenterRecording.createMany({
+      data: evergreenIds.map((id, i) => ({
+        id,
+        characterId,
+        storageKey: `tmp-evergreen-${i}`,
+        sha1: `evergreen${String(i).padStart(6, "0")}`,
+        durationSec: 10,
+        createdAt: evergreenCreatedAt,
+        // Уже охлаждена прошлым проходом — второй раз охлаждать нечего, а
+        // активный клип держит её от удаления. По старому `where` она и
+        // дальше возвращалась бы КАЖДЫЙ проход, забивая лимит пакета собой.
+        cooledAt: evergreenCooledAt,
+      })),
+    })
+    await prisma.presenterSourceClip.createMany({
+      data: evergreenIds.map((id, i) => ({
+        characterId,
+        recordingId: id,
+        fileUrl: "u",
+        sha1: `evergreenclip${String(i).padStart(6, "0")}`,
+        durationSec: 3,
+        isActive: true,
+      })),
+    })
+
+    const deletableStorageKey = StorageKeys.presenterRecording(appId, characterId, "younger-deletable")
+    await getStorageDriver().uploadBuffer(deletableStorageKey, Buffer.from("normalized-recording-bytes"))
+    const deletable = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: deletableStorageKey,
+        sha1: "younger-deletable",
+        durationSec: 10,
+        // Моложе вечно-живых (250 дней) — по старому `where` (orderBy:
+        // createdAt asc, take: 200, без учёта cooledAt/activeClipCount) все
+        // 210 вечно-живых строк, будучи старше, вытеснили бы его из выборки
+        // целиком. Но всё ещё старше срока удаления (180 дней) — сам по себе
+        // законный кандидат на delete.
+        createdAt: new Date(Date.now() - 200 * 24 * 3600 * 1000),
+      },
+    })
+
+    const decisions = await applyRecordingRetention()
+
+    const decision = decisions.find(d => d.recordingId === deletable.id)
+    expect(decision?.action).toBe("delete")
+    expect(decision?.applied).toBe(true)
+    expect(await prisma.presenterRecording.findUnique({ where: { id: deletable.id } })).toBeNull()
+  }, 30_000)
 })

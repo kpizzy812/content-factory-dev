@@ -21,9 +21,11 @@ import { storageKeyToLegacyUrl } from "~~/server/utils/storage/download-to-stora
 import { ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
 import { ingestPresenterRecording } from "~~/server/utils/presenter/ingest-runner"
 import {
+  RecordingIngestRunningError,
   markIngestCompleted,
   markIngestFailed,
   markIngestRunning,
+  reingestRecording,
   saveRecording,
 } from "~~/server/utils/presenter/recording-store"
 
@@ -81,16 +83,6 @@ export default defineEventHandler(async (event) => {
   const background = readTextField(parts, "background")
   const gesture = readTextField(parts, "gesture")
 
-  // Похожесть считаем и против того, что уже лежит у этого ведущего, иначе
-  // повторная загрузка соседнего дубля наполнит библиотеку одинаковыми кадрами.
-  const known = await prisma.presenterSourceClip.findMany({
-    where: { characterId, isActive: true, perceptualHash: { not: null } },
-    select: { perceptualHash: true },
-  })
-  const existingHashes = known
-    .map(clip => clip.perceptualHash)
-    .filter((hash): hash is string => Boolean(hash))
-
   const workDir = await mkdtemp(join(tmpdir(), "presenter-ingest-"))
   const recordingPath = join(workDir, `recording.${ext}`)
   const normalizedPath = join(workDir, "recording-normalized.mp4")
@@ -128,14 +120,84 @@ export default defineEventHandler(async (event) => {
       }). Клипы созданы без привязки к записи.`
     }
 
+    // Important 2 из финального ревью: повторная заливка ТОГО ЖЕ файла
+    // (saved.deduped === true) — единственный путь перенарезки библиотеки по
+    // новым правилам, доступный из UI (reingest/retention/GET recordings во
+    // фронт не заведены вовсе). Раньше эта ветка резала клипы тем же инлайн-
+    // кодом, что и первая заливка, и это ломало контракт, который задача 3
+    // построила для перенарезки:
+    //  - `known` собирался по ВСЕМ активным клипам персонажа, включая свои же —
+    //    на boundarySource === "silence" (реальная запись ведущей) новые
+    //    правила дают новые sha1, и клипы создавались РЯДОМ со старыми
+    //    активными, а старые не гасились (дубль по docs/PROJECT_CONTEXT.md §7);
+    //  - не гасшийся старый разрез оставался включённым, даже когда новый
+    //    прогон его не воспроизвёл;
+    //  - markIngestRunning был плоским — второй параллельный запрос на ту же
+    //    запись не отбивался ничем.
+    // reingestRecording уже чинит все три пункта: атомарный захват статуса,
+    // самоисключение клипов ЭТОЙ записи из сравнения похожести, гашение
+    // неподтверждённого старого разреза — и режет из НОРМАЛИЗОВАННОГО файла в
+    // хранилище, с которым и должен совпадать sourceStartSec.
+    if (saved && saved.deduped) {
+      try {
+        const result = await reingestRecording(saved.recordingId, {
+          maxClips,
+          tags,
+          outfit,
+          background,
+          gesture,
+          uploadedById: user.id,
+        })
+
+        return {
+          data: {
+            recordingId: saved.recordingId,
+            deduped: true,
+            recordingSaveWarning: null,
+            recordingName,
+            durationSec: result.durationSec,
+            sceneDetectionFailed: result.sceneDetectionFailed,
+            boundarySource: result.boundarySource,
+            similarClips: result.similarClips,
+            createdIds: result.createdIds,
+            acceptedCount: result.createdIds.length,
+            skipped: result.skipped,
+          },
+        }
+      }
+      catch (error) {
+        // RecordingIngestRunningError — параллельная заливка/реингест этой же
+        // записи уже идёт (атомарный захват статуса внутри reingestRecording).
+        // reingestRecording сам решает, когда это отбить: НЕ помечаем запись
+        // failed здесь — она правда ещё работает, и markIngestFailed поверх
+        // чужого прогона откатил бы audio-first этого персонажа на подбор
+        // клипов (reserveRecordingWindow видит только ingestStatus: "completed").
+        // На любую другую ошибку reingestRecording уже сам перевёл статус в
+        // failed изнутри своего try/catch — дублировать это здесь не нужно.
+        if (error instanceof RecordingIngestRunningError) {
+          throw createError({ statusCode: 409, message: error.message })
+        }
+        throw error
+      }
+    }
+
+    // Похожесть считаем и против того, что уже лежит у этого ведущего, иначе
+    // повторная загрузка соседнего дубля наполнит библиотеку одинаковыми
+    // кадрами. Только для ПЕРВОЙ заливки — у дедуп-ветки выше своих клипов
+    // ещё нет вовсе, а сравнивать не с чем.
+    const known = await prisma.presenterSourceClip.findMany({
+      where: { characterId, isActive: true, perceptualHash: { not: null } },
+      select: { perceptualHash: true },
+    })
+    const existingHashes = known
+      .map(clip => clip.perceptualHash)
+      .filter((hash): hash is string => Boolean(hash))
+
     if (saved) {
       await markIngestRunning(saved.recordingId)
     }
 
     try {
-      // Нарезка идёт даже в дедуп-ветке: оператор мог залить ту же запись
-      // повторно, чтобы перенарезать её по новым правилам.
-      //
       // Клипы режутся из ОРИГИНАЛА (recordingPath), а saved.recordingId (если
       // сохранение прошло) указывает на НОРМАЛИЗОВАННЫЙ файл в хранилище.
       // sourceStartSec клипа совпадает с таймлайном нормализованной записи

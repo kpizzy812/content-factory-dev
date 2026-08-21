@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { STALE_RUNNING_THRESHOLD_MS } from "~~/server/utils/presenter/recording-ingest-constants"
 import { planRecordingRetention } from "~~/server/utils/presenter/recording-retention"
 
 const DAY = 24 * 60 * 60 * 1000
@@ -13,6 +14,9 @@ function candidate(overrides: Record<string, unknown> = {}) {
     createdAtMs: NOW - 200 * DAY,
     cooledAtMs: null,
     ingestStatus: "completed",
+    // По умолчанию "только что" — представляет реально идущую нарезку у
+    // тестов ingestStatus: "running". Тесты Minor 4 переопределяют это явно.
+    ingestStartedAtMs: NOW,
     lastUsedAtMs: null,
     ...overrides,
   }
@@ -124,5 +128,62 @@ describe("правило хранения записей ведущего", () =
     })
 
     expect(decision.action).toBe("keep")
+  })
+
+  // Minor 4 из финального ревью: "running" сам по себе не гарантия живого
+  // процесса — процесс, убитый на середине, статус снять не успевает. Без
+  // учёта возраста такая строка была бы защищена от удаления и охлаждения
+  // НАВСЕГДА. Порог — тот же, что reingestRecording использует для решения
+  // "можно перезапустить нарезку поверх этого running или нет".
+  it("не защищает запись с running старше порога зависания — auto без клипов удаляется как обычно", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({
+        ingestStatus: "running",
+        ingestStartedAtMs: NOW - STALE_RUNNING_THRESHOLD_MS - 1,
+      })],
+      now: NOW,
+    })
+
+    expect(decision.action).toBe("delete")
+  })
+
+  it("running моложе порога зависания по-прежнему защищён", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({
+        ingestStatus: "running",
+        ingestStartedAtMs: NOW - STALE_RUNNING_THRESHOLD_MS + 1,
+      })],
+      now: NOW,
+    })
+
+    expect(decision.action).toBe("keep")
+  })
+
+  // ingestStartedAt: null при running на практике недостижим (markIngestRunning
+  // и атомарный захват в reingestRecording всегда ставят отметку), но раз
+  // такая строка появилась — трактуем её как зависшую, а не как живую:
+  // безопаснее разрешить проверить её ещё раз, чем защищать вечно.
+  it("running без ingestStartedAt трактуется как зависший, а не как живой", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({ ingestStatus: "running", ingestStartedAtMs: null })],
+      now: NOW,
+    })
+
+    expect(decision.action).toBe("delete")
+  })
+
+  // Зависший running защиты живой записи не отменяет: activeClipCount > 0
+  // по-прежнему держит её от удаления, просто уже не по причине "running".
+  it("зависший running у записи с активными клипами не удаляется — живая по другому признаку", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({
+        ingestStatus: "running",
+        ingestStartedAtMs: NOW - STALE_RUNNING_THRESHOLD_MS - 1,
+        activeClipCount: 2,
+      })],
+      now: NOW,
+    })
+
+    expect(decision.action).not.toBe("delete")
   })
 })

@@ -29,7 +29,8 @@ import { storageKeyToLegacyUrl } from "../storage/download-to-storage"
 import { ffmpegIngestDependencies, normalizeRecording, probeRecordingMeta } from "./ffmpeg-adapter"
 import type { RecordingMeta } from "./ffmpeg-adapter"
 import { ingestPresenterRecording } from "./ingest-runner"
-import type { IngestBoundarySource, IngestPresenterDependencies, IngestPresenterInput, IngestPresenterResult } from "./ingest-runner"
+import type { IngestBoundarySource, IngestPresenterDependencies, IngestPresenterInput, IngestPresenterResult, SkippedSegment } from "./ingest-runner"
+import { STALE_RUNNING_THRESHOLD_MS } from "./recording-ingest-constants"
 
 export interface SaveRecordingInput {
   appId: number
@@ -212,12 +213,23 @@ export class RecordingIngestRunningError extends Error {
 
 export interface ReingestRecordingResult {
   createdIds: string[]
-  skipped: number
+  /**
+   * Полный список отброшенных сегментов (не только счётчик) — Important 2
+   * финального ревью: эндпоинт заливки (`source-recordings/index.post.ts`)
+   * делегирует дедуп-ветку сюда и обязан вернуть оператору тот же по форме
+   * ответ, что и при первой заливке (`skipped: {reason}[]`, фронт считает по
+   * нему дубли/ошибки — `app/components/character/CharacterPresenterSourceClips.vue`).
+   */
+  skipped: SkippedSegment[]
   similarClips: number
   /** Старые активные клипы ЭТОЙ записи, не подтверждённые новым разрезом (см. reingestRecording). */
   deactivatedClips: number
   /** Чем размечены границы нового разреза — паузами речи, склейками или ничем (см. ingest-runner.ts). */
   boundarySource: IngestBoundarySource
+  /** true, если ffmpeg не смог разметить сцены нового прогона (см. ingest-runner.ts). */
+  sceneDetectionFailed: boolean
+  /** Длительность записи, измеренная ПРИ ЭТОМ прогоне (probeDuration скачанного файла). */
+  durationSec: number
 }
 
 /**
@@ -254,20 +266,6 @@ const defaultReingestDependencies: ReingestRecordingDependencies = {
 }
 
 /**
- * Порог, после которого `running` считается зависшим, а не активной работой.
- *
- * Процесс, убитый на середине (kill -9, деплой, OOM на 4K-записи), не успевает
- * снять статус — без порога такая запись заперта навсегда: эндпоинт всегда
- * отдаёт 409, а прямой вызов всегда получает `RecordingIngestRunningError`.
- * Значение — с большим запасом над `CUT_TIMEOUT_MS` (5 мин на сегмент) и
- * `NORMALIZE_TIMEOUT_MS` (60 мин на всю запись) из ffmpeg-adapter.ts: у длинной
- * записи может быть много сегментов, и последовательная обработка десятков
- * из них — обычная работа, а не зависание. 2 часа — заведомо больше любого
- * штатного прогона и заведомо меньше «оператор ждёт сутки, пока само пройдёт».
- */
-const STALE_RUNNING_THRESHOLD_MS = 2 * 60 * 60_000
-
-/**
  * Перенарезать сохранённую запись по текущим правилам.
  *
  * Ради этого запись и хранится: правила нарезки менялись уже дважды (пороги
@@ -284,9 +282,28 @@ const STALE_RUNNING_THRESHOLD_MS = 2 * 60 * 60_000
  * задеты), иначе в активной библиотеке рядом лежат два разреза одного
  * материала — ровно дубль, который запрещает docs/PROJECT_CONTEXT.md §7.
  */
+export interface ReingestRecordingOptions {
+  maxClips?: number
+  /**
+   * Метаданные формы повторной заливки — Important 2 финального ревью:
+   * эндпоинт заливки делегирует дедуп-ветку сюда, и без этого параметра
+   * оператор молча терял бы tags/outfit/background/gesture/uploadedById на
+   * КАЖДОЙ перенарезке (первичная заливка их проставляет, реингест — нет).
+   * На подбор исходника это не влияло бы (presenter-source-selector.ts
+   * фильтрует только по characterId/isActive/durationSec), но потеря
+   * метаданных стала бы массовой, а не только на прямом вызове
+   * reingest.post.ts (там их и раньше не было — сохраняем поведение).
+   */
+  tags?: string[]
+  outfit?: string | null
+  background?: string | null
+  gesture?: string | null
+  uploadedById?: number | null
+}
+
 export async function reingestRecording(
   recordingId: string,
-  options: { maxClips?: number } = {},
+  options: ReingestRecordingOptions = {},
   deps: ReingestRecordingDependencies = defaultReingestDependencies,
 ): Promise<ReingestRecordingResult> {
   const recording = await prisma.presenterRecording.findUnique({
@@ -397,9 +414,14 @@ export async function reingestRecording(
           mimeType: "video/mp4",
           bytes: data.length,
           durationSec: clip.durationSec,
+          tags: options.tags,
+          outfit: options.outfit,
+          background: options.background,
+          gesture: options.gesture,
           perceptualHash: clip.perceptualHash,
           sourceRecording: recording.originalName,
           sourceStartSec: clip.startSec,
+          uploadedById: options.uploadedById,
         },
       })
       createdIds.push(row.id)
@@ -420,10 +442,12 @@ export async function reingestRecording(
     await markIngestCompleted(recordingId)
     return {
       createdIds,
-      skipped: result.skipped.length,
+      skipped: result.skipped,
       similarClips: result.similarClips,
       deactivatedClips,
       boundarySource: result.boundarySource,
+      sceneDetectionFailed: result.sceneDetectionFailed,
+      durationSec: result.durationSec,
     }
   }
   catch (error) {
