@@ -390,6 +390,8 @@ export const ModelName = {
   Character: 'Character',
   CharacterReferenceImage: 'CharacterReferenceImage',
   PresenterSourceClip: 'PresenterSourceClip',
+  PresenterRecording: 'PresenterRecording',
+  PresenterRecordingUsage: 'PresenterRecordingUsage',
   SceneReferenceImage: 'SceneReferenceImage',
   Scene: 'Scene',
   AppReferenceImage: 'AppReferenceImage',
@@ -481,7 +483,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption" | "savedView"
+    modelProps: "zavodUser" | "userAppAssignment" | "app" | "character" | "characterReferenceImage" | "presenterSourceClip" | "presenterRecording" | "presenterRecordingUsage" | "sceneReferenceImage" | "scene" | "appReferenceImage" | "appEnrichmentLog" | "trend" | "scenario" | "scenarioVariant" | "scenarioBlockRevision" | "visualStyleRevision" | "scenarioReviewAction" | "video" | "videoFrame" | "videoAsset" | "videoGenerationStep" | "mediaPrediction" | "trendInsight" | "creativeBrief" | "socialAccount" | "accountMetricsSnapshot" | "proxy" | "proxyDeepCheckLog" | "proxyHealthCheck" | "deviceProfile" | "deviceProfileAccount" | "accountGroup" | "accountStyleProfile" | "accountStyleRevision" | "accountGroupMember" | "upload" | "socialUploadAttempt" | "postMetrics" | "reference" | "productionCycle" | "leadMagnet" | "contentFunnel" | "contentHypothesis" | "factoryPublication" | "factoryQualityReview" | "attributionEvent" | "agentLog" | "secretAccessLog" | "telegramChat" | "telegramMessageTemplate" | "telegramDelivery" | "telegramCommandAudit" | "telegramApiKey" | "pipelineTag" | "pipeline" | "workflowRun" | "workflowStep" | "pipelineVersion" | "idea" | "ideaAnalysis" | "ideaOperatorAction" | "trendwatcherProfile" | "trendwatcherRun" | "trendwatcherRunLog" | "pipelineSchedule" | "webhookLog" | "pipelineCredential" | "driveFile" | "taxonomyItem" | "aiAuditLog" | "serviceBalanceEntry" | "scenarioGenerationProfile" | "scenarioFeedback" | "scenarioMemory" | "criticReview" | "favoritePrompt" | "postingJob" | "postingJobLog" | "warmupSession" | "warmupKeywordPool" | "videoUniqueVariant" | "caption" | "savedView"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -926,6 +928,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PresenterSourceClipCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PresenterSourceClipCountAggregateOutputType> | number
+        }
+      }
+    }
+    PresenterRecording: {
+      payload: Prisma.$PresenterRecordingPayload<ExtArgs>
+      fields: Prisma.PresenterRecordingFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PresenterRecordingFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PresenterRecordingFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>
+        }
+        findFirst: {
+          args: Prisma.PresenterRecordingFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PresenterRecordingFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>
+        }
+        findMany: {
+          args: Prisma.PresenterRecordingFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>[]
+        }
+        create: {
+          args: Prisma.PresenterRecordingCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>
+        }
+        createMany: {
+          args: Prisma.PresenterRecordingCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PresenterRecordingCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>[]
+        }
+        delete: {
+          args: Prisma.PresenterRecordingDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>
+        }
+        update: {
+          args: Prisma.PresenterRecordingUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>
+        }
+        deleteMany: {
+          args: Prisma.PresenterRecordingDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PresenterRecordingUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PresenterRecordingUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>[]
+        }
+        upsert: {
+          args: Prisma.PresenterRecordingUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingPayload>
+        }
+        aggregate: {
+          args: Prisma.PresenterRecordingAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePresenterRecording>
+        }
+        groupBy: {
+          args: Prisma.PresenterRecordingGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PresenterRecordingGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PresenterRecordingCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PresenterRecordingCountAggregateOutputType> | number
+        }
+      }
+    }
+    PresenterRecordingUsage: {
+      payload: Prisma.$PresenterRecordingUsagePayload<ExtArgs>
+      fields: Prisma.PresenterRecordingUsageFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PresenterRecordingUsageFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PresenterRecordingUsageFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>
+        }
+        findFirst: {
+          args: Prisma.PresenterRecordingUsageFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PresenterRecordingUsageFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>
+        }
+        findMany: {
+          args: Prisma.PresenterRecordingUsageFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>[]
+        }
+        create: {
+          args: Prisma.PresenterRecordingUsageCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>
+        }
+        createMany: {
+          args: Prisma.PresenterRecordingUsageCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PresenterRecordingUsageCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>[]
+        }
+        delete: {
+          args: Prisma.PresenterRecordingUsageDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>
+        }
+        update: {
+          args: Prisma.PresenterRecordingUsageUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>
+        }
+        deleteMany: {
+          args: Prisma.PresenterRecordingUsageDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PresenterRecordingUsageUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PresenterRecordingUsageUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>[]
+        }
+        upsert: {
+          args: Prisma.PresenterRecordingUsageUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PresenterRecordingUsagePayload>
+        }
+        aggregate: {
+          args: Prisma.PresenterRecordingUsageAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePresenterRecordingUsage>
+        }
+        groupBy: {
+          args: Prisma.PresenterRecordingUsageGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PresenterRecordingUsageGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PresenterRecordingUsageCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PresenterRecordingUsageCountAggregateOutputType> | number
         }
       }
     }
@@ -6757,11 +6907,51 @@ export const PresenterSourceClipScalarFieldEnum = {
   perceptualHash: 'perceptualHash',
   sourceRecording: 'sourceRecording',
   sourceStartSec: 'sourceStartSec',
+  recordingId: 'recordingId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type PresenterSourceClipScalarFieldEnum = (typeof PresenterSourceClipScalarFieldEnum)[keyof typeof PresenterSourceClipScalarFieldEnum]
+
+
+export const PresenterRecordingScalarFieldEnum = {
+  id: 'id',
+  characterId: 'characterId',
+  storageKey: 'storageKey',
+  storageProvider: 'storageProvider',
+  sha1: 'sha1',
+  durationSec: 'durationSec',
+  fps: 'fps',
+  width: 'width',
+  height: 'height',
+  bytes: 'bytes',
+  originalName: 'originalName',
+  originalBytes: 'originalBytes',
+  retention: 'retention',
+  ingestStatus: 'ingestStatus',
+  ingestError: 'ingestError',
+  ingestStartedAt: 'ingestStartedAt',
+  ingestFinishedAt: 'ingestFinishedAt',
+  cooledAt: 'cooledAt',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PresenterRecordingScalarFieldEnum = (typeof PresenterRecordingScalarFieldEnum)[keyof typeof PresenterRecordingScalarFieldEnum]
+
+
+export const PresenterRecordingUsageScalarFieldEnum = {
+  id: 'id',
+  recordingId: 'recordingId',
+  startSec: 'startSec',
+  endSec: 'endSec',
+  videoId: 'videoId',
+  usedAt: 'usedAt'
+} as const
+
+export type PresenterRecordingUsageScalarFieldEnum = (typeof PresenterRecordingUsageScalarFieldEnum)[keyof typeof PresenterRecordingUsageScalarFieldEnum]
 
 
 export const SceneReferenceImageScalarFieldEnum = {
@@ -9260,6 +9450,8 @@ export type GlobalOmitConfig = {
   character?: Prisma.CharacterOmit
   characterReferenceImage?: Prisma.CharacterReferenceImageOmit
   presenterSourceClip?: Prisma.PresenterSourceClipOmit
+  presenterRecording?: Prisma.PresenterRecordingOmit
+  presenterRecordingUsage?: Prisma.PresenterRecordingUsageOmit
   sceneReferenceImage?: Prisma.SceneReferenceImageOmit
   scene?: Prisma.SceneOmit
   appReferenceImage?: Prisma.AppReferenceImageOmit

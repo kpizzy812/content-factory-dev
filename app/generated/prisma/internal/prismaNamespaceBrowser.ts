@@ -57,6 +57,8 @@ export const ModelName = {
   Character: 'Character',
   CharacterReferenceImage: 'CharacterReferenceImage',
   PresenterSourceClip: 'PresenterSourceClip',
+  PresenterRecording: 'PresenterRecording',
+  PresenterRecordingUsage: 'PresenterRecordingUsage',
   SceneReferenceImage: 'SceneReferenceImage',
   Scene: 'Scene',
   AppReferenceImage: 'AppReferenceImage',
@@ -316,11 +318,51 @@ export const PresenterSourceClipScalarFieldEnum = {
   perceptualHash: 'perceptualHash',
   sourceRecording: 'sourceRecording',
   sourceStartSec: 'sourceStartSec',
+  recordingId: 'recordingId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type PresenterSourceClipScalarFieldEnum = (typeof PresenterSourceClipScalarFieldEnum)[keyof typeof PresenterSourceClipScalarFieldEnum]
+
+
+export const PresenterRecordingScalarFieldEnum = {
+  id: 'id',
+  characterId: 'characterId',
+  storageKey: 'storageKey',
+  storageProvider: 'storageProvider',
+  sha1: 'sha1',
+  durationSec: 'durationSec',
+  fps: 'fps',
+  width: 'width',
+  height: 'height',
+  bytes: 'bytes',
+  originalName: 'originalName',
+  originalBytes: 'originalBytes',
+  retention: 'retention',
+  ingestStatus: 'ingestStatus',
+  ingestError: 'ingestError',
+  ingestStartedAt: 'ingestStartedAt',
+  ingestFinishedAt: 'ingestFinishedAt',
+  cooledAt: 'cooledAt',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PresenterRecordingScalarFieldEnum = (typeof PresenterRecordingScalarFieldEnum)[keyof typeof PresenterRecordingScalarFieldEnum]
+
+
+export const PresenterRecordingUsageScalarFieldEnum = {
+  id: 'id',
+  recordingId: 'recordingId',
+  startSec: 'startSec',
+  endSec: 'endSec',
+  videoId: 'videoId',
+  usedAt: 'usedAt'
+} as const
+
+export type PresenterRecordingUsageScalarFieldEnum = (typeof PresenterRecordingUsageScalarFieldEnum)[keyof typeof PresenterRecordingUsageScalarFieldEnum]
 
 
 export const SceneReferenceImageScalarFieldEnum = {

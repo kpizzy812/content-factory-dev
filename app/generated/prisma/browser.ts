@@ -48,6 +48,28 @@ export type CharacterReferenceImage = Prisma.CharacterReferenceImageModel
  */
 export type PresenterSourceClip = Prisma.PresenterSourceClipModel
 /**
+ * Model PresenterRecording
+ * Длинная исходная запись ведущего, нормализованная и сохранённая целиком.
+ * 
+ * До 17.08.2026 запись жила во временном каталоге запроса и удалялась вместе с
+ * ним: падение ingest на середине означало повторную заливку до двух гигабайт,
+ * а перенарезка библиотеки по новым правилам была невозможна в принципе.
+ * Хранение записи — условие нарезки фрагмента под фактическую длину реплики
+ * (spec 2026-08-16-audio-first-editing §6.1).
+ */
+export type PresenterRecording = Prisma.PresenterRecordingModel
+/**
+ * Model PresenterRecordingUsage
+ * Использованный интервал записи.
+ * 
+ * Пока единицей был готовый клип, cooldown держался на PresenterSourceClip.
+ * При нарезке по требованию единица — произвольное окно записи, у которого
+ * счётчика нет: без этой таблицы требование docs/PROJECT_CONTEXT.md §7
+ * («cooldown повторного использования фрагмента») перестаёт выполняться ровно
+ * там, где включается главная фича.
+ */
+export type PresenterRecordingUsage = Prisma.PresenterRecordingUsageModel
+/**
  * Model SceneReferenceImage
  * 
  */

@@ -275,6 +275,7 @@ model Character {
   updatedAt       DateTime                  @updatedAt
   referenceImages CharacterReferenceImage[]
   sourceClips     PresenterSourceClip[]
+  recordings      PresenterRecording[]
   lipSyncVideos   Video[]                   @relation("VideoLipSyncCharacter")
 
   @@index([appId, archived])
@@ -360,12 +361,83 @@ model PresenterSourceClip {
   // Происхождение при автонарезке длинной записи.
   sourceRecording String?
   sourceStartSec  Float?
+  /// Запись-родитель. null у клипов, залитых до появления PresenterRecording, —
+  /// они продолжают подбираться прежним путём по длительности.
+  recordingId     String?
+  recording       PresenterRecording? @relation(fields: [recordingId], references: [id], onDelete: SetNull)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@unique([characterId, sha1])
   @@index([characterId, isActive, lastUsedAt])
   @@index([characterId, perceptualHash])
+  @@index([recordingId])
+}
+
+/// Длинная исходная запись ведущего, нормализованная и сохранённая целиком.
+///
+/// До 17.08.2026 запись жила во временном каталоге запроса и удалялась вместе с
+/// ним: падение ingest на середине означало повторную заливку до двух гигабайт,
+/// а перенарезка библиотеки по новым правилам была невозможна в принципе.
+/// Хранение записи — условие нарезки фрагмента под фактическую длину реплики
+/// (spec 2026-08-16-audio-first-editing §6.1).
+model PresenterRecording {
+  id              String    @id @default(cuid())
+  characterId     String
+  character       Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  /// Нормализованный файл: H.264, 30 fps, AAC, 1920 по большей стороне.
+  storageKey      String
+  storageProvider String    @default("gcs")
+  /// sha1 ОРИГИНАЛА до нормализации: повторная заливка того же файла не создаёт
+  /// вторую запись, даже если нормализация даст другие байты.
+  sha1            String
+  durationSec     Float
+  fps             Float?
+  width           Int?
+  height          Int?
+  /// Размер нормализованного файла.
+  bytes           Int?
+  originalName    String?
+  originalBytes   Int?
+  /// keep — защищено от автоочистки вручную; auto — попадает под неё.
+  retention       String    @default("auto")
+  /// pending | running | completed | failed. Позволяет перезапустить нарезку
+  /// без повторной заливки.
+  ingestStatus    String    @default("pending")
+  ingestError     String?
+  ingestStartedAt DateTime?
+  ingestFinishedAt DateTime?
+  /// Момент перевода в холодный класс хранения. null — файл ещё горячий.
+  cooledAt        DateTime?
+  uploadedById    Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  clips           PresenterSourceClip[]
+  usages          PresenterRecordingUsage[]
+
+  @@unique([characterId, sha1])
+  @@index([characterId, retention, createdAt])
+  @@index([ingestStatus])
+}
+
+/// Использованный интервал записи.
+///
+/// Пока единицей был готовый клип, cooldown держался на PresenterSourceClip.
+/// При нарезке по требованию единица — произвольное окно записи, у которого
+/// счётчика нет: без этой таблицы требование docs/PROJECT_CONTEXT.md §7
+/// («cooldown повторного использования фрагмента») перестаёт выполняться ровно
+/// там, где включается главная фича.
+model PresenterRecordingUsage {
+  id          String             @id @default(cuid())
+  recordingId String
+  recording   PresenterRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  startSec    Float
+  endSec      Float
+  videoId     Int?
+  usedAt      DateTime           @default(now())
+
+  @@index([recordingId, usedAt])
+  @@index([videoId])
 }
 model SceneReferenceImage {
   id                  String    @id @default(cuid())

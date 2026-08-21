@@ -71,6 +71,10 @@ export const StorageKeys = {
   presenterSourceClip: (appId: number | string, characterId: string, sha1: string, ext = "mp4"): string =>
     `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/source-clips/${sha1}.${ext}`,
 
+  /** Длинная запись ведущего целиком, нормализованная. Дедуп по sha1 ОРИГИНАЛА. */
+  presenterRecording: (appId: number | string, characterId: string, sha1: string, ext = "mp4"): string =>
+    `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/recordings/${sha1}.${ext}`,
+
   /** Scene reference image (F2) — эталонные кадры сцены композитора.
    *  GCS path: `zavodcamp/apps/{appId}/scenes/{sceneId}/refs/{sha1}.{ext}`. */
   sceneReferenceImage: (appId: number | string, sceneId: string, sha1: string, ext = "png"): string =>
