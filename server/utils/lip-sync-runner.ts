@@ -1283,7 +1283,16 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // ролик длиной ИСХОДНИКА и хвост речи срежет. Ускорить кусок мы не имеем
       // права (см. ниже), но и молчать нельзя — на прежнем маршруте об этом
       // говорила ветка ускорения, и без этой строки сигнал пропал бы совсем.
-      if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec) {
+      //
+      // Допуск в один кадр (WARN-гейт из финального ревью): buildPresenterCutArgs
+      // (presenter/ffmpeg-adapter.ts) пишет startSec/durationSec через
+      // toFixed(2) — квантует окно по сотым, а само окно посчитано на
+      // кадровой сетке 1/timelineFps (обычно 1/30 ≈ 0.033с). Расхождение
+      // вырезанного окна с заказанным до кадра — штатное округление, а не
+      // сигнал реальной проблемы; без допуска гейт срабатывал бы регулярно и
+      // врал про причину.
+      const cutFrameToleranceSec = Number.isFinite(timelineFps) && timelineFps > 0 ? 1 / timelineFps : 0
+      if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec + cutFrameToleranceSec) {
         // Этот гейт маршрут не проверяет — он смотрит только на цифры. Обычно
         // условие штатно не выполняется на окне из записи: оно режется под
         // presenterTargetSec, который сам берётся из ИЗМЕРЕННОГО куска трека

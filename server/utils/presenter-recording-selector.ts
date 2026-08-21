@@ -52,6 +52,22 @@ const MAX_RESERVATION_ATTEMPTS = 3
  */
 const USAGE_HISTORY_WINDOW_MS = 30 * RECORDING_WINDOW_COOLDOWN_MS
 
+/**
+ * Сколько записей персонажа резервирование готово перебрать за один вызов.
+ *
+ * Minor 9 из финального ревью: `findMany` ниже не имел `take`, и по каждой
+ * найденной записи в открытой `Serializable`-транзакции гоняется полный
+ * перебор позиций (`planRecordingWindow`). Ранний выход (`best.overlapSec
+ * === 0 && !best.reused`, см. ниже) спасает типичный случай — у персонажа с
+ * десятками записей это заметная транзакция, а не мгновенная. 100 — с
+ * запасом над ожидаемым объёмом одного персонажа (при потоке ~300 записей
+ * материала в месяц на несколько ведущих) и заметно больше, чем нужно для
+ * раннего выхода в норме: если первые записи не дали нетронутого места, все
+ * оставшиеся варианты всё равно хуже искать не бесконечно, а по разумному
+ * потолку.
+ */
+const RECORDING_CANDIDATE_LIMIT = 100
+
 export interface ReserveRecordingWindowInput {
   characterId: string
   /** Длина кадра — обычно длина вырезанного куска трека. */
@@ -188,6 +204,7 @@ export async function reserveRecordingWindow(
             durationSec: { gte: input.requiredSec },
           },
           orderBy: [{ createdAt: "asc" }],
+          take: RECORDING_CANDIDATE_LIMIT,
           include: {
             usages: {
               // Не cooldown — см. USAGE_HISTORY_WINDOW_MS: planRecordingWindow

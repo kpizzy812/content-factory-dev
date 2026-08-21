@@ -13,11 +13,20 @@
  * стоит перекодирования гигабайтного файла впустую.
  */
 
+import { TIMELINE_FPS } from "~~/shared/types/video-runtime"
+
 /** Потолок большей стороны. 1080p в ролике, запас на кроп — 1920. */
 export const RECORDING_MAX_SIDE = 1920
 
-/** Частота нормализованной записи: та же, что у таймлайна сборки (TIMELINE_FPS). */
-export const RECORDING_FPS = 30
+/**
+ * Частота нормализованной записи: та же, что у таймлайна сборки.
+ *
+ * Minor 7 из финального ревью: раньше здесь было отдельное число 30 с
+ * комментарием "та же, что TIMELINE_FPS" без связи в коде — значения могли
+ * разъехаться молча. Ссылка на настоящий источник (shared/types/video-runtime.ts)
+ * вместо дублирования литерала.
+ */
+export const RECORDING_FPS = TIMELINE_FPS
 
 export interface RecordingNormalizeOptions {
   maxSide?: number
