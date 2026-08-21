@@ -40,10 +40,35 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Тот же набор полей, что отдаёт GET-список — не вся строка целиком:
+  // storageKey/sha1/cooledAt наружу утекать не должны.
   const updated = await prisma.presenterRecording.update({
     where: { id: recordingId },
     data: { retention: body.retention },
+    select: {
+      id: true,
+      originalName: true,
+      durationSec: true,
+      bytes: true,
+      retention: true,
+      ingestStatus: true,
+      ingestError: true,
+      createdAt: true,
+      _count: { select: { clips: true } },
+    },
   })
 
-  return { data: updated }
+  return {
+    data: {
+      id: updated.id,
+      originalName: updated.originalName,
+      durationSec: updated.durationSec,
+      bytes: updated.bytes,
+      retention: updated.retention,
+      ingestStatus: updated.ingestStatus,
+      ingestError: updated.ingestError,
+      createdAt: updated.createdAt,
+      clipCount: updated._count.clips,
+    },
+  }
 })

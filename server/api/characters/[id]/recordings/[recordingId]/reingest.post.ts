@@ -29,23 +29,23 @@ export default defineEventHandler(async (event) => {
   // recordingId можно перенарезать чужую запись.
   const recording = await prisma.presenterRecording.findUnique({
     where: { id: recordingId },
-    select: { id: true, characterId: true, ingestStatus: true },
+    select: { id: true, characterId: true },
   })
   if (!recording || recording.characterId !== characterId) {
     throw createError({ statusCode: 404, message: "Запись не найдена" })
   }
 
-  if (recording.ingestStatus === "running") {
-    throw createError({ statusCode: 409, message: "Нарезка уже идёт" })
-  }
-
+  // Проверка "уже running" — единственный источник истины: сам
+  // reingestRecording (атомарный UPDATE с учётом порога зависания,
+  // STALE_RUNNING_THRESHOLD_MS). Дублировать её здесь плоским
+  // `ingestStatus === "running"` нельзя: такая проверка не отличит настоящую
+  // работу от процесса, убитого посреди нарезки, и заперла бы зависшую
+  // запись 409-кой ещё ДО того, как reingestRecording успеет её вылечить.
   try {
     const result = await reingestRecording(recordingId)
     return { data: result }
   }
   catch (error) {
-    // Гонка: статус успел смениться на "running" между проверкой выше и
-    // атомарным захватом внутри reingestRecording — тоже 409, а не 500.
     if (error instanceof RecordingIngestRunningError) {
       throw createError({ statusCode: 409, message: "Нарезка уже идёт" })
     }

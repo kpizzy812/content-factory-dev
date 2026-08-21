@@ -335,13 +335,22 @@ describe("сохранение записи и статус нарезки (save
 })
 
 /**
- * Короткий чёрный клип НАСТОЯЩИМ ffmpeg (тот же приём, что и в
+ * Плоский чёрный клип НАСТОЯЩИМ ffmpeg (тот же приём, что и в
  * audio-first-pipeline.spec.ts: `color`/`anullsrc` через lavfi, без сети и
- * без внешних фикстур). 12 секунд без склеек и без речи — сцены и паузы не
- * находятся, планировщик (planPresenterSegments) делит запись пополам: два
- * сегмента по 6с, оба в пределах 2-10с, допустимых для lip-sync.
+ * без внешних фикстур). 12 секунд без склеек и без внутренней речи: тишина
+ * касается обоих краёв записи целиком, поэтому `silenceCutPoints` отбрасывает
+ * её как краевую (silence-detect.ts) — границ речи не находится, сцен на
+ * ровном кадре тоже нет, и `boundarySource` получается `"none"`.
+ * Планировщик (planPresenterSegments) в этом случае делит запись пополам:
+ * два сегмента по 6с, оба в пределах 2-10с, допустимых для lip-sync.
+ *
+ * Используется только там, где нужен именно `"none"` — регрессия на
+ * Important 3(a) (исключение клипов этой же записи из сравнения похожести).
+ * Для остальных тестов используется `renderSilenceFixture` ниже: у реальной
+ * записи ведущей границы всегда от пауз речи, и большинство сценариев обязаны
+ * проверяться на них, а не на вырожденном случае.
  */
-function renderReingestFixture(outPath: string): Promise<void> {
+function renderFlatFixture(outPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn("ffmpeg", [
       "-y",
@@ -358,32 +367,84 @@ function renderReingestFixture(outPath: string): Promise<void> {
 }
 
 /**
- * Зависимости `reingestRecording` для теста: скачивание из хранилища и
- * заливка клипов подменены (никакой сети/реального хранилища), а сама
- * нарезка — `ingestPresenterRecording` + `ffmpegIngestDependencies` — НЕ
- * подменена: настоящий ffmpeg режет настоящий fixturePath. Обходить нарезку
- * моком здесь недопустимо — это и есть проверяемая логика задачи.
+ * Тон-тишина-тон: 4с тона + 2с настоящей цифровой тишины + 6с тона, видео —
+ * тот же плоский чёрный кадр на все 12с. `silencedetect` находит ОДНУ
+ * внутреннюю паузу [4с, 6с] (не касается краёв записи — не отбрасывается как
+ * краевая), `silenceCutPoints` даёт точку реза ~5с, и `boundarySource`
+ * получается `"silence"` — ровно тот путь, по которому размечается реальная
+ * запись ведущей (docs/PROJECT_CONTEXT.md, ingest-runner.ts: непрерывный дубль
+ * без склеек, границы — только паузы речи).
+ *
+ * На `"silence"` перцептивный отбор похожих кадров ВЫКЛЮЧЕН
+ * (`dropSimilarClips = boundarySource !== "silence"`, ingest-runner.ts) —
+ * значит идемпотентность повторного реингеста на этом пути держится
+ * ИСКЛЮЧИТЕЛЬНО на совпадении sha1 нарезанного файла, а не на похожести
+ * кадров. Задача Important 4 — доказать именно эту ветку, а не ту, где
+ * дубли отсеиваются раньше, до сравнения sha1.
  */
-function fakeReingestDeps(fixturePath: string): ReingestRecordingDependencies {
-  return {
+function renderSilenceFixture(outPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", [
+      "-y",
+      "-f", "lavfi", "-i", "color=black:size=640x360:duration=12:rate=24",
+      "-f", "lavfi", "-i", "sine=frequency=440:duration=4:sample_rate=44100",
+      "-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=44100:duration=2",
+      "-f", "lavfi", "-i", "sine=frequency=440:duration=6:sample_rate=44100",
+      "-filter_complex", "[1:a][2:a][3:a]concat=n=3:v=0:a=1[aout]",
+      "-map", "0:v", "-map", "[aout]",
+      "-shortest",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "ultrafast",
+      "-c:a", "aac", "-b:a", "64k",
+      outPath,
+    ], { stdio: "ignore" })
+    proc.once("error", reject)
+    proc.once("exit", code => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`))))
+  })
+}
+
+/**
+ * Зависимости `reingestRecording` для теста: скачивание из хранилища, работа
+ * с временным каталогом и заливка клипов подменены (никакой сети/реального
+ * хранилища), а сама нарезка — `ingestPresenterRecording` +
+ * `ffmpegIngestDependencies` — НЕ подменена: настоящий ffmpeg режет настоящий
+ * fixturePath. Обходить нарезку моком здесь недопустимо — это и есть
+ * проверяемая логика задачи. `uploadCount()` считает реальные заливки —
+ * нужен, чтобы доказать, что sha1-дедуп срабатывает ДО заливки, а не просто
+ * откидывает лишние строки в БД постфактум.
+ */
+function createFakeReingestDeps(fixturePath: string): {
+  deps: ReingestRecordingDependencies
+  uploadCount: () => number
+} {
+  let uploads = 0
+  const deps: ReingestRecordingDependencies = {
     downloadToFile: async (_storageKey, localPath) => {
       await copyFile(fixturePath, localPath)
     },
-    uploadClip: async () => {},
+    uploadClip: async () => {
+      uploads += 1
+    },
     getProviderName: () => "mock",
+    createWorkDir: () => mkdtemp(join(tmpdir(), "presenter-reingest-test-")),
     ingestPresenterRecording,
     ingestDependencies: ffmpegIngestDependencies,
   }
+  return { deps, uploadCount: () => uploads }
 }
 
 describe("повторная нарезка записи", () => {
   let fixtureDir: string
-  let fixturePath: string
+  let flatFixturePath: string
+  let silenceFixturePath: string
 
   beforeAll(async () => {
     fixtureDir = await mkdtemp(join(tmpdir(), "presenter-reingest-fixture-"))
-    fixturePath = join(fixtureDir, "fixture.mp4")
-    await renderReingestFixture(fixturePath)
+    flatFixturePath = join(fixtureDir, "flat.mp4")
+    silenceFixturePath = join(fixtureDir, "silence.mp4")
+    await Promise.all([
+      renderFlatFixture(flatFixturePath),
+      renderSilenceFixture(silenceFixturePath),
+    ])
   }, 30_000)
 
   afterAll(async () => {
@@ -394,7 +455,18 @@ describe("повторная нарезка записи", () => {
   // (findFirst по ingestStatus: "completed", доставшийся от прошлого теста)
   // здесь не работает — создаём её сами и получаем "completed" первым же
   // прогоном reingestRecording.
-  it("не создаёт дублей клипов при повторном прогоне", async () => {
+  //
+  // Important 4 (ревью): исходная версия этого теста гоняла плоскую фикстуру
+  // без внутренней тишины (`boundarySource: "none"`) — там `dropSimilarClips`
+  // включён, и второй прогон получал createdIds=[] ещё ДО сравнения sha1
+  // (оба сегмента отсеивались перцептивным фильтром против уже принятых
+  // клипов первого прогона). Тест проходил, но проверял не ту ветку: у
+  // реальной записи ведущей `boundarySource` — "silence", там перцептивный
+  // отбор выключен, и от повторного создания всей библиотеки защищает
+  // ТОЛЬКО совпадение sha1. Переписан на `renderSilenceFixture` и добавлена
+  // проверка счётчика заливок — без неё «createdIds пуст» можно получить и
+  // просто откинув строки в БД постфактум, не проверив, что заливки не было.
+  it("не создаёт дублей клипов и не заливает второй раз (sha1-ветка на границах-паузах)", async () => {
     const recording = await prisma.presenterRecording.create({
       data: {
         characterId,
@@ -405,20 +477,32 @@ describe("повторная нарезка записи", () => {
       },
     })
 
-    const first = await reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath))
-    expect(first.createdIds.length).toBeGreaterThan(0)
+    const { deps, uploadCount } = createFakeReingestDeps(silenceFixturePath)
 
-    const before = await prisma.presenterSourceClip.count({ where: { recordingId: recording.id } })
-    expect(before).toBe(first.createdIds.length)
+    const first = await reingestRecording(recording.id, {}, deps)
+    // Если фикстура вдруг перестанет давать внутреннюю паузу (другая версия
+    // ffmpeg, другой порог) — тест обязан упасть здесь явно, а не молча
+    // проверить не ту ветку, как было до этой правки.
+    expect(first.boundarySource).toBe("silence")
+    expect(first.createdIds.length).toBeGreaterThan(0)
+    expect(first.deactivatedClips).toBe(0)
+
+    const afterFirst = await prisma.presenterSourceClip.count({ where: { recordingId: recording.id } })
+    expect(afterFirst).toBe(first.createdIds.length)
+    const uploadsAfterFirst = uploadCount()
+    expect(uploadsAfterFirst).toBe(first.createdIds.length)
 
     // Тот же материал, те же правила — те же sha1 клипов, а уникальность
     // (characterId, sha1) не даёт создать вторую строку. Вторая нарезка не
-    // добавила ни одной записи.
-    const second = await reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath))
+    // добавила ни одной записи и не залила ни одного нового объекта.
+    const second = await reingestRecording(recording.id, {}, deps)
     expect(second.createdIds).toHaveLength(0)
+    // Подтверждённые по sha1 клипы не гасятся (Important 3, часть "б").
+    expect(second.deactivatedClips).toBe(0)
 
-    const after = await prisma.presenterSourceClip.count({ where: { recordingId: recording.id } })
-    expect(after).toBe(before)
+    const afterSecond = await prisma.presenterSourceClip.count({ where: { recordingId: recording.id } })
+    expect(afterSecond).toBe(afterFirst)
+    expect(uploadCount()).toBe(uploadsAfterFirst)
 
     const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
     expect(reloaded?.ingestStatus).toBe("completed")
@@ -437,7 +521,8 @@ describe("повторная нарезка записи", () => {
       },
     })
 
-    await reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath)).catch(() => {})
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    await reingestRecording(recording.id, {}, deps).catch(() => {})
 
     const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
     // Статус обязан уйти из failed: либо completed, либо новая честная ошибка.
@@ -447,7 +532,7 @@ describe("повторная нарезка записи", () => {
 
   // Не из брифа: закрывает гонку, которую вводит атомарный захват статуса в
   // reingestRecording (защита от двойной оплаты процессорного времени).
-  it("отклоняет запуск, пока предыдущая нарезка этой же записи ещё идёт", async () => {
+  it("отклоняет запуск, пока предыдущая нарезка этой же записи ещё идёт (running свежий)", async () => {
     const recording = await prisma.presenterRecording.create({
       data: {
         characterId,
@@ -460,10 +545,180 @@ describe("повторная нарезка записи", () => {
       },
     })
 
-    await expect(reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath)))
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    await expect(reingestRecording(recording.id, {}, deps))
       .rejects.toThrow(RecordingIngestRunningError)
 
     const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
     expect(reloaded?.ingestStatus).toBe("running")
   })
+
+  // Important 1 (ревью): без порога зависший "running" (процесс убит kill -9,
+  // деплой, OOM на 4K-записи) был бы заперт навсегда — ни эндпоинт (409), ни
+  // прямой вызов (RecordingIngestRunningError) не смогли бы его починить.
+  it("лечит зависший running: статус старше порога — не запирает реингест навсегда", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-stale-running",
+        sha1: "stalerunningsha1",
+        durationSec: 12,
+        originalName: "stale-running.mov",
+        ingestStatus: "running",
+        // Больше STALE_RUNNING_THRESHOLD_MS (2 часа) — имитация процесса,
+        // убитого посреди нарезки: статус остался "running" навсегда.
+        ingestStartedAt: new Date(Date.now() - 3 * 60 * 60_000),
+      },
+    })
+
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    const result = await reingestRecording(recording.id, {}, deps)
+    expect(result.createdIds.length).toBeGreaterThan(0)
+
+    const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
+    expect(reloaded?.ingestStatus).toBe("completed")
+  }, 30_000)
+
+  // Important 2 (ревью): mkdtemp раньше вызывался ДО try — отказ (нет места на
+  // диске, нет прав) вылетал наружу без markIngestFailed, оставляя "running"
+  // без причины. createWorkDir теперь внутри try и это доказуемо тестом.
+  it("падение до начала нарезки (нет рабочего каталога) переводит запись в failed, а не оставляет running", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-workdir-fail",
+        sha1: "workdirfailsha1",
+        durationSec: 12,
+        originalName: "workdir-fail.mov",
+      },
+    })
+
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    const brokenDeps: ReingestRecordingDependencies = {
+      ...deps,
+      createWorkDir: async () => { throw new Error("нет места на диске (симуляция)") },
+    }
+
+    await expect(reingestRecording(recording.id, {}, brokenDeps)).rejects.toThrow(/нет места на диске/)
+
+    const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
+    expect(reloaded?.ingestStatus).toBe("failed")
+    expect(reloaded?.ingestError).toContain("нет места на диске")
+    expect(reloaded?.ingestStartedAt).not.toBeNull()
+  })
+
+  // Important 3, часть "а" (ревью): known раньше собирался по ВСЕМ активным
+  // клипам персонажа, включая клипы этой же записи от предыдущего прогона.
+  // На границах-таймере (`dropSimilarClips=true`) это гарантированно обнуляло
+  // результат — первый же новый сегмент "похож" сам на себя из прошлого раза.
+  it("не отбрасывает новый разрез из-за похожести на свой же старый разрез (границы не от пауз)", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-self-compare",
+        sha1: "selfcomparesha1",
+        durationSec: 12,
+        originalName: "flat.mov",
+      },
+    })
+    // Сплошной чёрный кадр даёт детерминированный dHash "00...0" (все соседние
+    // пиксели равны) — ровно тот хеш, который получит и новый разрез этого же
+    // материала. Без исключения recordingId этот клип попал бы в `known`.
+    await prisma.presenterSourceClip.create({
+      data: {
+        characterId,
+        recordingId: recording.id,
+        fileUrl: "https://cdn/old-cut.mp4",
+        sha1: "old-cut-not-reproduced",
+        durationSec: 6,
+        perceptualHash: "0000000000000000",
+        isActive: true,
+      },
+    })
+
+    const { deps } = createFakeReingestDeps(flatFixturePath)
+    const result = await reingestRecording(recording.id, {}, deps)
+
+    expect(result.boundarySource).toBe("none")
+    // Если бы клипы этой же записи не исключались из сравнения похожести,
+    // ЛЮБОЙ новый сегмент "совпал" бы с сидированным старым — createdIds
+    // был бы пуст.
+    expect(result.createdIds.length).toBeGreaterThan(0)
+  }, 30_000)
+
+  // Important 3, часть "б" (ревью): подтверждённый разрез не трогаем, а
+  // старый разрез, который новый прогон НЕ воспроизвёл, гасим — иначе в
+  // активной библиотеке остаются два разреза одного материала одновременно
+  // (запрещённый docs/PROJECT_CONTEXT.md §7 дубль).
+  it("деактивирует старый разрез записи, не подтверждённый новым прогоном", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-deactivate",
+        sha1: "deactivatesha1",
+        durationSec: 12,
+        originalName: "prev-cut.mov",
+      },
+    })
+    const staleClip = await prisma.presenterSourceClip.create({
+      data: {
+        characterId,
+        recordingId: recording.id,
+        fileUrl: "https://cdn/stale-cut.mp4",
+        sha1: "stale-cut-not-reproduced",
+        durationSec: 4,
+        isActive: true,
+      },
+    })
+
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    const result = await reingestRecording(recording.id, {}, deps)
+
+    expect(result.createdIds.length).toBeGreaterThan(0)
+    expect(result.deactivatedClips).toBe(1)
+
+    const reloadedStale = await prisma.presenterSourceClip.findUnique({ where: { id: staleClip.id } })
+    expect(reloadedStale?.isActive).toBe(false)
+
+    const activeClips = await prisma.presenterSourceClip.findMany({
+      where: { recordingId: recording.id, isActive: true },
+    })
+    expect(activeClips).toHaveLength(result.createdIds.length)
+  }, 30_000)
+
+  // Important 3, "осторожно, здесь легко обнулить библиотеку": если новый
+  // прогон не дал НИ ОДНОГО клипа, старые активные клипы записи обязаны
+  // остаться как есть — гасить нечем заменить. `maxClips: 0` — настоящий
+  // способ получить пустой результат от реальной нарезки, без подмены самого
+  // ingestPresenterRecording.
+  it("не гасит библиотеку, если новый прогон не дал ни одного клипа", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-empty-run",
+        sha1: "emptyrunsha1",
+        durationSec: 12,
+        originalName: "empty-run.mov",
+      },
+    })
+    const staleClip = await prisma.presenterSourceClip.create({
+      data: {
+        characterId,
+        recordingId: recording.id,
+        fileUrl: "https://cdn/kept-cut.mp4",
+        sha1: "kept-cut",
+        durationSec: 4,
+        isActive: true,
+      },
+    })
+
+    const { deps } = createFakeReingestDeps(silenceFixturePath)
+    const result = await reingestRecording(recording.id, { maxClips: 0 }, deps)
+
+    expect(result.createdIds).toHaveLength(0)
+    expect(result.deactivatedClips).toBe(0)
+
+    const reloadedStale = await prisma.presenterSourceClip.findUnique({ where: { id: staleClip.id } })
+    expect(reloadedStale?.isActive).toBe(true)
+  }, 30_000)
 })

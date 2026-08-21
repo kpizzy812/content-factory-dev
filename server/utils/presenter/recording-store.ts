@@ -29,7 +29,7 @@ import { storageKeyToLegacyUrl } from "../storage/download-to-storage"
 import { ffmpegIngestDependencies, normalizeRecording, probeRecordingMeta } from "./ffmpeg-adapter"
 import type { RecordingMeta } from "./ffmpeg-adapter"
 import { ingestPresenterRecording } from "./ingest-runner"
-import type { IngestPresenterDependencies, IngestPresenterInput, IngestPresenterResult } from "./ingest-runner"
+import type { IngestBoundarySource, IngestPresenterDependencies, IngestPresenterInput, IngestPresenterResult } from "./ingest-runner"
 
 export interface SaveRecordingInput {
   appId: number
@@ -214,19 +214,27 @@ export interface ReingestRecordingResult {
   createdIds: string[]
   skipped: number
   similarClips: number
+  /** Старые активные клипы ЭТОЙ записи, не подтверждённые новым разрезом (см. reingestRecording). */
+  deactivatedClips: number
+  /** Чем размечены границы нового разреза — паузами речи, склейками или ничем (см. ingest-runner.ts). */
+  boundarySource: IngestBoundarySource
 }
 
 /**
  * Зависимости `reingestRecording`, вынесенные параметром по той же причине, что
- * и у `saveRecording`: интеграционный тест подменяет скачивание из хранилища и
- * заливку клипов фейками, а саму нарезку (`ingestPresenterRecording` +
- * `ffmpegIngestDependencies`) гоняет по-настоящему на коротком фикстурном mp4 —
- * обходить нарезку моком нельзя, это и есть проверяемая логика.
+ * и у `saveRecording`: интеграционный тест подменяет скачивание из хранилища,
+ * создание рабочего каталога и заливку клипов фейками, а саму нарезку
+ * (`ingestPresenterRecording` + `ffmpegIngestDependencies`) гоняет по-настоящему
+ * на коротком фикстурном mp4 — обходить нарезку моком нельзя, это и есть
+ * проверяемая логика.
  */
 export interface ReingestRecordingDependencies {
   downloadToFile: (storageKey: string, localPath: string) => Promise<void>
   uploadClip: (storageKey: string, data: Buffer) => Promise<void>
   getProviderName: () => string
+  /** Рабочий каталог для скачанной записи и нарезанных клипов. Вынесен ради Important 2:
+   * тест обязан уметь сымитировать отказ ДО начала нарезки (нет места на диске и т.п.). */
+  createWorkDir: () => Promise<string>
   ingestPresenterRecording: (
     input: IngestPresenterInput,
     ingestDeps: IngestPresenterDependencies,
@@ -240,9 +248,24 @@ const defaultReingestDependencies: ReingestRecordingDependencies = {
     await getStorageDriver().uploadBuffer(storageKey, data, { contentType: "video/mp4" })
   },
   getProviderName: () => getStorageDriver().providerName,
+  createWorkDir: () => mkdtemp(join(tmpdir(), "presenter-reingest-")),
   ingestPresenterRecording,
   ingestDependencies: ffmpegIngestDependencies,
 }
+
+/**
+ * Порог, после которого `running` считается зависшим, а не активной работой.
+ *
+ * Процесс, убитый на середине (kill -9, деплой, OOM на 4K-записи), не успевает
+ * снять статус — без порога такая запись заперта навсегда: эндпоинт всегда
+ * отдаёт 409, а прямой вызов всегда получает `RecordingIngestRunningError`.
+ * Значение — с большим запасом над `CUT_TIMEOUT_MS` (5 мин на сегмент) и
+ * `NORMALIZE_TIMEOUT_MS` (60 мин на всю запись) из ffmpeg-adapter.ts: у длинной
+ * записи может быть много сегментов, и последовательная обработка десятков
+ * из них — обычная работа, а не зависание. 2 часа — заведомо больше любого
+ * штатного прогона и заведомо меньше «оператор ждёт сутки, пока само пройдёт».
+ */
+const STALE_RUNNING_THRESHOLD_MS = 2 * 60 * 60_000
 
 /**
  * Перенарезать сохранённую запись по текущим правилам.
@@ -250,11 +273,16 @@ const defaultReingestDependencies: ReingestRecordingDependencies = {
  * Ради этого запись и хранится: правила нарезки менялись уже дважды (пороги
  * пауз, дедуп по первому кадру), и раньше единственным способом применить их
  * было попросить пользователя залить два гигабайта заново. Она же чинит ingest,
- * упавший на середине (`ingestStatus: "failed"`) — тот же код запускается снова
- * с той же записи, без повторной заливки.
+ * упавший на середине (`ingestStatus: "failed"` или зависший `"running"`) —
+ * тот же код запускается снова с той же записи, без повторной заливки.
  *
- * Дубли не создаются на уровне схемы: `@@unique([characterId, sha1])` —
+ * Точные повторы не создаются на уровне схемы: `@@unique([characterId, sha1])` —
  * клип с тем же содержимым просто пропускается, как и при первичной заливке.
+ * Но новые правила режут запись НЕ побайтово так же, как старые — старый разрез
+ * этой же записи, который новый прогон не воспроизвёл, гасится через
+ * `isActive: false` (не удаляется: строка и файл живы, готовые ролики не
+ * задеты), иначе в активной библиотеке рядом лежат два разреза одного
+ * материала — ровно дубль, который запрещает docs/PROJECT_CONTEXT.md §7.
  */
 export async function reingestRecording(
   recordingId: string,
@@ -267,25 +295,63 @@ export async function reingestRecording(
   })
   if (!recording) throw new Error(`Запись ${recordingId} не найдена`)
 
-  // Атомарный захват статуса: если запись уже "running", `updateMany` не
-  // заденет ни одной строки — второй параллельный вызов не запустит вторую
-  // нарезку поверх первой (двойная оплата процессорного времени, гонка на
-  // клипах). Проверка "не running" в эндпоинте закрывает частый случай
-  // быстрее, эта — закрывает гонку между двумя одновременными запросами.
+  // Атомарный захват статуса: если запись уже "running" и это не зависший
+  // прогон (см. STALE_RUNNING_THRESHOLD_MS), `updateMany` не заденет ни одной
+  // строки — второй параллельный вызов не запустит вторую нарезку поверх
+  // первой (двойная оплата процессорного времени, гонка на клипах). Проверка
+  // "не running" в эндпоинте закрывает частый случай быстрее, эта — закрывает
+  // и гонку между двумя одновременными запросами, и зависший статус после
+  // убитого процесса. Условие захвата — одно выражение в одном UPDATE, иначе
+  // между "прочитать статус" и "записать running" снова открылось бы окно гонки.
+  const staleBefore = new Date(Date.now() - STALE_RUNNING_THRESHOLD_MS)
   const claimed = await prisma.presenterRecording.updateMany({
-    where: { id: recordingId, ingestStatus: { not: "running" } },
+    where: {
+      id: recordingId,
+      OR: [
+        { ingestStatus: { not: "running" } },
+        { ingestStatus: "running", ingestStartedAt: { lt: staleBefore } },
+      ],
+    },
     data: { ingestStatus: "running", ingestError: null, ingestStartedAt: new Date() },
   })
   if (claimed.count === 0) throw new RecordingIngestRunningError(recordingId)
 
-  const workDir = await mkdtemp(join(tmpdir(), "presenter-reingest-"))
-  const localPath = join(workDir, "recording.mp4")
+  // Всё, что идёт дальше, — внутри try: до этой правки mkdtemp (и запрос
+  // staleCandidateIds) стояли ДО первого catch, и их отказ (нет места на
+  // диске, нет прав — а запись весит гигабайты; обрыв БД) вылетал наружу,
+  // оставляя статус "running" без причины и без шанса на повтор в ближайшие
+  // STALE_RUNNING_THRESHOLD_MS.
+  let workDir: string | null = null
 
   try {
+    // Активные клипы этой записи ДО нового прогона. Всё, что новый прогон не
+    // подтвердит (ни созданием, ни совпадением sha1), в конце гасится — но
+    // только если новый прогон вообще что-то дал (см. ниже).
+    const staleCandidateIds = new Set(
+      (await prisma.presenterSourceClip.findMany({
+        where: { recordingId, isActive: true },
+        select: { id: true },
+      })).map(clip => clip.id),
+    )
+
+    workDir = await deps.createWorkDir()
+    const localPath = join(workDir, "recording.mp4")
+
     await deps.downloadToFile(recording.storageKey, localPath)
 
+    // Похожесть — только против ЧУЖИХ клипов персонажа (других записей и
+    // ручных загрузок). Клипы ЭТОЙ же записи исключены: иначе новый разрез
+    // сравнивается сам с собой, и на границах от склеек/таймера
+    // (`dropSimilar = true`, см. ingest-runner.ts) новый набор гарантированно
+    // отбрасывается целиком как «похожий на старый» — перенарезка с новыми
+    // порогами даёт ноль клипов вместо применения новых правил.
     const known = await prisma.presenterSourceClip.findMany({
-      where: { characterId: recording.characterId, isActive: true, perceptualHash: { not: null } },
+      where: {
+        characterId: recording.characterId,
+        isActive: true,
+        perceptualHash: { not: null },
+        recordingId: { not: recordingId },
+      },
       select: { perceptualHash: true },
     })
 
@@ -307,7 +373,13 @@ export async function reingestRecording(
         where: { characterId_sha1: { characterId: recording.characterId, sha1 } },
         select: { id: true },
       })
-      if (exists) continue
+      if (exists) {
+        // Старый клип воспроизведён новым разрезом побайтово — подтверждён,
+        // из кандидатов на гашение убираем (актуально, когда сам exists
+        // принадлежит этой же записи; для чужой записи — безвредный no-op).
+        staleCandidateIds.delete(exists.id)
+        continue
+      }
 
       const storageKey = StorageKeys.presenterSourceClip(
         recording.character.appId, recording.characterId, sha1, "mp4",
@@ -333,8 +405,26 @@ export async function reingestRecording(
       createdIds.push(row.id)
     }
 
+    // Гасим только то, что новый прогон реально заменил. Если он не дал ни
+    // одного клипа (сбой разметки, слишком короткая запись) — не трогаем
+    // старую библиотеку вообще: нечем заменить, значит нечего гасить.
+    let deactivatedClips = 0
+    if (result.clips.length > 0 && staleCandidateIds.size > 0) {
+      const deactivated = await prisma.presenterSourceClip.updateMany({
+        where: { id: { in: [...staleCandidateIds] } },
+        data: { isActive: false },
+      })
+      deactivatedClips = deactivated.count
+    }
+
     await markIngestCompleted(recordingId)
-    return { createdIds, skipped: result.skipped.length, similarClips: result.similarClips }
+    return {
+      createdIds,
+      skipped: result.skipped.length,
+      similarClips: result.similarClips,
+      deactivatedClips,
+      boundarySource: result.boundarySource,
+    }
   }
   catch (error) {
     // markIngestFailed сам может бросить (БД недоступна) — тогда наружу
@@ -343,6 +433,6 @@ export async function reingestRecording(
     throw error
   }
   finally {
-    await rm(workDir, { recursive: true, force: true }).catch(() => {})
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {})
   }
 }
