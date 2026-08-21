@@ -41,7 +41,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // Тот же набор полей, что отдаёт GET-список — не вся строка целиком:
-  // storageKey/sha1/cooledAt наружу утекать не должны.
+  // storageKey/sha1/cooledAt наружу утекать не должны. activeClipCount
+  // считается фильтром isActive: true — тем же смыслом, что использует
+  // правило автоочистки (Мелочь 7 из ревью, фикс-раунд 1; см. комментарий в
+  // index.get.ts).
   const updated = await prisma.presenterRecording.update({
     where: { id: recordingId },
     data: { retention: body.retention },
@@ -54,7 +57,7 @@ export default defineEventHandler(async (event) => {
       ingestStatus: true,
       ingestError: true,
       createdAt: true,
-      _count: { select: { clips: true } },
+      _count: { select: { clips: { where: { isActive: true } } } },
     },
   })
 
@@ -68,7 +71,7 @@ export default defineEventHandler(async (event) => {
       ingestStatus: updated.ingestStatus,
       ingestError: updated.ingestError,
       createdAt: updated.createdAt,
-      clipCount: updated._count.clips,
+      activeClipCount: updated._count.clips,
     },
   }
 })

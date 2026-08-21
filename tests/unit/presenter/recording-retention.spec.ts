@@ -12,6 +12,8 @@ function candidate(overrides: Record<string, unknown> = {}) {
     activeClipCount: 0,
     createdAtMs: NOW - 200 * DAY,
     cooledAtMs: null,
+    ingestStatus: "completed",
+    lastUsedAtMs: null,
     ...overrides,
   }
 }
@@ -76,5 +78,51 @@ describe("правило хранения записей ведущего", () =
     })
 
     expect(decision.action).toBe("delete")
+  })
+
+  // Critical из ревью (фикс-раунд 1): audio-first-подбор берёт окно ИЗ
+  // ЗАПИСИ напрямую (server/utils/presenter-recording-selector.ts,
+  // reserveRecordingWindow), не спрашивая PresenterSourceClip вовсе. Запись
+  // без единого активного клипа, но с недавним PresenterRecordingUsage,
+  // реально используется каждую неделю — activeClipCount один этого не видит.
+  it("не удаляет запись без активных клипов, если её недавно использовали напрямую (audio-first)", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({ activeClipCount: 0, lastUsedAtMs: NOW - 3 * DAY })],
+      now: NOW,
+    })
+
+    expect(decision.action).not.toBe("delete")
+  })
+
+  it("удаляет запись без активных клипов, если использование давно остыло (старше срока удаления)", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({ activeClipCount: 0, lastUsedAtMs: NOW - 200 * DAY })],
+      now: NOW,
+    })
+
+    expect(decision.action).toBe("delete")
+  })
+
+  // Мелочь 1 из ревью: защищена должна быть только ТОЧНАЯ строка "auto", а не
+  // "всё, что не keep". Нераспознанное значение — баг вызывающего или будущее
+  // расширение схемы — не должно ехать по auto-ветке.
+  it("не удаляет запись с нераспознанным значением retention — безопаснее ошибиться в защиту", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({ retention: "legal-hold" })],
+      now: NOW,
+    })
+
+    expect(decision.action).toBe("keep")
+  })
+
+  // Мелочь 2 из ревью: гонка с reingestRecording — проход не должен сносить
+  // файл или его класс хранения из-под работающей нарезки той же записи.
+  it("не трогает запись, у которой нарезка (ingestStatus: running) идёт прямо сейчас", () => {
+    const [decision] = planRecordingRetention({
+      candidates: [candidate({ ingestStatus: "running" })],
+      now: NOW,
+    })
+
+    expect(decision.action).toBe("keep")
   })
 })

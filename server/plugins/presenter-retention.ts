@@ -23,17 +23,23 @@ export default defineNitroPlugin((nitro) => {
   const timer = trackedInterval("presenter-retention", "Автоочистка записей ведущего", RETENTION_INTERVAL_MS, async () => {
     try {
       const decisions = await applyRecordingRetention()
-      const deleted = decisions.filter(d => d.action === "delete").length
-      const cooled = decisions.filter(d => d.action === "cool").length
-      // Пустой проход (нет кандидатов) не спамит лог — только когда правило
-      // реально что-то сделало.
-      if (deleted === 0 && cooled === 0) return
+      // Считаем по факту (decision.applied), а не по самому решению: решение —
+      // это ПЛАН, а не то, что реально произошло (Important из ревью,
+      // фикс-раунд 1). При отозванных кредах хранилища все "delete" будут
+      // проваливаться — без фильтра по applied лог соврал бы "удалено 300"
+      // при нулевом реальном удалении.
+      const deleted = decisions.filter(d => d.action === "delete" && d.applied).length
+      const cooled = decisions.filter(d => d.action === "cool" && d.applied).length
+      const failed = decisions.filter(d => !d.applied).length
+      // Пустой проход (нет кандидатов и нечего логировать) не спамит лог —
+      // только когда правило реально что-то сделало или что-то провалилось.
+      if (deleted === 0 && cooled === 0 && failed === 0) return
 
       await logAgent(
         "presenter-retention",
-        "info",
-        `Автоочистка записей ведущего: удалено ${deleted}, переведено в холодный класс ${cooled} `
-        + `(проверено всего ${decisions.length})`,
+        failed > 0 ? "warn" : "info",
+        `Автоочистка записей ведущего: удалено ${deleted}, переведено в холодный класс ${cooled}, `
+        + `отказов ${failed} (проверено всего ${decisions.length})`,
       )
     }
     catch (error) {

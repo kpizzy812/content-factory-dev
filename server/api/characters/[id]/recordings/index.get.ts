@@ -1,9 +1,18 @@
 /**
  * GET /api/characters/:id/recordings
  *
- * Список длинных записей ведущего с числом клипов, порезанных из каждой, и
- * суммарным объёмом всех записей персонажа — §6.1 требует, чтобы в UI было
- * видно, сколько места они занимают (записи весят гигабайты, а очистка ручная).
+ * Список длинных записей ведущего с числом АКТИВНЫХ клипов, порезанных из
+ * каждой, и суммарным объёмом всех записей персонажа — §6.1 требует, чтобы в
+ * UI было видно, сколько места они занимают (записи весят гигабайты, а
+ * очистка ручная).
+ *
+ * `activeClipCount` считается фильтром `isActive: true`, а не общим числом
+ * клипов записи — тем же смыслом, что использует правило автоочистки
+ * (server/utils/presenter/recording-retention.ts). Мелочь 7 из ревью,
+ * фикс-раунд 1: раньше это поле называлось `clipCount` и считало ВСЕ клипы —
+ * оператор видел "клипов: 5" и считал запись защищённой, а правило видело
+ * ноль активных и удаляло её. У фронтенда потребителей этого поля пока нет
+ * (план 4/UI не реализован), так что переименование ничего не ломает.
  */
 export default defineEventHandler(async (event) => {
   const characterId = getRouterParam(event, "id")
@@ -33,7 +42,7 @@ export default defineEventHandler(async (event) => {
       ingestStatus: true,
       ingestError: true,
       createdAt: true,
-      _count: { select: { clips: true } },
+      _count: { select: { clips: { where: { isActive: true } } } },
     },
   })
 
@@ -50,7 +59,7 @@ export default defineEventHandler(async (event) => {
         ingestStatus: recording.ingestStatus,
         ingestError: recording.ingestError,
         createdAt: recording.createdAt,
-        clipCount: recording._count.clips,
+        activeClipCount: recording._count.clips,
       })),
       totalBytes,
     },
