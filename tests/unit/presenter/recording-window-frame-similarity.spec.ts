@@ -2,14 +2,19 @@
  * Task 6b (2026-08-17-presenter-recordings-and-speech-cut): чистая часть
  * перцептивного контроля похожести окна речи ведущего (spec §6.2) —
  * `findSimilarRecentFrame` сравнивает свежий хэш с историей БЕЗ БД и БЕЗ
- * ffmpeg. Оркестрация (снятие кадра, перерезервирование) живёт в том же
- * модуле, но требует ffmpeg и БД — покрыта отдельно (lip-sync-recording-window
- * и presenter-recording.spec.ts).
+ * ffmpeg. Оркестрация (снятие кадра, перерезервирование) живёт в соседнем
+ * `recording-window-frame-guard.ts` (требует ffmpeg и БД, покрыта отдельно —
+ * lip-sync-recording-window.spec.ts и presenter-recording.spec.ts).
+ *
+ * Модуль намеренно свой, а не общий с guard.ts (Minor 6 из ревью фикс-раунда
+ * 1): guard.ts статически тянет `../prisma` и `./ffmpeg-adapter`, и этот
+ * DB-free тест не должен затягивать обе зависимости только чтобы проверить
+ * чистое сравнение строк.
  */
 
 import { describe, expect, it } from "vitest"
 
-import { findSimilarRecentFrame } from "~~/server/utils/presenter/recording-window-frame-guard"
+import { findSimilarRecentFrame } from "~~/server/utils/presenter/recording-window-frame-similarity"
 
 const BASE = "0000000000000000"
 // 2 бита отличия от BASE — в пределах порога по умолчанию (6).

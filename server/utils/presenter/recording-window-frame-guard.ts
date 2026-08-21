@@ -16,6 +16,11 @@
  * шага. Хэш всегда сохраняется в usage — иначе следующей сцене не с чем будет
  * сравнивать.
  *
+ * Чистая часть сравнения (`findSimilarRecentFrame`) — в соседнем
+ * `recording-window-frame-similarity.ts`, без prisma и без ffmpeg (Minor 6 из
+ * ревью фикс-раунда 1: этот файл статически тянет обе тяжёлые зависимости, и
+ * DB-free unit-тест сравнения не должен их затягивать).
+ *
  * Ffmpeg-зависимость (`./ffmpeg-adapter`) тянет `video-tools/ffmpeg.ts`, который
  * на уровне модуля зовёт `setFfmpegPath()` при заданном `FFMPEG_PATH` — поэтому
  * этот модуль, как и `cutRecordingWindow`, обязан импортироваться из
@@ -23,34 +28,12 @@
  */
 
 import { prisma } from "../prisma"
-import { areFramesSimilar, dHashFromGrayscale, DEFAULT_SIMILARITY_THRESHOLD } from "./perceptual-hash"
+import { dHashFromGrayscale } from "./perceptual-hash"
+import { findSimilarRecentFrame } from "./recording-window-frame-similarity"
 import { cutRecordingWindow, ffmpegIngestDependencies } from "./ffmpeg-adapter"
-import { reserveRecordingWindow, type ReservedRecordingWindow } from "../presenter-recording-selector"
+import { prismaErrorCode, reserveRecordingWindow, type ReservedRecordingWindow } from "../presenter-recording-selector"
 
 const RECENT_HASH_LIMIT = 50
-
-/**
- * Чистое решение "похож ли hash на что-то из recentHashes" — без ffmpeg и без
- * БД, только сравнение строк. Битый хэш в истории (повреждённые старые данные)
- * пропускается, а не роняет сравнение целиком — как и в аватарном аналоге
- * `findSimilarAvatarClip` (avatar-source.ts).
- */
-export function findSimilarRecentFrame(
-  hash: string,
-  recentHashes: readonly string[],
-  threshold: number = DEFAULT_SIMILARITY_THRESHOLD,
-): string | null {
-  for (const known of recentHashes) {
-    try {
-      if (areFramesSimilar(hash, known, threshold)) return known
-    }
-    catch {
-      // Один негодный хеш в истории не отменяет проверку остальных.
-      continue
-    }
-  }
-  return null
-}
 
 async function recentCharacterHashes(characterId: string, excludeUsageId: string): Promise<string[]> {
   const rows = await prisma.presenterRecordingUsage.findMany({
@@ -107,6 +90,65 @@ export interface GuardRecordingWindowFrameResult {
   stillSimilar: boolean
 }
 
+/**
+ * Восстанавливает защиту интервала ПЕРВОГО (исходного) окна в БД после отказа
+ * на пути перерезервирования — Important 2 из ревью фикс-раунда 1.
+ *
+ * Уникальность `@@unique([videoId, sceneIndex])` не даёт существовать двум
+ * строкам на одну сцену одновременно, поэтому способ восстановления зависит от
+ * того, что уже успело произойти:
+ * - `replacedUsageId === null` — `reserveRecordingWindow` для второй попытки
+ *   ещё не создал новую строку (сам упал или вернул null); строки на эту пару
+ *   вообще нет — нужен `create`.
+ * - `replacedUsageId` задан — вторая попытка успела создать СВОЮ строку
+ *   (`retried.usageId`), но дальше (закачка другой записи / нарезка / хэш)
+ *   не задалось, а ролик фактически получит ПЕРВОЕ окно. `create` здесь
+ *   упал бы P2002 поверх уже существующей строки — нужен `update` этой же
+ *   строки обратно на границы первого окна.
+ *
+ * Восстановление тоже может не задаться (БД недоступна) — тогда это не
+ * повод завершиться молча (было раньше): пишем в консоль, у guard нет доступа
+ * к логу шага (это знает только вызывающий), это единственный канал.
+ */
+async function restoreOriginalUsage(
+  input: GuardRecordingWindowFrameInput,
+  frameHash: string,
+  replacedUsageId: string | null,
+): Promise<void> {
+  try {
+    if (replacedUsageId) {
+      await prisma.presenterRecordingUsage.update({
+        where: { id: replacedUsageId },
+        data: {
+          recordingId: input.window.recordingId,
+          startSec: input.window.startSec,
+          endSec: input.window.endSec,
+          frameHash,
+        },
+      })
+    }
+    else {
+      await prisma.presenterRecordingUsage.create({
+        data: {
+          recordingId: input.window.recordingId,
+          startSec: input.window.startSec,
+          endSec: input.window.endSec,
+          videoId: input.videoId,
+          sceneIndex: input.sceneIndex,
+          frameHash,
+        },
+      })
+    }
+  }
+  catch (restoreErr) {
+    const msg = restoreErr instanceof Error ? restoreErr.message : String(restoreErr)
+    console.error(
+      `[recording-window-frame-guard] не удалось восстановить защиту интервала первого окна `
+      + `(videoId=${input.videoId}, sceneIndex=${input.sceneIndex}, usageId=${input.window.usageId}): ${msg}`,
+    )
+  }
+}
+
 export async function guardRecordingWindowFrame(
   input: GuardRecordingWindowFrameInput,
 ): Promise<GuardRecordingWindowFrameResult> {
@@ -124,10 +166,17 @@ export async function guardRecordingWindowFrame(
 
   // Похоже на недавний кадр этого персонажа — освобождаем текущее
   // использование и пробуем ОДИН раз заново, исключая уже отвергнутый участок.
-  await prisma.presenterRecordingUsage.delete({ where: { id: input.window.usageId } }).catch(() => {
-    // Строка уже могла исчезнуть (гонка с идентичным повторным прогоном той же
-    // сцены) — не критично, ниже всё равно резервируем заново.
+  // P2025 (строки уже нет — гонка с идентичным повторным прогоном той же
+  // сцены) пропускаем, всё остальное пробрасываем: настоящий отказ БД здесь
+  // означает, что удаление НЕ прошло — исходная строка цела, защита интервала
+  // не потеряна, и восстанавливать нечего (тот же принцип, что в селекторе).
+  await prisma.presenterRecordingUsage.delete({ where: { id: input.window.usageId } }).catch((err) => {
+    if (prismaErrorCode(err) !== "P2025") throw err
   })
+
+  // usageId второй попытки — если она успела создать свою строку, restoreOriginalUsage
+  // ниже обязан UPDATE'ить именно её, а не пытаться create() поверх (Important 2).
+  let retriedUsageId: string | null = null
 
   try {
     const retried = await reserveRecordingWindow({
@@ -145,13 +194,14 @@ export async function guardRecordingWindowFrame(
 
     if (!retried) {
       // Резервировать было не из чего (например, запись стала недоступна
-      // между первым и вторым резервированием). Использование уже удалено —
-      // интервал первого окна больше не защищён от повторной выдачи, но это
-      // та же деградация, что и при штатном отказе провайдера lip-sync (см.
-      // докстринг ReservedRecordingWindow), а не новый класс дефекта. Сцену
-      // не роняем — работаем с уже вырезанным первым файлом.
+      // между первым и вторым резервированием). Строки на эту пару больше
+      // нет вовсе (удалена выше) — восстанавливаем её на границы первого
+      // окна, иначе интервал остаётся без защиты в БД, хотя в ролик пойдёт
+      // именно он.
+      await restoreOriginalUsage(input, hash, null)
       return { window: input.window, windowPath: input.windowPath, reReserved: false, stillSimilar: true }
     }
+    retriedUsageId = retried.usageId
 
     const recordingPath = retried.recordingId === input.window.recordingId
       ? input.recordingPath
@@ -182,21 +232,13 @@ export async function guardRecordingWindowFrame(
     }
   }
   catch (err) {
-    // Повторное резервирование/нарезка не удались УЖЕ ПОСЛЕ удаления первого
-    // использования — интервал первого окна остался бы без защиты в БД.
-    // Восстанавливаем эквивалентную строку (под новым usageId — старый уже не
-    // существует), чтобы интервал не потерял учёт, и пробрасываем ошибку:
-    // вызывающий продолжит со старым (первым) окном и файлом, которые уже
-    // валидны и никуда не делись.
-    await prisma.presenterRecordingUsage.create({
-      data: {
-        recordingId: input.window.recordingId,
-        startSec: input.window.startSec,
-        endSec: input.window.endSec,
-        videoId: input.videoId,
-        sceneIndex: input.sceneIndex,
-      },
-    }).catch(() => {})
+    // Что-то после успешного reserveRecordingWindow (закачка другой записи,
+    // нарезка, снятие/запись хэша) не задалось — ролик фактически получит
+    // ПЕРВОЕ окно (см. catch в lip-sync-runner.ts вокруг всего вызова guard),
+    // а в БД либо нет строки вовсе (reserveRecordingWindow сам бросил, ниже
+    // retriedUsageId === null), либо есть строка ВТОРОГО окна (retriedUsageId
+    // задан) — её нужно откатить на границы первого, а не плодить рядом новую.
+    await restoreOriginalUsage(input, hash, retriedUsageId)
     throw err
   }
 }

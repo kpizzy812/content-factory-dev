@@ -29,7 +29,7 @@ export const RECORDING_WINDOW_COOLDOWN_MS = 24 * 60 * 60 * 1000
  * ВИДЕО — подрезкой или удержанием последнего кадра, звук остаётся эталоном),
  * а отказываться от записи, которая физически есть, из-за долей кадра нельзя.
  */
-const MAX_SHORTFALL_FRAMES = 1
+export const MAX_SHORTFALL_FRAMES = 1
 
 export interface UsedInterval {
   startSec: number

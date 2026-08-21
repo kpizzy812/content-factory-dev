@@ -20,10 +20,19 @@
  * же кусок ведущей, ровно тот дубль по §7, ради которого написан весь селектор.
  * Ключ — пара (videoId, sceneIndex): повторный прогон той же сцены того же
  * ролика обязан получить ТО ЖЕ окно, а не новое.
+ *
+ * Фикс-раунд 1 (ревью): проверка/замена старого использования по ключу
+ * идемпотентности переехала ВНУТРЬ той же Serializable-транзакции, что заводит
+ * новое окно (Minor 3) — раньше удаление устаревшей строки шло ДО открытия
+ * транзакции отдельным запросом, и падение или пустой результат резервирования
+ * между удалением и созданием оставляли интервал прошлого прогона без всякой
+ * защиты в БД. Обработчик гонки на P2002 (Important 1) больше не удаляет
+ * ничего сам — только читает строку победителя и либо отдаёт её, либо честно
+ * бросает понятную ошибку конфликта, а не сырой Prisma-код.
  */
 
 import { prisma } from "./prisma"
-import { planRecordingWindow, RECORDING_WINDOW_COOLDOWN_MS } from "./presenter/recording-window"
+import { MAX_SHORTFALL_FRAMES, planRecordingWindow, RECORDING_WINDOW_COOLDOWN_MS } from "./presenter/recording-window"
 
 const MAX_RESERVATION_ATTEMPTS = 3
 
@@ -52,9 +61,9 @@ export interface ReserveRecordingWindowInput {
   videoId: number | null
   /**
    * Позиция сцены в ролике — вместе с videoId ключ идемпотентности. null —
-   * идемпотентность не применяется (работает как раньше): либо служебный
-   * прогон без videoId, либо вызывающий сознательно хочет новое окно
-   * (например, перцептивный отбор дубля перерезервирует окно заново).
+   * идемпотентность не применяется (работает как раньше): единственный
+   * легитимный случай — служебный прогон без videoId (videoId === null),
+   * для которого пары ключа нет вовсе, а не какой-то особый вызывающий.
    */
   sceneIndex: number | null
   now?: number
@@ -96,12 +105,17 @@ export interface ReservedRecordingWindow {
    * новое; null — идемпотентность не применялась (нет ключа или это первое
    * резервирование для пары). Нужно вызывающему только для отдельной строки в
    * логе — на выбор самого окна не влияет.
+   *
+   * Поля reused/overlapSec на ветке "existing" — заведомо приблизительные
+   * (0/false): решение о них принималось В ПРОШЛОМ прогоне и не хранится, а
+   * пересчитывать его сейчас нечем (usedIntervals того прогона не сохранены).
+   * Это не «настоящий» 0, а «неизвестно» — так и восприниматься лог-строкой.
    */
   idempotency: "existing" | "replaced" | null
 }
 
 /** Код ошибки Prisma, если он есть — иначе пустая строка. */
-function prismaErrorCode(error: unknown): string {
+export function prismaErrorCode(error: unknown): string {
   return error && typeof error === "object" && "code" in error
     ? String((error as { code?: unknown }).code)
     : ""
@@ -109,64 +123,15 @@ function prismaErrorCode(error: unknown): string {
 
 /**
  * Сохранённое окно ещё годится, только если его длина по-прежнему покрывает
- * requiredSec с точностью до одного кадра — тот же допуск на недостачу, что и
- * в `planRecordingWindow` (MAX_SHORTFALL_FRAMES): конец окна там округляется
- * ВВЕРХ до кадра, поэтому свежее окно почти всегда чуть длиннее requiredSec, и
- * небольшой запас — это норма, а не повод перерезервировать.
+ * requiredSec с точностью до допуска планировщика (`MAX_SHORTFALL_FRAMES` из
+ * `recording-window.ts` — та же константа, что решает, когда планировщик
+ * прижимает конец окна к концу записи и получает окно чуть короче заказанного;
+ * значения обязаны совпадать буквально, а не только численно, иначе они молча
+ * разойдутся при следующей правке одного из двух мест).
  */
 function windowStillCoversRequiredSec(durationSec: number, requiredSec: number, fps: number): boolean {
   const frameSec = Number.isFinite(fps) && fps > 0 ? 1 / fps : 0
-  return requiredSec - durationSec <= frameSec + 1e-9
-}
-
-/**
- * Ищет использование по ключу (videoId, sceneIndex) и решает его судьбу:
- * ещё годится — возвращает готовый ReservedRecordingWindow ("existing"); было,
- * но короче нужного — удаляет его и сигнализирует вызывающему идти обычным
- * путём резервирования ("replaced"); не было вовсе — обычный путь без пометки
- * ("none").
- *
- * Вызывается ТОЛЬКО когда videoId и sceneIndex оба заданы — без пары ключа
- * искать нечего (см. вызов ниже).
- */
-async function reuseIdempotentUsage(
-  videoId: number,
-  sceneIndex: number,
-  requiredSec: number,
-  fps: number,
-): Promise<{ kind: "existing", window: ReservedRecordingWindow } | { kind: "replaced" | "none" }> {
-  const existing = await prisma.presenterRecordingUsage.findUnique({
-    where: { videoId_sceneIndex: { videoId, sceneIndex } },
-    include: { recording: { select: { storageKey: true } } },
-  })
-  if (!existing) return { kind: "none" }
-
-  const durationSec = existing.endSec - existing.startSec
-  if (windowStillCoversRequiredSec(durationSec, requiredSec, fps)) {
-    return {
-      kind: "existing",
-      window: {
-        recordingId: existing.recordingId,
-        storageKey: existing.recording.storageKey,
-        startSec: existing.startSec,
-        endSec: existing.endSec,
-        durationSec,
-        usageId: existing.id,
-        reused: false,
-        overlapSec: 0,
-        idempotency: "existing",
-      },
-    }
-  }
-
-  // Короче нужного — трек между прогонами изменился. Освобождаем и идём
-  // обычным путём резервирования заново. Отсутствие строки на момент удаления
-  // не ошибка: параллельный прогон той же сцены мог удалить её первым — ниже
-  // всё равно резервируется заново, и P2002 на create() ловит саму гонку.
-  await prisma.presenterRecordingUsage.delete({ where: { id: existing.id } }).catch((err) => {
-    if (prismaErrorCode(err) !== "P2025") throw err
-  })
-  return { kind: "replaced" }
+  return requiredSec - durationSec <= frameSec * MAX_SHORTFALL_FRAMES + 1e-9
 }
 
 export async function reserveRecordingWindow(
@@ -175,16 +140,45 @@ export async function reserveRecordingWindow(
   const now = input.now ?? Date.now()
   const hasIdempotencyKey = input.videoId !== null && input.sceneIndex !== null
 
-  let idempotencyState: "replaced" | null = null
-  if (input.videoId !== null && input.sceneIndex !== null) {
-    const lookup = await reuseIdempotentUsage(input.videoId, input.sceneIndex, input.requiredSec, input.fps)
-    if (lookup.kind === "existing") return lookup.window
-    if (lookup.kind === "replaced") idempotencyState = "replaced"
-  }
-
   for (let attempt = 1; attempt <= MAX_RESERVATION_ATTEMPTS; attempt++) {
     try {
       return await prisma.$transaction(async (tx) => {
+        // Идемпотентность — ВНУТРИ этой же транзакции (Minor 3 из ревью
+        // фикс-раунда 1): чтение существующего использования, его возможное
+        // удаление (устарело, короче нового requiredSec) и создание нового
+        // должны коммититься или откатываться вместе. Раньше удаление шло
+        // отдельным запросом ДО открытия транзакции — падение резервирования
+        // или пустой результат между удалением и созданием оставляли интервал
+        // прошлого прогона совсем без защиты в БД, хотя окно физически всё
+        // ещё используется в уже отрендеренном ролике.
+        let idempotency: "existing" | "replaced" | null = null
+        if (hasIdempotencyKey) {
+          const existing = await tx.presenterRecordingUsage.findUnique({
+            where: { videoId_sceneIndex: { videoId: input.videoId!, sceneIndex: input.sceneIndex! } },
+            include: { recording: { select: { storageKey: true } } },
+          })
+          if (existing) {
+            const existingDurationSec = existing.endSec - existing.startSec
+            if (windowStillCoversRequiredSec(existingDurationSec, input.requiredSec, input.fps)) {
+              return {
+                recordingId: existing.recordingId,
+                storageKey: existing.recording.storageKey,
+                startSec: existing.startSec,
+                endSec: existing.endSec,
+                durationSec: existingDurationSec,
+                usageId: existing.id,
+                reused: false,
+                overlapSec: 0,
+                idempotency: "existing",
+              }
+            }
+            // Короче нужного — трек между прогонами изменился. Удаляем и идём
+            // обычным путём резервирования заново, но НЕ выходя из транзакции.
+            await tx.presenterRecordingUsage.delete({ where: { id: existing.id } })
+            idempotency = "replaced"
+          }
+        }
+
         // Только завершённые записи: у падавшего ingest файл может быть
         // недокачан, и резать из него — это кадр из ниоткуда.
         const recordings = await tx.presenterRecording.findMany({
@@ -275,24 +269,49 @@ export async function reserveRecordingWindow(
           },
         })
 
-        return { ...best, usageId: usage.id, idempotency: idempotencyState }
+        return { ...best, usageId: usage.id, idempotency }
       }, { isolationLevel: "Serializable" })
     }
     catch (error) {
       const code = prismaErrorCode(error)
 
       // Гонка на идемпотентности: параллельный прогон ТОЙ ЖЕ сцены успел
-      // вставить строку (videoId, sceneIndex) первым между нашим findUnique
-      // выше и этим create(). Уникальность в схеме её поймала — это не повод
-      // падать сырым P2002, а повод отдать строку победителя как "existing":
-      // ровно то же состояние, в которое мы попали бы, если бы наш findUnique
-      // выполнился на долю секунды позже.
+      // вставить строку (videoId, sceneIndex) первым между нашим чтением внутри
+      // транзакции и её commit. Уникальность в схеме её поймала — это не повод
+      // падать сырым P2002. Читаем строку победителя БЕЗ побочных эффектов
+      // (никакого delete отсюда — Important 1 из ревью: catch не владеет чужой
+      // транзакцией, удалять из него что-либо небезопасно) и либо отдаём её,
+      // либо — если она не покрывает наш requiredSec — бросаем понятную ошибку
+      // конфликта. Тихого бесконечного retry здесь не будет: это не временная
+      // serialization failure (P2034), а два конкурентных прогона одной сцены,
+      // которые хотят окна РАЗНОЙ длины, и без явного решения человека/повторного
+      // запуска сцены автоматически это не разрулить.
       if (code === "P2002" && hasIdempotencyKey) {
-        const lookup = await reuseIdempotentUsage(input.videoId!, input.sceneIndex!, input.requiredSec, input.fps)
-        if (lookup.kind === "existing") return lookup.window
-        // Строка победителя уже не годится по длине (replaced) или пропала
-        // между попытками — не зависаем на этой ветке, а даём общему циклу
-        // retry ещё один шанс на обычных основаниях.
+        const winner = await prisma.presenterRecordingUsage.findUnique({
+          where: { videoId_sceneIndex: { videoId: input.videoId!, sceneIndex: input.sceneIndex! } },
+          include: { recording: { select: { storageKey: true } } },
+        })
+        if (winner) {
+          const winnerDurationSec = winner.endSec - winner.startSec
+          if (windowStillCoversRequiredSec(winnerDurationSec, input.requiredSec, input.fps)) {
+            return {
+              recordingId: winner.recordingId,
+              storageKey: winner.recording.storageKey,
+              startSec: winner.startSec,
+              endSec: winner.endSec,
+              durationSec: winnerDurationSec,
+              usageId: winner.id,
+              reused: false,
+              overlapSec: 0,
+              idempotency: "existing",
+            }
+          }
+        }
+        throw new Error(
+          `Резервирование окна конфликтует с уже занятым (videoId=${input.videoId}, `
+          + `sceneIndex=${input.sceneIndex}): параллельный прогон занял окно другой длины `
+          + `(requiredSec=${input.requiredSec}с не покрыт). Повторите прогон сцены.`,
+        )
       }
 
       if (code !== "P2034" || attempt === MAX_RESERVATION_ATTEMPTS) throw error

@@ -448,13 +448,19 @@ model PresenterRecordingUsage {
   /// В Postgres несколько NULL в уникальном индексе разрешены, поэтому
   /// служебные резервирования без ролика (videoId: null) друг другу не мешают.
   @@unique([videoId, sceneIndex])
-  /// Покрывает и старый запрос (интервалы записи по recordingId+usedAt в
-  /// planRecordingWindow), и новый: недавние frameHash персонажа — сначала
-  /// recordingId'ы персонажа берутся по индексу PresenterRecording, а для них
-  /// эта же пара колонок с довеском frameHash даёт index-only scan без похода
-  /// в heap за самим хэшем.
+  /// Расширяет прежний индекс (recordingId, usedAt) третьей колонкой frameHash.
+  /// planRecordingWindow (запрос по ОДНОМУ recordingId) получает честный
+  /// выигрыш — диапазон и выборка целиком из индекса. Запрос "недавние хэши
+  /// персонажа" (recording-window-frame-guard.ts) идёт через JOIN на
+  /// PresenterRecording.characterId и сортирует usedAt ПОПЕРЁК нескольких
+  /// recordingId — там третья колонка лишь избавляет отдельные ветки JOIN'а от
+  /// похода в heap за frameHash, полного index-only scan на запрос целиком
+  /// она не даёт (не описываем выигрыш сильнее правды — Мелочи ревью
+  /// фикс-раунда 1).
+  /// Отдельный @@index([videoId]) убран тем же раундом: @@unique([videoId,
+  /// sceneIndex]) уже B-tree с videoId ведущей колонкой и покрывает те же
+  /// запросы — второй индекс был бы лишней записью на каждый insert.
   @@index([recordingId, usedAt, frameHash])
-  @@index([videoId])
 }
 model SceneReferenceImage {
   id                  String    @id @default(cuid())

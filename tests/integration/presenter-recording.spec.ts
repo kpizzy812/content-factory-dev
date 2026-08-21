@@ -6,8 +6,9 @@ import { join } from "node:path"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { prisma } from "~~/server/utils/prisma"
-import { ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
+import { cutRecordingWindow, ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
 import { ingestPresenterRecording } from "~~/server/utils/presenter/ingest-runner"
+import { guardRecordingWindowFrame } from "~~/server/utils/presenter/recording-window-frame-guard"
 import { reserveRecordingWindow } from "~~/server/utils/presenter-recording-selector"
 import {
   RecordingIngestRunningError,
@@ -1063,4 +1064,157 @@ describe("идемпотентность резервирования по (vide
     const reloaded = await prisma.presenterRecordingUsage.findUnique({ where: { id: reserved!.usageId } })
     expect(reloaded?.frameHash).toBe("0000000000000000")
   })
+})
+
+// Фикс-раунд 1 (Important 2 из ревью): safety-net в guardRecordingWindowFrame
+// раньше срабатывал ровно в одном из пяти путей отказа (create() поверх уже
+// существующей строки второй попытки бился о уникальность и тихо глотался
+// пустым catch), а в ветке "resérvировать было не из чего" (null без throw)
+// восстановления не было вовсе. До этой правки тело guardRecordingWindowFrame
+// не исполнялось НИ ОДНИМ тестом — вся проверка шла через мок в
+// lip-sync-recording-window.spec.ts. Эти два теста гоняют настоящую функцию
+// (настоящий ffmpeg, настоящая БД) и доказывают, что после отказа на КАЖДОМ из
+// двух разобранных путей защита интервала ПЕРВОГО окна восстанавливается, а не
+// теряется и не дублируется.
+describe("guardRecordingWindowFrame: восстановление после отказа (задача 6b, фикс-раунд 1)", () => {
+  let fixtureDir: string
+  let flatFixturePath: string
+
+  beforeAll(async () => {
+    fixtureDir = await mkdtemp(join(tmpdir(), "presenter-frame-guard-fixture-"))
+    flatFixturePath = join(fixtureDir, "flat.mp4")
+    await renderFlatFixture(flatFixturePath)
+  }, 30_000)
+
+  afterAll(async () => {
+    await rm(fixtureDir, { recursive: true, force: true }).catch(() => {})
+  })
+
+  /**
+   * Общая подготовка обоих тестов: одна запись на 12с, первое окно 4с в её
+   * начале [0,4), "недавний" хэш персонажа посажен на [8,12) той же записи —
+   * тот же самый плоский чёрный кадр даёт детерминированный dHash
+   * "0000000000000000" (см. комментарий у renderFlatFixture выше), поэтому
+   * первый кадр вырезанного окна гарантированно "похож" на затравку, и guard
+   * уходит в ветку перерезервирования. Свободное место на этой записи после
+   * затравки — ровно [4,8), 4 секунды: перерезервирование детерминированно
+   * попадает туда же, на ТУ ЖЕ запись (recordingId не меняется), что убирает
+   * из уравнения редкий путь ensureRecordingDownloaded и оставляет чистый
+   * тестовый прогон на нужный failure-path.
+   */
+  async function setupWithSimilarSeed(): Promise<{
+    recording: Awaited<ReturnType<typeof prisma.presenterRecording.create>>
+    video: Awaited<ReturnType<typeof prisma.video.create>>
+    first: NonNullable<Awaited<ReturnType<typeof reserveRecordingWindow>>>
+    windowPath: string
+  }> {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-frame-guard-recording",
+        sha1: "frameguardrecording",
+        durationSec: 12,
+        originalName: "flat.mov",
+        ingestStatus: "completed",
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    const first = await reserveRecordingWindow({
+      characterId, requiredSec: 4, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(first).not.toBeNull()
+
+    await prisma.presenterRecordingUsage.create({
+      data: { recordingId: recording.id, startSec: 8, endSec: 12, frameHash: "0000000000000000" },
+    })
+
+    const windowPath = join(fixtureDir, `window-${video.id}.mp4`)
+    await cutRecordingWindow({
+      recordingPath: flatFixturePath,
+      startSec: first!.startSec,
+      durationSec: first!.durationSec,
+      outputPath: windowPath,
+    })
+
+    return { recording, video, first: first!, windowPath }
+  }
+
+  it("отказ на нарезке ПОСЛЕ успешного перерезервирования восстанавливает защиту первого окна (update, а не потерянный create)", async () => {
+    const { recording, video, first, windowPath } = await setupWithSimilarSeed()
+
+    await expect(guardRecordingWindowFrame({
+      characterId,
+      videoId: video.id,
+      sceneIndex: 0,
+      requiredSec: 4,
+      fps: 30,
+      window: first,
+      windowPath,
+      retryWindowPath: join(fixtureDir, `window-${video.id}-retry.mp4`),
+      // Нарезка второй попытки обязана упасть: несуществующий исходник.
+      // ensureRecordingDownloaded не понадобится — retried.recordingId
+      // совпадёт с recording.id (свободное место только там же, см. доктрину
+      // setupWithSimilarSeed).
+      recordingPath: join(fixtureDir, "does-not-exist.mp4"),
+      ensureRecordingDownloaded: async () => {
+        throw new Error("не должен вызываться на этом сценарии — та же запись")
+      },
+    })).rejects.toThrow()
+
+    const rows = await prisma.presenterRecordingUsage.findMany({
+      where: { videoId: video.id, sceneIndex: 0 },
+    })
+    // Ровно одна строка — не ноль (интервал не потерян) и не две (create поверх
+    // уже существующей строки второй попытки не сработал бы вовсе, P2002).
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.recordingId).toBe(recording.id)
+    expect(rows[0]!.startSec).toBeCloseTo(first.startSec, 3)
+    expect(rows[0]!.endSec).toBeCloseTo(first.endSec, 3)
+    // Хэш ПЕРВОГО (реально используемого дальше) окна тоже восстановлен —
+    // иначе следующая сцена сравнивала бы себя не с тем, что видит зритель.
+    expect(rows[0]!.frameHash).toBe("0000000000000000")
+  }, 30_000)
+
+  it("резервировать было не из чего (запись стала недоступна) — защита первого окна восстанавливается без throw", async () => {
+    const { recording, video, first, windowPath } = await setupWithSimilarSeed()
+
+    // Запись "стала недоступна между первым и вторым резервированием" — тот
+    // самый сценарий из комментария кода: reserveRecordingWindow вернёт null
+    // (не бросит), потому что единственная запись персонажа больше не
+    // ingestStatus: "completed".
+    await prisma.presenterRecording.update({
+      where: { id: recording.id },
+      data: { ingestStatus: "failed" },
+    })
+
+    const result = await guardRecordingWindowFrame({
+      characterId,
+      videoId: video.id,
+      sceneIndex: 0,
+      requiredSec: 4,
+      fps: 30,
+      window: first,
+      windowPath,
+      retryWindowPath: join(fixtureDir, `window-${video.id}-retry2.mp4`),
+      recordingPath: flatFixturePath,
+      ensureRecordingDownloaded: async () => {
+        throw new Error("не должен понадобиться — reserveRecordingWindow вернёт null раньше")
+      },
+    })
+
+    expect(result.reReserved).toBe(false)
+    expect(result.stillSimilar).toBe(true)
+    expect(result.windowPath).toBe(windowPath)
+
+    const rows = await prisma.presenterRecordingUsage.findMany({
+      where: { videoId: video.id, sceneIndex: 0 },
+    })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.recordingId).toBe(recording.id)
+    expect(rows[0]!.startSec).toBeCloseTo(first.startSec, 3)
+    expect(rows[0]!.endSec).toBeCloseTo(first.endSec, 3)
+    expect(rows[0]!.frameHash).toBe("0000000000000000")
+  }, 30_000)
 })
