@@ -742,8 +742,8 @@ describe("резервирование окна записи", () => {
     })
 
     const [first, second] = await Promise.all([
-      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null }),
-      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null }),
+      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null }),
+      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null }),
     ])
 
     expect(first).not.toBeNull()
@@ -776,15 +776,15 @@ describe("резервирование окна записи", () => {
       },
     })
 
-    const firstTaken = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null })
-    const secondTaken = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null })
+    const firstTaken = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null })
+    const secondTaken = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null })
     expect(firstTaken).not.toBeNull()
     expect(secondTaken).not.toBeNull()
 
     const taken = await prisma.presenterRecordingUsage.findMany({ where: { recordingId: recording.id } })
     expect(taken).toHaveLength(2)
 
-    const next = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null })
+    const next = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null })
     expect(next).not.toBeNull()
 
     for (const used of taken) {
@@ -817,12 +817,12 @@ describe("резервирование окна записи", () => {
     })
 
     const now = Date.now()
-    const first = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, now })
+    const first = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null, now })
     expect(first).not.toBeNull()
 
     // За пределами суточного RECORDING_WINDOW_COOLDOWN_MS — интервал уже остыл.
     const later = now + 25 * 3600_000
-    const second = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, now: later })
+    const second = await reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null, now: later })
     expect(second).not.toBeNull()
 
     const intersect = Math.min(second!.endSec, first!.endSec) - Math.max(second!.startSec, first!.startSec)
@@ -857,7 +857,7 @@ describe("резервирование окна записи", () => {
     })
 
     expect(await reserveRecordingWindow({
-      characterId, requiredSec: 5, fps: 30, videoId: null,
+      characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null,
     })).toBeNull()
   })
 
@@ -865,7 +865,202 @@ describe("резервирование окна записи", () => {
     const other = await prisma.character.create({ data: { appId, name: "Без записей" } })
 
     expect(await reserveRecordingWindow({
-      characterId: other.id, requiredSec: 5, fps: 30, videoId: null,
+      characterId: other.id, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null,
     })).toBeNull()
+  })
+})
+
+// Задача 6b: идемпотентность резервирования по (videoId, sceneIndex) и
+// перцептивный хэш окна. Фикстуры свои — та же причина, что и у группы выше
+// (TRUNCATE после каждого it).
+describe("идемпотентность резервирования по (videoId, sceneIndex)", () => {
+  it("повторное резервирование той же сцены того же ролика возвращает то же окно и не создаёт вторую строку", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/idem0001.mp4`,
+        sha1: "idem0001",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    const first = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(first).not.toBeNull()
+    expect(first!.idempotency).toBeNull()
+
+    const second = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(second).not.toBeNull()
+    expect(second).toEqual({ ...first, idempotency: "existing" })
+
+    expect(await prisma.presenterRecordingUsage.count({
+      where: { recordingId: recording.id, videoId: video.id, sceneIndex: 0 },
+    })).toBe(1)
+  })
+
+  it("другая сцена того же ролика получает своё окно, не конфликтует с первой", async () => {
+    await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/idem0002.mp4`,
+        sha1: "idem0002",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    const sceneA = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    const sceneB = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 1,
+    })
+    expect(sceneA).not.toBeNull()
+    expect(sceneB).not.toBeNull()
+    expect(sceneB!.usageId).not.toBe(sceneA!.usageId)
+
+    const intersect = Math.min(sceneA!.endSec, sceneB!.endSec) - Math.max(sceneA!.startSec, sceneB!.startSec)
+    expect(intersect).toBeLessThanOrEqual(0)
+  })
+
+  // Решение задачи, п.2: трек между прогонами мог стать длиннее — сохранённое
+  // окно перестаёт покрывать requiredSec, старое использование заменяется, а
+  // не остаётся висеть рядом со вторым.
+  it("при выросшем requiredSec старое использование заменяется новым, а не дублируется", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/idem0003.mp4`,
+        sha1: "idem0003",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    const first = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(first).not.toBeNull()
+
+    const second = await reserveRecordingWindow({
+      characterId, requiredSec: 20, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(second).not.toBeNull()
+    expect(second!.idempotency).toBe("replaced")
+    expect(second!.usageId).not.toBe(first!.usageId)
+    expect(second!.durationSec).toBeGreaterThanOrEqual(20)
+
+    // Старая строка удалена — ровно одна на пару (videoId, sceneIndex), не две.
+    expect(await prisma.presenterRecordingUsage.count({
+      where: { recordingId: recording.id, videoId: video.id, sceneIndex: 0 },
+    })).toBe(1)
+    const remaining = await prisma.presenterRecordingUsage.findFirst({
+      where: { recordingId: recording.id, videoId: video.id, sceneIndex: 0 },
+    })
+    expect(remaining?.id).toBe(second!.usageId)
+  })
+
+  // videoId: null (служебный прогон) идемпотентности не получает — пары для
+  // ключа нет, работает как раньше: тот же sceneIndex не мешает следующему
+  // резервированию занять НОВОЕ окно.
+  it("videoId: null не получает идемпотентность даже при одинаковом sceneIndex", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/idem0004.mp4`,
+        sha1: "idem0004",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+
+    const first = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: 0,
+    })
+    const second = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: null, sceneIndex: 0,
+    })
+    expect(first).not.toBeNull()
+    expect(second).not.toBeNull()
+    expect(second!.usageId).not.toBe(first!.usageId)
+    expect(second!.idempotency).toBeNull()
+
+    expect(await prisma.presenterRecordingUsage.count({ where: { recordingId: recording.id } })).toBe(2)
+  })
+
+  // Гонка: два параллельных прогона ТОЙ ЖЕ сцены не должны создать две строки
+  // — уникальность (videoId, sceneIndex) в схеме это гарантирует на уровне БД,
+  // а код обязан отработать P2002 осмысленно (отдать строку победителя), а не
+  // упасть сырой ошибкой Prisma.
+  it("параллельные прогоны одной и той же сцены не создают вторую строку", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/idem0005.mp4`,
+        sha1: "idem0005",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    const [first, second] = await Promise.all([
+      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0 }),
+      reserveRecordingWindow({ characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0 }),
+    ])
+
+    expect(first).not.toBeNull()
+    expect(second).not.toBeNull()
+    expect(first!.usageId).toBe(second!.usageId)
+    expect(first!.startSec).toBe(second!.startSec)
+
+    expect(await prisma.presenterRecordingUsage.count({
+      where: { recordingId: recording.id, videoId: video.id, sceneIndex: 0 },
+    })).toBe(1)
+  })
+
+  it("frameHash сохраняется на использовании и читается обратно", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: `apps/${appId}/characters/${characterId}/recordings/idem0006.mp4`,
+        sha1: "idem0006",
+        durationSec: 60,
+        originalName: "long.mov",
+        ingestStatus: "completed",
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    const reserved = await reserveRecordingWindow({
+      characterId, requiredSec: 5, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(reserved).not.toBeNull()
+    expect(reserved!.recordingId).toBe(recording.id)
+
+    await prisma.presenterRecordingUsage.update({
+      where: { id: reserved!.usageId },
+      data: { frameHash: "0000000000000000" },
+    })
+
+    const reloaded = await prisma.presenterRecordingUsage.findUnique({ where: { id: reserved!.usageId } })
+    expect(reloaded?.frameHash).toBe("0000000000000000")
   })
 })

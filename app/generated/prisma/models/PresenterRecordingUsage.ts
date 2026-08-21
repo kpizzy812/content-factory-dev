@@ -36,12 +36,14 @@ export type PresenterRecordingUsageAvgAggregateOutputType = {
   startSec: number | null
   endSec: number | null
   videoId: number | null
+  sceneIndex: number | null
 }
 
 export type PresenterRecordingUsageSumAggregateOutputType = {
   startSec: number | null
   endSec: number | null
   videoId: number | null
+  sceneIndex: number | null
 }
 
 export type PresenterRecordingUsageMinAggregateOutputType = {
@@ -50,6 +52,8 @@ export type PresenterRecordingUsageMinAggregateOutputType = {
   startSec: number | null
   endSec: number | null
   videoId: number | null
+  sceneIndex: number | null
+  frameHash: string | null
   usedAt: Date | null
 }
 
@@ -59,6 +63,8 @@ export type PresenterRecordingUsageMaxAggregateOutputType = {
   startSec: number | null
   endSec: number | null
   videoId: number | null
+  sceneIndex: number | null
+  frameHash: string | null
   usedAt: Date | null
 }
 
@@ -68,6 +74,8 @@ export type PresenterRecordingUsageCountAggregateOutputType = {
   startSec: number
   endSec: number
   videoId: number
+  sceneIndex: number
+  frameHash: number
   usedAt: number
   _all: number
 }
@@ -77,12 +85,14 @@ export type PresenterRecordingUsageAvgAggregateInputType = {
   startSec?: true
   endSec?: true
   videoId?: true
+  sceneIndex?: true
 }
 
 export type PresenterRecordingUsageSumAggregateInputType = {
   startSec?: true
   endSec?: true
   videoId?: true
+  sceneIndex?: true
 }
 
 export type PresenterRecordingUsageMinAggregateInputType = {
@@ -91,6 +101,8 @@ export type PresenterRecordingUsageMinAggregateInputType = {
   startSec?: true
   endSec?: true
   videoId?: true
+  sceneIndex?: true
+  frameHash?: true
   usedAt?: true
 }
 
@@ -100,6 +112,8 @@ export type PresenterRecordingUsageMaxAggregateInputType = {
   startSec?: true
   endSec?: true
   videoId?: true
+  sceneIndex?: true
+  frameHash?: true
   usedAt?: true
 }
 
@@ -109,6 +123,8 @@ export type PresenterRecordingUsageCountAggregateInputType = {
   startSec?: true
   endSec?: true
   videoId?: true
+  sceneIndex?: true
+  frameHash?: true
   usedAt?: true
   _all?: true
 }
@@ -205,6 +221,8 @@ export type PresenterRecordingUsageGroupByOutputType = {
   startSec: number
   endSec: number
   videoId: number | null
+  sceneIndex: number | null
+  frameHash: string | null
   usedAt: Date
   _count: PresenterRecordingUsageCountAggregateOutputType | null
   _avg: PresenterRecordingUsageAvgAggregateOutputType | null
@@ -237,6 +255,8 @@ export type PresenterRecordingUsageWhereInput = {
   startSec?: Prisma.FloatFilter<"PresenterRecordingUsage"> | number
   endSec?: Prisma.FloatFilter<"PresenterRecordingUsage"> | number
   videoId?: Prisma.IntNullableFilter<"PresenterRecordingUsage"> | number | null
+  sceneIndex?: Prisma.IntNullableFilter<"PresenterRecordingUsage"> | number | null
+  frameHash?: Prisma.StringNullableFilter<"PresenterRecordingUsage"> | string | null
   usedAt?: Prisma.DateTimeFilter<"PresenterRecordingUsage"> | Date | string
   recording?: Prisma.XOR<Prisma.PresenterRecordingScalarRelationFilter, Prisma.PresenterRecordingWhereInput>
 }
@@ -247,12 +267,15 @@ export type PresenterRecordingUsageOrderByWithRelationInput = {
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrderInput | Prisma.SortOrder
+  frameHash?: Prisma.SortOrderInput | Prisma.SortOrder
   usedAt?: Prisma.SortOrder
   recording?: Prisma.PresenterRecordingOrderByWithRelationInput
 }
 
 export type PresenterRecordingUsageWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  videoId_sceneIndex?: Prisma.PresenterRecordingUsageVideoIdSceneIndexCompoundUniqueInput
   AND?: Prisma.PresenterRecordingUsageWhereInput | Prisma.PresenterRecordingUsageWhereInput[]
   OR?: Prisma.PresenterRecordingUsageWhereInput[]
   NOT?: Prisma.PresenterRecordingUsageWhereInput | Prisma.PresenterRecordingUsageWhereInput[]
@@ -260,9 +283,11 @@ export type PresenterRecordingUsageWhereUniqueInput = Prisma.AtLeast<{
   startSec?: Prisma.FloatFilter<"PresenterRecordingUsage"> | number
   endSec?: Prisma.FloatFilter<"PresenterRecordingUsage"> | number
   videoId?: Prisma.IntNullableFilter<"PresenterRecordingUsage"> | number | null
+  sceneIndex?: Prisma.IntNullableFilter<"PresenterRecordingUsage"> | number | null
+  frameHash?: Prisma.StringNullableFilter<"PresenterRecordingUsage"> | string | null
   usedAt?: Prisma.DateTimeFilter<"PresenterRecordingUsage"> | Date | string
   recording?: Prisma.XOR<Prisma.PresenterRecordingScalarRelationFilter, Prisma.PresenterRecordingWhereInput>
-}, "id">
+}, "id" | "videoId_sceneIndex">
 
 export type PresenterRecordingUsageOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -270,6 +295,8 @@ export type PresenterRecordingUsageOrderByWithAggregationInput = {
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrderInput | Prisma.SortOrder
+  frameHash?: Prisma.SortOrderInput | Prisma.SortOrder
   usedAt?: Prisma.SortOrder
   _count?: Prisma.PresenterRecordingUsageCountOrderByAggregateInput
   _avg?: Prisma.PresenterRecordingUsageAvgOrderByAggregateInput
@@ -287,6 +314,8 @@ export type PresenterRecordingUsageScalarWhereWithAggregatesInput = {
   startSec?: Prisma.FloatWithAggregatesFilter<"PresenterRecordingUsage"> | number
   endSec?: Prisma.FloatWithAggregatesFilter<"PresenterRecordingUsage"> | number
   videoId?: Prisma.IntNullableWithAggregatesFilter<"PresenterRecordingUsage"> | number | null
+  sceneIndex?: Prisma.IntNullableWithAggregatesFilter<"PresenterRecordingUsage"> | number | null
+  frameHash?: Prisma.StringNullableWithAggregatesFilter<"PresenterRecordingUsage"> | string | null
   usedAt?: Prisma.DateTimeWithAggregatesFilter<"PresenterRecordingUsage"> | Date | string
 }
 
@@ -295,6 +324,8 @@ export type PresenterRecordingUsageCreateInput = {
   startSec: number
   endSec: number
   videoId?: number | null
+  sceneIndex?: number | null
+  frameHash?: string | null
   usedAt?: Date | string
   recording: Prisma.PresenterRecordingCreateNestedOneWithoutUsagesInput
 }
@@ -305,6 +336,8 @@ export type PresenterRecordingUsageUncheckedCreateInput = {
   startSec: number
   endSec: number
   videoId?: number | null
+  sceneIndex?: number | null
+  frameHash?: string | null
   usedAt?: Date | string
 }
 
@@ -313,6 +346,8 @@ export type PresenterRecordingUsageUpdateInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   recording?: Prisma.PresenterRecordingUpdateOneRequiredWithoutUsagesNestedInput
 }
@@ -323,6 +358,8 @@ export type PresenterRecordingUsageUncheckedUpdateInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -332,6 +369,8 @@ export type PresenterRecordingUsageCreateManyInput = {
   startSec: number
   endSec: number
   videoId?: number | null
+  sceneIndex?: number | null
+  frameHash?: string | null
   usedAt?: Date | string
 }
 
@@ -340,6 +379,8 @@ export type PresenterRecordingUsageUpdateManyMutationInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -349,6 +390,8 @@ export type PresenterRecordingUsageUncheckedUpdateManyInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -362,12 +405,19 @@ export type PresenterRecordingUsageOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type PresenterRecordingUsageVideoIdSceneIndexCompoundUniqueInput = {
+  videoId: number
+  sceneIndex: number
+}
+
 export type PresenterRecordingUsageCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   recordingId?: Prisma.SortOrder
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrder
+  frameHash?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
@@ -375,6 +425,7 @@ export type PresenterRecordingUsageAvgOrderByAggregateInput = {
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrder
 }
 
 export type PresenterRecordingUsageMaxOrderByAggregateInput = {
@@ -383,6 +434,8 @@ export type PresenterRecordingUsageMaxOrderByAggregateInput = {
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrder
+  frameHash?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
@@ -392,6 +445,8 @@ export type PresenterRecordingUsageMinOrderByAggregateInput = {
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrder
+  frameHash?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
@@ -399,6 +454,7 @@ export type PresenterRecordingUsageSumOrderByAggregateInput = {
   startSec?: Prisma.SortOrder
   endSec?: Prisma.SortOrder
   videoId?: Prisma.SortOrder
+  sceneIndex?: Prisma.SortOrder
 }
 
 export type PresenterRecordingUsageCreateNestedManyWithoutRecordingInput = {
@@ -448,6 +504,8 @@ export type PresenterRecordingUsageCreateWithoutRecordingInput = {
   startSec: number
   endSec: number
   videoId?: number | null
+  sceneIndex?: number | null
+  frameHash?: string | null
   usedAt?: Date | string
 }
 
@@ -456,6 +514,8 @@ export type PresenterRecordingUsageUncheckedCreateWithoutRecordingInput = {
   startSec: number
   endSec: number
   videoId?: number | null
+  sceneIndex?: number | null
+  frameHash?: string | null
   usedAt?: Date | string
 }
 
@@ -494,6 +554,8 @@ export type PresenterRecordingUsageScalarWhereInput = {
   startSec?: Prisma.FloatFilter<"PresenterRecordingUsage"> | number
   endSec?: Prisma.FloatFilter<"PresenterRecordingUsage"> | number
   videoId?: Prisma.IntNullableFilter<"PresenterRecordingUsage"> | number | null
+  sceneIndex?: Prisma.IntNullableFilter<"PresenterRecordingUsage"> | number | null
+  frameHash?: Prisma.StringNullableFilter<"PresenterRecordingUsage"> | string | null
   usedAt?: Prisma.DateTimeFilter<"PresenterRecordingUsage"> | Date | string
 }
 
@@ -502,6 +564,8 @@ export type PresenterRecordingUsageCreateManyRecordingInput = {
   startSec: number
   endSec: number
   videoId?: number | null
+  sceneIndex?: number | null
+  frameHash?: string | null
   usedAt?: Date | string
 }
 
@@ -510,6 +574,8 @@ export type PresenterRecordingUsageUpdateWithoutRecordingInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -518,6 +584,8 @@ export type PresenterRecordingUsageUncheckedUpdateWithoutRecordingInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -526,6 +594,8 @@ export type PresenterRecordingUsageUncheckedUpdateManyWithoutRecordingInput = {
   startSec?: Prisma.FloatFieldUpdateOperationsInput | number
   endSec?: Prisma.FloatFieldUpdateOperationsInput | number
   videoId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sceneIndex?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  frameHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -537,6 +607,8 @@ export type PresenterRecordingUsageSelect<ExtArgs extends runtime.Types.Extensio
   startSec?: boolean
   endSec?: boolean
   videoId?: boolean
+  sceneIndex?: boolean
+  frameHash?: boolean
   usedAt?: boolean
   recording?: boolean | Prisma.PresenterRecordingDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["presenterRecordingUsage"]>
@@ -547,6 +619,8 @@ export type PresenterRecordingUsageSelectCreateManyAndReturn<ExtArgs extends run
   startSec?: boolean
   endSec?: boolean
   videoId?: boolean
+  sceneIndex?: boolean
+  frameHash?: boolean
   usedAt?: boolean
   recording?: boolean | Prisma.PresenterRecordingDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["presenterRecordingUsage"]>
@@ -557,6 +631,8 @@ export type PresenterRecordingUsageSelectUpdateManyAndReturn<ExtArgs extends run
   startSec?: boolean
   endSec?: boolean
   videoId?: boolean
+  sceneIndex?: boolean
+  frameHash?: boolean
   usedAt?: boolean
   recording?: boolean | Prisma.PresenterRecordingDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["presenterRecordingUsage"]>
@@ -567,10 +643,12 @@ export type PresenterRecordingUsageSelectScalar = {
   startSec?: boolean
   endSec?: boolean
   videoId?: boolean
+  sceneIndex?: boolean
+  frameHash?: boolean
   usedAt?: boolean
 }
 
-export type PresenterRecordingUsageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recordingId" | "startSec" | "endSec" | "videoId" | "usedAt", ExtArgs["result"]["presenterRecordingUsage"]>
+export type PresenterRecordingUsageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recordingId" | "startSec" | "endSec" | "videoId" | "sceneIndex" | "frameHash" | "usedAt", ExtArgs["result"]["presenterRecordingUsage"]>
 export type PresenterRecordingUsageInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   recording?: boolean | Prisma.PresenterRecordingDefaultArgs<ExtArgs>
 }
@@ -592,6 +670,19 @@ export type $PresenterRecordingUsagePayload<ExtArgs extends runtime.Types.Extens
     startSec: number
     endSec: number
     videoId: number | null
+    /**
+     * Позиция сцены в ролике, под которую занято окно. Вместе с videoId — ключ
+     * идемпотентности резервирования: повторный прогон той же сцены получает
+     * то же окно, а не занимает новое (иначе ретраи выедают свободные участки
+     * записи, и два ролика получают один и тот же кадр — docs/PROJECT_CONTEXT.md §7).
+     */
+    sceneIndex: number | null
+    /**
+     * dHash первого кадра вырезанного окна — перцептивный контроль похожести
+     * между РАЗНЫМИ окнами одной записи (server/utils/presenter/perceptual-hash.ts),
+     * тот же принцип, что уже есть на ingest (PresenterSourceClip.perceptualHash).
+     */
+    frameHash: string | null
     usedAt: Date
   }, ExtArgs["result"]["presenterRecordingUsage"]>
   composites: {}
@@ -1022,6 +1113,8 @@ export interface PresenterRecordingUsageFieldRefs {
   readonly startSec: Prisma.FieldRef<"PresenterRecordingUsage", 'Float'>
   readonly endSec: Prisma.FieldRef<"PresenterRecordingUsage", 'Float'>
   readonly videoId: Prisma.FieldRef<"PresenterRecordingUsage", 'Int'>
+  readonly sceneIndex: Prisma.FieldRef<"PresenterRecordingUsage", 'Int'>
+  readonly frameHash: Prisma.FieldRef<"PresenterRecordingUsage", 'String'>
   readonly usedAt: Prisma.FieldRef<"PresenterRecordingUsage", 'DateTime'>
 }
     

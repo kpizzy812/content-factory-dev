@@ -434,9 +434,26 @@ model PresenterRecordingUsage {
   startSec    Float
   endSec      Float
   videoId     Int?
+  /// Позиция сцены в ролике, под которую занято окно. Вместе с videoId — ключ
+  /// идемпотентности резервирования: повторный прогон той же сцены получает
+  /// то же окно, а не занимает новое (иначе ретраи выедают свободные участки
+  /// записи, и два ролика получают один и тот же кадр — docs/PROJECT_CONTEXT.md §7).
+  sceneIndex  Int?
+  /// dHash первого кадра вырезанного окна — перцептивный контроль похожести
+  /// между РАЗНЫМИ окнами одной записи (server/utils/presenter/perceptual-hash.ts),
+  /// тот же принцип, что уже есть на ingest (PresenterSourceClip.perceptualHash).
+  frameHash   String?
   usedAt      DateTime           @default(now())
 
-  @@index([recordingId, usedAt])
+  /// В Postgres несколько NULL в уникальном индексе разрешены, поэтому
+  /// служебные резервирования без ролика (videoId: null) друг другу не мешают.
+  @@unique([videoId, sceneIndex])
+  /// Покрывает и старый запрос (интервалы записи по recordingId+usedAt в
+  /// planRecordingWindow), и новый: недавние frameHash персонажа — сначала
+  /// recordingId'ы персонажа берутся по индексу PresenterRecording, а для них
+  /// эта же пара колонок с довеском frameHash даёт index-only scan без похода
+  /// в heap за самим хэшем.
+  @@index([recordingId, usedAt, frameHash])
   @@index([videoId])
 }
 model SceneReferenceImage {

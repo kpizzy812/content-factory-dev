@@ -37,6 +37,7 @@ const h = vi.hoisted(() => ({
   reservePresenterSourceClip: vi.fn(),
   reserveRecordingWindow: vi.fn(),
   cutRecordingWindow: vi.fn(),
+  guardRecordingWindowFrame: vi.fn(),
   uploadLocalAsset: vi.fn(),
 }))
 
@@ -103,6 +104,9 @@ vi.mock("../../../server/utils/presenter-recording-selector", () => ({
 }))
 vi.mock("../../../server/utils/presenter/ffmpeg-adapter", () => ({
   cutRecordingWindow: h.cutRecordingWindow,
+}))
+vi.mock("../../../server/utils/presenter/recording-window-frame-guard", () => ({
+  guardRecordingWindowFrame: h.guardRecordingWindowFrame,
 }))
 vi.mock("../../../server/utils/balance/cost-ledger", () => ({ logStepCost: async () => undefined }))
 vi.mock("../../../server/utils/storage-paths", () => ({ getAssetsDirFor: () => h.assetsDir }))
@@ -222,6 +226,17 @@ beforeEach(async () => {
     await writeFile(args.outputPath, "window")
   })
 
+  h.guardRecordingWindowFrame.mockReset()
+  // Пасс-трю по умолчанию: кадр не похож ни на что, окно не меняется. Тесты,
+  // которым нужен другой исход (перерезервирование / WARN / отказ), задают
+  // свою реализацию явно.
+  h.guardRecordingWindowFrame.mockImplementation(async (args: { window: unknown; windowPath: string }) => ({
+    window: args.window,
+    windowPath: args.windowPath,
+    reReserved: false,
+    stillSimilar: false,
+  }))
+
   h.uploadLocalAsset.mockReset()
   h.uploadLocalAsset.mockImplementation(async (_path: string, storageKey: string) => ({
     storageKey, storageProvider: "local", storageBucket: null,
@@ -242,15 +257,27 @@ describe("runLipSyncStep: фрагмент ведущего режется из 
       overlapSec: 0,
       usageId: "usage-1",
       reused: false,
+      idempotency: null,
     })
 
     await runLipSyncStep(inputWithAudioFirstSegment({ segmentSec: 6.4 }))
 
     expect(h.reserveRecordingWindow).toHaveBeenCalledWith(
-      expect.objectContaining({ requiredSec: 6.4, fps: 30 }),
+      expect.objectContaining({ requiredSec: 6.4, fps: 30, sceneIndex: 0 }),
     )
     expect(h.cutRecordingWindow).toHaveBeenCalledWith(
       expect.objectContaining({ startSec: 12, durationSec: 6.4 }),
+    )
+    // Task 6b: перцептивная проверка кадра идёт ПОСЛЕ реза, тем же окном.
+    expect(h.guardRecordingWindowFrame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        characterId: "character-1",
+        videoId: 61,
+        sceneIndex: 0,
+        requiredSec: 6.4,
+        fps: 30,
+        windowPath: join(ASSETS_DIR, "presenter_window_0_usage-1.mp4"),
+      }),
     )
     // Подбор готового клипа на этом пути не нужен вовсе.
     expect(h.reservePresenterSourceClip).not.toHaveBeenCalled()
@@ -290,5 +317,74 @@ describe("runLipSyncStep: фрагмент ведущего режется из 
 
     expect(h.reserveRecordingWindow).not.toHaveBeenCalled()
     expect(h.reservePresenterSourceClip).toHaveBeenCalled()
+    // Task 6b: перцептивная проверка окна — тоже часть маршрута ведущей через
+    // запись, на прежнем посценном маршруте её спрашивать не с чего (окно
+    // записи не резервировалось вовсе).
+    expect(h.guardRecordingWindowFrame).not.toHaveBeenCalled()
+  })
+})
+
+describe("runLipSyncStep: перцептивная проверка окна (задача 6b, spec §6.2)", () => {
+  const RESERVED_WINDOW = {
+    recordingId: "rec-1",
+    storageKey: "recordings/rec-1.mp4",
+    startSec: 12,
+    endSec: 18.4,
+    durationSec: 6.4,
+    overlapSec: 0,
+    usageId: "usage-1",
+    reused: false,
+    idempotency: null as "existing" | "replaced" | null,
+  }
+
+  beforeEach(() => {
+    h.reserveRecordingWindow.mockResolvedValue(RESERVED_WINDOW)
+  })
+
+  it("кадр похож на недавний — перерезервированное окно уходит в lip-sync, а не первое", async () => {
+    const retriedWindow = {
+      ...RESERVED_WINDOW,
+      startSec: 30,
+      endSec: 36.4,
+      usageId: "usage-2",
+    }
+    const retriedPath = join(ASSETS_DIR, "presenter_window_0_usage-1_retry.mp4")
+    h.guardRecordingWindowFrame.mockResolvedValue({
+      window: retriedWindow,
+      windowPath: retriedPath,
+      reReserved: true,
+      stillSimilar: false,
+    })
+
+    await runLipSyncStep(inputWithAudioFirstSegment({ segmentSec: 6.4 }))
+
+    const call = h.runLipSync.mock.calls[0]![0] as { sourceVideoPath: string }
+    expect(call.sourceVideoPath).toBe(retriedPath)
+    expect(h.logs.some(line => line.includes("перерезервировал"))).toBe(true)
+  })
+
+  it("кадр похож даже во второй попытке — WARN в лог шага, сцену не роняем", async () => {
+    h.guardRecordingWindowFrame.mockResolvedValue({
+      window: RESERVED_WINDOW,
+      windowPath: join(ASSETS_DIR, "presenter_window_0_usage-1.mp4"),
+      reReserved: false,
+      stillSimilar: true,
+    })
+
+    await runLipSyncStep(inputWithAudioFirstSegment({ segmentSec: 6.4 }))
+
+    expect(h.logs.some(line => line.includes("WARN") && line.includes("похож"))).toBe(true)
+    // Оплаченную сцену похожесть кадрирования не роняет.
+    expect(h.runLipSync).toHaveBeenCalled()
+  })
+
+  it("проверка хэша упала — сцена идёт дальше с уже вырезанным окном, а не падает", async () => {
+    h.guardRecordingWindowFrame.mockRejectedValue(new Error("ffmpeg не снял кадр"))
+
+    await runLipSyncStep(inputWithAudioFirstSegment({ segmentSec: 6.4 }))
+
+    const call = h.runLipSync.mock.calls[0]![0] as { sourceVideoPath: string }
+    expect(call.sourceVideoPath).toBe(join(ASSETS_DIR, "presenter_window_0_usage-1.mp4"))
+    expect(h.logs.some(line => line.includes("перцептивная проверка окна не выполнена"))).toBe(true)
   })
 })

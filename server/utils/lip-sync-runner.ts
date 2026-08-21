@@ -1003,6 +1003,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
             requiredSec: presenterTargetSec,
             fps: timelineFps,
             videoId,
+            sceneIndex,
           }).catch(async (err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err)
             await appendStepLog(step.id, `${sceneTag}: окно записи не зарезервировано (${msg}) — иду прежним подбором клипа`)
@@ -1058,8 +1059,76 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
             `${sceneTag}: вырезал окно записи ${recordingWindow.startSec.toFixed(2)}-${recordingWindow.endSec.toFixed(2)}с `
             + `(${recordingWindow.durationSec.toFixed(2)}с) под кусок трека`
             + (recordingWindow.overlapSec > 0 ? `; пересечение с занятым участком ${recordingWindow.overlapSec.toFixed(2)}с` : "")
-            + (recordingWindow.reused ? "; нетронутых участков в записи не осталось, взят остывший" : ""),
+            + (recordingWindow.reused ? "; нетронутых участков в записи не осталось, взят остывший" : "")
+            + (recordingWindow.idempotency === "existing" ? "; то же окно, что и в прошлом прогоне этой сцены" : "")
+            + (recordingWindow.idempotency === "replaced" ? "; прошлое окно этой сцены короче нужного — занял новое" : ""),
           )
+
+          // Перцептивный контроль похожести (spec §6.2, задача 6b): первый кадр
+          // окна сравнивается с недавно использованными кадрами ЭТОГО персонажа —
+          // тот же смысл, что и на ingest (presenter/ingest-runner.ts), только
+          // здесь единица не готовый клип, а произвольное окно. Отказ проверки
+          // (ffmpeg не снял кадр, БД недоступна) не должен ронять оплаченную
+          // сцену — сцена идёт дальше с тем окном, что уже вырезано.
+          try {
+            const { guardRecordingWindowFrame } = await import("./presenter/recording-window-frame-guard")
+            const retryWindowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}_retry.mp4`)
+            // Тот же порядок, что и выше: путь в подчистке ДО операции, а не
+            // после успеха.
+            sourceCleanup.push(retryWindowPath)
+            // Дублирует скачивание из блока выше (temp+rename), а не переиспользует
+            // его напрямую: нужен здесь только на редком пути (перерезервирование
+            // выбрало ДРУГУЮ запись того же персонажа), и заводить общую функцию
+            // ради одного дополнительного вызова в самой опасной функции проекта
+            // не стоит цены лишней правки уже работающего блока.
+            const ensureRecordingDownloaded = async (recording: { recordingId: string, storageKey: string }): Promise<string> => {
+              const path = join(assetsDir, `recording_${recording.recordingId}.mp4`)
+              sourceCleanup.push(path)
+              if (await fileExists(path)) return path
+              const tempPath = buildTempSegmentPath(path)
+              try {
+                await getStorageDriver().downloadToFile(recording.storageKey, tempPath)
+                await renameWithRetry(tempPath, path)
+              } catch (err) {
+                await unlink(tempPath).catch(() => {})
+                throw err
+              }
+              return path
+            }
+
+            const guard = await guardRecordingWindowFrame({
+              characterId: videoConfig.lipSyncCharacterId,
+              videoId,
+              sceneIndex,
+              requiredSec: presenterTargetSec,
+              fps: timelineFps,
+              window: recordingWindow,
+              windowPath,
+              retryWindowPath,
+              recordingPath: localRecordingPath,
+              ensureRecordingDownloaded,
+            })
+
+            if (guard.reReserved) {
+              recordingWindow = guard.window
+              sourceVideoPath = guard.windowPath
+              presenterSourcePath = guard.windowPath
+              await appendStepLog(
+                step.id,
+                `${sceneTag}: первый кадр окна похож на недавний кадр персонажа — перерезервировал `
+                + `${guard.window.startSec.toFixed(2)}-${guard.window.endSec.toFixed(2)}с`,
+              )
+            }
+            if (guard.stillSimilar) {
+              await appendStepLog(
+                step.id,
+                `${sceneTag}: WARN кадр окна записи похож на недавний кадр персонажа — ролику не хватает материала, оставляю как есть`,
+              )
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            await appendStepLog(step.id, `${sceneTag}: перцептивная проверка окна не выполнена (${msg}) — использую окно как есть`)
+          }
         }
 
         // Готовый клип подбирается, только если окно записи не зарезервировано

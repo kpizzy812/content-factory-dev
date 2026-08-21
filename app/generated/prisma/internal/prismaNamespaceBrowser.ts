@@ -359,6 +359,8 @@ export const PresenterRecordingUsageScalarFieldEnum = {
   startSec: 'startSec',
   endSec: 'endSec',
   videoId: 'videoId',
+  sceneIndex: 'sceneIndex',
+  frameHash: 'frameHash',
   usedAt: 'usedAt'
 } as const
 
