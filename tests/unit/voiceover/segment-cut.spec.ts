@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs"
-import { mkdir, readdir, rm, unlink, writeFile } from "node:fs/promises"
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -392,8 +392,14 @@ describe("renameWithRetry — повтор переименования при E
  * бьём: он не подлежит распиливанию ради теста (см. бриф долга плана A), а
  * статический импорт ffmpeg-цепочки оттуда запрещён отдельным правилом
  * проекта. Атомарность поэтому проверяется здесь, на уровне используемого им
- * хелпера, воспроизводя ТОТ ЖЕ паттерн (temp-файл → renameWithRetry → catch
- * подчищает temp), что и в раннере — покрыт хелпер, а не сам вызов из раннера.
+ * хелпера — покрыт хелпер, а не сам вызов из раннера.
+ *
+ * Important 1, фикс-раунд 1 ревью: первая версия этого блока оборачивала
+ * вызов в try/catch, ПОВТОРЯЮЩИЙ код раннера внутри теста — мок закачки бросал
+ * ДО вызова renameWithRetry, и настоящая функция вообще не исполнялась (тест
+ * проверял только сам себя: что try/catch/unlink теста работает). Ниже —
+ * тесты, которые реально вызывают продакшн `renameWithRetry` и проверяют его
+ * настоящий результат на диске, а не переписанную копию.
  */
 describe("temp+rename для скачивания записи ведущего (lip-sync-runner.ts) — атомарность на уровне хелпера", () => {
   const SCRATCH_DIR = join(tmpdir(), "cf-recording-download-atomic")
@@ -407,36 +413,47 @@ describe("temp+rename для скачивания записи ведущего 
     await rm(SCRATCH_DIR, { recursive: true, force: true })
   })
 
-  it("обрыв МЕЖДУ записью временного файла и renameWithRetry не оставляет обрезанный файл по целевому пути", async () => {
-    const localRecordingPath = join(SCRATCH_DIR, "recording_abc123.mp4")
-    const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
+  it("временного файла нет к моменту renameWithRetry (закачка не успела его дописать) — целевой путь не появляется из ничего", async () => {
+    const localRecordingPath = join(SCRATCH_DIR, "recording_missing789.mp4")
+    const missingTempPath = buildTempSegmentPath(localRecordingPath)
+    // temp НЕ создаём вовсе — имитирует обрыв закачки ДО того, как она успела
+    // дописать временный файл (сеть легла на первом байте, процесс убит и
+    // т.п.). Вызываем настоящий renameWithRetry, а не копию: ENOENT не входит
+    // в EPERM/EBUSY-повтор (см. describe выше), падает на первой попытке.
 
-    // Имитирует storage.downloadToFile: как настоящий поток на диск, пишет
-    // байты ПО ХОДУ работы (частичный файл на временном пути уже есть), а
-    // потом рвётся — до renameWithRetry дело не доходит, ровно тот обрыв,
-    // который целевой путь обязан пережить нетронутым.
-    const interruptedDownload = async () => {
-      await writeFile(tempRecordingPath, "огрызок-оборванной-закачки-записи")
-      throw new Error("сеть до хранилища легла (мок)")
-    }
+    await expect(renameWithRetry(missingTempPath, localRecordingPath))
+      .rejects.toMatchObject({ code: "ENOENT" })
 
-    // Тот же блок try/catch, что в lip-sync-runner.ts: отказ закачки/переименования
-    // подчищает временный файл и пробрасывает исходную ошибку дальше.
-    await expect((async () => {
-      try {
-        await interruptedDownload()
-        await renameWithRetry(tempRecordingPath, localRecordingPath)
-      }
-      catch (err) {
-        await unlink(tempRecordingPath).catch(() => {})
-        throw err
-      }
-    })()).rejects.toThrow("сеть до хранилища легла")
-
-    // Главное: следующий прогон не должен подхватить огрызок как готовую
-    // запись — по целевому пути не может быть НИЧЕГО, даже частично.
+    // Главное: провалившийся renameWithRetry не создаёт целевой файл из
+    // ничего — атомарность здесь гарантирует сам fs.rename (один syscall), а
+    // не обвязка вокруг него. Если бы lip-sync-runner.ts вместо temp+rename
+    // качал прямо в целевой путь (ровно тот дефект, ради которого заведена
+    // эта мелочь), этой гарантии не было бы вовсе — обрыв мог бы оставить
+    // огрызок ПОД целевым именем, и следующий прогон принял бы его за готовую
+    // запись.
     expect(existsSync(localRecordingPath)).toBe(false)
-    expect(existsSync(tempRecordingPath)).toBe(false)
+  })
+
+  it("временный файл записан целиком, но переименование падает (гонка/блокировка) — целевой путь остаётся нетронутым, не обрезанным", async () => {
+    const localRecordingPath = join(SCRATCH_DIR, "recording_raced321.mp4")
+    const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
+    await writeFile(tempRecordingPath, "нормализованная-запись-целиком")
+
+    // renameFile-инъекция (тот же параметр, что и в describe "повтор
+    // переименования" выше) — не хендрайтный дубль продакшн-кода: это
+    // настоящий 4-й параметр renameWithRetry, продакшн `lip-sync-runner.ts`
+    // просто не передаёт его и получает дефолтный `rename` из node:fs/promises.
+    // Здесь имитируем ситуацию "переименование в принципе невозможно"
+    // (например ENOENT на исчезнувшем во время гонки temp-файле) — цель не в
+    // причине отказа (она уже покрыта тестами EPERM/EBUSY/ENOENT ниже), а в
+    // том, что провалившийся rename не оставляет обрезанный файл по целевому
+    // пути, даже когда временный файл был записан полностью.
+    const renameFile = async () => { throw Object.assign(new Error("рукотворный отказ переименования"), { code: "ENOENT" }) }
+
+    await expect(renameWithRetry(tempRecordingPath, localRecordingPath, 1, renameFile))
+      .rejects.toMatchObject({ code: "ENOENT" })
+
+    expect(existsSync(localRecordingPath)).toBe(false)
   })
 
   it("успешная закачка: целевой путь появляется только ПОСЛЕ renameWithRetry, не раньше", async () => {

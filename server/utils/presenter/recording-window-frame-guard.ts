@@ -106,6 +106,22 @@ export interface GuardRecordingWindowFrameResult {
  *   упал бы P2002 поверх уже существующей строки — нужен `update` этой же
  *   строки обратно на границы первого окна.
  *
+ * Третий случай — `useIdempotencyKey: false` (Minor 1, фикс-раунд 1 ревью
+ * долга плана A): строка `(videoId, sceneIndex)` принадлежит ЧУЖОМУ
+ * параллельному прогону этой же сцены (`retriedUsageBelongsToOther` у
+ * вызывающего) — трогать её нельзя (см. комментарий там же), поэтому вызывающий
+ * всегда передаёт сюда `replacedUsageId: null`. Но интервал ПЕРВОГО окна всё
+ * равно реально уходит в ролик — оставить его вовсе без строки в БД значит
+ * позволить следующей сцене того же персонажа занять те же секунды (дубль по
+ * docs/PROJECT_CONTEXT.md §7, ровно то, ради чего учёт интервалов заведён).
+ * Создаём служебную строку БЕЗ ключа идемпотентности (`videoId: null,
+ * sceneIndex: null`) — тот же приём, что `reserveRecordingWindow` использует
+ * для служебных прогонов без `videoId`
+ * (`presenter-recording-selector.ts:282-290`): NULL'ы в
+ * `@@unique([videoId, sceneIndex])` друг другу не мешают, а
+ * `planRecordingWindow` учитывает usages независимо от ключа — интервал
+ * защищён без кражи чужой строки.
+ *
  * Восстановление тоже может не задаться (БД недоступна) — тогда это не
  * повод завершиться молча (было раньше): пишем в консоль, у guard нет доступа
  * к логу шага (это знает только вызывающий), это единственный канал.
@@ -114,7 +130,9 @@ async function restoreOriginalUsage(
   input: GuardRecordingWindowFrameInput,
   frameHash: string,
   replacedUsageId: string | null,
+  options: { useIdempotencyKey?: boolean } = {},
 ): Promise<void> {
+  const useIdempotencyKey = options.useIdempotencyKey ?? true
   try {
     if (replacedUsageId) {
       await prisma.presenterRecordingUsage.update({
@@ -133,8 +151,8 @@ async function restoreOriginalUsage(
           recordingId: input.window.recordingId,
           startSec: input.window.startSec,
           endSec: input.window.endSec,
-          videoId: input.videoId,
-          sceneIndex: input.sceneIndex,
+          videoId: useIdempotencyKey ? input.videoId : null,
+          sceneIndex: useIdempotencyKey ? input.sceneIndex : null,
           frameHash,
         },
       })
@@ -249,26 +267,25 @@ export async function guardRecordingWindowFrame(
     }
   }
   catch (err) {
-    if (retriedUsageBelongsToOther) {
-      // Строка (videoId, sceneIndex) сейчас принадлежит параллельному прогону
-      // этой же сцены (idempotency: "existing") — не наша, трогать её нельзя
-      // (см. комментарий у retriedUsageBelongsToOther выше). Восстанавливать
-      // защиту первого окна тут нечем: строка на эту пару уже существует и
-      // занята, а create() упал бы на @@unique(videoId, sceneIndex).
-      logRestoreFailure(
-        input,
-        `строка идемпотентности занята параллельным прогоном этой же сцены — не восстанавливаем`,
-      )
-    }
-    else {
-      // Что-то после успешного reserveRecordingWindow (закачка другой записи,
-      // нарезка, снятие/запись хэша) не задалось — ролик фактически получит
-      // ПЕРВОЕ окно (см. catch в lip-sync-runner.ts вокруг всего вызова guard),
-      // а в БД либо нет строки вовсе (reserveRecordingWindow сам бросил, ниже
-      // retriedUsageId === null), либо есть строка ВТОРОГО окна (retriedUsageId
-      // задан) — её нужно откатить на границы первого, а не плодить рядом новую.
-      await restoreOriginalUsage(input, hash, retriedUsageId)
-    }
+    // Что-то после успешного reserveRecordingWindow (закачка другой записи,
+    // нарезка, снятие/запись хэша) не задалось — ролик фактически получит
+    // ПЕРВОЕ окно (см. catch в lip-sync-runner.ts вокруг всего вызова guard).
+    //
+    // retriedUsageBelongsToOther === true — строка (videoId, sceneIndex)
+    // принадлежит параллельному прогону ЭТОЙ ЖЕ сцены (idempotency: "existing"),
+    // трогать её нельзя (см. комментарий у retriedUsageBelongsToOther выше);
+    // restoreOriginalUsage передаётся replacedUsageId: null и
+    // useIdempotencyKey: false — она заведёт СЛУЖЕБНУЮ строку без ключа
+    // идемпотентности, которая защищает интервал первого окна, не трогая
+    // чужую (Minor 1, фикс-раунд 1 ревью долга плана A).
+    //
+    // Иначе (строка наша) — в БД либо нет строки вовсе (reserveRecordingWindow
+    // сам бросил, retriedUsageId === null), либо есть строка ВТОРОГО окна
+    // (retriedUsageId задан) — её нужно откатить на границы первого, а не
+    // плодить рядом новую; ключ идемпотентности при этом настоящий.
+    await restoreOriginalUsage(input, hash, retriedUsageId, {
+      useIdempotencyKey: !retriedUsageBelongsToOther,
+    })
     throw err
   }
 }
