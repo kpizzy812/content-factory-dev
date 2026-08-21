@@ -142,11 +142,16 @@ async function restoreOriginalUsage(
   }
   catch (restoreErr) {
     const msg = restoreErr instanceof Error ? restoreErr.message : String(restoreErr)
-    console.error(
-      `[recording-window-frame-guard] не удалось восстановить защиту интервала первого окна `
-      + `(videoId=${input.videoId}, sceneIndex=${input.sceneIndex}, usageId=${input.window.usageId}): ${msg}`,
-    )
+    logRestoreFailure(input, msg)
   }
+}
+
+/** Тот же формат строки, что и у отказа самого восстановления — единственный канал у guard. */
+function logRestoreFailure(input: GuardRecordingWindowFrameInput, reason: string): void {
+  console.error(
+    `[recording-window-frame-guard] не удалось восстановить защиту интервала первого окна `
+    + `(videoId=${input.videoId}, sceneIndex=${input.sceneIndex}, usageId=${input.window.usageId}): ${reason}`,
+  )
 }
 
 export async function guardRecordingWindowFrame(
@@ -177,6 +182,15 @@ export async function guardRecordingWindowFrame(
   // usageId второй попытки — если она успела создать свою строку, restoreOriginalUsage
   // ниже обязан UPDATE'ить именно её, а не пытаться create() поверх (Important 2).
   let retriedUsageId: string | null = null
+  // true — строка retriedUsageId принадлежит ЧУЖОМУ (конкурентному) прогону
+  // этой же сцены, а не этому вызову: между delete выше и reserveRecordingWindow
+  // ниже параллельный прогон той же пары (videoId, sceneIndex) успел вставить
+  // свою строку первым, и reserveRecordingWindow вернул её как идемпотентную
+  // (idempotency: "existing"), не создав новую. Восстанавливать её при отказе
+  // ниже нечего: строка существует и занята живым прогоном, create() упал бы
+  // на @@unique(videoId, sceneIndex), а update() украл бы её интервал под
+  // границы нашего первого окна.
+  let retriedUsageBelongsToOther = false
 
   try {
     const retried = await reserveRecordingWindow({
@@ -201,7 +215,10 @@ export async function guardRecordingWindowFrame(
       await restoreOriginalUsage(input, hash, null)
       return { window: input.window, windowPath: input.windowPath, reReserved: false, stillSimilar: true }
     }
-    retriedUsageId = retried.usageId
+    retriedUsageBelongsToOther = retried.idempotency === "existing"
+    if (!retriedUsageBelongsToOther) {
+      retriedUsageId = retried.usageId
+    }
 
     const recordingPath = retried.recordingId === input.window.recordingId
       ? input.recordingPath
@@ -232,13 +249,26 @@ export async function guardRecordingWindowFrame(
     }
   }
   catch (err) {
-    // Что-то после успешного reserveRecordingWindow (закачка другой записи,
-    // нарезка, снятие/запись хэша) не задалось — ролик фактически получит
-    // ПЕРВОЕ окно (см. catch в lip-sync-runner.ts вокруг всего вызова guard),
-    // а в БД либо нет строки вовсе (reserveRecordingWindow сам бросил, ниже
-    // retriedUsageId === null), либо есть строка ВТОРОГО окна (retriedUsageId
-    // задан) — её нужно откатить на границы первого, а не плодить рядом новую.
-    await restoreOriginalUsage(input, hash, retriedUsageId)
+    if (retriedUsageBelongsToOther) {
+      // Строка (videoId, sceneIndex) сейчас принадлежит параллельному прогону
+      // этой же сцены (idempotency: "existing") — не наша, трогать её нельзя
+      // (см. комментарий у retriedUsageBelongsToOther выше). Восстанавливать
+      // защиту первого окна тут нечем: строка на эту пару уже существует и
+      // занята, а create() упал бы на @@unique(videoId, sceneIndex).
+      logRestoreFailure(
+        input,
+        `строка идемпотентности занята параллельным прогоном этой же сцены — не восстанавливаем`,
+      )
+    }
+    else {
+      // Что-то после успешного reserveRecordingWindow (закачка другой записи,
+      // нарезка, снятие/запись хэша) не задалось — ролик фактически получит
+      // ПЕРВОЕ окно (см. catch в lip-sync-runner.ts вокруг всего вызова guard),
+      // а в БД либо нет строки вовсе (reserveRecordingWindow сам бросил, ниже
+      // retriedUsageId === null), либо есть строка ВТОРОГО окна (retriedUsageId
+      // задан) — её нужно откатить на границы первого, а не плодить рядом новую.
+      await restoreOriginalUsage(input, hash, retriedUsageId)
+    }
     throw err
   }
 }

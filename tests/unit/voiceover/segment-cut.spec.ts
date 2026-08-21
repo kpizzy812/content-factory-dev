@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs"
-import { mkdir, readdir, rm } from "node:fs/promises"
+import { mkdir, readdir, rm, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -380,5 +380,78 @@ describe("renameWithRetry — повтор переименования при E
     await expect(renameWithRetry("/tmp/a.mp3.tmp-1.mp3", "/tmp/a.mp3", 5, renameFile))
       .rejects.toMatchObject({ code: "ENOENT" })
     expect(renameFile).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * Мелочь 5.4 из долга плана A: скачивание записи ведущего в lip-sync-runner.ts
+ * (localRecordingPath, строки ~1031-1036 и recordingPath второй попытки в
+ * guard, строки ~1084-1091) переиспользует ЭТИ ЖЕ buildTempSegmentPath +
+ * renameWithRetry для temp+rename, а не собственную реализацию ("третьей
+ * копии не пишем" — докстринг в lip-sync-runner.ts). Сам раннер тестом не
+ * бьём: он не подлежит распиливанию ради теста (см. бриф долга плана A), а
+ * статический импорт ffmpeg-цепочки оттуда запрещён отдельным правилом
+ * проекта. Атомарность поэтому проверяется здесь, на уровне используемого им
+ * хелпера, воспроизводя ТОТ ЖЕ паттерн (temp-файл → renameWithRetry → catch
+ * подчищает temp), что и в раннере — покрыт хелпер, а не сам вызов из раннера.
+ */
+describe("temp+rename для скачивания записи ведущего (lip-sync-runner.ts) — атомарность на уровне хелпера", () => {
+  const SCRATCH_DIR = join(tmpdir(), "cf-recording-download-atomic")
+
+  beforeEach(async () => {
+    await rm(SCRATCH_DIR, { recursive: true, force: true })
+    await mkdir(SCRATCH_DIR, { recursive: true })
+  })
+
+  afterEach(async () => {
+    await rm(SCRATCH_DIR, { recursive: true, force: true })
+  })
+
+  it("обрыв МЕЖДУ записью временного файла и renameWithRetry не оставляет обрезанный файл по целевому пути", async () => {
+    const localRecordingPath = join(SCRATCH_DIR, "recording_abc123.mp4")
+    const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
+
+    // Имитирует storage.downloadToFile: как настоящий поток на диск, пишет
+    // байты ПО ХОДУ работы (частичный файл на временном пути уже есть), а
+    // потом рвётся — до renameWithRetry дело не доходит, ровно тот обрыв,
+    // который целевой путь обязан пережить нетронутым.
+    const interruptedDownload = async () => {
+      await writeFile(tempRecordingPath, "огрызок-оборванной-закачки-записи")
+      throw new Error("сеть до хранилища легла (мок)")
+    }
+
+    // Тот же блок try/catch, что в lip-sync-runner.ts: отказ закачки/переименования
+    // подчищает временный файл и пробрасывает исходную ошибку дальше.
+    await expect((async () => {
+      try {
+        await interruptedDownload()
+        await renameWithRetry(tempRecordingPath, localRecordingPath)
+      }
+      catch (err) {
+        await unlink(tempRecordingPath).catch(() => {})
+        throw err
+      }
+    })()).rejects.toThrow("сеть до хранилища легла")
+
+    // Главное: следующий прогон не должен подхватить огрызок как готовую
+    // запись — по целевому пути не может быть НИЧЕГО, даже частично.
+    expect(existsSync(localRecordingPath)).toBe(false)
+    expect(existsSync(tempRecordingPath)).toBe(false)
+  })
+
+  it("успешная закачка: целевой путь появляется только ПОСЛЕ renameWithRetry, не раньше", async () => {
+    const localRecordingPath = join(SCRATCH_DIR, "recording_ok456.mp4")
+    const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
+
+    await writeFile(tempRecordingPath, "нормализованная-запись-целиком")
+    // До переименования целевого пути ещё нет — иначе параллельный fileExists()
+    // в раннере принял бы недокачанный temp за готовую запись.
+    expect(existsSync(localRecordingPath)).toBe(false)
+
+    await renameWithRetry(tempRecordingPath, localRecordingPath)
+
+    expect(existsSync(localRecordingPath)).toBe(true)
+    expect(existsSync(tempRecordingPath)).toBe(false)
+    expect(readFileSync(localRecordingPath, "utf8")).toBe("нормализованная-запись-целиком")
   })
 })

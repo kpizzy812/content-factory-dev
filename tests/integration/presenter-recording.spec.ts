@@ -1337,7 +1337,12 @@ describe("guardRecordingWindowFrame: восстановление после о�
       ensureRecordingDownloaded: async () => {
         throw new Error("не должен вызываться на этом сценарии — та же запись")
       },
-    })).rejects.toThrow()
+      // Матчер по имени недостающего файла, а не голый toThrow(): доказывает,
+      // что упала именно нарезка ВТОРОЙ попытки (cutRecordingWindow на
+      // recordingPath второй попытки) уже ПОСЛЕ успешного перерезервирования,
+      // а не что-то более раннее (reserveRecordingWindow, ensureRecordingDownloaded
+      // и т.п. вообще не ссылаются на это имя файла).
+    })).rejects.toThrow(/does-not-exist/)
 
     const rows = await prisma.presenterRecordingUsage.findMany({
       where: { videoId: video.id, sceneIndex: 0 },
@@ -1392,6 +1397,108 @@ describe("guardRecordingWindowFrame: восстановление после о�
     expect(rows[0]!.startSec).toBeCloseTo(first.startSec, 3)
     expect(rows[0]!.endSec).toBeCloseTo(first.endSec, 3)
     expect(rows[0]!.frameHash).toBe("0000000000000000")
+  }, 30_000)
+
+  // Мелочь 5.5 из долга плана A: перерезервирование иногда выбирает ДРУГУЮ
+  // запись того же персонажа (recording-window-frame-guard.ts:206-208) —
+  // существующие тесты этого файла намеренно обходят этот путь (доктрина
+  // setupWithSimilarSeed: одна запись, свободное место всегда там же). Здесь
+  // записей две: у первой (recordingA) после исключения первого окна свободного
+  // места не остаётся вовсе (durationSec === requiredSec), поэтому
+  // reserveRecordingWindow обязан уйти на вторую (recordingB).
+  it("перерезервирование на ДРУГУЮ запись зовёт ensureRecordingDownloaded один раз и режет из её пути", async () => {
+    const recordingA = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-frame-guard-crossrec-a",
+        sha1: "frameguardcrossa",
+        durationSec: 4, // ровно requiredSec — после исключения первого окна места не остаётся
+        originalName: "flat-a.mov",
+        ingestStatus: "completed",
+        createdAt: new Date(Date.now() - 2000),
+      },
+    })
+    const recordingB = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-frame-guard-crossrec-b",
+        sha1: "frameguardcrossb",
+        durationSec: 12,
+        originalName: "flat-b.mov",
+        ingestStatus: "completed",
+        createdAt: new Date(Date.now() - 1000),
+      },
+    })
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({ data: { scenarioId: scenario.id } })
+
+    // Ни у A, ни у B ещё нет usages — recordingA идёт первым по createdAt и
+    // сразу даёт overlapSec 0, поэтому первое окно гарантированно берётся из A.
+    const first = await reserveRecordingWindow({
+      characterId, requiredSec: 4, fps: 30, videoId: video.id, sceneIndex: 0,
+    })
+    expect(first).not.toBeNull()
+    expect(first!.recordingId).toBe(recordingA.id)
+
+    // Затравка "недавнего" кадра персонажа — тот же приём, что в
+    // setupWithSimilarSeed: тот же плоский чёрный кадр даёт тот же
+    // детерминированный dHash, и первый кадр вырезанного окна гарантированно
+    // "похож" на неё, так что guard уходит в ветку перерезервирования.
+    await prisma.presenterRecordingUsage.create({
+      data: { recordingId: recordingB.id, startSec: 8, endSec: 12, frameHash: "0000000000000000" },
+    })
+
+    const windowPath = join(fixtureDir, `window-crossrec-${video.id}.mp4`)
+    await cutRecordingWindow({
+      recordingPath: flatFixturePath,
+      startSec: first!.startSec,
+      durationSec: first!.durationSec,
+      outputPath: windowPath,
+    })
+
+    // Локальная "закачка" recordingB — на отдельном пути, который вернёт
+    // ensureRecordingDownloaded. input.recordingPath ниже намеренно указывает
+    // на несуществующий файл: если guard по ошибке использует его вместо
+    // результата ensureRecordingDownloaded, нарезка второй попытки упадёт, и
+    // тест провалится, а не пройдёт по случайности.
+    const downloadedRecordingBPath = join(fixtureDir, `recording-crossrec-${recordingB.id}.mp4`)
+    await copyFile(flatFixturePath, downloadedRecordingBPath)
+
+    const ensureCalls: Array<{ recordingId: string, storageKey: string }> = []
+    const retryWindowPath = join(fixtureDir, `window-crossrec-${video.id}-retry.mp4`)
+
+    const result = await guardRecordingWindowFrame({
+      characterId,
+      videoId: video.id,
+      sceneIndex: 0,
+      requiredSec: 4,
+      fps: 30,
+      window: first!,
+      windowPath,
+      retryWindowPath,
+      recordingPath: join(fixtureDir, "crossrec-does-not-exist.mp4"),
+      ensureRecordingDownloaded: async (recording) => {
+        ensureCalls.push(recording)
+        return downloadedRecordingBPath
+      },
+    })
+
+    // Перерезервирование ушло на recordingB — свободного места на recordingA
+    // после исключения первого окна физически не осталось.
+    expect(result.reReserved).toBe(true)
+    expect(result.window.recordingId).toBe(recordingB.id)
+    expect(result.windowPath).toBe(retryWindowPath)
+    expect(ensureCalls).toHaveLength(1)
+    expect(ensureCalls[0]).toEqual({ recordingId: recordingB.id, storageKey: recordingB.storageKey })
+
+    // Нарезка реально прошла из пути, отданного ensureRecordingDownloaded —
+    // иначе (fake input.recordingPath) cutRecordingWindow выше бросил бы, и
+    // guardRecordingWindowFrame не вернулась бы вовсе.
+    const written = await prisma.presenterRecordingUsage.findMany({
+      where: { videoId: video.id, sceneIndex: 0 },
+    })
+    expect(written).toHaveLength(1)
+    expect(written[0]!.recordingId).toBe(recordingB.id)
   }, 30_000)
 })
 

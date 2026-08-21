@@ -331,6 +331,7 @@ export async function reserveRecordingWindow(
           `Резервирование окна конфликтует с уже занятым (videoId=${input.videoId}, `
           + `sceneIndex=${input.sceneIndex}): параллельный прогон занял окно другой длины `
           + `(requiredSec=${input.requiredSec}с не покрыт). Повторите прогон сцены.`,
+          { cause: error },
         )
       }
 
