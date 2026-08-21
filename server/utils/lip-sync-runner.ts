@@ -48,6 +48,8 @@ import { getStorageDriver } from "./storage"
 import { downloadFile } from "./video-helpers"
 import { adjustAudioTempo, probeMediaDuration } from "./render"
 import { reservePresenterSourceClip } from "./presenter-source-selector"
+import { reserveRecordingWindow } from "./presenter-recording-selector"
+import { cutRecordingWindow } from "./presenter/ffmpeg-adapter"
 import {
   characterHasAvatarPortrait,
   findSimilarAvatarClip,
@@ -959,7 +961,63 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
             : `${sceneTag}: PRESENTER_ROUTE=avatar, но портрета у персонажа нет — иду прежним маршрутом`)
         }
 
-        const sourceClip = useAvatarRoute ? null : await reservePresenterSourceClip({
+        /**
+         * Монтаж от звука: сначала пробуем вырезать окно из длинной записи ведущего.
+         *
+         * Готовый клип подбирается по длительности с допуском ±1 с (см.
+         * isSourceDurationCloseToScene ниже), и этой секунды хватает, чтобы
+         * ведущая договаривала в немой кадр или обрывалась на полуслове. Окно
+         * записи режется ровно под длину куска трека — картинка подгоняется под
+         * голос, а не наоборот (spec §6.2).
+         *
+         * Ставится РОВНО здесь, а не раньше: между вычислением presenterTargetSec
+         * и этой строкой лежит ветка PRESENTER_ROUTE=avatar (выше), которая может
+         * увести сцену на аватарный маршрут. Резервировать окно записи раньше
+         * значило бы занимать интервал под сцену, которая до нарезки может не
+         * дойти, — а освобождать резервирование здесь нечем (см. докстринг
+         * ReservedRecordingWindow в presenter-recording-selector.ts).
+         */
+        let recordingWindow: Awaited<ReturnType<typeof reserveRecordingWindow>> = null
+        if (segmentPlan && !useAvatarRoute) {
+          recordingWindow = await reserveRecordingWindow({
+            characterId: videoConfig.lipSyncCharacterId,
+            requiredSec: presenterTargetSec,
+            fps: timelineFps,
+            videoId,
+          }).catch(async (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err)
+            await appendStepLog(step.id, `${sceneTag}: окно записи не зарезервировано (${msg}) — иду прежним подбором клипа`)
+            return null
+          })
+        }
+
+        if (recordingWindow) {
+          const localRecordingPath = join(assetsDir, `recording_${recordingWindow.recordingId}.mp4`)
+          if (!(await fileExists(localRecordingPath))) {
+            await getStorageDriver().downloadToFile(recordingWindow.storageKey, localRecordingPath)
+          }
+          const windowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}.mp4`)
+          await cutRecordingWindow({
+            recordingPath: localRecordingPath,
+            startSec: recordingWindow.startSec,
+            durationSec: recordingWindow.durationSec,
+            outputPath: windowPath,
+          })
+          sourceVideoPath = windowPath
+          presenterSourcePath = windowPath
+          sourceCleanup.push(localRecordingPath, windowPath)
+          await appendStepLog(
+            step.id,
+            `${sceneTag}: вырезал окно записи ${recordingWindow.startSec.toFixed(2)}-${recordingWindow.endSec.toFixed(2)}с `
+            + `(${recordingWindow.durationSec.toFixed(2)}с) под кусок трека`
+            + (recordingWindow.overlapSec > 0 ? `; пересечение с занятым участком ${recordingWindow.overlapSec.toFixed(2)}с` : "")
+            + (recordingWindow.reused ? "; нетронутых участков в записи не осталось, взят остывший" : ""),
+          )
+        }
+
+        // Готовый клип подбирается, только если окно записи не зарезервировано
+        // (записи-родителя нет — фолбэк по §10 спеки) и маршрут не аватарный.
+        const sourceClip = (useAvatarRoute || recordingWindow) ? null : await reservePresenterSourceClip({
           characterId: videoConfig.lipSyncCharacterId,
           durationSec: presenterTargetSec,
           minDurationSec,
@@ -978,7 +1036,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           presenterSourcePath = localSourcePath
           sourceCleanup.push(localSourcePath)
           await appendStepLog(step.id, `${sceneTag}: presenter source ${sourceClip.id} (${sourceClip.durationSec}s)`)
-        } else if (!useAvatarRoute) {
+        } else if (!useAvatarRoute && !recordingWindow) {
           // Библиотека не дала фрагмента. Порядок дальнейшего выбора — в
           // planPresenterSourceStrategy: портрет есть — сцену снимет аватар,
           // портрета нет — остаётся прежний путь, сгенерированный клип.
@@ -1109,11 +1167,15 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // права (см. ниже), но и молчать нельзя — на прежнем маршруте об этом
       // говорила ветка ускорения, и без этой строки сигнал пропал бы совсем.
       if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec) {
+        // При окне из записи это условие штатно не выполняется — окно режется
+        // ровно под presenterTargetSec. Срабатывает на фолбэке §10: фрагмент
+        // подобран из библиотеки с допуском ±1с (записи-родителя нет), и точной
+        // нарезки под звук у такого исходника нет.
         await appendStepLog(
           step.id,
           `${sceneTag}: WARN кусок трека ${segmentPlan.cut.durationSec.toFixed(2)}с длиннее исходника `
           + `${providerDurationSec.toFixed(2)}с — модель срежет речь по длине картинки; `
-          + `исходник под звук нарезает план 2`,
+          + `фрагмент подобран из библиотеки, записи-родителя нет`,
         )
       }
 
