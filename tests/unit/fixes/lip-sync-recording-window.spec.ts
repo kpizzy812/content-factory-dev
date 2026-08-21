@@ -254,6 +254,10 @@ describe("runLipSyncStep: фрагмент ведущего режется из 
     )
     // Подбор готового клипа на этом пути не нужен вовсе.
     expect(h.reservePresenterSourceClip).not.toHaveBeenCalled()
+    // Продуктовое требование задачи — в модель уходит именно вырезанное окно,
+    // а не что-то другое (Minor C код-ревью: раньше это нигде не проверялось).
+    const call = h.runLipSync.mock.calls[0]![0] as { sourceVideoPath: string }
+    expect(call.sourceVideoPath).toBe(join(ASSETS_DIR, "presenter_window_0_usage-1.mp4"))
   })
 
   it("без записи-родителя работает прежний подбор клипа", async () => {
@@ -264,11 +268,27 @@ describe("runLipSyncStep: фрагмент ведущего режется из 
     expect(h.reservePresenterSourceClip).toHaveBeenCalled()
   })
 
+  it("резервирование окна упало — фолбэк на подбор клипа, а не падение шага", async () => {
+    // Ветка .catch (бросок из reserveRecordingWindow), а не просто null —
+    // прямой пункт брифа про фолбэк, раньше ничем не покрыт (Minor D код-ревью).
+    h.reserveRecordingWindow.mockRejectedValue(new Error("БД недоступна"))
+
+    await runLipSyncStep(inputWithAudioFirstSegment({ segmentSec: 6.4 }))
+
+    expect(h.cutRecordingWindow).not.toHaveBeenCalled()
+    expect(h.reservePresenterSourceClip).toHaveBeenCalled()
+    expect(h.logs.some(line => line.includes("окно записи не зарезервировано"))).toBe(true)
+  })
+
   it("на старом маршруте запись не спрашивается вовсе", async () => {
     // Инвариант всей работы: ролик без editPipeline не должен изменить ни
-    // одного вызова.
+    // одного вызова. Чистое отрицание reserveRecordingWindow тут не сторож:
+    // регрессия, роняющая сцену раньше (например по no_clip), тоже дала бы
+    // «не вызван». Проверяем, что сцена реально дошла до прежнего подбора
+    // клипа — это и есть настоящий признак старого маршрута (Minor B код-ревью).
     await runLipSyncStep(inputWithoutAudioFirst())
 
     expect(h.reserveRecordingWindow).not.toHaveBeenCalled()
+    expect(h.reservePresenterSourceClip).toHaveBeenCalled()
   })
 })

@@ -49,7 +49,15 @@ import { downloadFile } from "./video-helpers"
 import { adjustAudioTempo, probeMediaDuration } from "./render"
 import { reservePresenterSourceClip } from "./presenter-source-selector"
 import { reserveRecordingWindow } from "./presenter-recording-selector"
-import { cutRecordingWindow } from "./presenter/ffmpeg-adapter"
+// cutRecordingWindow — ДИНАМИЧЕСКИЙ импорт, а не статический (см. место вызова
+// ниже, ветка `if (recordingWindow)`). presenter/ffmpeg-adapter.ts тянет
+// video-tools/ffmpeg.ts, а тот на уровне МОДУЛЯ зовёт ffmpeg.setFfmpegPath(),
+// если задан FFMPEG_PATH. Статический импорт исполнил бы это при загрузке
+// lip-sync-runner.ts вообще ВСЕГДА, даже когда окно записи не запрашивается
+// ни разу — а существующие lip-sync-спеки мокают fluent-ffmpeg голой функцией
+// без setFfmpegPath и падали бы при FFMPEG_PATH в окружении (Important 1
+// код-ревью). Динамический импорт исполняется только внутри ветки, которая на
+// старом маршруте и в этих спеках не срабатывает вовсе.
 import {
   characterHasAvatarPortrait,
   findSimilarAvatarClip,
@@ -80,8 +88,10 @@ import {
 } from "./presenter/scene-clip-mapping"
 import { loadClipSceneOrders } from "./presenter/clip-scene-orders"
 import {
+  buildTempSegmentPath,
   cutTrackSegment,
   planSegmentCut,
+  renameWithRetry,
   segmentIdentity,
   snapSecToFrame,
   trackEndFrame,
@@ -901,6 +911,15 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       let sourceVideoPath: string | null = resolvedSource.path
       let presenterSourcePath: string | null = null
       /**
+       * Текущий presenterSourcePath — окно, вырезанное из записи-родителя, а не
+       * подобранный из библиотеки клип. Объявлен на уровне сцены (а не внутри
+       * `if (videoConfig.lipSyncCharacterId)`, где решается сам выбор). Нужен ниже,
+       * в WARN про кусок трека длиннее исходника: тот WARN маршрут не проверяет и
+       * не разбирает причину — без флага он винил бы во всех случаях библиотеку,
+       * даже когда исходник вырезан из настоящей записи (Minor A код-ревью).
+       */
+      let sourceFromRecordingWindow = false
+      /**
        * Аватарный маршрут: сцену снимет `speech_to_video` уже ПОСЛЕ синтеза
        * речи — модели нужен готовый звук, а не только портрет. Поэтому здесь
        * только решение о маршруте, а сама съёмка ниже, за TTS.
@@ -993,10 +1012,38 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
 
         if (recordingWindow) {
           const localRecordingPath = join(assetsDir, `recording_${recordingWindow.recordingId}.mp4`)
-          if (!(await fileExists(localRecordingPath))) {
-            await getStorageDriver().downloadToFile(recordingWindow.storageKey, localRecordingPath)
-          }
           const windowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}.mp4`)
+          // Регистрируем ОБА пути ДО закачки/реза, а не после успешного cutRecordingWindow:
+          // при крэше процесса между скачиванием и резом путь обязан быть в списке
+          // подчистки уже сейчас (Important 2 код-ревью) — иначе рабочая копия
+          // осядет на диске без хозяина, и ни один finally её не найдёт.
+          sourceCleanup.push(localRecordingPath, windowPath)
+          if (!(await fileExists(localRecordingPath))) {
+            // Скачивание — во ВРЕМЕННЫЙ файл с переименованием после успеха, а не
+            // прямо в целевой путь: storage.downloadToFile пишет потоком напрямую
+            // в localPath (gcs-driver.ts: pipeline(readStream, createWriteStream)),
+            // и обрыв закачки оставил бы огрызок под ИМЕНЕМ, СТАБИЛЬНЫМ по
+            // recordingId, — следующий прогон принял бы fileExists()===true за
+            // «уже скачано», резал бы `-ss` за пределами обрубка и терял бы окно
+            // на КАЖДОМ повторе молча (Important 2 код-ревью). Ровно тот же
+            // анти-паттерн, что уже починен для куска трека в cutTrackSegment
+            // этого же файла — voiceover/segment-cut.ts, temp+rename переиспользуем
+            // оттуда, третьей копии не пишем.
+            const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
+            try {
+              await getStorageDriver().downloadToFile(recordingWindow.storageKey, tempRecordingPath)
+              await renameWithRetry(tempRecordingPath, localRecordingPath)
+            } catch (err) {
+              await unlink(tempRecordingPath).catch(() => {})
+              throw err
+            }
+          }
+          // Динамический импорт — см. докстринг у статических импортов вверху файла:
+          // presenter/ffmpeg-adapter.ts тянет video-tools/ffmpeg.ts с побочным
+          // эффектом на уровне модуля (ffmpeg.setFfmpegPath при заданном FFMPEG_PATH),
+          // и статический импорт исполнял бы его при каждой загрузке lip-sync-runner.ts,
+          // даже когда окно записи не запрашивается вовсе (Important 1 код-ревью).
+          const { cutRecordingWindow } = await import("./presenter/ffmpeg-adapter")
           await cutRecordingWindow({
             recordingPath: localRecordingPath,
             startSec: recordingWindow.startSec,
@@ -1005,7 +1052,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           })
           sourceVideoPath = windowPath
           presenterSourcePath = windowPath
-          sourceCleanup.push(localRecordingPath, windowPath)
+          sourceFromRecordingWindow = true
           await appendStepLog(
             step.id,
             `${sceneTag}: вырезал окно записи ${recordingWindow.startSec.toFixed(2)}-${recordingWindow.endSec.toFixed(2)}с `
@@ -1094,6 +1141,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         )
         sourceVideoPath = resolvedSource.path
         presenterSourcePath = null
+        sourceFromRecordingWindow = false
         measuredDurationSec = await probeMediaDuration(sourceVideoPath)
       }
 
@@ -1167,15 +1215,26 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       // права (см. ниже), но и молчать нельзя — на прежнем маршруте об этом
       // говорила ветка ускорения, и без этой строки сигнал пропал бы совсем.
       if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec) {
-        // При окне из записи это условие штатно не выполняется — окно режется
-        // ровно под presenterTargetSec. Срабатывает на фолбэке §10: фрагмент
-        // подобран из библиотеки с допуском ±1с (записи-родителя нет), и точной
-        // нарезки под звук у такого исходника нет.
+        // Этот гейт маршрут не проверяет — он смотрит только на цифры. Обычно
+        // условие штатно не выполняется на окне из записи: оно режется под
+        // presenterTargetSec, который сам берётся из ИЗМЕРЕННОГО куска трека
+        // (см. trackSegmentSec выше). Но окно (§8, planRecordingWindow) на самом
+        // хвосте записи может оказаться короче заказанного на долю кадра, а
+        // presenterTargetSec — это mp3 после перекодировки, который своим
+        // хвостом штатно расходится с теоретическим cut.durationSec
+        // (voiceover/segment-cut.ts: «перекодировка даёт свой хвост») — гейт
+        // может сработать и при настоящей записи-родителе. Текст обязан
+        // называть причину, которая правда произошла, а не всегда одну и ту же
+        // (Minor A код-ревью): sourceFromRecordingWindow — единственный факт,
+        // видный отсюда, дальше это уже не «библиотека или запись», а
+        // сантиметры на стыке кадра/перекодировки.
         await appendStepLog(
           step.id,
           `${sceneTag}: WARN кусок трека ${segmentPlan.cut.durationSec.toFixed(2)}с длиннее исходника `
           + `${providerDurationSec.toFixed(2)}с — модель срежет речь по длине картинки; `
-          + `фрагмент подобран из библиотеки, записи-родителя нет`,
+          + (sourceFromRecordingWindow
+            ? "исходник вырезан из записи-родителя, расхождение — на стыке кадра/перекодировки звука"
+            : "фрагмент подобран из библиотеки, записи-родителя нет"),
         )
       }
 
