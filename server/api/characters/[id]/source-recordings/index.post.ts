@@ -102,21 +102,47 @@ export default defineEventHandler(async (event) => {
     // Запись сохраняется нормализованной независимо от исхода нарезки на клипы —
     // она источник для будущего монтажа "от звука" (реза под фактическую длину
     // реплики), и терять её из-за сбоя в разметке сцен нельзя.
-    const saved = await saveRecording({
-      appId: character.appId,
-      characterId,
-      originalPath: recordingPath,
-      normalizedPath,
-      originalName: recordingName,
-      originalBytes: filePart.data.length,
-      uploadedById: user.id,
-    })
+    //
+    // Но отказ саму нарезку ронять не должен: до этой задачи эндпоинт резал
+    // клипы независимо от долговременного хранения записи, и это поведение
+    // сохраняем. Если сохранение записи упало (ffmpeg не взял вход, GCS
+    // недоступен и т.п.) — клипы всё равно создаются, но без recordingId:
+    // §10 спеки считает клип без записи-родителя штатным состоянием (подбор
+    // по длительности, как раньше). Оператор увидит предупреждение в ответе.
+    let saved: Awaited<ReturnType<typeof saveRecording>> | null = null
+    let recordingSaveWarning: string | null = null
+    try {
+      saved = await saveRecording({
+        appId: character.appId,
+        characterId,
+        originalPath: recordingPath,
+        normalizedPath,
+        originalName: recordingName,
+        originalBytes: filePart.data.length,
+        uploadedById: user.id,
+      })
+    }
+    catch (error) {
+      recordingSaveWarning = `Запись не сохранена для повторной нарезки (${
+        error instanceof Error ? error.message : String(error)
+      }). Клипы созданы без привязки к записи.`
+    }
 
-    await markIngestRunning(saved.recordingId)
+    if (saved) {
+      await markIngestRunning(saved.recordingId)
+    }
 
     try {
       // Нарезка идёт даже в дедуп-ветке: оператор мог залить ту же запись
       // повторно, чтобы перенарезать её по новым правилам.
+      //
+      // Клипы режутся из ОРИГИНАЛА (recordingPath), а saved.recordingId (если
+      // сохранение прошло) указывает на НОРМАЛИЗОВАННЫЙ файл в хранилище.
+      // sourceStartSec клипа совпадает с таймлайном нормализованной записи
+      // только пока нормализация не двигает таймбазу (не режет кадры и не
+      // меняет скорость — сегодня так и есть). Будущий монтаж "от звука"
+      // обязан резать окно именно из нормализованного файла (через
+      // recordingId/storageKey), а не из этого временного оригинала.
       const result = await ingestPresenterRecording(
         { recordingPath, outputDir: workDir, existingHashes, maxClips },
         ffmpegIngestDependencies,
@@ -141,7 +167,7 @@ export default defineEventHandler(async (event) => {
         const row = await prisma.presenterSourceClip.create({
           data: {
             characterId,
-            recordingId: saved.recordingId,
+            recordingId: saved?.recordingId ?? null,
             name: `${recordingName} · ${clip.startSec.toFixed(1)}-${clip.endSec.toFixed(1)}s`,
             fileUrl: storageKeyToLegacyUrl(storageKey),
             storageKey,
@@ -163,12 +189,18 @@ export default defineEventHandler(async (event) => {
         created.push(row.id)
       }
 
-      await markIngestCompleted(saved.recordingId)
+      if (saved) {
+        await markIngestCompleted(saved.recordingId)
+      }
 
       return {
         data: {
-          recordingId: saved.recordingId,
-          deduped: saved.deduped,
+          recordingId: saved?.recordingId ?? null,
+          deduped: saved?.deduped ?? false,
+          // null — сохранение записи упало, но нарезка на клипы всё равно
+          // прошла (см. комментарий выше); текст объясняет оператору, чего
+          // не будет: повторной нарезки этой же записи по новым правилам.
+          recordingSaveWarning,
           recordingName,
           durationSec: result.durationSec,
           sceneDetectionFailed: result.sceneDetectionFailed,
@@ -184,7 +216,11 @@ export default defineEventHandler(async (event) => {
       }
     }
     catch (error) {
-      await markIngestFailed(saved.recordingId, error)
+      // markIngestFailed сам может бросить (БД недоступна) — тогда наружу
+      // должна уйти настоящая причина сбоя нарезки, а не эта вторичная.
+      if (saved) {
+        await markIngestFailed(saved.recordingId, error).catch(() => {})
+      }
       throw error
     }
   }

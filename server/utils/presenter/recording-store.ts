@@ -9,6 +9,11 @@
  * Порядок операций: сначала строка в БД со статусом `pending`, потом заливка,
  * потом `completed`. Обратный порядок оставлял бы объект в хранилище без
  * строки — сироту вне каскада удаления.
+ *
+ * Между `create` и `uploadFile` есть окно: обрыв процесса или сети оставит
+ * строку без объекта в хранилище. Дедуп-ветка это не игнорирует — она
+ * проверяет `storage.exists(...)` и перезаливает, если объекта нет, не
+ * заводя вторую строку (`@@unique([characterId, sha1])` и не позволил бы).
  */
 
 import { createHash } from "node:crypto"
@@ -16,8 +21,10 @@ import { stat } from "node:fs/promises"
 
 import { prisma } from "../prisma"
 import { getStorageDriver } from "../storage"
+import type { StorageDriver } from "../storage"
 import { StorageKeys } from "../storage/keys"
 import { normalizeRecording, probeRecordingMeta } from "./ffmpeg-adapter"
+import type { RecordingMeta } from "./ffmpeg-adapter"
 
 export interface SaveRecordingInput {
   appId: number
@@ -33,10 +40,23 @@ export interface SaveRecordingInput {
 
 export interface SaveRecordingResult {
   recordingId: string
-  /** true — такой оригинал уже заливали, файл повторно не нормализуется. */
+  /** true — такой оригинал уже заливали (или перезалили после сироты), файл не нормализовался повторно. */
   deduped: boolean
   storageKey: string
   durationSec: number
+}
+
+/**
+ * Зависимости вынесены параметром, чтобы интеграционные тесты подменяли
+ * ffmpeg-транскод и заливку в хранилище фейками (никакого реального процесса
+ * и сети), а саму функцию — с её порядком операций, дедупом и отказами —
+ * гоняли на живой тестовой БД.
+ */
+export interface SaveRecordingDependencies {
+  sha1OfFile: (path: string) => Promise<string>
+  normalizeRecording: (inputPath: string, outputPath: string) => Promise<void>
+  probeRecordingMeta: (path: string) => Promise<RecordingMeta>
+  getStorageDriver: () => Pick<StorageDriver, "exists" | "uploadFile" | "providerName">
 }
 
 /** sha1 файла потоком: запись весит до двух гигабайт, в память её тянуть нельзя. */
@@ -52,23 +72,79 @@ export async function sha1OfFile(path: string): Promise<string> {
   return hash.digest("hex").slice(0, 16)
 }
 
-export async function saveRecording(input: SaveRecordingInput): Promise<SaveRecordingResult> {
-  const sha1 = await sha1OfFile(input.originalPath)
+const defaultDependencies: SaveRecordingDependencies = {
+  sha1OfFile,
+  normalizeRecording,
+  probeRecordingMeta,
+  getStorageDriver,
+}
+
+/**
+ * ffprobe (через `getVideoDuration`) при неразобранной длительности не
+ * бросает, а резолвит 0 — молчаливая ложь. Ноль в non-nullable `durationSec`
+ * отравляет запись навсегда: дедуп будет возвращать его вечно, а нарезка
+ * окна под фактическую реплику (следующие задачи плана) получит верхнюю
+ * границу 0 и не вернёт ни одного окна. Отказ честнее выдуманного значения.
+ */
+function assertMeasurableDuration(durationSec: number, path: string): void {
+  if (!(durationSec > 0)) {
+    throw new Error(`Не удалось определить длительность записи: ${path}`)
+  }
+}
+
+export async function saveRecording(
+  input: SaveRecordingInput,
+  deps: SaveRecordingDependencies = defaultDependencies,
+): Promise<SaveRecordingResult> {
+  const sha1 = await deps.sha1OfFile(input.originalPath)
+  const storage = deps.getStorageDriver()
 
   const existing = await prisma.presenterRecording.findUnique({
     where: { characterId_sha1: { characterId: input.characterId, sha1 } },
   })
+
   if (existing) {
+    const objectExists = await storage.exists(existing.storageKey)
+    if (objectExists) {
+      return {
+        recordingId: existing.id,
+        deduped: true,
+        storageKey: existing.storageKey,
+        durationSec: existing.durationSec,
+      }
+    }
+
+    // Строка есть, объекта в хранилище нет — сирота после обрыва между
+    // `create` и `uploadFile`. Чиним ту же строку, вторую не создаём.
+    await deps.normalizeRecording(input.originalPath, input.normalizedPath)
+    const meta = await deps.probeRecordingMeta(input.normalizedPath)
+    assertMeasurableDuration(meta.durationSec, input.normalizedPath)
+    const size = await stat(input.normalizedPath)
+
+    await storage.uploadFile(existing.storageKey, input.normalizedPath, { contentType: "video/mp4" })
+
+    const repaired = await prisma.presenterRecording.update({
+      where: { id: existing.id },
+      data: {
+        durationSec: meta.durationSec,
+        fps: meta.fps,
+        width: meta.width,
+        height: meta.height,
+        bytes: size.size,
+      },
+    })
+
     return {
-      recordingId: existing.id,
+      recordingId: repaired.id,
       deduped: true,
-      storageKey: existing.storageKey,
-      durationSec: existing.durationSec,
+      storageKey: repaired.storageKey,
+      durationSec: repaired.durationSec,
     }
   }
 
-  await normalizeRecording(input.originalPath, input.normalizedPath)
-  const meta = await probeRecordingMeta(input.normalizedPath)
+  await deps.normalizeRecording(input.originalPath, input.normalizedPath)
+  const meta = await deps.probeRecordingMeta(input.normalizedPath)
+  assertMeasurableDuration(meta.durationSec, input.normalizedPath)
   const size = await stat(input.normalizedPath)
   const storageKey = StorageKeys.presenterRecording(input.appId, input.characterId, sha1, "mp4")
 
@@ -76,7 +152,7 @@ export async function saveRecording(input: SaveRecordingInput): Promise<SaveReco
     data: {
       characterId: input.characterId,
       storageKey,
-      storageProvider: getStorageDriver().providerName,
+      storageProvider: storage.providerName,
       sha1,
       durationSec: meta.durationSec,
       fps: meta.fps,
@@ -90,7 +166,7 @@ export async function saveRecording(input: SaveRecordingInput): Promise<SaveReco
     },
   })
 
-  await getStorageDriver().uploadFile(storageKey, input.normalizedPath, { contentType: "video/mp4" })
+  await storage.uploadFile(storageKey, input.normalizedPath, { contentType: "video/mp4" })
 
   return { recordingId: row.id, deduped: false, storageKey, durationSec: meta.durationSec }
 }

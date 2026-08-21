@@ -19,7 +19,10 @@ import { buildRecordingNormalizeArgs } from "./recording-normalize"
 import type { IngestPresenterDependencies } from "./ingest-runner"
 
 const FFMPEG_BIN = process.env.FFMPEG_PATH || process.env.FFMPEG_BIN || "ffmpeg"
-const FFPROBE_BIN = process.env.FFPROBE_PATH || process.env.FFPROBE_BIN || "ffprobe"
+// Только FFPROBE_PATH — тот же единственный env, что читает `getVideoDuration`
+// (server/utils/video-tools/ffmpeg.ts) внутри этой же функции probeRecordingMeta.
+// Второй алиас развёл бы стенд, где задан только один из них, на два разных бинаря.
+const FFPROBE_BIN = process.env.FFPROBE_PATH || "ffprobe"
 const CUT_TIMEOUT_MS = 5 * 60_000
 const THUMBNAIL_TIMEOUT_MS = 60_000
 /** Нормализация записи целиком. Долгая операция: таймаут отдельный. */
