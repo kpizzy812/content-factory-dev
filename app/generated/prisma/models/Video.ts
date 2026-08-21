@@ -1949,14 +1949,6 @@ export type EnumVideoFormatFieldUpdateOperationsInput = {
   set?: $Enums.VideoFormat
 }
 
-export type NullableBigIntFieldUpdateOperationsInput = {
-  set?: bigint | number | null
-  increment?: bigint | number
-  decrement?: bigint | number
-  multiply?: bigint | number
-  divide?: bigint | number
-}
-
 export type VideoCreateNestedOneWithoutFramesInput = {
   create?: Prisma.XOR<Prisma.VideoCreateWithoutFramesInput, Prisma.VideoUncheckedCreateWithoutFramesInput>
   connectOrCreate?: Prisma.VideoCreateOrConnectWithoutFramesInput

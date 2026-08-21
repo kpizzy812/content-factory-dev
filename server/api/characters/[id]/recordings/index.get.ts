@@ -46,7 +46,12 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  const totalBytes = recordings.reduce((sum, recording) => sum + (recording.bytes ?? 0), 0)
+  // Minor 3 финального ревью: bytes — BigInt (Int переполнялся бы ровно на
+  // границе приёма, MAX_FILE_BYTES = 2 GiB). number + bigint кидает
+  // TypeError на рантайме, поэтому сумма — тоже bigint; BigInt.prototype.toJSON
+  // (server/plugins/bigint-serializer.ts) сериализует её строкой, как и
+  // остальные BigInt-поля проекта (Video.fileSizeBytes и т.п.).
+  const totalBytes = recordings.reduce((sum, recording) => sum + (recording.bytes ?? 0n), 0n)
 
   return {
     data: {

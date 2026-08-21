@@ -47,8 +47,8 @@ export type PresenterRecordingSumAggregateOutputType = {
   fps: number | null
   width: number | null
   height: number | null
-  bytes: number | null
-  originalBytes: number | null
+  bytes: bigint | null
+  originalBytes: bigint | null
   uploadedById: number | null
 }
 
@@ -62,9 +62,9 @@ export type PresenterRecordingMinAggregateOutputType = {
   fps: number | null
   width: number | null
   height: number | null
-  bytes: number | null
+  bytes: bigint | null
   originalName: string | null
-  originalBytes: number | null
+  originalBytes: bigint | null
   retention: string | null
   ingestStatus: string | null
   ingestError: string | null
@@ -86,9 +86,9 @@ export type PresenterRecordingMaxAggregateOutputType = {
   fps: number | null
   width: number | null
   height: number | null
-  bytes: number | null
+  bytes: bigint | null
   originalName: string | null
-  originalBytes: number | null
+  originalBytes: bigint | null
   retention: string | null
   ingestStatus: string | null
   ingestError: string | null
@@ -315,9 +315,9 @@ export type PresenterRecordingGroupByOutputType = {
   fps: number | null
   width: number | null
   height: number | null
-  bytes: number | null
+  bytes: bigint | null
   originalName: string | null
-  originalBytes: number | null
+  originalBytes: bigint | null
   retention: string
   ingestStatus: string
   ingestError: string | null
@@ -362,9 +362,9 @@ export type PresenterRecordingWhereInput = {
   fps?: Prisma.FloatNullableFilter<"PresenterRecording"> | number | null
   width?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
   height?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
-  bytes?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
+  bytes?: Prisma.BigIntNullableFilter<"PresenterRecording"> | bigint | number | null
   originalName?: Prisma.StringNullableFilter<"PresenterRecording"> | string | null
-  originalBytes?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
+  originalBytes?: Prisma.BigIntNullableFilter<"PresenterRecording"> | bigint | number | null
   retention?: Prisma.StringFilter<"PresenterRecording"> | string
   ingestStatus?: Prisma.StringFilter<"PresenterRecording"> | string
   ingestError?: Prisma.StringNullableFilter<"PresenterRecording"> | string | null
@@ -420,9 +420,9 @@ export type PresenterRecordingWhereUniqueInput = Prisma.AtLeast<{
   fps?: Prisma.FloatNullableFilter<"PresenterRecording"> | number | null
   width?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
   height?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
-  bytes?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
+  bytes?: Prisma.BigIntNullableFilter<"PresenterRecording"> | bigint | number | null
   originalName?: Prisma.StringNullableFilter<"PresenterRecording"> | string | null
-  originalBytes?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
+  originalBytes?: Prisma.BigIntNullableFilter<"PresenterRecording"> | bigint | number | null
   retention?: Prisma.StringFilter<"PresenterRecording"> | string
   ingestStatus?: Prisma.StringFilter<"PresenterRecording"> | string
   ingestError?: Prisma.StringNullableFilter<"PresenterRecording"> | string | null
@@ -479,9 +479,9 @@ export type PresenterRecordingScalarWhereWithAggregatesInput = {
   fps?: Prisma.FloatNullableWithAggregatesFilter<"PresenterRecording"> | number | null
   width?: Prisma.IntNullableWithAggregatesFilter<"PresenterRecording"> | number | null
   height?: Prisma.IntNullableWithAggregatesFilter<"PresenterRecording"> | number | null
-  bytes?: Prisma.IntNullableWithAggregatesFilter<"PresenterRecording"> | number | null
+  bytes?: Prisma.BigIntNullableWithAggregatesFilter<"PresenterRecording"> | bigint | number | null
   originalName?: Prisma.StringNullableWithAggregatesFilter<"PresenterRecording"> | string | null
-  originalBytes?: Prisma.IntNullableWithAggregatesFilter<"PresenterRecording"> | number | null
+  originalBytes?: Prisma.BigIntNullableWithAggregatesFilter<"PresenterRecording"> | bigint | number | null
   retention?: Prisma.StringWithAggregatesFilter<"PresenterRecording"> | string
   ingestStatus?: Prisma.StringWithAggregatesFilter<"PresenterRecording"> | string
   ingestError?: Prisma.StringNullableWithAggregatesFilter<"PresenterRecording"> | string | null
@@ -502,9 +502,9 @@ export type PresenterRecordingCreateInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -529,9 +529,9 @@ export type PresenterRecordingUncheckedCreateInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -554,9 +554,9 @@ export type PresenterRecordingUpdateInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -581,9 +581,9 @@ export type PresenterRecordingUncheckedUpdateInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -607,9 +607,9 @@ export type PresenterRecordingCreateManyInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -630,9 +630,9 @@ export type PresenterRecordingUpdateManyMutationInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -654,9 +654,9 @@ export type PresenterRecordingUncheckedUpdateManyInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -843,6 +843,14 @@ export type PresenterRecordingUpdateOneWithoutClipsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.PresenterRecordingUpdateToOneWithWhereWithoutClipsInput, Prisma.PresenterRecordingUpdateWithoutClipsInput>, Prisma.PresenterRecordingUncheckedUpdateWithoutClipsInput>
 }
 
+export type NullableBigIntFieldUpdateOperationsInput = {
+  set?: bigint | number | null
+  increment?: bigint | number
+  decrement?: bigint | number
+  multiply?: bigint | number
+  divide?: bigint | number
+}
+
 export type PresenterRecordingCreateNestedOneWithoutUsagesInput = {
   create?: Prisma.XOR<Prisma.PresenterRecordingCreateWithoutUsagesInput, Prisma.PresenterRecordingUncheckedCreateWithoutUsagesInput>
   connectOrCreate?: Prisma.PresenterRecordingCreateOrConnectWithoutUsagesInput
@@ -866,9 +874,9 @@ export type PresenterRecordingCreateWithoutCharacterInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -891,9 +899,9 @@ export type PresenterRecordingUncheckedCreateWithoutCharacterInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -946,9 +954,9 @@ export type PresenterRecordingScalarWhereInput = {
   fps?: Prisma.FloatNullableFilter<"PresenterRecording"> | number | null
   width?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
   height?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
-  bytes?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
+  bytes?: Prisma.BigIntNullableFilter<"PresenterRecording"> | bigint | number | null
   originalName?: Prisma.StringNullableFilter<"PresenterRecording"> | string | null
-  originalBytes?: Prisma.IntNullableFilter<"PresenterRecording"> | number | null
+  originalBytes?: Prisma.BigIntNullableFilter<"PresenterRecording"> | bigint | number | null
   retention?: Prisma.StringFilter<"PresenterRecording"> | string
   ingestStatus?: Prisma.StringFilter<"PresenterRecording"> | string
   ingestError?: Prisma.StringNullableFilter<"PresenterRecording"> | string | null
@@ -969,9 +977,9 @@ export type PresenterRecordingCreateWithoutClipsInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -995,9 +1003,9 @@ export type PresenterRecordingUncheckedCreateWithoutClipsInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -1035,9 +1043,9 @@ export type PresenterRecordingUpdateWithoutClipsInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1061,9 +1069,9 @@ export type PresenterRecordingUncheckedUpdateWithoutClipsInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1085,9 +1093,9 @@ export type PresenterRecordingCreateWithoutUsagesInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -1111,9 +1119,9 @@ export type PresenterRecordingUncheckedCreateWithoutUsagesInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -1151,9 +1159,9 @@ export type PresenterRecordingUpdateWithoutUsagesInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1177,9 +1185,9 @@ export type PresenterRecordingUncheckedUpdateWithoutUsagesInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1201,9 +1209,9 @@ export type PresenterRecordingCreateManyCharacterInput = {
   fps?: number | null
   width?: number | null
   height?: number | null
-  bytes?: number | null
+  bytes?: bigint | number | null
   originalName?: string | null
-  originalBytes?: number | null
+  originalBytes?: bigint | number | null
   retention?: string
   ingestStatus?: string
   ingestError?: string | null
@@ -1224,9 +1232,9 @@ export type PresenterRecordingUpdateWithoutCharacterInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1249,9 +1257,9 @@ export type PresenterRecordingUncheckedUpdateWithoutCharacterInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1274,9 +1282,9 @@ export type PresenterRecordingUncheckedUpdateManyWithoutCharacterInput = {
   fps?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   width?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   height?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  bytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originalName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  originalBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  originalBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   retention?: Prisma.StringFieldUpdateOperationsInput | string
   ingestStatus?: Prisma.StringFieldUpdateOperationsInput | string
   ingestError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1469,11 +1477,15 @@ export type $PresenterRecordingPayload<ExtArgs extends runtime.Types.Extensions.
     width: number | null
     height: number | null
     /**
-     * Размер нормализованного файла.
+     * Размер нормализованного файла. BigInt: Minor 3 финального ревью — приём
+     * ограничен MAX_FILE_BYTES = 2 GiB (source-recordings/index.post.ts), то
+     * есть originalBytes переполнял бы INTEGER (потолок 2 147 483 647) ровно на
+     * границе приёма, а нормализованный файл переступает 2 ГБ уже на ~60
+     * минутах записи при 30-37 МБ/мин. saveRecording падал бы на create молча.
      */
-    bytes: number | null
+    bytes: bigint | null
     originalName: string | null
-    originalBytes: number | null
+    originalBytes: bigint | null
     /**
      * keep — защищено от автоочистки вручную; auto — попадает под неё.
      */
@@ -1928,9 +1940,9 @@ export interface PresenterRecordingFieldRefs {
   readonly fps: Prisma.FieldRef<"PresenterRecording", 'Float'>
   readonly width: Prisma.FieldRef<"PresenterRecording", 'Int'>
   readonly height: Prisma.FieldRef<"PresenterRecording", 'Int'>
-  readonly bytes: Prisma.FieldRef<"PresenterRecording", 'Int'>
+  readonly bytes: Prisma.FieldRef<"PresenterRecording", 'BigInt'>
   readonly originalName: Prisma.FieldRef<"PresenterRecording", 'String'>
-  readonly originalBytes: Prisma.FieldRef<"PresenterRecording", 'Int'>
+  readonly originalBytes: Prisma.FieldRef<"PresenterRecording", 'BigInt'>
   readonly retention: Prisma.FieldRef<"PresenterRecording", 'String'>
   readonly ingestStatus: Prisma.FieldRef<"PresenterRecording", 'String'>
   readonly ingestError: Prisma.FieldRef<"PresenterRecording", 'String'>

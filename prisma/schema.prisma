@@ -395,10 +395,14 @@ model PresenterRecording {
   fps             Float?
   width           Int?
   height          Int?
-  /// Размер нормализованного файла.
-  bytes           Int?
+  /// Размер нормализованного файла. BigInt: Minor 3 финального ревью — приём
+  /// ограничен MAX_FILE_BYTES = 2 GiB (source-recordings/index.post.ts), то
+  /// есть originalBytes переполнял бы INTEGER (потолок 2 147 483 647) ровно на
+  /// границе приёма, а нормализованный файл переступает 2 ГБ уже на ~60
+  /// минутах записи при 30-37 МБ/мин. saveRecording падал бы на create молча.
+  bytes           BigInt?
   originalName    String?
-  originalBytes   Int?
+  originalBytes   BigInt?
   /// keep — защищено от автоочистки вручную; auto — попадает под неё.
   retention       String    @default("auto")
   /// pending | running | completed | failed. Позволяет перезапустить нарезку
@@ -418,6 +422,15 @@ model PresenterRecording {
   @@unique([characterId, sha1])
   @@index([characterId, retention, createdAt])
   @@index([ingestStatus])
+  /// Под ГЛОБАЛЬНЫЙ (не по characterId) проход автоочистки
+  /// (applyRecordingRetention, recording-retention.ts): прежний
+  /// [characterId, retention, createdAt] для него бесполезен — characterId
+  /// там ведущая колонка, а в этом проходе фильтра по characterId нет.
+  /// Important из финального ревью: заводится вместе с сужением `where` до
+  /// строк, которые правило вообще способно перевести в новое состояние —
+  /// до сужения этот индекс был бы бесполезен, теперь покрывает и фильтр
+  /// (retention), и ORDER BY (createdAt) обеих OR-веток.
+  @@index([retention, createdAt])
 }
 
 /// Использованный интервал записи.
