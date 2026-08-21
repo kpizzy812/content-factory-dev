@@ -8,8 +8,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { prisma } from "~~/server/utils/prisma"
 import { cutRecordingWindow, ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
 import { ingestPresenterRecording } from "~~/server/utils/presenter/ingest-runner"
+import { applyRecordingRetention } from "~~/server/utils/presenter/recording-retention"
 import { guardRecordingWindowFrame } from "~~/server/utils/presenter/recording-window-frame-guard"
 import { reserveRecordingWindow } from "~~/server/utils/presenter-recording-selector"
+import { StorageKeys } from "~~/server/utils/storage/keys"
 import {
   RecordingIngestRunningError,
   markIngestCompleted,
@@ -1217,4 +1219,129 @@ describe("guardRecordingWindowFrame: восстановление после о�
     expect(rows[0]!.endSec).toBeCloseTo(first.endSec, 3)
     expect(rows[0]!.frameHash).toBe("0000000000000000")
   }, 30_000)
+})
+
+// Задача 7: жизненный цикл записей — applyRecordingRetention реально трогает
+// БД и хранилище (в тестовом окружении STORAGE_DRIVER не задан, поэтому
+// действует LocalDriver — см. server/utils/storage/index.ts), в отличие от
+// чистого planRecordingRetention (tests/unit/presenter/recording-retention.spec.ts,
+// который ни БД, ни хранилища не знает вовсе). Фикстуры свои в каждом it —
+// TRUNCATE после каждого it, как и у остальных describe этого файла.
+describe("применение правила хранения (applyRecordingRetention)", () => {
+  it("очистка не трогает keep и записи с живыми клипами", async () => {
+    const keep = await prisma.presenterRecording.create({
+      data: {
+        characterId, storageKey: "k", sha1: "keep0001", durationSec: 10,
+        retention: "keep", createdAt: new Date(Date.now() - 400 * 24 * 3600 * 1000),
+      },
+    })
+    const withClips = await prisma.presenterRecording.create({
+      data: {
+        characterId, storageKey: "w", sha1: "with0001", durationSec: 10,
+        createdAt: new Date(Date.now() - 400 * 24 * 3600 * 1000),
+      },
+    })
+    await prisma.presenterSourceClip.create({
+      data: { characterId, recordingId: withClips.id, fileUrl: "u", sha1: "clipw001", durationSec: 3 },
+    })
+
+    await applyRecordingRetention()
+
+    expect(await prisma.presenterRecording.findUnique({ where: { id: keep.id } })).not.toBeNull()
+    expect(await prisma.presenterRecording.findUnique({ where: { id: withClips.id } })).not.toBeNull()
+  })
+
+  // Решение задачи, п.1: activeClipCount обязан считать только isActive: true.
+  // Повторная нарезка (задача 6) гасит старый разрез через isActive: false, не
+  // удаляя строки клипов — запись с одними отключёнными клипами появляется
+  // штатно. Если бы _count считал ВСЕ клипы без фильтра, такая запись никогда
+  // бы не подпала под удаление: формально "непустой" счётчик держал бы её вечно
+  // ровно там, где автоочистка и должна была сработать.
+  it("удаляет auto-запись без активных клипов, даже если у неё остались отключённые клипы от старого разреза", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: StorageKeys.presenterRecording(appId, characterId, "onlyinactive"),
+        sha1: "onlyinactive",
+        durationSec: 10,
+        createdAt: new Date(Date.now() - 200 * 24 * 3600 * 1000),
+      },
+    })
+    const staleClip = await prisma.presenterSourceClip.create({
+      data: {
+        characterId, recordingId: recording.id, fileUrl: "u", sha1: "clipinactive",
+        durationSec: 3, isActive: false,
+      },
+    })
+
+    const decisions = await applyRecordingRetention()
+
+    expect(decisions.find(d => d.recordingId === recording.id)?.action).toBe("delete")
+    expect(await prisma.presenterRecording.findUnique({ where: { id: recording.id } })).toBeNull()
+    // Требование "ОСТОРОЖНО" из задачи: удаление записи не должно утащить клип
+    // каскадом — клип выживает, теряя только ссылку на родителя
+    // (onDelete: SetNull в схеме уже есть, здесь проверяем это на реальном
+    // проходе applyRecordingRetention, а не только прямым prisma.delete).
+    const survivedClip = await prisma.presenterSourceClip.findUnique({ where: { id: staleClip.id } })
+    expect(survivedClip).not.toBeNull()
+    expect(survivedClip?.recordingId).toBeNull()
+  })
+
+  it("переводит старую запись в холодный класс, отмечая cooledAt, а не удаляя строку", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-cool",
+        sha1: "coolme01",
+        durationSec: 10,
+        createdAt: new Date(Date.now() - 40 * 24 * 3600 * 1000),
+      },
+    })
+
+    const decisions = await applyRecordingRetention()
+
+    expect(decisions.find(d => d.recordingId === recording.id)?.action).toBe("cool")
+    const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
+    expect(reloaded).not.toBeNull()
+    expect(reloaded?.cooledAt).toBeInstanceOf(Date)
+  })
+
+  // Требование "ОСТОРОЖНО" из задачи: проход обязан быть безопасен при
+  // частичном отказе. storageKey без префикса zavodcamp/ бьётся о PrefixGuard
+  // (server/utils/storage/prefix-guard.ts) — настоящая ошибка хранилища, а не
+  // подделанный мок. Запись с такой ошибкой не удаляется (строка и объект
+  // остаются целы до следующего прохода), но соседняя запись с корректным
+  // ключом всё равно обрабатывается — проход не падает целиком из-за одной
+  // сломанной записи.
+  it("отказ на одной записи (ошибка хранилища) не мешает удалить остальные кандидаты этого же прохода", async () => {
+    const broken = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        // Без префикса zavodcamp/ — storage.delete() бросит PREFIX_GUARD.
+        storageKey: "no-zavodcamp-prefix/broken.mp4",
+        sha1: "brokenkey",
+        durationSec: 10,
+        createdAt: new Date(Date.now() - 200 * 24 * 3600 * 1000),
+      },
+    })
+    const healthy = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: StorageKeys.presenterRecording(appId, characterId, "healthykey"),
+        sha1: "healthykey",
+        durationSec: 10,
+        createdAt: new Date(Date.now() - 200 * 24 * 3600 * 1000),
+      },
+    })
+
+    const decisions = await applyRecordingRetention()
+
+    expect(decisions.find(d => d.recordingId === broken.id)?.action).toBe("delete")
+    expect(decisions.find(d => d.recordingId === healthy.id)?.action).toBe("delete")
+
+    // Отказавшая запись осталась целой — ошибка хранилища не даёт удалить строку.
+    expect(await prisma.presenterRecording.findUnique({ where: { id: broken.id } })).not.toBeNull()
+    // Соседняя запись обработана как обычно, несмотря на отказ первой.
+    expect(await prisma.presenterRecording.findUnique({ where: { id: healthy.id } })).toBeNull()
+  })
 })
