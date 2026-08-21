@@ -979,6 +979,72 @@ describe("резервирование окна записи", () => {
       characterId: other.id, requiredSec: 5, fps: 30, videoId: null, sceneIndex: null,
     })).toBeNull()
   })
+
+  // Important (второй раунд финального ревью): `findMany` этого прохода не
+  // должен иметь `take`. Тот же класс дефекта, что чинила находка 1 в
+  // автоочистке, но здесь выборка НЕ самоочищается — ingestStatus:
+  // "completed" не меняется никогда, и лимит с orderBy: createdAt asc
+  // навсегда прятал бы всё, что моложе отрезанной границы, у персонажа со
+  // ста с лишним завершёнными записями.
+  //
+  // Сто с лишним старых записей здесь — "горячие" (свежее использование
+  // покрывает их целиком, окно неизбежно получит overlapSec > 0, reused:
+  // true), а одна САМАЯ СВЕЖАЯ по createdAt — нетронутая (overlapSec === 0).
+  // С лимитом свежая запись не попала бы в выборку вовсе (orderBy: createdAt
+  // asc отдаёт САМЫЕ СТАРЫЕ первыми), и резервирование тихо вернуло бы
+  // горячий повтор вместо свободного нетронутого материала — ровно дубль по
+  // docs/PROJECT_CONTEXT.md §7, без единого отказа или предупреждения.
+  it("свежая незанятая запись не прячется за лимитом выборки среди множества старых горячих записей", async () => {
+    const oldCount = 110
+    const durationSec = 20
+    const requiredSec = 5
+    const oldCreatedAt = new Date(Date.now() - 10 * 24 * 3600 * 1000)
+    const oldIds = Array.from({ length: oldCount }, () => randomUUID())
+
+    await prisma.presenterRecording.createMany({
+      data: oldIds.map((id, i) => ({
+        id,
+        characterId,
+        storageKey: `tmp-selector-old-${i}`,
+        sha1: `selectorold${String(i).padStart(6, "0")}`,
+        durationSec,
+        createdAt: oldCreatedAt,
+        ingestStatus: "completed",
+      })),
+    })
+    // Использование на всю длительность записи — ЛЮБОЕ окно внутри неё
+    // получит полный overlapSec, детерминированно хуже свободного материала.
+    // usedAt "только что" — заведомо внутри RECORDING_WINDOW_COOLDOWN_MS
+    // (сутки), горячий интервал.
+    await prisma.presenterRecordingUsage.createMany({
+      data: oldIds.map(id => ({
+        recordingId: id,
+        startSec: 0,
+        endSec: durationSec,
+        usedAt: new Date(),
+      })),
+    })
+
+    const fresh = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-selector-fresh",
+        sha1: "selectorfresh",
+        durationSec,
+        // Новее всех "старых" — при отрезающем лимите и orderBy: createdAt
+        // asc эта запись оказалась бы ЗА пределами выборки.
+        createdAt: new Date(),
+        ingestStatus: "completed",
+      },
+    })
+
+    const result = await reserveRecordingWindow({ characterId, requiredSec, fps: 30, videoId: null, sceneIndex: null })
+
+    expect(result).not.toBeNull()
+    expect(result?.recordingId).toBe(fresh.id)
+    expect(result?.reused).toBe(false)
+    expect(result?.overlapSec).toBe(0)
+  }, 30_000)
 })
 
 // Задача 6b: идемпотентность резервирования по (videoId, sceneIndex) и
