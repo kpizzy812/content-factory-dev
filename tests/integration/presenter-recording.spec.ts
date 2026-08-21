@@ -1,17 +1,22 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { spawn } from "node:child_process"
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { prisma } from "~~/server/utils/prisma"
+import { ffmpegIngestDependencies } from "~~/server/utils/presenter/ffmpeg-adapter"
+import { ingestPresenterRecording } from "~~/server/utils/presenter/ingest-runner"
 import {
+  RecordingIngestRunningError,
   markIngestCompleted,
   markIngestFailed,
   markIngestRunning,
+  reingestRecording,
   saveRecording,
 } from "~~/server/utils/presenter/recording-store"
-import type { SaveRecordingDependencies } from "~~/server/utils/presenter/recording-store"
+import type { ReingestRecordingDependencies, SaveRecordingDependencies } from "~~/server/utils/presenter/recording-store"
 
 let appId: number
 let characterId: string
@@ -326,5 +331,139 @@ describe("сохранение записи и статус нарезки (save
     expect(failed?.ingestStatus).toBe("failed")
     expect(failed?.ingestError).toBe("бум")
     expect(failed?.ingestFinishedAt).toBeInstanceOf(Date)
+  })
+})
+
+/**
+ * Короткий чёрный клип НАСТОЯЩИМ ffmpeg (тот же приём, что и в
+ * audio-first-pipeline.spec.ts: `color`/`anullsrc` через lavfi, без сети и
+ * без внешних фикстур). 12 секунд без склеек и без речи — сцены и паузы не
+ * находятся, планировщик (planPresenterSegments) делит запись пополам: два
+ * сегмента по 6с, оба в пределах 2-10с, допустимых для lip-sync.
+ */
+function renderReingestFixture(outPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", [
+      "-y",
+      "-f", "lavfi", "-i", "color=black:size=640x360:duration=12:rate=24",
+      "-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=44100",
+      "-shortest",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "ultrafast",
+      "-c:a", "aac", "-b:a", "64k",
+      outPath,
+    ], { stdio: "ignore" })
+    proc.once("error", reject)
+    proc.once("exit", code => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`))))
+  })
+}
+
+/**
+ * Зависимости `reingestRecording` для теста: скачивание из хранилища и
+ * заливка клипов подменены (никакой сети/реального хранилища), а сама
+ * нарезка — `ingestPresenterRecording` + `ffmpegIngestDependencies` — НЕ
+ * подменена: настоящий ffmpeg режет настоящий fixturePath. Обходить нарезку
+ * моком здесь недопустимо — это и есть проверяемая логика задачи.
+ */
+function fakeReingestDeps(fixturePath: string): ReingestRecordingDependencies {
+  return {
+    downloadToFile: async (_storageKey, localPath) => {
+      await copyFile(fixturePath, localPath)
+    },
+    uploadClip: async () => {},
+    getProviderName: () => "mock",
+    ingestPresenterRecording,
+    ingestDependencies: ffmpegIngestDependencies,
+  }
+}
+
+describe("повторная нарезка записи", () => {
+  let fixtureDir: string
+  let fixturePath: string
+
+  beforeAll(async () => {
+    fixtureDir = await mkdtemp(join(tmpdir(), "presenter-reingest-fixture-"))
+    fixturePath = join(fixtureDir, "fixture.mp4")
+    await renderReingestFixture(fixturePath)
+  }, 30_000)
+
+  afterAll(async () => {
+    await rm(fixtureDir, { recursive: true, force: true }).catch(() => {})
+  })
+
+  // tests/setup.ts делает TRUNCATE после каждого it, поэтому запись из брифа
+  // (findFirst по ingestStatus: "completed", доставшийся от прошлого теста)
+  // здесь не работает — создаём её сами и получаем "completed" первым же
+  // прогоном reingestRecording.
+  it("не создаёт дублей клипов при повторном прогоне", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-source",
+        sha1: "reingestsha1",
+        durationSec: 12,
+        originalName: "reingest.mov",
+      },
+    })
+
+    const first = await reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath))
+    expect(first.createdIds.length).toBeGreaterThan(0)
+
+    const before = await prisma.presenterSourceClip.count({ where: { recordingId: recording.id } })
+    expect(before).toBe(first.createdIds.length)
+
+    // Тот же материал, те же правила — те же sha1 клипов, а уникальность
+    // (characterId, sha1) не даёт создать вторую строку. Вторая нарезка не
+    // добавила ни одной записи.
+    const second = await reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath))
+    expect(second.createdIds).toHaveLength(0)
+
+    const after = await prisma.presenterSourceClip.count({ where: { recordingId: recording.id } })
+    expect(after).toBe(before)
+
+    const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
+    expect(reloaded?.ingestStatus).toBe("completed")
+  }, 30_000)
+
+  it("поднимает упавший ingest из статуса failed", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-broken",
+        sha1: "dddd4444",
+        durationSec: 20,
+        originalName: "broken.mov",
+        ingestStatus: "failed",
+        ingestError: "процесс убит на середине",
+      },
+    })
+
+    await reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath)).catch(() => {})
+
+    const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
+    // Статус обязан уйти из failed: либо completed, либо новая честная ошибка.
+    expect(reloaded!.ingestStatus).not.toBe("failed")
+    expect(reloaded!.ingestStartedAt).not.toBeNull()
+  }, 30_000)
+
+  // Не из брифа: закрывает гонку, которую вводит атомарный захват статуса в
+  // reingestRecording (защита от двойной оплаты процессорного времени).
+  it("отклоняет запуск, пока предыдущая нарезка этой же записи ещё идёт", async () => {
+    const recording = await prisma.presenterRecording.create({
+      data: {
+        characterId,
+        storageKey: "tmp-reingest-running",
+        sha1: "runningsha1",
+        durationSec: 12,
+        originalName: "running.mov",
+        ingestStatus: "running",
+        ingestStartedAt: new Date(),
+      },
+    })
+
+    await expect(reingestRecording(recording.id, {}, fakeReingestDeps(fixturePath)))
+      .rejects.toThrow(RecordingIngestRunningError)
+
+    const reloaded = await prisma.presenterRecording.findUnique({ where: { id: recording.id } })
+    expect(reloaded?.ingestStatus).toBe("running")
   })
 })
