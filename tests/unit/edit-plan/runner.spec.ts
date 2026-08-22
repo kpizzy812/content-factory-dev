@@ -39,6 +39,7 @@ const INPUT: EditPlanStepInput = {
   maxGenerativeVideoSec: 10,
   generativeVideoUsdPerSec: 0.05,
   imageUsd: 0.025,
+  imageGenerationAllowed: true,
   presenterSceneOrders: [1],
   backgrounds: [],
   appScreens: [],
@@ -59,7 +60,6 @@ describe("шаг плана монтажа", () => {
   it("кадры покрывают трек без дыр и нахлёстов", async () => {
     const result = await runEditPlanStep(INPUT, deps())
 
-    expect(result.status).not.toBe("failed" as never)
     expect(result.shots[0]!.startSec).toBeCloseTo(0, 3)
     expect(result.shots[result.shots.length - 1]!.endSec).toBeCloseTo(8, 3)
     for (let i = 1; i < result.shots.length; i += 1) {
@@ -359,5 +359,167 @@ describe("шаг плана монтажа", () => {
 
   it("падает честно, если сетка кадров пуста", async () => {
     await expect(runEditPlanStep({ ...INPUT, alignedScenes: [] }, deps())).rejects.toThrow(/сетка кадров пуста/i)
+  })
+
+  it("библиотечный фон и скрин приложения проходят до кадра, когда ссылка известна (happy path, M-7)", async () => {
+    // Ни один прежний тест не гонял happy-путь library/app_screen целиком —
+    // регрессия в финальном присвоении backgroundClipId/appReferenceId (например,
+    // случайное обнуление валидной ссылки) не была бы поймана ничем.
+    const backgrounds = [{ id: "clip-1", kind: "footage", name: "Клип", tags: [] }]
+    const appScreens = [{ id: "ref-1", tags: [], caption: null }]
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map((cell, index) => ({
+          order: cell.order,
+          foreground: "none",
+          background: index % 2 === 0 ? "library" : "app_screen",
+          backgroundClipId: index % 2 === 0 ? "clip-1" : null,
+          appReferenceId: index % 2 === 0 ? null : "ref-1",
+        }) as EditPlanModelShot),
+      })),
+    })
+
+    const result = await runEditPlanStep({ ...INPUT, backgrounds, appScreens }, dependencies)
+
+    const libraryShots = result.shots.filter(s => s.background === "library")
+    const appScreenShots = result.shots.filter(s => s.background === "app_screen")
+    expect(libraryShots.length).toBeGreaterThan(0)
+    expect(appScreenShots.length).toBeGreaterThan(0)
+    for (const shot of libraryShots) expect(shot.backgroundClipId).toBe("clip-1")
+    for (const shot of appScreenShots) expect(shot.appReferenceId).toBe("ref-1")
+  })
+
+  it("чинит ссылку модели на несуществующий скрин приложения детерминированно, не спрашивая её второй раз (Critical 2 ре-ревью задачи)", async () => {
+    // Симметрично тесту про несуществующий библиотечный фон: раньше
+    // `hasAppScreen` была тавтологией (`shot.background === "app_screen"`),
+    // и ничто не проверяло существование appReferenceId — createMany падал бы
+    // по FK ПОСЛЕ оплаты вызова модели.
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({
+          order: cell.order,
+          foreground: "none",
+          background: "app_screen",
+          appReferenceId: "does-not-exist",
+        })) as EditPlanModelShot[],
+      })),
+    })
+
+    const result = await runEditPlanStep(INPUT, dependencies)
+
+    expect(dependencies.askModel).toHaveBeenCalledTimes(1)
+    for (const shot of result.shots) {
+      expect(shot.background).not.toBe("app_screen")
+      expect(shot.appReferenceId).toBeNull()
+    }
+  })
+
+  it("картинка недоступна (imageGenerationAllowed=false) — кадр отдаётся ведущему, а не остаётся пустым (§10, Important 3), и одинаковая причина деградации не спамит по кадру (Minor М-2)", async () => {
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" }) as EditPlanModelShot),
+      })),
+    })
+
+    const result = await runEditPlanStep({ ...INPUT, imageGenerationAllowed: false }, dependencies)
+
+    expect(result.shots.length).toBeGreaterThan(1)
+    for (const shot of result.shots) {
+      expect(shot.background).toBe("none")
+      // §10: «фонов нет, генерация запрещена → кадр отдаётся ведущему на весь
+      // экран» — не пустой кадр без переднего и без заднего плана разом.
+      expect(shot.foreground).toBe("presenter")
+      expect(shot.costUsd).toBe(0)
+    }
+    // Все кадры деградировали по ОДНОЙ И ТОЙ ЖЕ причине — одна строка с
+    // счётчиком, а не по отдельной записи на каждый кадр (Minor М-2).
+    const degradeWarnings = result.warnings.filter(w => /картинка недоступна/i.test(w))
+    expect(degradeWarnings.length).toBe(1)
+    expect(degradeWarnings[0]).toMatch(new RegExp(`кадров: ${result.shots.length}`))
+  })
+
+  it("PiP выключен профилем — модель не может включить его для кадра (Important 4)", async () => {
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", pipEnabled: true }) as EditPlanModelShot),
+      })),
+    })
+
+    const result = await runEditPlanStep(
+      { ...INPUT, profile: { ...DEFAULT_EDIT_PROFILE, pipEnabled: false } },
+      dependencies,
+    )
+
+    for (const shot of result.shots) expect(shot.pipEnabled).toBe(false)
+  })
+
+  it("PiP разрешён профилем — выбор модели по кадру сохраняется", async () => {
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", pipEnabled: true }) as EditPlanModelShot),
+      })),
+    })
+
+    const result = await runEditPlanStep(
+      { ...INPUT, profile: { ...DEFAULT_EDIT_PROFILE, pipEnabled: true } },
+      dependencies,
+    )
+
+    expect(result.shots.some(s => s.pipEnabled === true)).toBe(true)
+  })
+
+  it("статус completed достижим, когда ремонт ничего не поправил (Minor М-1)", async () => {
+    // Одна сцена, без соседей — нет межсценной дыры для закрытия, план
+    // валиден сразу после материализации: repairShotPlan вообще не звался.
+    const singleScene = [ALIGNED[0]!]
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({ order: cell.order, foreground: "presenter", background: "none" }) as EditPlanModelShot),
+      })),
+    })
+
+    const result = await runEditPlanStep(
+      { ...INPUT, alignedScenes: singleScene, trackDurationSec: 4 },
+      dependencies,
+    )
+
+    expect(result.status).toBe("completed")
+  })
+
+  it("предупреждения отброшенной первой попытки не переживают успешную вторую (Minor М-2)", async () => {
+    // Одна чистая (без word_split) сцена — тот же фикстурный ALIGNED[0], что
+    // уже доказал сходимость без единого обращения к repair в тесте
+    // "статус completed достижим" выше. Единственная блокирующая проблема
+    // первой попытки — presenter_too_long от lipSyncMaxDurationSec=0.
+    const scene = [ALIGNED[0]!]
+    const input: EditPlanStepInput = { ...INPUT, alignedScenes: scene, trackDurationSec: 4, lipSyncMaxDurationSec: 0 }
+    let call = 0
+    const askModel = vi.fn(async (grid: Array<{ order: number }>) => {
+      call += 1
+      if (call === 1) {
+        // Только первый кадр — остальные дефолтятся в "presenter" (сцена в
+        // presenterSceneOrders), план неустраним при lipSyncMaxDurationSec=0.
+        return { shots: [{ order: grid[0]!.order, foreground: "presenter", background: "none" }] } as { shots: EditPlanModelShot[] }
+      }
+      // Вторая попытка: явный "none" для всех — presenter_too_long больше
+      // неоткуда взяться, план валиден без единого обращения к repair.
+      return { shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image" })) } as { shots: EditPlanModelShot[] }
+    })
+
+    const result = await runEditPlanStep(input, deps({ askModel }))
+
+    expect(askModel).toHaveBeenCalledTimes(2)
+    expect(result.warnings.some(w => /не заполнила/.test(w))).toBe(false)
+  })
+
+  it("modelCallCount считает реальные обращения к модели, plannedMediaCostUsd — прогноз фонов, а не ledger-цену шага (Critical 1 ре-ревью задачи)", async () => {
+    const result = await runEditPlanStep(INPUT, deps())
+
+    // Дефолтный мок отвечает с первого раза.
+    expect(result.modelCallCount).toBe(1)
+    // Дефолтный мок просит "image" на все кадры — прогноз фонов положителен,
+    // но это НЕ цена вызова модели (её raннер вообще не считает — это работа
+    // video-pipeline-steps.ts, см. отчёт).
+    expect(result.plannedMediaCostUsd).toBeGreaterThan(0)
   })
 })

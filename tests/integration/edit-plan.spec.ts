@@ -328,6 +328,66 @@ describe("шаг edit_plan: идемпотентность и перезапус
     expect(shotsAfterSecond.map(s => s.id).sort()).toEqual(shotsAfterFirst.map(s => s.id).sort())
   })
 
+  it("ledger получает плоскую оценку цены вызова агента, а не смету фонов по плану (Critical 1 ре-ревью задачи)", async () => {
+    // Раньше в ledger уходила Σ VideoShot.costUsd (смета БУДУЩИХ картинок/видео
+    // по плану) под сервисом "anthropic" — план без единого платного фона терял
+    // реально оплаченный вызов модели из учёта целиком.
+    //
+    // Сцена нарочно даёт РОВНО 3 кадра (а не 2, как в `baseInput()`) — со
+    // стандартными 2 кадрами 2×$0.025 = $0.05 численно СОВПАДАЕТ с плоской
+    // оценкой одного вызова модели, и мутация «положить в ledger
+    // plannedMediaCostUsd вместо агентской оценки» на 2-кадровом плане молча
+    // проходит тест (числа случайно равны). Обнаружено самой этой мутацией.
+    const askModel = happyAskModel()
+    const threeShotInput = baseInput({
+      trackDurationSec: 6,
+      alignedScenes: [{
+        order: 1,
+        startSec: 0,
+        endSec: 6,
+        words: [
+          { text: "первое", startSec: 0, endSec: 1.8, matched: true },
+          { text: "второе", startSec: 2.0, endSec: 3.8, matched: true },
+          { text: "третье", startSec: 4.0, endSec: 6.0, matched: true },
+        ],
+      }],
+    })
+
+    const result = await runVideoEditPlan(threeShotInput, { askModel })
+
+    const shots = await prisma.videoShot.findMany({ where: { videoId } })
+    expect(shots.length).toBe(3)
+
+    // Ledger-цена — плоская оценка ОДНОГО вызова модели (см. отчёт, п.
+    // EDIT_PLAN_MODEL_CALL_ESTIMATE_USD), а не сумма стоимостей кадров
+    // (3 × $0.025 = $0.075 — заведомо другое число).
+    expect(result.costUsd).toBeCloseTo(0.05, 6)
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(0.05, 6)
+
+    // Прогнозная смета фонов — ОТДЕЛЬНОЕ число (happyAskModel просит "image"
+    // на каждый кадр, $0.025/кадр), в ledger не попадает вовсе.
+    expect(result.plannedMediaCostUsd).toBeCloseTo(0.075, 6)
+    expect(result.plannedMediaCostUsd).not.toBeCloseTo(result.costUsd, 6)
+  })
+
+  it("ремонт не сходится после двух попыток — обе оплаченные попытки всё равно списаны в ledger (Critical 1 ре-ревью задачи, п.1)", async () => {
+    // Presenter-сцена занимает ВЕСЬ трек, потолок lip-sync невалиден (0) —
+    // presenter_too_long неустраним, обе попытки модели реально оплачены,
+    // а шаг в итоге честно падает.
+    const askModel = vi.fn(async () => ({ shots: [] as EditPlanModelShot[] }))
+
+    await expect(runVideoEditPlan(baseInput({ lipSyncMaxDurationSec: 0 }), { askModel })).rejects.toThrow()
+
+    expect(askModel).toHaveBeenCalledTimes(2)
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(0.1, 6)
+    const step = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "edit_plan" as never } })
+    expect(step?.status).toBe("failed")
+  })
+
   it("другой отпечаток трека — план пересчитан заново, а не отдан из кэша", async () => {
     const askModel = happyAskModel()
     await runVideoEditPlan(baseInput({ trackFingerprint: "fp-1" }), { askModel })
@@ -359,48 +419,87 @@ describe("шаг edit_plan: идемпотентность и перезапус
     expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(2)
   })
 
+  it("смена потолка lip-sync промахивает кэш (Important 1 ре-ревью задачи)", async () => {
+    // Раньше `lipSyncMaxDurationSec` не входил в ключ кэша — смена модели
+    // lip-sync (другой потолок длительности кадра) не промахивала кэш, и план
+    // оставался посчитан под старые условия нарезки.
+    const askModel = happyAskModel()
+    await runVideoEditPlan(baseInput({ lipSyncMaxDurationSec: 10 }), { askModel })
+
+    await runVideoEditPlan(baseInput({ lipSyncMaxDurationSec: 8 }), { askModel })
+
+    expect(askModel).toHaveBeenCalledTimes(2)
+    expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(2)
+  })
+
+  it("состав доступных фонов сменился — кэш не срабатывает (Important 1 ре-ревью задачи)", async () => {
+    // Раньше состав `backgrounds`/`appScreens` не входил в ключ кэша —
+    // заливка нового фона в библиотеку не промахивала кэш, и модель никогда
+    // не узнавала про новый вариант.
+    const askModel = happyAskModel()
+    await runVideoEditPlan(baseInput({ backgrounds: [] }), { askModel })
+
+    await runVideoEditPlan(
+      baseInput({ backgrounds: [{ id: "bg-1", kind: "static", name: "фон", tags: [] }] }),
+      { askModel },
+    )
+
+    expect(askModel).toHaveBeenCalledTimes(2)
+    expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(2)
+  })
+
+  it("правка не-плановых полей профиля (pipPosition/pipSize/generativeVideoResolution/stepwiseApproval) не платит за агента снова (Important 2 ре-ревью задачи)", async () => {
+    // Эти поля не читает ни grid.ts, ни edit-planner-agent.ts, ни
+    // pickBackgroundSource — раньше профиль сериализовался ЦЕЛИКОМ, и их
+    // правка промахивала кэш без всякой причины.
+    const askModel = happyAskModel()
+    await runVideoEditPlan(baseInput(), { askModel })
+
+    const changedProfile = {
+      ...DEFAULT_EDIT_PROFILE,
+      pipPosition: "top_left" as const,
+      pipSize: 0.4,
+      generativeVideoResolution: "1920x1080",
+      stepwiseApproval: true,
+    }
+    await runVideoEditPlan(baseInput({ profile: changedProfile }), { askModel })
+
+    expect(askModel).toHaveBeenCalledTimes(1)
+    expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(1)
+  })
+
   it("перезапуск edit_plan сносит старые кадры плана монтажа", async () => {
     const askModel = happyAskModel()
     await runVideoEditPlan(baseInput(), { askModel })
     expect(await prisma.videoShot.count({ where: { videoId } })).toBeGreaterThan(0)
 
-    await resetEditPlanShots(videoId, "edit_plan", ["edit_plan"])
+    await resetEditPlanShots(videoId, "edit_plan", ["edit_plan"], true)
 
     expect(await prisma.videoShot.count({ where: { videoId } })).toBe(0)
   })
 
-  it("перезапуск, который не включает edit_plan, кадры не трогает", async () => {
+  it("перезапуск, который не включает edit_plan на audio-first маршруте, кадры не трогает", async () => {
     const askModel = happyAskModel()
     await runVideoEditPlan(baseInput(), { askModel })
     const before = await prisma.videoShot.count({ where: { videoId } })
     expect(before).toBeGreaterThan(0)
 
-    await resetEditPlanShots(videoId, "transcription", ["transcription", "voiceover_generation"])
+    await resetEditPlanShots(videoId, "transcription", ["transcription", "voiceover_generation"], true)
 
     expect(await prisma.videoShot.count({ where: { videoId } })).toBe(before)
   })
 
-  it("перегенерация одного кадра (правка одной строки VideoShot) не трогает соседей", async () => {
+  it("маршрут сменился на legacy — кадры прошлого audio-first плана сиротами не остаются (Minor М-9 ре-ревью задачи)", async () => {
+    // Ролик, у которого после сборки от звука выключили EDIT_PIPELINE или
+    // отвалилась модель транскрипции: `edit_plan` не существует в НОВОМ
+    // порядке шагов вовсе, `stepsToReset` его никогда не содержит — раньше
+    // строки VideoShot от прошлого плана оставались висеть навсегда.
     const askModel = happyAskModel()
     await runVideoEditPlan(baseInput(), { askModel })
-    const shots = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
-    expect(shots.length).toBeGreaterThanOrEqual(2)
-    const [target, ...neighbors] = shots
+    expect(await prisma.videoShot.count({ where: { videoId } })).toBeGreaterThan(0)
 
-    await prisma.videoShot.update({
-      where: { id: target!.id },
-      data: { idea: "перегенерировано вручную", status: "completed", costUsd: 0.1 },
-    })
+    await resetEditPlanShots(videoId, "transcription", ["transcription", "voiceover_generation"], false)
 
-    for (const neighbor of neighbors) {
-      const reloaded = await prisma.videoShot.findUnique({ where: { id: neighbor.id } })
-      expect(reloaded).toMatchObject({
-        idea: neighbor.idea,
-        status: neighbor.status,
-        costUsd: neighbor.costUsd,
-        startSec: neighbor.startSec,
-        endSec: neighbor.endSec,
-      })
-    }
+    expect(await prisma.videoShot.count({ where: { videoId } })).toBe(0)
   })
 })
