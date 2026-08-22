@@ -18,6 +18,14 @@
  * длительности объявляет дырой (Critical 2, воспроизведено на 49.2% случайных
  * длительностей). Обе функции экспортируются отсюда и импортируются в
  * `repair.ts` ради этого согласия.
+ *
+ * Фикс-раунд 2 (ре-ревью task-3-rereview.md): допуск «рвёт ли граница слово»
+ * (`wordEdgeToleranceSec`) тоже стал зависеть от fps — раньше был фиксирован,
+ * хотя `halfFrameSec` уже считался от fps, и асимметрия на нестандартном fps
+ * могла сама создать `word_split` (Minor 10). Проверка ссылки на фон
+ * (`library`/`app_screen`) переписана с `if`/`else if` на `||` — фон не может
+ * быть обоими одновременно, `else` только создавал ложное впечатление
+ * приоритета (Minor 11).
  */
 
 import { trackEndFrame } from "../voiceover/segment-cut"
@@ -71,8 +79,14 @@ const RATIO_TOLERANCE = 0.15
  */
 const RATIO_FLOAT_GUARD = 1e-9
 
-/** Слово считается разорванным, если граница попала внутрь него глубже допуска. */
-const WORD_EDGE_TOLERANCE_SEC = 0.02
+/**
+ * Запас поверх половины кадра для допуска «рвёт ли слово» (см.
+ * {@link wordEdgeToleranceSec}). Раньше допуск был фиксированными 20 мс, что
+ * на 30 fps давало запас 3.3 мс над шумом округления (16.7 мс), а на 24 fps
+ * запас становился ОТРИЦАТЕЛЬНЫМ (20.8 мс шума > 20 мс допуска) — притяжка
+ * границы к кадру могла сама завести её внутрь слова (Minor 10 ре-ревью).
+ */
+const WORD_EDGE_MARGIN_SEC = 0.003
 
 /** Фолбэк эпсилона, когда fps не годится для арифметики (см. {@link halfFrameSec}). */
 const DEFAULT_EPSILON_SEC = 1 / 60
@@ -100,6 +114,18 @@ function halfFrameSec(fps: number): number {
 function timelineEndSec(trackDurationSec: number, fps: number): number {
   const end = trackEndFrame(trackDurationSec, fps)
   return Number.isFinite(end) ? end : 0
+}
+
+/**
+ * Допуск «рвёт ли граница слово» — половина кадра плюс запас
+ * {@link WORD_EDGE_MARGIN_SEC} (Minor 10 ре-ревью). Раньше был фиксированным
+ * числом, хотя сам допуск округления (`halfFrameSec`) уже стал зависеть от
+ * fps фикс-раундом 1 — асимметрия означала, что на нестандартном fps притяжка
+ * границы к кадру могла сама создать `word_split`, которого не было в
+ * исходном плане.
+ */
+function wordEdgeToleranceSec(fps: number): number {
+  return halfFrameSec(fps) + WORD_EDGE_MARGIN_SEC
 }
 
 export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
@@ -175,17 +201,17 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
     // не из чего собрать.
     const missingAppScreenRef = shot.background === "app_screen" && !shot.appReferenceId
 
-    if (missingLibraryRef) {
+    // `||`, не `if`/`else if` (Minor 11 ре-ревью): background не может быть
+    // одновременно "library" и "app_screen", поэтому `else` ничего не
+    // экономил, только создавал ложное впечатление приоритета между
+    // взаимоисключающими условиями — тот же стиль, что уже был в repair.ts.
+    if (missingLibraryRef || missingAppScreenRef) {
       violations.push({
         code: "unknown_background",
         shotOrder: shot.order,
-        message: `Кадр ${shot.order} ссылается на фон ${shot.backgroundClipId ?? "(не указан)"}, которого нет в библиотеке`,
-      })
-    } else if (missingAppScreenRef) {
-      violations.push({
-        code: "unknown_background",
-        shotOrder: shot.order,
-        message: `Кадр ${shot.order} использует app_screen без appReferenceId`,
+        message: missingLibraryRef
+          ? `Кадр ${shot.order} ссылается на фон ${shot.backgroundClipId ?? "(не указан)"}, которого нет в библиотеке`
+          : `Кадр ${shot.order} использует app_screen без appReferenceId`,
       })
     }
 
@@ -214,7 +240,7 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
 
     // Границу проверяем только внутреннюю: старт первого кадра и конец
     // последнего совпадают с границами трека и слово не рвут по построению.
-    if (shot.startSec > epsilon && splitsWord(words, shot.startSec)) {
+    if (shot.startSec > epsilon && splitsWord(words, shot.startSec, input.fps)) {
       violations.push({
         code: "word_split",
         shotOrder: shot.order,
@@ -251,12 +277,13 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
 }
 
 /** Попадает ли момент внутрь слова, а не в межсловный интервал. */
-function splitsWord(words: readonly { startSec: number, endSec: number }[], atSec: number): boolean {
+function splitsWord(words: readonly { startSec: number, endSec: number }[], atSec: number, fps: number): boolean {
+  const tolerance = wordEdgeToleranceSec(fps)
   return words.some(word =>
-    atSec > word.startSec + WORD_EDGE_TOLERANCE_SEC && atSec < word.endSec - WORD_EDGE_TOLERANCE_SEC)
+    atSec > word.startSec + tolerance && atSec < word.endSec - tolerance)
 }
 
 // Экспортируется для repair.ts: обе функции обязаны сверяться с одним и тем
 // же понятием "рвёт слово" / "конец таймлайна" / "допуск округления" — иначе
 // именно такое расхождение и породило Critical 2.
-export { halfFrameSec, splitsWord, timelineEndSec }
+export { halfFrameSec, splitsWord, timelineEndSec, wordEdgeToleranceSec }

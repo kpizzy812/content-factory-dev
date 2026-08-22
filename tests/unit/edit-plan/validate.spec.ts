@@ -288,6 +288,24 @@ describe("валидация плана кадров", () => {
     expect(violations.map(v => v.code)).not.toContain("gap")
   })
 
+  it("допуск word_split зависит от fps так же, как допуск округления (Minor 10)", () => {
+    // Слово (0-2.0), граница 1.978 — на 22 мс раньше конца слова. Старый
+    // фиксированный допуск 20 мс объявил бы это разрывом слова. Новый допуск
+    // на fps 24 — halfFrameSec(24) + 3 мс запаса ≈ 23.8 мс — уже не считает
+    // это разрывом: сама притяжка границы к кадру на этом fps может занести
+    // её вглубь слова на величину до половины кадра (20.8 мс), и допуск
+    // обязан покрывать этот шум, а не только числа для 30 fps.
+    const violations = validateShotPlan(context([
+      shot({ order: 0, startSec: 0, endSec: 1.978, foreground: "none" }),
+      shot({ order: 1, startSec: 1.978, endSec: 3.0, foreground: "none" }),
+    ], {
+      fps: 24,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 3.0, words: [{ text: "w", startSec: 0, endSec: 2.0, matched: true }] }],
+    }))
+
+    expect(violations.map(v => v.code)).not.toContain("word_split")
+  })
+
   it("не мутирует входной план", () => {
     // Спека и бриф требуют чистоты: план приходит из ответа модели, и его
     // порча стёрла бы то, что должно уйти в диагностику повторного запроса.
