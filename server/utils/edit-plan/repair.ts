@@ -887,12 +887,18 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
   for (const shot of materialized) {
     const missingLibraryRef = shot.background === "library"
       && (!shot.backgroundClipId || !context.knownBackgroundIds.has(shot.backgroundClipId))
-    const missingAppScreenRef = shot.background === "app_screen" && !shot.appReferenceId
+    // Ре-ревью задачи, Critical 2: раньше проверялось только "поле не
+    // пустое" — галлюцинированный id проходил репэйр невредимым и валил
+    // `createMany` по FK ПОСЛЕ того, как вызов модели уже оплачен.
+    // Симметрично `missingLibraryRef`.
+    const missingAppScreenRef = shot.background === "app_screen"
+      && (!shot.appReferenceId || !context.knownAppScreenIds.has(shot.appReferenceId))
 
     if (missingLibraryRef || missingAppScreenRef) {
       const previous = shot.background
       shot.background = shot.foreground === "presenter" ? "none" : "image"
       shot.backgroundClipId = null
+      shot.appReferenceId = null
       changes.push({
         shotOrder: shot.order,
         finalShotOrder: null,

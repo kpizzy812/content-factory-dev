@@ -314,6 +314,7 @@ function buildScenario(seed: number): Scenario {
     minGenerativeVideoSec: 5,
     maxGenerativeVideoSec: 10,
     knownBackgroundIds: new Set<string>(),
+    knownAppScreenIds: new Set<string>(),
   }
 
   const label = `seed=${seed} fps=${fps} track=${trackDurationSec.toFixed(4)} words=${wordKind} shots=${shots.length}`

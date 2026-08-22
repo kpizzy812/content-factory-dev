@@ -21,6 +21,7 @@ function context(shots: PlannedShot[], overrides: Record<string, unknown> = {}) 
     minGenerativeVideoSec: 5,
     maxGenerativeVideoSec: 10,
     knownBackgroundIds: new Set<string>(),
+    knownAppScreenIds: new Set<string>(),
     ...overrides,
   } as never
 }
@@ -83,6 +84,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -122,6 +124,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -152,6 +155,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -188,6 +192,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -310,6 +315,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -361,6 +367,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -472,6 +479,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan } = repairShotPlan(ctx)
@@ -500,6 +508,7 @@ describe("детерминированный ремонт плана кадро�
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan } = repairShotPlan(ctx)
@@ -570,6 +579,7 @@ describe("детерминированный ремонт плана кадро�
         minGenerativeVideoSec: 5,
         maxGenerativeVideoSec: 10,
         knownBackgroundIds: new Set<string>(),
+        knownAppScreenIds: new Set<string>(),
       } as never
       return repairShotPlan(ctx).plan.shots[0]!.endSec
     }
@@ -659,7 +669,7 @@ describe("детерминированный ремонт плана кадро�
   it("не трогает ссылку на фон, который есть в библиотеке", () => {
     const { plan } = repairShotPlan(context(
       [{ ...base, order: 0, background: "library", backgroundClipId: "клип-1" }],
-      { knownBackgroundIds: new Set(["клип-1"]) },
+      { knownBackgroundIds: new Set(["клип-1"]), knownAppScreenIds: new Set<string>() },
     ))
 
     expect(plan.shots[0]!.background).toBe("library")
@@ -672,6 +682,28 @@ describe("детерминированный ремонт плана кадро�
     ]))
 
     expect(plan.shots[0]!.background).toBe("image")
+  })
+
+  it("сбрасывает ссылку на несуществующий скрин приложения (Critical 2 ре-ревью задачи)", () => {
+    // Симметрично library: раньше проверялось только "поле не пустое",
+    // галлюцинированный id проходил ремонт невредимым и валил `createMany`
+    // по FK ПОСЛЕ того, как вызов модели уже оплачен.
+    const { plan } = repairShotPlan(context([
+      { ...base, order: 0, background: "app_screen", appReferenceId: "выдуманный-скрин" },
+    ]))
+
+    expect(plan.shots[0]!.background).not.toBe("app_screen")
+    expect(plan.shots[0]!.appReferenceId).toBeNull()
+  })
+
+  it("не трогает ссылку на скрин, который есть среди референсов приложения", () => {
+    const { plan } = repairShotPlan(context(
+      [{ ...base, order: 0, background: "app_screen", appReferenceId: "ref-1" }],
+      { knownAppScreenIds: new Set(["ref-1"]) },
+    ))
+
+    expect(plan.shots[0]!.background).toBe("app_screen")
+    expect(plan.shots[0]!.appReferenceId).toBe("ref-1")
   })
 
   it("после ремонта план проходит проверку покрытия", () => {
@@ -775,6 +807,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, changes } = repairShotPlan(ctx)
@@ -807,6 +840,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(["clip-2"]),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, changes } = repairShotPlan(ctx)
@@ -835,6 +869,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -874,6 +909,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -902,6 +938,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining, changes } = repairShotPlan(ctx)
@@ -966,6 +1003,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { plan, remaining } = repairShotPlan(ctx)
@@ -1000,6 +1038,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       minGenerativeVideoSec: 5,
       maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
+      knownAppScreenIds: new Set<string>(),
     } as never
 
     const { remaining, changes } = repairShotPlan(ctx)

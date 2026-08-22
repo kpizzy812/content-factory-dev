@@ -85,6 +85,13 @@ export interface ShotPlanContext {
    */
   maxGenerativeVideoSec: number
   knownBackgroundIds: ReadonlySet<string>
+  /**
+   * Множество существующих `AppReferenceImage.id` (ре-ревью задачи, Critical
+   * 2): раньше `app_screen` не сверялся ни с чем, кроме "поле не пустое", и
+   * модель могла назвать несуществующий id — `createMany` в раннере упирался
+   * бы в FK ПОСЛЕ оплаты вызова модели. Симметрично `knownBackgroundIds`.
+   */
+  knownAppScreenIds: ReadonlySet<string>
 }
 
 /** Насколько фактическая доля перебивок может разойтись с целевой. */
@@ -221,8 +228,11 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
       && (!shot.backgroundClipId || !input.knownBackgroundIds.has(shot.backgroundClipId))
     // §5.3 «ссылки на фоны существуют» — не только у библиотечных клипов
     // (Minor 5 ревью): скрин приложения без ссылки на источник точно так же
-    // не из чего собрать.
-    const missingAppScreenRef = shot.background === "app_screen" && !shot.appReferenceId
+    // не из чего собрать. Ре-ревью задачи, Critical 2: раньше проверялось
+    // только "поле не пустое" — модель могла назвать НЕСУЩЕСТВУЮЩИЙ id, и это
+    // считалось валидным. Симметрично `missingLibraryRef` выше.
+    const missingAppScreenRef = shot.background === "app_screen"
+      && (!shot.appReferenceId || !input.knownAppScreenIds.has(shot.appReferenceId))
 
     // `||`, не `if`/`else if` (Minor 11 ре-ревью): background не может быть
     // одновременно "library" и "app_screen", поэтому `else` ничего не
@@ -234,7 +244,7 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
         shotOrder: shot.order,
         message: missingLibraryRef
           ? `Кадр ${shot.order} ссылается на фон ${shot.backgroundClipId ?? "(не указан)"}, которого нет в библиотеке`
-          : `Кадр ${shot.order} использует app_screen без appReferenceId`,
+          : `Кадр ${shot.order} ссылается на скрин ${shot.appReferenceId ?? "(не указан)"}, которого нет среди референсов приложения`,
       })
     }
 

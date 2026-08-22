@@ -39,6 +39,7 @@ function context(shots: PlannedShot[], overrides: Record<string, unknown> = {}) 
     minGenerativeVideoSec: 5,
     maxGenerativeVideoSec: 10,
     knownBackgroundIds: new Set<string>(),
+    knownAppScreenIds: new Set<string>(),
     ...overrides,
   } as never
 }
@@ -139,7 +140,7 @@ describe("валидация плана кадров", () => {
     // и дедуп-тест выше этого бы не заметил.
     const violations = validateShotPlan(context([
       shot({ order: 0, background: "library", backgroundClipId: "клип-1", foreground: "none" }),
-    ], { knownBackgroundIds: new Set(["клип-1"]) }))
+    ], { knownBackgroundIds: new Set(["клип-1"]), knownAppScreenIds: new Set<string>() }))
 
     expect(violations.map(v => v.code)).not.toContain("unknown_background")
   })
@@ -154,10 +155,25 @@ describe("валидация плана кадров", () => {
     expect(violations.map(v => v.code)).toContain("unknown_background")
   })
 
-  it("принимает app_screen со ссылкой на источник", () => {
+  it("ловит ссылку на несуществующий скрин приложения (Critical 2 ре-ревью задачи)", () => {
+    // Раньше проверялось только "поле не пустое" — модель могла назвать
+    // НЕСУЩЕСТВУЮЩИЙ id, и это считалось валидным: `createMany` в раннере
+    // падал бы по FK ПОСЛЕ того, как вызов модели уже оплачен. Симметрично
+    // "ловит ссылку на несуществующий фон" для library.
+    const violations = validateShotPlan(context([
+      shot({ order: 0, background: "app_screen", appReferenceId: "выдуманный-скрин", foreground: "none" }),
+    ]))
+
+    expect(violations.map(v => v.code)).toContain("unknown_background")
+  })
+
+  it("принимает app_screen со ссылкой на источник, которая есть среди референсов", () => {
+    // Зеркало предыдущего теста: тот же background: "app_screen", но id
+    // известен движку — без этого теста проверка «ссылка существует» могла
+    // бы вырождаться в «background === app_screen всегда невалиден».
     const violations = validateShotPlan(context([
       shot({ order: 0, background: "app_screen", appReferenceId: "ref-1", foreground: "none" }),
-    ]))
+    ], { knownAppScreenIds: new Set(["ref-1"]) }))
 
     expect(violations.map(v => v.code)).not.toContain("unknown_background")
   })
