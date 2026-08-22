@@ -528,12 +528,22 @@ describe("маршрут «монтаж от звука» собирает ро�
       "prompt_generation",
       "voiceover_generation",
       "transcription",
+      "edit_plan",
       "image_generation",
       "clip_generation",
       "lip_sync_generation",
       "music_generation",
       "assembly",
     ])
+
+    // План монтажа реально построен и записан в свою таблицу (не VideoAsset).
+    const shotsAfterFirstRun = await prisma.videoShot.findMany({ where: { videoId } })
+    expect(shotsAfterFirstRun.length).toBeGreaterThan(0)
+    const editPlanCosts = await prisma.aiAuditLog.findMany({
+      where: { videoId, stepKey: "edit_plan" },
+      select: { costUsd: true },
+    })
+    expect(editPlanCosts).toHaveLength(1)
 
     // 2. Озвучка синтезирована ОДИН раз.
     //
@@ -732,6 +742,15 @@ describe("маршрут «монтаж от звука» собирает ро�
     expect(await prisma.aiAuditLog.count({
       where: { videoId, stepKey: "voiceover_generation" },
     })).toBe(1)
+
+    // План монтажа тоже не пересчитан и не переоплачен: кэш шага (требование 6,
+    // отпечаток трека + профиль + число сцен) отдал готовый план, второй
+    // ai-audit-строки и второго набора кадров быть не должно.
+    expect(await prisma.aiAuditLog.count({
+      where: { videoId, stepKey: "edit_plan" },
+    })).toBe(1)
+    const shotsAfterSecondRun = await prisma.videoShot.findMany({ where: { videoId } })
+    expect(shotsAfterSecondRun.length).toBe(shotsAfterFirstRun.length)
 
     // 6 (вторая половина). Повтор не режет кусок заново и не платит за губы:
     // файлы на месте и НЕ переписаны — mtime тот же, что после первого прогона.
