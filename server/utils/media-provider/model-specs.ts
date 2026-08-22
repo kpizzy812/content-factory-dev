@@ -155,7 +155,20 @@ const FLUX_DEV_REPLICATE: TextToImageModelSpec = Object.freeze<TextToImageModelS
   capability: "text_to_image",
   execution: "async_prediction",
   get billing() {
-    return { unit: "output_image", usdPerImage: readReplicatePrice("REPLICATE_IMAGE_PRICE_USD", 0.025) } as const
+    const usdPerImage = readReplicatePrice("REPLICATE_IMAGE_PRICE_USD", 0.025)
+    // Мелочь ре-ревью 3 (Task 5): ноль в деньгах означает «бесплатно», а не
+    // «тариф не задан» — тот же класс дефекта, что и `imageUsd = 0` при
+    // отсутствующей спеке flux-dev (закрыт Important 3). Оператор, желающий
+    // ВЫКЛЮЧИТЬ картинку, должен использовать `EditProfile.imageGenerationEnabled`,
+    // а не занулять цену переменной окружения.
+    if (usdPerImage === 0) {
+      throw new Error(
+        "REPLICATE_IMAGE_PRICE_USD=0 недопустим — ноль в тарифе картинки означает «бесплатно», "
+        + "а не «не задано». Уберите переменную вовсе для дефолта $0.025, "
+        + "или используйте EditProfile.imageGenerationEnabled=false, чтобы выключить генерацию.",
+      )
+    }
+    return { unit: "output_image", usdPerImage } as const
   },
   billingConfirmed: true,
   constraints: Object.freeze({

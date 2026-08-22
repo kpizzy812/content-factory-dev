@@ -149,22 +149,31 @@ export interface EditPlanModelUsage {
 }
 
 export interface EditPlanStepDeps {
+  /**
+   * `reportUsage` (3-й параметр) — ре-ревью 3, Critical 1, п.2: askModel
+   * обязан вызвать его СРАЗУ, как только узнал usage, — ДО того, как парсинг
+   * JSON/валидация ответа МОГУТ бросить исключение. Это единственный канал,
+   * который переживает такое исключение: возврат из промиса — нет (промис
+   * может так и не разрешиться), а любое поле в возвращаемом объекте видно
+   * только ПОСЛЕ успешного `await`.
+   */
   askModel: (
     grid: readonly EditPlanGridCellForModel[],
     context: EditPlanAskModelContext,
-  ) => Promise<{
-    shots: EditPlanModelShot[]
-    /**
-     * `null`, когда вызов не сообщил usage (`ANTHROPIC_MOCK_MODE` —
-     * `tryMockAnthropicAgent` не зовёт `onUsage` вовсе, токенов физически
-     * нет). Раннер не считает деньги сам (Critical 1 разделение
-     * ответственности) — он только СОХРАНЯЕТ usage каждой попытки, чтобы
-     * `video-pipeline-steps.ts` могло посчитать реальную ledger-цену.
-     */
-    usage?: EditPlanModelUsage | null
-  }>
+    reportUsage: (usage: EditPlanModelUsage | null) => void,
+  ) => Promise<{ shots: EditPlanModelShot[] }>
   saveShots: (shots: readonly PlannedShotWithCost[]) => Promise<void>
   log: (message: string) => Promise<void>
+  /**
+   * Вызывается раннером РОВНО один раз на каждую РЕАЛЬНО завершённую попытку
+   * askModel (успешную) — с usage этой попытки (или `null`, если askModel
+   * не воспользовался `reportUsage`). `video-pipeline-steps.ts` подписывается
+   * сюда, чтобы копить usage вне `runEditPlanStep`'а — так падение ПОСЛЕ
+   * последнего успешного вызова (например, `saveShots`) не уносит с собой
+   * учёт уже оплаченных попыток. Раннер сам ничего не решает про деньги —
+   * это работа video-pipeline-steps.ts.
+   */
+  onModelUsage?: (usage: EditPlanModelUsage | null) => void
 }
 
 export interface EditPlanStepResult {
@@ -443,12 +452,28 @@ export async function runEditPlanStep(
       ? baseModelContext
       : { ...baseModelContext, previousErrors: remaining.filter(isBlocking).map(v => v.message).join("; ") }
 
-    const response = await deps.askModel(gridForModel, modelContext)
+    // Ре-ревью 3, Critical 1, п.2: usageThisAttempt копится ВНУТРИ callback'а,
+    // который askModel обязан вызвать СИНХРОННО, как только узнал usage —
+    // если askModel потом бросит исключение (непарсимый/обрезанный ответ),
+    // usageThisAttempt уже установлен ДО этого момента.
+    let usageThisAttempt: EditPlanModelUsage | null = null
+    let usageReported = false
+    const response = await deps.askModel(gridForModel, modelContext, (usage) => {
+      usageThisAttempt = usage
+      usageReported = true
+      // Пробрасываем НЕМЕДЛЕННО — эта строка выполняется ДО потенциального
+      // исключения внутри askModel, в отличие от всего, что ниже.
+      deps.onModelUsage?.(usage)
+    })
     modelCallCount += 1
     // Critical 1, фикс-раунд 2: usage ЭТОЙ попытки сохраняется независимо от
     // того, сойдётся ли план — несходящийся ремонт всё равно платит за обе
     // попытки, и `video-pipeline-steps.ts` обязано посчитать обе.
-    modelUsages.push(response.usage ?? null)
+    modelUsages.push(usageThisAttempt)
+    // askModel мог не воспользоваться `reportUsage` вовсе (простой мок,
+    // которому нечего сообщать) — в этом случае считаем usage неизвестным
+    // здесь же, а не оставляем `onModelUsage` неувиденным для этой попытки.
+    if (!usageReported) deps.onModelUsage?.(null)
     const { shots, unfilled } = materializeShots(grid.cells, response.shots ?? [], presenterSet, input.profile.pipEnabled)
     if (unfilled > 0) {
       const attemptNote = attempt > 1 ? " (повторный запрос)" : ""
@@ -542,6 +567,12 @@ export async function runEditPlanStep(
       background: pick.background,
       backgroundClipId: pick.background === "library" ? shot.backgroundClipId : null,
       appReferenceId: pick.background === "app_screen" ? shot.appReferenceId : null,
+      // Ре-ревью 3, Task 5, пункт 1 (связанная мелочь): при форсированном
+      // "ведущий на весь экран" PiP обязан сброситься — иначе получается
+      // ведущий во весь кадр И он же наложением поверх самого себя.
+      // `pickBackgroundSource` меняет только `background`, про `pipEnabled`
+      // не знает вовсе — клэмп только здесь.
+      pipEnabled: forcedEmpty ? false : shot.pipEnabled,
       costUsd: pick.costUsd,
       degradeReason: pick.degradeReason,
     })

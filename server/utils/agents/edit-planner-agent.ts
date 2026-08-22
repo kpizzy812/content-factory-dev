@@ -68,6 +68,15 @@ export interface EditPlannerInput {
   model: string | null
   /** Текст нарушений предыдущего плана — второй запрос по §5.3. */
   previousErrors?: string
+  /**
+   * Ре-ревью 3, Critical 1, п.2 (потеря usage при непарсимом/обрезанном
+   * ответе): вызывается СИНХРОННО, сразу как Anthropic вернул usage — ДО
+   * `extractJsonFromText`/`validate()` внутри `callAnthropicAgent`, которые
+   * могут бросить исключение. Без этого хука `planEditShots` теряет usage
+   * целиком на этом пути: `usage` внизу — локальная переменная функции,
+   * которая так и не будет возвращена, если функция бросает раньше `return`.
+   */
+  onUsage?: (usage: AnthropicCallUsage) => void
 }
 
 export interface EditPlannerRawShot {
@@ -216,9 +225,12 @@ function estimateMaxTokens(gridSize: number): number {
 
 export async function planEditShots(input: EditPlannerInput): Promise<EditPlannerResult> {
   // Ре-ревью Critical 1 (фикс-раунд 2): раньше ledger-цена шага была плоской
-  // константой независимо от реального размера ответа. `onUsage` зовётся
-  // callAnthropicAgent'ом РОВНО один раз после успешного парсинга (не зовётся
-  // вовсе в ANTHROPIC_MOCK_MODE — см. докстринг `EditPlannerResult.usage`).
+  // константой независимо от реального размера ответа. `callAnthropicAgent`
+  // зовёт `onUsage` СРАЗУ, как только Anthropic вернул usage — ДО парсинга
+  // JSON и до `validate()` (не зовёт вовсе в `ANTHROPIC_MOCK_MODE` — см.
+  // докстринг `EditPlannerResult.usage`). `input.onUsage` (ре-ревью 3, п.2)
+  // пробрасывается ИЗ ЭТОГО ЖЕ callback — синхронно, до того, как парсинг/
+  // валидация ниже могут бросить исключение и потерять usage вместе с ним.
   let usage: AnthropicCallUsage | null = null
   const parsed = await callAnthropicAgent({
     systemPrompt: SYSTEM_PROMPT,
@@ -227,7 +239,10 @@ export async function planEditShots(input: EditPlannerInput): Promise<EditPlanne
     maxTokens: estimateMaxTokens(input.grid.length),
     agentName: "edit-planner",
     validate,
-    onUsage: (reported) => { usage = reported },
+    onUsage: (reported) => {
+      usage = reported
+      input.onUsage?.(reported)
+    },
   })
   return { shots: parsed.shots, usage }
 }

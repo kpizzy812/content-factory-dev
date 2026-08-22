@@ -142,7 +142,17 @@ export async function logStepCost(
   costUsd: number,
   videoId: number,
   modelId?: string | null,
-  options?: { attempt?: number },
+  options?: {
+    attempt?: number
+    /**
+     * Ре-ревью 3 (Task 5): различает ИЗМЕРЕННУЮ цену (по реальным токенам,
+     * `calculateAnthropicCost`) от ОЦЕНЁННОЙ (fallback-константа — модель
+     * вне тарифной таблицы или usage не сообщён в мок-режиме). Не влияет на
+     * идемпотентность/дедуп (та завязана на `attempt`, не на это поле) —
+     * чисто информационная метка для последующего аудита ledger.
+     */
+    estimated?: boolean
+  },
 ): Promise<void> {
   const resolvedService = service ?? mapStepKeyToService(stepKey, modelId)
   if (!resolvedService || costUsd <= 0) {
@@ -177,15 +187,20 @@ export async function logStepCost(
       return
     }
 
+    const metadata: Record<string, unknown> = {}
+    if (attempt > 1) metadata[ATTEMPT_META_KEY] = attempt
+    if (options?.estimated) metadata.estimated = true
+
     await logServiceCost({
       service: resolvedService,
       model: modelId ?? resolvedService,
       costUsd,
       videoId,
       stepKey,
-      // Первая попытка пишется без метаданной — так строки остаются байт-в-байт
-      // совместимыми с историческими записями и старыми отчётами по ledger.
-      metadata: attempt > 1 ? { [ATTEMPT_META_KEY]: attempt } : undefined,
+      // Первая попытка БЕЗ пометок пишется без метаданной вовсе — так строки
+      // остаются байт-в-байт совместимыми с историческими записями и старыми
+      // отчётами по ledger.
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
     })
   } catch (err) {
     console.warn(

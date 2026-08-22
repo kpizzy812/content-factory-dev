@@ -2542,10 +2542,11 @@ const EDIT_PLAN_MODEL_CALL_ESTIMATE_USD = 0.05
 /**
  * Считает ledger-цену ОДНОГО вызова монтажного агента.
  *
- * Основной путь — реальный токенный расчёт (`calculateAnthropicCost`).
- * Резервный — плоская оценка `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD`, но НИКОГДА
- * молча: если usage есть, а модели нет в тарифной таблице, в лог шага уходит
- * явное сообщение с известными токенами (чтобы тарифную таблицу можно было
+ * Основной путь — реальный токенный расчёт (`calculateAnthropicCost`),
+ * `measured: true`. Резервный — плоская оценка
+ * `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD` (`measured: false`), но НИКОГДА молча:
+ * если usage есть, а модели нет в тарифной таблице, в лог шага уходит явное
+ * сообщение с известными токенами (чтобы тарифную таблицу можно было
  * дополнить по факту) — цена вызова в этом случае была бы иначе тихим нулём,
  * а вызов реально оплачен. Если usage нет вовсе (мок), fallback молчит:
  * это ожидаемое поведение теста, не сигнал дыры в учёте.
@@ -2553,11 +2554,11 @@ const EDIT_PLAN_MODEL_CALL_ESTIMATE_USD = 0.05
 async function priceEditPlanModelCall(
   usage: EditPlanModelUsage | null,
   stepId: number,
-): Promise<number> {
-  if (!usage) return EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+): Promise<{ costUsd: number, measured: boolean }> {
+  if (!usage) return { costUsd: EDIT_PLAN_MODEL_CALL_ESTIMATE_USD, measured: false }
 
   const computed = calculateAnthropicCost(usage.model, usage)
-  if (computed !== null) return computed
+  if (computed !== null) return { costUsd: computed, measured: true }
 
   await appendStepLog(
     stepId,
@@ -2567,17 +2568,45 @@ async function priceEditPlanModelCall(
     + `Списана резервная оценка $${EDIT_PLAN_MODEL_CALL_ESTIMATE_USD} вместо измеренной цены — `
     + `дополните тарифную таблицу этой моделью.`,
   )
-  return EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+  return { costUsd: EDIT_PLAN_MODEL_CALL_ESTIMATE_USD, measured: false }
 }
 
-/** Сумма ledger-цены по ВСЕМ реальным попыткам (Critical 1, п.3 ре-ревью, фикс-раунд 2): несходящийся ремонт платит за обе. */
+/**
+ * Сумма ledger-цены по ВСЕМ реальным попыткам (Critical 1, п.3 ре-ревью,
+ * фикс-раунд 2): несходящийся ремонт платит за обе. `estimated: true`, если
+ * ХОТЬ ОДНА попытка не измерена по токенам — мелочь ре-ревью 3: `AiAuditLog`
+ * различает измеренную цену от оценённой через `metadata.estimated`
+ * (`logStepCost`), а не только текстом в логе шага.
+ */
 async function priceEditPlanModelCalls(
   usages: readonly (EditPlanModelUsage | null)[],
   stepId: number,
-): Promise<number> {
+): Promise<{ costUsd: number, estimated: boolean }> {
   let total = 0
-  for (const usage of usages) total += await priceEditPlanModelCall(usage, stepId)
-  return total
+  let estimated = false
+  for (const usage of usages) {
+    const priced = await priceEditPlanModelCall(usage, stepId)
+    total += priced.costUsd
+    if (!priced.measured) estimated = true
+  }
+  return { costUsd: total, estimated }
+}
+
+/**
+ * Модель для колонки `model` в `AiAuditLog` (мелочь ре-ревью 3): раньше
+ * всегда бралась `input.profile.llmModelId`, а при дефолтном профиле
+ * (`llmModelId === null`) `logStepCost`/`logServiceCost` подставляли
+ * `model: modelId ?? resolvedService`, то есть буквально СЕРВИС
+ * ("anthropic") в колонку модели — хотя фактическая модель уже известна из
+ * `usage.model` (`callAnthropicAgent` резолвит дефолт сама, см.
+ * `call-anthropic.ts`). Берём первый РЕАЛЬНЫЙ usage; если usage нет вовсе
+ * (мок/фолбэк) — старое поведение как безопасный запасной путь.
+ */
+function resolveEditPlanModelId(
+  profile: ResolvedEditProfile,
+  usages: readonly (EditPlanModelUsage | null)[],
+): string | null {
+  return usages.find((usage): usage is EditPlanModelUsage => usage !== null)?.model ?? profile.llmModelId
 }
 
 /**
@@ -2606,6 +2635,11 @@ function planningRelevantProfile(profile: ResolvedEditProfile) {
     generativeVideoEnabled: profile.generativeVideoEnabled,
     generativeVideoBudgetUsd: profile.generativeVideoBudgetUsd,
     llmModelId: profile.llmModelId,
+    // Ре-ревью 3, Task 5, пункт 1: раньше imageGenerationAllowed вычислялся
+    // из реестра моделей (не из профиля) и в ключ кэша не попадал вовсе.
+    // Теперь это профильный флаг — влияет на pickBackgroundSource ровно как
+    // остальные поля этого списка, значит обязан промахивать кэш при смене.
+    imageGenerationEnabled: profile.imageGenerationEnabled,
   }
 }
 
@@ -2731,17 +2765,29 @@ export async function runVideoEditPlan(
   // Ставки — из спек моделей, не литералы (требование 5 ревью задачи).
   const videoBilling = replicateVideoBilling()
   const imageSpec = findMediaSpec("replicate:flux-dev")
-  // Important 3 ревью задачи: НЕ хардкод. Модели картинок нет в реестре —
-  // §10 требует деградацию до пустого фона (кадр отдаётся ведущему), а не
-  // тихую бесплатную картинку (то была бы ошибка M-4: `imageUsd=0` при
-  // отсутствии спеки делала бы план «бесплатным» молча; при
-  // `imageGenerationAllowed=false` `pickBackgroundSource` вообще не берёт
-  // `imageUsd` в расчёт, так что сама эта дыра закрывается тем же флагом).
-  const imageGenerationAllowed = imageSpec !== null
+  const imageModelAvailable = imageSpec !== null
+  // Ре-ревью 3, Task 5, пункт 1: `imageSpec !== null` — реестр моделей
+  // СТАТИЧЕСКИЙ (`Object.freeze([...])`), flux-dev в нём стоит первым, это
+  // выражение ВСЕГДА true — хардкод, переехавший из runner.ts сюда же, а не
+  // реальный сигнал. §10 «фонов нет, генерация запрещена → кадр ведущему»
+  // была недостижимой веткой в проде, а у оператора не было рычага против
+  // расхода на картинки. Правильный сигнал — профильный флаг
+  // `imageGenerationEnabled` (единственный реальный выключатель); проверка
+  // реестра остаётся ВТОРЫМ, независимым условием на случай, если модель
+  // когда-нибудь реально пропадёт из реестра — тогда imageUsd=0 не должен
+  // молча сделать план «бесплатным» (M-4), а обязан запретить генерацию тем
+  // же флагом.
+  const imageGenerationAllowed = input.profile.imageGenerationEnabled && imageModelAvailable
   const imageUsd = imageSpec
     ? estimateMediaCost(imageSpec, { images: 1, megapixels: imageMegapixels(input.format, input.renderQuality) })
     : 0
-  if (!imageGenerationAllowed) {
+  if (!input.profile.imageGenerationEnabled) {
+    await appendStepLog(
+      step.id,
+      `Генерация картинки выключена профилем монтажа (imageGenerationEnabled=false) — `
+      + `кадры без библиотечного/платного фона отдаются ведущему (§10)`,
+    )
+  } else if (!imageModelAvailable) {
     await appendStepLog(
       step.id,
       `Модель flux-dev не найдена в реестре — генерация картинки недоступна в этом прогоне, `
@@ -2749,8 +2795,17 @@ export async function runVideoEditPlan(
     )
   }
 
+  // Ре-ревью 3, Critical 1, п.2: копится ВНЕ runEditPlanStep — падение ПОСЛЕ
+  // последнего успешного вызова askModel (непарсимый ответ следующей попытки,
+  // либо saveShots) не должно унести с собой usage УЖЕ реально оплаченных
+  // вызовов. `result.modelUsages`/`EditPlanUnresolvedError.modelUsages`
+  // остаются как были (полезны для изолированных тестов раннера) — эта
+  // переменная СВОЯ и заведомо надёжнее: пишется по мере поступления usage,
+  // а не читается из возврата/исключения runEditPlanStep постфактум.
+  const collectedUsages: Array<EditPlanModelUsage | null> = []
+
   const defaultDeps: EditPlanStepDeps = {
-    askModel: async (grid, context) => {
+    askModel: async (grid, context, reportUsage) => {
       const response = await planEditShots({
         editPrompt: context.editPrompt,
         grid: grid.map(cell => ({
@@ -2769,10 +2824,11 @@ export async function runVideoEditPlan(
         generativeVideoAllowed: context.generativeVideoAllowed,
         model: input.profile.llmModelId,
         previousErrors: context.previousErrors,
+        // Синхронно, ДО JSON-парсинга/validate() внутри callAnthropicAgent —
+        // именно это и переживает исключение из-за обрезанного ответа.
+        onUsage: (usage) => { reportUsage(usage) },
       })
-      // Critical 1, фикс-раунд 2: usage (или null в моке) идёт дальше в
-      // раннер нетронутым — денежная логика живёт только в этом файле.
-      return { shots: response.shots, usage: response.usage }
+      return { shots: response.shots }
     },
     saveShots: async (shots) => {
       // Один прогон = одна транзакция: удалить прошлый план целиком (если он
@@ -2824,16 +2880,18 @@ export async function runVideoEditPlan(
       askModel: deps.askModel ?? defaultDeps.askModel,
       saveShots: deps.saveShots ?? defaultDeps.saveShots,
       log: deps.log ?? defaultDeps.log,
+      onModelUsage: (usage) => { collectedUsages.push(usage) },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    // Critical 1 ревью задачи, п.1 и п.3 (фикс-раунд 2): при несходимости
-    // ремонта модель уже спрошена (1 или 2 раза) и ОБЕ попытки реально
-    // оплачены — их usage не должен пропасть из ledger только потому, что
-    // шаг в итоге падает. Считаем по реальным токенам каждой попытки, а не
-    // числом попыток × константа.
-    const modelUsages = error instanceof EditPlanUnresolvedError ? error.modelUsages : []
-    const agentCostUsd = await priceEditPlanModelCalls(modelUsages, step.id)
+    // Critical 1 ревью задачи, п.1 и п.3 (фикс-раунд 2 и 3): при несходимости
+    // ремонта, а ТАКЖЕ при непарсимом ответе модели и падении saveShots
+    // (ре-ревью 3, п.2), уже оплаченные попытки не должны пропасть из
+    // ledger только потому, что шаг в итоге падает. `collectedUsages`
+    // копится через `onModelUsage`/`reportUsage` НЕЗАВИСИМО от того, как
+    // именно и на каком шаге брошено исключение — не только когда это
+    // `EditPlanUnresolvedError`.
+    const { costUsd: agentCostUsd, estimated } = await priceEditPlanModelCalls(collectedUsages, step.id)
     await updateStep(step.id, {
       status: "failed",
       finishedAt: new Date(),
@@ -2842,7 +2900,8 @@ export async function runVideoEditPlan(
     })
     if (agentCostUsd > 0) {
       await logStepCost(
-        step.id, "edit_plan", mapStepKeyToService("edit_plan", null), agentCostUsd, videoId, input.profile.llmModelId, { attempt },
+        step.id, "edit_plan", mapStepKeyToService("edit_plan", null), agentCostUsd, videoId,
+        resolveEditPlanModelId(input.profile, collectedUsages), { attempt, estimated },
       )
     }
     await appendStepLog(step.id, `План монтажа не построен: ${message}`)
@@ -2856,7 +2915,11 @@ export async function runVideoEditPlan(
   // outputSnapshot, для будущей оценки ролика (§14), и в ledger не попадает
   // никогда: она посчитается ЗАНОВО и по-настоящему, когда шаг генерации
   // фонов реально их сгенерирует.
-  const agentCostUsd = await priceEditPlanModelCalls(result.modelUsages, step.id)
+  //
+  // `collectedUsages`, а не `result.modelUsages` (ре-ревью 3): те совпадают
+  // в счастливом пути, но только `collectedUsages` остаётся источником
+  // истины и на путях, где `result` вообще не был вычислен (см. catch выше).
+  const { costUsd: agentCostUsd, estimated } = await priceEditPlanModelCalls(collectedUsages, step.id)
 
   await updateStep(step.id, {
     status: "completed",
@@ -2878,8 +2941,8 @@ export async function runVideoEditPlan(
       mapStepKeyToService("edit_plan", null),
       agentCostUsd,
       videoId,
-      input.profile.llmModelId,
-      { attempt },
+      resolveEditPlanModelId(input.profile, collectedUsages),
+      { attempt, estimated },
     )
   }
   for (const warning of result.warnings) await appendStepLog(step.id, warning)
