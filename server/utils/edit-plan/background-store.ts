@@ -99,6 +99,22 @@ export async function saveBackgroundClip(input: SaveBackgroundClipInput): Promis
     where: { appId_sha1: { appId: input.appId, sha1 } },
   })
   if (existing) {
+    // Дедуп находит строку НЕЗАВИСИМО от isActive: `@@unique([appId, sha1])`
+    // не различает погашенный и живой фон — это один и тот же файл. Если бы
+    // мы просто возвращали погашенную строку как есть, оператор увидел бы
+    // "всё в порядке, фон уже есть" (200, deduped: true), а по факту файл
+    // остался бы невидимым в GET и планировщике НАВСЕГДА: эндпоинта
+    // "восстановить" не существует, а единственный путь мимо DELETE — сюда,
+    // и он бы каждый раз утыкался в ту же погашенную строку. Повторная
+    // заливка того же файла — это и есть операция "верните фон в библиотеку":
+    // оператор явно принёс файл снова, значит хочет его обратно в списке.
+    if (!existing.isActive) {
+      const reactivated = await prisma.backgroundClip.update({
+        where: { id: existing.id },
+        data: { isActive: true },
+      })
+      return { clip: reactivated, deduped: true, similarClipIds: [] }
+    }
     return { clip: existing, deduped: true, similarClipIds: [] }
   }
 

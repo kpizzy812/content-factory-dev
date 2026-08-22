@@ -5,10 +5,22 @@
  * кадры уже собранных роликов (`VideoShot.backgroundClipId`, `onDelete: SetNull`
  * снимет ссылку только при удалении строки, а нам нужно её сохранить).
  *
- * Поиск клипа СРАЗУ фильтруется по appId из URL, а не только по id: без этого
- * фильтра запрос на `id`, принадлежащий чужому приложению, был бы найден и
- * погашен — это ровно класс дефекта из долга плана A (контроль доступа без
- * автотеста), закрытый здесь мутационным тестом в tests/api/edit-plan-endpoints.spec.ts.
+ * Порядок проверок нарочно такой:
+ *  1. Авторизация ПО `appId` ИЗ URL — до чтения клипа и до любого ветвления
+ *     по его существованию. Если бы клип читался первым (как в большинстве
+ *     соседних эндпоинтов, где appId неизвестен заранее и его ещё только
+ *     предстоит узнать из сущности), разница 404 (клипа с таким id под этим
+ *     appId нет) и 401/403 (клип есть, но доступа нет) превратилась бы в
+ *     неавторизованный оракул принадлежности: пользователь БЕЗ единого
+ *     доступа к чужому appId мог бы перебором clipId выяснять, какие фоны
+ *     реально существуют в чужом приложении, не имея прав вообще ни на что
+ *     там. Здесь `appId` целиком приходит из URL и не требует чтения БД,
+ *     поэтому откладывать авторизацию до фетча клипа незачем.
+ *  2. Сверка владения — по РЕАЛЬНОМУ `clip.appId`, а не повторным доверием
+ *     параметру URL: тот же приём, что в прецеденте
+ *     `characters/[id]/source-clips/[clipId].delete.ts` (`appId: clip.character.appId`).
+ *     `appId` из URL уже прошёл авторизацию на шаге 1, но окончательное
+ *     решение "этот клип наш" принимается по полю самой строки.
  */
 export default defineEventHandler(async (event) => {
   const appId = Number(getRouterParam(event, "id"))
@@ -17,14 +29,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "id и clipId обязательны" })
   }
 
-  const clip = await prisma.backgroundClip.findFirst({ where: { id: clipId, appId } })
-  if (!clip) throw createError({ statusCode: 404, message: "Фон не найден" })
-
   await requireScopedAccess(event, {
     permissions: ["canWrite"],
     moduleSlug: "video-generator",
     appId,
   })
+
+  const clip = await prisma.backgroundClip.findUnique({ where: { id: clipId } })
+  if (!clip || clip.appId !== appId) {
+    throw createError({ statusCode: 404, message: "Фон не найден" })
+  }
 
   await prisma.backgroundClip.update({ where: { id: clip.id }, data: { isActive: false } })
 

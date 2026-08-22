@@ -6,7 +6,7 @@
  * (`appId: null`, схема это допускает под будущую библиотеку шаблонов) — вне
  * рамок этой задачи, см. «Что этот план сознательно не делает» в брифе.
  */
-import { parseEditProfileWrite, presentEditProfile } from "~~/server/utils/edit-plan/edit-profile-api"
+import { createEditProfileExclusive, parseEditProfileWrite, presentEditProfile } from "~~/server/utils/edit-plan/edit-profile-api"
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({})) as Record<string, unknown>
@@ -26,9 +26,7 @@ export default defineEventHandler(async (event) => {
 
   const fields = parseEditProfileWrite(body, { requireName: true })
 
-  const created = await prisma.editProfile.create({
-    data: { appId, ...fields, name: fields.name! },
-  })
+  const created = await createEditProfileExclusive(appId, { ...fields, name: fields.name! })
 
   return { data: presentEditProfile(created) }
 })

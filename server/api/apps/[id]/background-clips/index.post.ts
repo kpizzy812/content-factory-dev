@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
     data: {
       clip: result.clip,
       deduped: result.deduped,
-      similarClips: result.similarClipIds,
+      similarClipIds: result.similarClipIds,
     },
   }
 })

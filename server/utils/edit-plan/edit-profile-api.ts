@@ -167,6 +167,50 @@ export function parseEditProfileWrite(
 }
 
 /**
+ * Создаёт профиль, гарантируя единственный дефолтный профиль на `appId`.
+ *
+ * Без этого два профиля с `isDefault: true` в одном приложении дают
+ * недетерминированный монтаж: `video-pipeline.ts` берёт дефолтный профиль
+ * через `findFirst({ where: { appId, isDefault: true } })` БЕЗ `orderBy`
+ * (осознанно — порядок не гарантирован Prisma/Postgres при отсутствии
+ * `ORDER BY`), и один и тот же ролик собрался бы то по одному набору правил
+ * бренда, то по другому. В схеме уникальности на `isDefault` нет (только
+ * обычный индекс `@@index([appId, isDefault])`) — это НЕ уникальный частичный
+ * индекс, добавлять его в эту задачу не входит (отдельное решение о миграции).
+ * Единственность держится здесь, в одной транзакции с записью: снятие флага у
+ * остальных и создание новой строки атомарны, иначе конкурентный запрос между
+ * ними мог бы застать оба профиля дефолтными.
+ */
+export async function createEditProfileExclusive(
+  appId: number,
+  fields: EditProfileWriteFields & { name: string },
+) {
+  return prisma.$transaction(async (tx) => {
+    if (fields.isDefault) {
+      await tx.editProfile.updateMany({ where: { appId, isDefault: true }, data: { isDefault: false } })
+    }
+    return tx.editProfile.create({ data: { appId, ...fields } })
+  })
+}
+
+/** То же самое для обновления — минус сам обновляемый профиль, тем же приёмом. */
+export async function updateEditProfileExclusive(
+  id: number,
+  appId: number | null,
+  fields: EditProfileWriteFields,
+) {
+  return prisma.$transaction(async (tx) => {
+    if (fields.isDefault) {
+      await tx.editProfile.updateMany({
+        where: { appId, isDefault: true, id: { not: id } },
+        data: { isDefault: false },
+      })
+    }
+    return tx.editProfile.update({ where: { id }, data: fields })
+  })
+}
+
+/**
  * Форма строки `EditProfile` из Prisma. Поля-enum'ы (`pipPosition`,
  * `generativeVideoResolution`) в колонке — просто `string`, а не узкий union:
  * сама Prisma не сужает их (в схеме это `String @default(...)`), и именно

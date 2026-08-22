@@ -7,7 +7,7 @@
  * принадлежит бренду/приложению по построению (спека §5.2); перепривязка —
  * не описанная в брифе операция, и тихо разрешать её здесь не нужно.
  */
-import { parseEditProfileWrite, presentEditProfile } from "~~/server/utils/edit-plan/edit-profile-api"
+import { parseEditProfileWrite, presentEditProfile, updateEditProfileExclusive } from "~~/server/utils/edit-plan/edit-profile-api"
 
 export default defineEventHandler(async (event) => {
   const id = Number(getRouterParam(event, "id"))
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
 
   const fields = parseEditProfileWrite(body, { requireName: false })
 
-  const updated = await prisma.editProfile.update({ where: { id }, data: fields })
+  const updated = await updateEditProfileExclusive(id, existing.appId, fields)
 
   return { data: presentEditProfile(updated) }
 })

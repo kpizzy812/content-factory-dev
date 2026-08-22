@@ -160,6 +160,32 @@ function userWithAppAccess(appId: number) {
   return createTestUser({ canAdmin: false, appAssignments: [{ appId, accessLevel: "full" }] })
 }
 
+/**
+ * appId и модуль в порядке, но нет конкретного права (`canWrite`/`canRead`).
+ * `createTestUser` по умолчанию выдаёт ВСЕ права — без явного override
+ * измерение "права" вообще ничем не проверялось (ре-ревью, Important 2).
+ */
+function userMissingPermission(appId: number, missing: "canWrite" | "canRead") {
+  return createTestUser({
+    canAdmin: false,
+    appAssignments: [{ appId, accessLevel: "full" }],
+    [missing]: false,
+  })
+}
+
+/**
+ * Право и appId в порядке, но модуль `video-generator` не выдан — доступен
+ * только соседний модуль. `createTestUser` по умолчанию выдаёт ВСЕ модули —
+ * без явного override измерение "модуль" тоже ничем не проверялось.
+ */
+function userMissingModule(appId: number) {
+  return createTestUser({
+    canAdmin: false,
+    appAssignments: [{ appId, accessLevel: "full" }],
+    moduleAccess: ["script-generator"],
+  })
+}
+
 // ── GET /api/edit-profiles ───────────────────────────────────────────────────
 
 describe("GET /api/edit-profiles", () => {
@@ -203,6 +229,20 @@ describe("GET /api/edit-profiles", () => {
       .rejects.toMatchObject({ statusCode: 403 })
   })
 
+  it("403 без права canRead (appId и модуль в порядке)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingPermission(app.id, "canRead")
+    await expect($fetch(`/api/edit-profiles?appId=${app.id}`, { headers: authHeaders(user.id) }))
+      .rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it("403 без доступа к модулю video-generator (право и appId в порядке)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
+    await expect($fetch(`/api/edit-profiles?appId=${app.id}`, { headers: authHeaders(user.id) }))
+      .rejects.toMatchObject({ statusCode: 403 })
+  })
+
   it("401 без auth", async () => {
     const app = await createTestApp()
     await expect($fetch(`/api/edit-profiles?appId=${app.id}`)).rejects.toMatchObject({ statusCode: 401 })
@@ -231,6 +271,62 @@ describe("POST /api/edit-profiles", () => {
     const row = await prisma.editProfile.findUnique({ where: { id: res.data.id as number } })
     expect(row?.appId).toBe(app.id)
     expect(row?.brollRatio).toBe(0.3)
+  })
+
+  it("200 создаёт профиль со ВСЕМИ полями записи — каждое реально сохраняется, а не остаётся дефолтом схемы", async () => {
+    // Ре-ревью, Important 1: до этого теста записью были подтверждены только
+    // brollRatio/pipEnabled/pipPosition — остальные 11 из 15 полей (включая
+    // imageGenerationEnabled — единственный рычаг оператора против расхода на
+    // генерацию картинок) проверялись только КАК ДЕФОЛТ на профиле, созданном
+    // БЕЗ них. Удаление любой строки `if (has(body, "X")) out.X = ...` в
+    // parseEditProfileWrite тихо проигнорировало бы поле, и этот тест обязан
+    // покраснеть на КАЖДОЕ из них.
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+
+    const body = {
+      appId: app.id,
+      name: "Полный профиль",
+      description: "полное описание бренда",
+      editPrompt: "чередуй ведущих через кадр",
+      brollRatio: 0.25,
+      shotChangeSec: 2.5,
+      pipEnabled: true,
+      pipPosition: "top_left",
+      pipSize: 0.4,
+      imageGenerationEnabled: false,
+      generativeVideoEnabled: true,
+      generativeVideoBudgetUsd: 1.5,
+      generativeVideoResolution: "1920x1080",
+      stepwiseApproval: true,
+      llmModelId: "claude-edit-plan-x",
+    }
+
+    const res = await $fetch<{ data: Record<string, unknown> }>(`/api/edit-profiles`, {
+      method: "POST", headers: authHeaders(user.id), body,
+    })
+
+    for (const [key, value] of Object.entries(body)) {
+      if (key === "appId") continue
+      expect(res.data[key], `поле "${key}" в ответе`).toEqual(value)
+    }
+
+    const row = await prisma.editProfile.findUnique({ where: { id: res.data.id as number } })
+    expect(row).toMatchObject({
+      description: body.description,
+      editPrompt: body.editPrompt,
+      brollRatio: body.brollRatio,
+      shotChangeSec: body.shotChangeSec,
+      pipEnabled: body.pipEnabled,
+      pipPosition: body.pipPosition,
+      pipSize: body.pipSize,
+      imageGenerationEnabled: body.imageGenerationEnabled,
+      generativeVideoEnabled: body.generativeVideoEnabled,
+      generativeVideoBudgetUsd: body.generativeVideoBudgetUsd,
+      generativeVideoResolution: body.generativeVideoResolution,
+      stepwiseApproval: body.stepwiseApproval,
+      llmModelId: body.llmModelId,
+    })
   })
 
   it("400 на brollRatio: 2 — API отвергает то, что резолвер бы молча зажал до 1", async () => {
@@ -309,6 +405,28 @@ describe("POST /api/edit-profiles", () => {
     expect(await prisma.editProfile.count({ where: { appId: app.id } })).toBe(0)
   })
 
+  it("403 без права canWrite (appId и модуль в порядке) — профиль не создаётся", async () => {
+    const app = await createTestApp()
+    const user = await userMissingPermission(app.id, "canWrite")
+
+    await expect($fetch(`/api/edit-profiles`, {
+      method: "POST", headers: authHeaders(user.id), body: { appId: app.id, name: "x" },
+    })).rejects.toMatchObject({ statusCode: 403 })
+
+    expect(await prisma.editProfile.count({ where: { appId: app.id } })).toBe(0)
+  })
+
+  it("403 без доступа к модулю video-generator (право и appId в порядке) — профиль не создаётся", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
+
+    await expect($fetch(`/api/edit-profiles`, {
+      method: "POST", headers: authHeaders(user.id), body: { appId: app.id, name: "x" },
+    })).rejects.toMatchObject({ statusCode: 403 })
+
+    expect(await prisma.editProfile.count({ where: { appId: app.id } })).toBe(0)
+  })
+
   it("401 без auth", async () => {
     const app = await createTestApp()
     await expect($fetch(`/api/edit-profiles`, {
@@ -335,6 +453,39 @@ describe("PUT /api/edit-profiles/:id", () => {
     expect(refreshed?.brollRatio).toBe(0.6)
     expect(refreshed?.pipEnabled).toBe(true)
     expect(refreshed?.name).toBe("Исходное имя")
+  })
+
+  it("200 обновляет ВСЕ поля записи разом — каждое реально записывается через тот же parseEditProfileWrite, что и POST", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const profile = await createTestEditProfile(app.id)
+
+    const body = {
+      description: "обновлённое описание",
+      editPrompt: "новый промпт монтажа",
+      brollRatio: 0.15,
+      shotChangeSec: 3.2,
+      pipEnabled: true,
+      pipPosition: "bottom_left",
+      pipSize: 0.22,
+      imageGenerationEnabled: false,
+      generativeVideoEnabled: true,
+      generativeVideoBudgetUsd: 2.75,
+      generativeVideoResolution: "1080x1080",
+      stepwiseApproval: true,
+      llmModelId: "claude-put-y",
+    }
+
+    const res = await $fetch<{ data: Record<string, unknown> }>(`/api/edit-profiles/${profile.id}`, {
+      method: "PUT", headers: authHeaders(user.id), body,
+    })
+
+    for (const [key, value] of Object.entries(body)) {
+      expect(res.data[key], `поле "${key}" в ответе`).toEqual(value)
+    }
+
+    const row = await prisma.editProfile.findUnique({ where: { id: profile.id } })
+    expect(row).toMatchObject(body)
   })
 
   it("400 на brollRatio: 2 в PUT — не зажимается, отвергается", async () => {
@@ -395,12 +546,92 @@ describe("PUT /api/edit-profiles/:id", () => {
     expect(untouched?.brollRatio).toBe(0.4)
   })
 
+  it("403 без права canWrite (appId и модуль в порядке) — профиль не изменяется", async () => {
+    const app = await createTestApp()
+    const user = await userMissingPermission(app.id, "canWrite")
+    const profile = await createTestEditProfile(app.id, { brollRatio: 0.4 })
+
+    await expect($fetch(`/api/edit-profiles/${profile.id}`, {
+      method: "PUT", headers: authHeaders(user.id), body: { brollRatio: 0.9 },
+    })).rejects.toMatchObject({ statusCode: 403 })
+
+    const untouched = await prisma.editProfile.findUnique({ where: { id: profile.id } })
+    expect(untouched?.brollRatio).toBe(0.4)
+  })
+
+  it("403 без доступа к модулю video-generator (право и appId в порядке) — профиль не изменяется", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
+    const profile = await createTestEditProfile(app.id, { brollRatio: 0.4 })
+
+    await expect($fetch(`/api/edit-profiles/${profile.id}`, {
+      method: "PUT", headers: authHeaders(user.id), body: { brollRatio: 0.9 },
+    })).rejects.toMatchObject({ statusCode: 403 })
+
+    const untouched = await prisma.editProfile.findUnique({ where: { id: profile.id } })
+    expect(untouched?.brollRatio).toBe(0.4)
+  })
+
   it("401 без auth", async () => {
     const app = await createTestApp()
     const profile = await createTestEditProfile(app.id)
     await expect($fetch(`/api/edit-profiles/${profile.id}`, {
       method: "PUT", body: { brollRatio: 0.5 },
     })).rejects.toMatchObject({ statusCode: 401 })
+  })
+})
+
+// ── isDefault — единственный дефолт на приложение ────────────────────────────
+
+describe("isDefault — единственный дефолт на приложение", () => {
+  it("POST с isDefault:true снимает флаг у существующего дефолтного профиля того же приложения", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const oldDefault = await createTestEditProfile(app.id, { isDefault: true })
+
+    const res = await $fetch<{ data: { id: number, isDefault: boolean } }>(`/api/edit-profiles`, {
+      method: "POST", headers: authHeaders(user.id), body: { appId: app.id, name: "новый дефолт", isDefault: true },
+    })
+    expect(res.data.isDefault).toBe(true)
+
+    const refreshedOld = await prisma.editProfile.findUnique({ where: { id: oldDefault.id } })
+    expect(refreshedOld?.isDefault).toBe(false)
+
+    // video-pipeline.ts берёт дефолт через findFirst БЕЗ orderBy — при двух
+    // дефолтах монтаж одного и того же ролика недетерминирован (ре-ревью,
+    // Important 4). Ровно один дефолт на appId — обязательный инвариант.
+    expect(await prisma.editProfile.count({ where: { appId: app.id, isDefault: true } })).toBe(1)
+  })
+
+  it("PUT с isDefault:true снимает флаг у другого дефолтного профиля того же приложения", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const oldDefault = await createTestEditProfile(app.id, { isDefault: true })
+    const candidate = await createTestEditProfile(app.id, { isDefault: false })
+
+    const res = await $fetch<{ data: { isDefault: boolean } }>(`/api/edit-profiles/${candidate.id}`, {
+      method: "PUT", headers: authHeaders(user.id), body: { isDefault: true },
+    })
+    expect(res.data.isDefault).toBe(true)
+
+    const refreshedOld = await prisma.editProfile.findUnique({ where: { id: oldDefault.id } })
+    expect(refreshedOld?.isDefault).toBe(false)
+
+    expect(await prisma.editProfile.count({ where: { appId: app.id, isDefault: true } })).toBe(1)
+  })
+
+  it("isDefault:true НЕ трогает дефолтные профили ДРУГИХ приложений", async () => {
+    const app = await createTestApp()
+    const otherApp = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const otherDefault = await createTestEditProfile(otherApp.id, { isDefault: true })
+
+    await $fetch(`/api/edit-profiles`, {
+      method: "POST", headers: authHeaders(user.id), body: { appId: app.id, name: "x", isDefault: true },
+    })
+
+    const refreshedOther = await prisma.editProfile.findUnique({ where: { id: otherDefault.id } })
+    expect(refreshedOther?.isDefault).toBe(true)
   })
 })
 
@@ -439,6 +670,20 @@ describe("GET /api/apps/:id/background-clips", () => {
       .rejects.toMatchObject({ statusCode: 403 })
   })
 
+  it("403 без права canRead (appId и модуль в порядке)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingPermission(app.id, "canRead")
+    await expect($fetch(`/api/apps/${app.id}/background-clips`, { headers: authHeaders(user.id) }))
+      .rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it("403 без доступа к модулю video-generator (право и appId в порядке)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
+    await expect($fetch(`/api/apps/${app.id}/background-clips`, { headers: authHeaders(user.id) }))
+      .rejects.toMatchObject({ statusCode: 403 })
+  })
+
   it("401 без auth", async () => {
     const app = await createTestApp()
     await expect($fetch(`/api/apps/${app.id}/background-clips`)).rejects.toMatchObject({ statusCode: 401 })
@@ -457,13 +702,13 @@ describe("POST /api/apps/:id/background-clips", () => {
     form.append("name", "Экран лендинга")
     form.append("tags", "лендинг, скрин")
 
-    const res = await $fetch<{ data: { clip: Record<string, unknown>, deduped: boolean, similarClips: string[] } }>(
+    const res = await $fetch<{ data: { clip: Record<string, unknown>, deduped: boolean, similarClipIds: string[] } }>(
       `/api/apps/${app.id}/background-clips`,
       { method: "POST", headers: authHeaders(user.id), body: form },
     )
 
     expect(res.data.deduped).toBe(false)
-    expect(res.data.similarClips).toEqual([])
+    expect(res.data.similarClipIds).toEqual([])
     const clip = res.data.clip
     expect(clip.appId).toBe(app.id)
     expect(clip.name).toBe("Экран лендинга")
@@ -504,7 +749,44 @@ describe("POST /api/apps/:id/background-clips", () => {
     expect(await prisma.backgroundClip.count({ where: { appId: app.id } })).toBe(1)
   })
 
-  it("похожий по перцептивному хэшу фон принимается, но помечается в ответе (similarClips)", async () => {
+  it("повторная заливка ПОГАШЕННОГО фона возвращает его в активные, а не блокирует файл навсегда (ре-ревью, Important 3)", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+
+    const form1 = new FormData()
+    form1.append("file", pngFile(basePngBytes))
+    const first = await $fetch<{ data: { clip: { id: string } } }>(
+      `/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form1 },
+    )
+
+    await $fetch(`/api/apps/${app.id}/background-clips/${first.data.clip.id}`, {
+      method: "DELETE", headers: authHeaders(user.id),
+    })
+    const afterDelete = await prisma.backgroundClip.findUnique({ where: { id: first.data.clip.id } })
+    expect(afterDelete?.isActive).toBe(false)
+
+    const form2 = new FormData()
+    form2.append("file", pngFile(basePngBytes))
+    const second = await $fetch<{ data: { clip: Record<string, unknown>, deduped: boolean } }>(
+      `/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form2 },
+    )
+    expect(second.data.deduped).toBe(true)
+    expect(second.data.clip.id).toBe(first.data.clip.id)
+    expect(second.data.clip.isActive).toBe(true)
+
+    const refreshed = await prisma.backgroundClip.findUnique({ where: { id: first.data.clip.id } })
+    expect(refreshed?.isActive).toBe(true)
+
+    const listRes = await $fetch<{ data: Array<{ id: string }> }>(
+      `/api/apps/${app.id}/background-clips`, { headers: authHeaders(user.id) },
+    )
+    expect(listRes.data.some(c => c.id === first.data.clip.id)).toBe(true)
+
+    // Дедуп по sha1 остаётся единственным — реактивация не создала вторую строку.
+    expect(await prisma.backgroundClip.count({ where: { appId: app.id } })).toBe(1)
+  })
+
+  it("похожий по перцептивному хэшу фон принимается, но помечается в ответе (similarClipIds)", async () => {
     const app = await createTestApp()
     const user = await userWithAppAccess(app.id)
 
@@ -516,18 +798,18 @@ describe("POST /api/apps/:id/background-clips", () => {
 
     const form2 = new FormData()
     form2.append("file", pngFile(similarPngBytes))
-    const second = await $fetch<{ data: { clip: { id: string }, deduped: boolean, similarClips: string[] } }>(
+    const second = await $fetch<{ data: { clip: { id: string }, deduped: boolean, similarClipIds: string[] } }>(
       `/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form2 },
     )
 
     expect(second.data.deduped).toBe(false) // разные байты — не дубль по sha1
     expect(second.data.clip.id).not.toBe(first.data.clip.id) // новая строка реально создана
-    expect(second.data.similarClips).toContain(first.data.clip.id) // но похожесть отмечена
+    expect(second.data.similarClipIds).toContain(first.data.clip.id) // но похожесть отмечена
 
     expect(await prisma.backgroundClip.count({ where: { appId: app.id } })).toBe(2)
   })
 
-  it("непохожий фон НЕ попадает в similarClips — порог реально фильтрует, а не декорация", async () => {
+  it("непохожий фон НЕ попадает в similarClipIds — порог реально фильтрует, а не декорация", async () => {
     const app = await createTestApp()
     const user = await userWithAppAccess(app.id)
 
@@ -537,10 +819,10 @@ describe("POST /api/apps/:id/background-clips", () => {
 
     const form2 = new FormData()
     form2.append("file", pngFile(differentPngBytes))
-    const second = await $fetch<{ data: { similarClips: string[] } }>(
+    const second = await $fetch<{ data: { similarClipIds: string[] } }>(
       `/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form2 },
     )
-    expect(second.data.similarClips).toEqual([])
+    expect(second.data.similarClipIds).toEqual([])
   })
 
   it("200 заливает видео: kind по умолчанию footage, durationSec посчитан", async () => {
@@ -555,6 +837,33 @@ describe("POST /api/apps/:id/background-clips", () => {
     expect(res.data.clip.kind).toBe("footage")
     expect(res.data.clip.mimeType).toBe("video/mp4")
     expect(Number(res.data.clip.durationSec)).toBeGreaterThan(0)
+  })
+
+  it("kind можно задать явно (screen_recording) — не только через дефолт по MIME", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const form = new FormData()
+    form.append("file", pngFile(basePngBytes))
+    form.append("kind", "screen_recording")
+    const res = await $fetch<{ data: { clip: Record<string, unknown> } }>(
+      `/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form },
+    )
+    expect(res.data.clip.kind).toBe("screen_recording")
+
+    const row = await prisma.backgroundClip.findUnique({ where: { id: res.data.clip.id as string } })
+    expect(row?.kind).toBe("screen_recording")
+  })
+
+  it("400 на некорректный kind", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const form = new FormData()
+    form.append("file", pngFile(basePngBytes))
+    form.append("kind", "не-такое")
+    await expect($fetch(`/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form }))
+      .rejects.toMatchObject({ statusCode: 400 })
+
+    expect(await prisma.backgroundClip.count({ where: { appId: app.id } })).toBe(0)
   })
 
   it("415 на неподдерживаемый формат", async () => {
@@ -587,6 +896,30 @@ describe("POST /api/apps/:id/background-clips", () => {
     const app = await createTestApp()
     const otherApp = await createTestApp()
     const user = await userWithAppAccess(otherApp.id)
+    const form = new FormData()
+    form.append("file", pngFile(basePngBytes))
+
+    await expect($fetch(`/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form }))
+      .rejects.toMatchObject({ statusCode: 403 })
+
+    expect(await prisma.backgroundClip.count({ where: { appId: app.id } })).toBe(0)
+  })
+
+  it("403 без права canWrite (appId и модуль в порядке) — фон не создаётся", async () => {
+    const app = await createTestApp()
+    const user = await userMissingPermission(app.id, "canWrite")
+    const form = new FormData()
+    form.append("file", pngFile(basePngBytes))
+
+    await expect($fetch(`/api/apps/${app.id}/background-clips`, { method: "POST", headers: authHeaders(user.id), body: form }))
+      .rejects.toMatchObject({ statusCode: 403 })
+
+    expect(await prisma.backgroundClip.count({ where: { appId: app.id } })).toBe(0)
+  })
+
+  it("403 без доступа к модулю video-generator (право и appId в порядке) — фон не создаётся", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
     const form = new FormData()
     form.append("file", pngFile(basePngBytes))
 
@@ -637,6 +970,25 @@ describe("DELETE /api/apps/:id/background-clips/:clipId", () => {
     expect(untouched?.isActive).toBe(true)
   })
 
+  it("403 (не 404) на попытку удалить РЕАЛЬНО существующий фон под appId, к которому нет вообще никакого доступа — не течёт оракул принадлежности (ре-ревью, Minor 6)", async () => {
+    // Если бы авторизация шла ПОСЛЕ чтения клипа (как раньше), неавторизованный
+    // пользователь смог бы отличить "clipId существует под foreignApp" (401/403
+    // ПОСЛЕ успешного фетча) от "не существует" (404 ДО авторизации) — не имея
+    // вообще никаких прав на foreignApp. Правильный ответ — 403 в ОБОИХ случаях,
+    // потому что requireScopedAccess по appId из URL идёт первым шагом.
+    const foreignApp = await createTestApp()
+    const myApp = await createTestApp()
+    const user = await userWithAppAccess(myApp.id) // доступа к foreignApp нет вовсе
+    const realClip = await createTestBackgroundClip(foreignApp.id)
+
+    await expect(
+      $fetch(`/api/apps/${foreignApp.id}/background-clips/${realClip.id}`, { method: "DELETE", headers: authHeaders(user.id) }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+
+    const untouched = await prisma.backgroundClip.findUnique({ where: { id: realClip.id } })
+    expect(untouched?.isActive).toBe(true)
+  })
+
   it("404 на несуществующий clipId", async () => {
     const app = await createTestApp()
     const user = await userWithAppAccess(app.id)
@@ -654,6 +1006,32 @@ describe("DELETE /api/apps/:id/background-clips/:clipId", () => {
     await expect(
       $fetch(`/api/apps/${app.id}/background-clips/${clip.id}`, { method: "DELETE", headers: authHeaders(user.id) }),
     ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it("403 без права canWrite (appId и модуль в порядке)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingPermission(app.id, "canWrite")
+    const clip = await createTestBackgroundClip(app.id)
+
+    await expect(
+      $fetch(`/api/apps/${app.id}/background-clips/${clip.id}`, { method: "DELETE", headers: authHeaders(user.id) }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+
+    const untouched = await prisma.backgroundClip.findUnique({ where: { id: clip.id } })
+    expect(untouched?.isActive).toBe(true)
+  })
+
+  it("403 без доступа к модулю video-generator (право и appId в порядке)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
+    const clip = await createTestBackgroundClip(app.id)
+
+    await expect(
+      $fetch(`/api/apps/${app.id}/background-clips/${clip.id}`, { method: "DELETE", headers: authHeaders(user.id) }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+
+    const untouched = await prisma.backgroundClip.findUnique({ where: { id: clip.id } })
+    expect(untouched?.isActive).toBe(true)
   })
 
   it("401 без auth", async () => {
