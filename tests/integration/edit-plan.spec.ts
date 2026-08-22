@@ -5,6 +5,7 @@ import { StorageKeys } from "~~/server/utils/storage/keys"
 import { runVideoEditPlan, type VideoEditPlanInput } from "~~/server/utils/video-pipeline-steps"
 import { resetEditPlanShots } from "~~/server/utils/video-pipeline"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
+import type { ResolvedEditProfile } from "~~/server/utils/edit-plan/profile"
 import type { EditPlanModelShot, EditPlanModelUsage } from "~~/server/utils/edit-plan/runner"
 import { calculateAnthropicCost } from "~~/server/utils/ai-pricing"
 
@@ -57,6 +58,9 @@ describe("схема монтажа", () => {
     // Формат Kling (потребитель поля — генеративный фон кадра), не аватарной
     // speech_to_video модели: см. фикс-раунд 2 ревью Task 2.
     expect(profile.generativeVideoResolution).toBe("1080x1920")
+    // Дефолт true — генерация разрешена, поле само по себе только рычаг
+    // ВЫКЛЮЧЕНИЯ (ре-ревью 3, Task 5, пункт 1).
+    expect(profile.imageGenerationEnabled).toBe(true)
   })
 
   it("ролик наследует профиль и может перебить его полем", async () => {
@@ -329,6 +333,53 @@ describe("шаг edit_plan: идемпотентность и перезапус
     expect(shotsAfterSecond.map(s => s.id).sort()).toEqual(shotsAfterFirst.map(s => s.id).sort())
   })
 
+  it("ledger хранит ФАКТИЧЕСКУЮ модель из usage, а не сервис 'anthropic' при дефолтном профиле (мелочь ре-ревью 3)", async () => {
+    // profile.llmModelId === null (дефолт) — раньше logStepCost получал этот
+    // null и logServiceCost подставлял `model: modelId ?? resolvedService`,
+    // то есть буквально сервис ("anthropic") в колонку модели, хотя
+    // фактическая модель уже известна из usage.model.
+    const usage: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 5000, outputTokens: 1000 }
+    const askModel = vi.fn(async (
+      grid: Array<{ order: number }>, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage(usage)
+      return { shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })) }
+    })
+
+    await runVideoEditPlan(baseInput({ profile: { ...DEFAULT_EDIT_PROFILE, llmModelId: null } }), { askModel })
+
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(ledgerRow!.model).toBe("claude-sonnet-4-6")
+    expect(ledgerRow!.model).not.toBe("anthropic")
+  })
+
+  it("ledger различает измеренную и оценённую цену через metadata.estimated (мелочь ре-ревью 3)", async () => {
+    // Измеренная цена (usage реален, модель в тарифной таблице) — estimated
+    // не проставляется вовсе (байт-в-байт совместимость с историческими
+    // строками, тот же принцип, что и у attempt=1).
+    const measuredUsage: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 5000, outputTokens: 1000 }
+    const measuredAskModel = vi.fn(async (
+      grid: Array<{ order: number }>, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage(measuredUsage)
+      return { shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })) }
+    })
+    await runVideoEditPlan(baseInput(), { askModel: measuredAskModel })
+    const measuredRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(measuredRow).not.toBeNull()
+    expect((measuredRow!.suggestions as { estimated?: boolean } | null)?.estimated).toBeFalsy()
+
+    // Оценённая цена (usage не сообщён — как в моке) — estimated: true.
+    const secondVideo = await prisma.video.create({
+      data: { scenarioId: (await prisma.scenario.create({ data: { status: "draft" } })).id, editPipeline: true },
+    })
+    await runVideoEditPlan(baseInput({ videoId: secondVideo.id }), { askModel: happyAskModel() })
+    const estimatedRow = await prisma.aiAuditLog.findFirst({ where: { videoId: secondVideo.id, stepKey: "edit_plan" } })
+    expect(estimatedRow).not.toBeNull()
+    expect((estimatedRow!.suggestions as { estimated?: boolean } | null)?.estimated).toBe(true)
+  })
+
   it("ledger получает реальную токенную цену вызова агента, а не смету фонов по плану и не плоскую константу (Critical 1 ре-ревью задачи, фикс-раунд 2)", async () => {
     // Раньше в ledger уходила Σ VideoShot.costUsd (смета БУДУЩИХ картинок/видео
     // по плану) под сервисом "anthropic" — план без единого платного фона терял
@@ -341,10 +392,12 @@ describe("шаг edit_plan: идемпотентность и перезапус
     // 2 кадрами 2×$0.025 = $0.05 численно СОВПАДАЕТ с прежней плоской оценкой,
     // и коллизия маскирует дефекты денежной проводки. Оставлено с фикс-раунда 1.
     const usage: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 12000, outputTokens: 3000 }
-    const askModel = vi.fn(async (grid: Array<{ order: number }>): Promise<{ shots: EditPlanModelShot[], usage: EditPlanModelUsage }> => ({
-      shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })),
-      usage,
-    }))
+    const askModel = vi.fn(async (
+      grid: Array<{ order: number }>, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage(usage)
+      return { shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })) }
+    })
     const threeShotInput = baseInput({
       trackDurationSec: 6,
       alignedScenes: [{
@@ -404,10 +457,12 @@ describe("шаг edit_plan: идемпотентность и перезапус
     // бы costUsd=0 и потеряла бы реально оплаченный вызов из учёта — тот же
     // класс дефекта, что был у imageUsd при отсутствующей спеке flux-dev.
     const unknownModel = "claude-future-model-x1"
-    const askModel = vi.fn(async (grid: Array<{ order: number }>): Promise<{ shots: EditPlanModelShot[], usage: EditPlanModelUsage }> => ({
-      shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })),
-      usage: { model: unknownModel, inputTokens: 5000, outputTokens: 1000 },
-    }))
+    const askModel = vi.fn(async (
+      grid: Array<{ order: number }>, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage({ model: unknownModel, inputTokens: 5000, outputTokens: 1000 })
+      return { shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })) }
+    })
 
     const result = await runVideoEditPlan(
       baseInput({ profile: { ...DEFAULT_EDIT_PROFILE, llmModelId: unknownModel } }),
@@ -441,10 +496,12 @@ describe("шаг edit_plan: идемпотентность и перезапус
       { model: "claude-sonnet-4-6", inputTokens: 6000, outputTokens: 1200 },
     ]
     let call = 0
-    const askModel = vi.fn(async (): Promise<{ shots: EditPlanModelShot[], usage: EditPlanModelUsage }> => ({
-      shots: [],
-      usage: usageByAttempt[call++]!,
-    }))
+    const askModel = vi.fn(async (
+      _grid: unknown, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage(usageByAttempt[call++]!)
+      return { shots: [] }
+    })
 
     await expect(runVideoEditPlan(baseInput({ lipSyncMaxDurationSec: 0 }), { askModel })).rejects.toThrow()
 
@@ -457,6 +514,56 @@ describe("шаг edit_plan: идемпотентность и перезапус
     expect(Number(ledgerRow!.costUsd)).toBeCloseTo(expectedTotal, 6)
     const step = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "edit_plan" as never } })
     expect(step?.status).toBe("failed")
+  })
+
+  it("askModel сообщает usage и ПОТОМ падает (аналог обрезанного/непарсимого ответа модели) — оплаченный вызов не теряется (Critical 1, ре-ревью 3, п.2)", async () => {
+    // Реальный путь: callAnthropicAgent зовёт onUsage СРАЗУ, как только
+    // Anthropic ответил, — ДО того, как extractJsonFromText/validate() могут
+    // бросить исключение на обрезанном/невалидном JSON. До этой правки
+    // runVideoEditPlan терял usage целиком в этом сценарии: единственным
+    // каналом был EditPlanUnresolvedError, а тут исключение — совсем другого
+    // типа (оно не оборачивается раннером вовсе).
+    const usage: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 8000, outputTokens: 4000 }
+    const askModel = vi.fn(async (
+      _grid: unknown, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage(usage)
+      throw new Error("JSON parse failed (симуляция обрезанного ответа)")
+    })
+
+    await expect(runVideoEditPlan(baseInput(), { askModel })).rejects.toThrow(/JSON parse failed/)
+
+    const expectedCost = calculateAnthropicCost(usage.model, usage)!
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(expectedCost, 6)
+    const step = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "edit_plan" as never } })
+    expect(step?.status).toBe("failed")
+  })
+
+  it("saveShots падает (гонка/дедлок БД) ПОСЛЕ успешного построения плана — оплаченный вызов агента не теряется (Critical 1, ре-ревью 3, п.2)", async () => {
+    // saveShots зовётся ВНУТРИ runEditPlanStep, после успешного askModel —
+    // её падение раньше уносило с собой usage вместе с результатом, который
+    // так и не был возвращён наружу (тот же класс дефекта, что у непарсимого
+    // ответа модели, но на другом конце шага).
+    const usage: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 9000, outputTokens: 2000 }
+    const askModel = vi.fn(async (
+      grid: Array<{ order: number }>, _context: unknown, reportUsage: (usage: EditPlanModelUsage | null) => void,
+    ): Promise<{ shots: EditPlanModelShot[] }> => {
+      reportUsage(usage)
+      return { shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })) }
+    })
+    const saveShots = vi.fn(async () => { throw new Error("deadlock detected") })
+
+    await expect(runVideoEditPlan(baseInput(), { askModel, saveShots })).rejects.toThrow(/deadlock/)
+
+    const expectedCost = calculateAnthropicCost(usage.model, usage)!
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(expectedCost, 6)
+    // Ни одного кадра не сохранилось (saveShots упала), но деньги списаны —
+    // ровно то поведение, которого требует правило "заплатили — обязаны записать".
+    expect(await prisma.videoShot.count({ where: { videoId } })).toBe(0)
   })
 
   it("другой отпечаток трека — план пересчитан заново, а не отдан из кэша", async () => {
@@ -519,24 +626,52 @@ describe("шаг edit_plan: идемпотентность и перезапус
     expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(2)
   })
 
-  it("правка не-плановых полей профиля (pipPosition/pipSize/generativeVideoResolution/stepwiseApproval) не платит за агента снова (Important 2 ре-ревью задачи)", async () => {
-    // Эти поля не читает ни grid.ts, ни edit-planner-agent.ts, ни
-    // pickBackgroundSource — раньше профиль сериализовался ЦЕЛИКОМ, и их
-    // правка промахивала кэш без всякой причины.
-    const askModel = happyAskModel()
-    await runVideoEditPlan(baseInput(), { askModel })
+  // Сомнение №3 ре-ревью 3: «ни один тест не меняет ни одного из планинг-полей
+  // профиля между прогонами — мутация "planningRelevantProfile возвращает
+  // пустой объект" оставит сьюту зелёной». Старый комбинированный тест на
+  // НЕ-планинговые поля (Important 2) менял все 4 разом и проверял только
+  // кэш-ПОПАДАНИЕ — он прошёл бы точно так же, если бы `planningRelevantProfile`
+  // игнорировала ВООБЩЕ все поля, включая планинговые. Ниже — по одному полю
+  // за раз, с обеих сторон: планинговое ДОЛЖНО промахивать кэш, непланинговое —
+  // НЕ должно.
+  describe("ключ кэша реагирует на планинг-поля и игнорирует остальные (сомнение №3 ре-ревью 3)", () => {
+    const PLANNING_FIELD_CHANGES: Array<[string, Partial<ResolvedEditProfile>]> = [
+      ["editPrompt", { editPrompt: "другое правило монтажа" }],
+      ["brollRatio", { brollRatio: 0.6 }],
+      ["shotChangeSec", { shotChangeSec: 2.5 }],
+      ["pipEnabled", { pipEnabled: true }],
+      ["generativeVideoEnabled", { generativeVideoEnabled: true }],
+      ["generativeVideoBudgetUsd", { generativeVideoBudgetUsd: 2 }],
+      ["llmModelId", { llmModelId: "claude-other-model" }],
+      ["imageGenerationEnabled", { imageGenerationEnabled: false }],
+    ]
 
-    const changedProfile = {
-      ...DEFAULT_EDIT_PROFILE,
-      pipPosition: "top_left" as const,
-      pipSize: 0.4,
-      generativeVideoResolution: "1920x1080",
-      stepwiseApproval: true,
-    }
-    await runVideoEditPlan(baseInput({ profile: changedProfile }), { askModel })
+    it.each(PLANNING_FIELD_CHANGES)("планинг-поле %s промахивает кэш — агент вызван заново", async (_field, patch) => {
+      const askModel = happyAskModel()
+      await runVideoEditPlan(baseInput(), { askModel })
 
-    expect(askModel).toHaveBeenCalledTimes(1)
-    expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(1)
+      await runVideoEditPlan(baseInput({ profile: { ...DEFAULT_EDIT_PROFILE, ...patch } }), { askModel })
+
+      expect(askModel).toHaveBeenCalledTimes(2)
+      expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(2)
+    })
+
+    const NON_PLANNING_FIELD_CHANGES: Array<[string, Partial<ResolvedEditProfile>]> = [
+      ["pipPosition", { pipPosition: "top_left" }],
+      ["pipSize", { pipSize: 0.4 }],
+      ["generativeVideoResolution", { generativeVideoResolution: "1920x1080" }],
+      ["stepwiseApproval", { stepwiseApproval: true }],
+    ]
+
+    it.each(NON_PLANNING_FIELD_CHANGES)("НЕ-планинг поле %s не промахивает кэш — агент не вызван заново", async (_field, patch) => {
+      const askModel = happyAskModel()
+      await runVideoEditPlan(baseInput(), { askModel })
+
+      await runVideoEditPlan(baseInput({ profile: { ...DEFAULT_EDIT_PROFILE, ...patch } }), { askModel })
+
+      expect(askModel).toHaveBeenCalledTimes(1)
+      expect(await prisma.aiAuditLog.count({ where: { videoId, stepKey: "edit_plan" } })).toBe(1)
+    })
   })
 
   it("перезапуск edit_plan сносит старые кадры плана монтажа", async () => {
@@ -572,5 +707,37 @@ describe("шаг edit_plan: идемпотентность и перезапус
     await resetEditPlanShots(videoId, "transcription", ["transcription", "voiceover_generation"], false)
 
     expect(await prisma.videoShot.count({ where: { videoId } })).toBe(0)
+  })
+
+  it("imageGenerationEnabled=false в профиле реально выключает генерацию картинки — не жёстко закодированный true (ре-ревью 3, Task 5, пункт 1)", async () => {
+    // Раньше imageGenerationAllowed вычислялся из findMediaSpec("replicate:flux-dev")
+    // !== null — статический реестр моделей содержит flux-dev ВСЕГДА, флаг был
+    // вычисляемым хардкодом. Единственный реальный рычаг — профильный флаг.
+    const askModel = vi.fn(async (grid: Array<{ order: number }>) => ({
+      shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })),
+    }))
+
+    await runVideoEditPlan(
+      baseInput({ profile: { ...DEFAULT_EDIT_PROFILE, imageGenerationEnabled: false } }),
+      { askModel },
+    )
+
+    const shots = await prisma.videoShot.findMany({ where: { videoId } })
+    expect(shots.length).toBeGreaterThan(0)
+    for (const shot of shots) {
+      // Модель попросила "image", профиль это запретил — деградация до §10,
+      // а не тихая картинка вопреки настройке оператора.
+      expect(shot.background).toBe("none")
+      expect(shot.foreground).toBe("presenter")
+      expect(Number(shot.costUsd)).toBe(0)
+    }
+
+    const step = await prisma.videoGenerationStep.findFirst({
+      where: { videoId, stepKey: "edit_plan" as never },
+      select: { logs: true },
+    })
+    const logMessages = (Array.isArray(step?.logs) ? step.logs : [])
+      .map(entry => String((entry as { msg?: unknown }).msg ?? ""))
+    expect(logMessages.some(msg => msg.includes("imageGenerationEnabled=false"))).toBe(true)
   })
 })

@@ -438,6 +438,31 @@ describe("шаг плана монтажа", () => {
     expect(degradeWarnings[0]).toMatch(new RegExp(`кадров: ${result.shots.length}`))
   })
 
+  it("форсированный «ведущий на весь экран» сбрасывает pipEnabled — иначе ведущий во весь кадр и PiP поверх себя (ре-ревью 3, Task 5, пункт 1, связанная мелочь)", async () => {
+    // Профиль РАЗРЕШАЕТ PiP (pipEnabled: true) и модель его просит — если бы
+    // сброс происходил только клэмпом Important 4 (профильный флаг), PiP
+    // остался бы включённым здесь. Единственная причина, по которой он ДОЛЖЕН
+    // сброситься, — forcedEmpty: фон принудительно схлопнут в "none",
+    // background не запрашивал его сам.
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", pipEnabled: true }) as EditPlanModelShot),
+      })),
+    })
+
+    const result = await runEditPlanStep(
+      { ...INPUT, profile: { ...DEFAULT_EDIT_PROFILE, pipEnabled: true }, imageGenerationAllowed: false },
+      dependencies,
+    )
+
+    expect(result.shots.length).toBeGreaterThan(0)
+    for (const shot of result.shots) {
+      expect(shot.background).toBe("none")
+      expect(shot.foreground).toBe("presenter")
+      expect(shot.pipEnabled).toBe(false)
+    }
+  })
+
   it("PiP выключен профилем — модель не может включить его для кадра (Important 4)", async () => {
     const dependencies = deps({
       askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
@@ -526,10 +551,10 @@ describe("шаг плана монтажа", () => {
   it("modelUsages несёт usage каждой реальной попытки — раннер только сохраняет, не считает деньги (Critical 1 ре-ревью задачи, фикс-раунд 2)", async () => {
     const usage = { model: "claude-sonnet-4-6", inputTokens: 1234, outputTokens: 567 }
     const dependencies = deps({
-      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
-        shots: grid.map(cell => ({ order: cell.order, foreground: "none" as const, background: "image" as const, idea: "идея" })),
-        usage,
-      })),
+      askModel: vi.fn(async (grid: Array<{ order: number }>, _context, reportUsage) => {
+        reportUsage(usage)
+        return { shots: grid.map(cell => ({ order: cell.order, foreground: "none" as const, background: "image" as const, idea: "идея" })) }
+      }),
     })
 
     const result = await runEditPlanStep(INPUT, dependencies)
@@ -561,7 +586,10 @@ describe("шаг плана монтажа", () => {
     ]
     let call = 0
     const dependencies = deps({
-      askModel: vi.fn(async () => ({ shots: [], usage: usageByAttempt[call++] })),
+      askModel: vi.fn(async (_grid, _context, reportUsage) => {
+        reportUsage(usageByAttempt[call++]!)
+        return { shots: [] }
+      }),
     })
 
     const { EditPlanUnresolvedError } = await import("~~/server/utils/edit-plan/runner")

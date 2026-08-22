@@ -232,6 +232,20 @@ describe("media model registry", () => {
     expect(estimateMediaCost(model, { images: 3 })).toBeCloseTo(billing.usdPerImage * 3, 10)
   })
 
+  it("rejects REPLICATE_IMAGE_PRICE_USD=0 instead of quietly making the plan free (ре-ревью 3, Task 5, мелочь)", () => {
+    // Ноль в тарифе означает «бесплатно», а не «не задано» — тот же класс
+    // дефекта, что был у imageUsd=0 при отсутствующей спеке (Important 3).
+    const previous = process.env.REPLICATE_IMAGE_PRICE_USD
+    process.env.REPLICATE_IMAGE_PRICE_USD = "0"
+    try {
+      const model = resolveMediaModel("text_to_image")
+      expect(() => model.billing).toThrow(/REPLICATE_IMAGE_PRICE_USD=0/)
+    } finally {
+      if (previous === undefined) delete process.env.REPLICATE_IMAGE_PRICE_USD
+      else process.env.REPLICATE_IMAGE_PRICE_USD = previous
+    }
+  })
+
   it("keeps the one-image-per-unit invariant instead of losing the rest silently", () => {
     const model = resolveMediaModel("text_to_image")
 
