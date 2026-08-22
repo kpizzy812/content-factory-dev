@@ -42,6 +42,7 @@ import {
   runVoiceoverGeneration,
   runAudioFirstVoiceover,
   runVideoTranscription,
+  runVideoEditPlan,
   runMusicGeneration,
   runAssembly,
   hasAudioFirstTrack,
@@ -50,7 +51,8 @@ import {
 } from "./video-pipeline-steps"
 import { planSceneKinds } from "./broll-plan"
 
-import { runLipSyncStep, type LipSyncAudioFirstInput } from "./lip-sync-runner"
+import { runLipSyncStep, resolveModelDurationRange, type LipSyncAudioFirstInput } from "./lip-sync-runner"
+import { resolveEditProfile, type ResolvedEditProfile } from "./edit-plan/profile"
 import type { AlignedScene } from "./transcription/align"
 import { isTranscriptionRouteAvailable } from "./transcription/media-task"
 
@@ -291,6 +293,9 @@ export async function runVideoPipeline(
             variants: { orderBy: { variantIndex: "asc" } },
           },
         },
+        // Профиль монтажа ролика — Task 5, шаг edit_plan. null означает
+        // "правила из профиля приложения по умолчанию", резолвится ниже.
+        editProfile: true,
       },
     })
 
@@ -743,6 +748,70 @@ export async function runVideoPipeline(
           { videoId },
         ).catch(() => {})
       }
+    }
+
+    /**
+     * ── 2c. Маршрут «монтаж от звука»: план кадров ──
+     *
+     * Условие — ФАКТ синтезированного трека (`audioFirst !== null`), а не
+     * выбор маршрута (`audioFirstRoute`): маршрут может быть выбран, а трек —
+     * не синтезироваться (пустой сценарий, legacy-режим — ветка `else` выше).
+     * Хендофф 18.08 §4 п.4 прямо разводит «маршрут выбран» и «трек синтезирован».
+     */
+    let editPlan: Awaited<ReturnType<typeof runVideoEditPlan>> | null = null
+    if (audioFirst !== null && alignedScenes.length > 0) {
+      throwIfAborted(signal)
+
+      // Presenter-сцены — те, где ведущий говорит В КАДРЕ. Определение то же,
+      // что у "spoken" в mergeScriptLines (voiceover/script-merge.ts): именно
+      // из spokenLine строится единый трек, и alignedScenes с точно теми же
+      // order'ами — его выравнивание.
+      const presenterSceneOrders = (videoPlan.scenes ?? [])
+        .filter(scene => (scene.spokenLine ?? "").trim().length > 0)
+        .map(scene => scene.order)
+
+      // Профиль приложения по умолчанию — только если у ролика своего нет:
+      // лишний запрос в БД на роликах с явным editProfileId не нужен.
+      const appDefaultEditProfile = !video.editProfile && enrichmentContext.appId
+        ? await prisma.editProfile.findFirst({ where: { appId: enrichmentContext.appId, isDefault: true } })
+        : null
+      const resolvedEditProfile = resolveEditProfile(
+        (video.editProfile ?? appDefaultEditProfile) as unknown as Partial<ResolvedEditProfile> | null,
+        video.editOverrides,
+      )
+
+      const [backgroundClips, appReferenceImages] = enrichmentContext.appId
+        ? await Promise.all([
+          prisma.backgroundClip.findMany({ where: { appId: enrichmentContext.appId, isActive: true } }),
+          prisma.appReferenceImage.findMany({ where: { appId: enrichmentContext.appId } }),
+        ])
+        : [[], []]
+
+      // Модель не выбрана явно — resolveModelDurationRange сама откатится на
+      // kling-дефолт (10с) для неизвестного/пустого id, тем же приёмом, что и
+      // у самого lip-sync (см. докстринг функции).
+      const { maxDurationSec: lipSyncMaxDurationSec } = resolveModelDurationRange(video.lipSyncModelId ?? "")
+
+      editPlan = await runVideoEditPlan({
+        videoId,
+        trackFingerprint: audioFirst.trackFingerprint,
+        trackDurationSec: audioFirst.trackDurationSec,
+        fps: audioFirst.fps ?? TIMELINE_FPS,
+        alignedScenes,
+        presenterSceneOrders,
+        profile: resolvedEditProfile,
+        lipSyncMaxDurationSec,
+        format: video.format as "portrait" | "landscape",
+        renderQuality: video.renderQuality,
+        backgrounds: backgroundClips.map(clip => ({ id: clip.id, kind: clip.kind, name: clip.name, tags: clip.tags })),
+        appScreens: appReferenceImages.map(ref => ({ id: ref.id, tags: ref.aiTags, caption: ref.aiCaption })),
+      })
+
+      await logAgent('video-pipeline', 'info',
+        `Video ${videoId}: план монтажа готов — ${editPlan.shots.length} кадров, статус "${editPlan.status}"`
+        + (editPlan.warnings.length > 0 ? `, предупреждений: ${editPlan.warnings.length}` : ''),
+        { videoId },
+      ).catch(() => {})
     }
 
     /**
@@ -1303,6 +1372,30 @@ async function skipImageGenerationStep(
  * Объекты в постоянном хранилище не трогаем: ключи детерминированные
  * (videos/{id}/...), новая генерация перезапишет их сама.
  */
+/**
+ * Каскад перезапуска для кадров плана монтажа — вынесен из `rerunVideoStep`
+ * отдельной функцией, чтобы его можно было проверить интеграционным тестом
+ * без риска, который несёт сам `rerunVideoStep` (он в конце без ожидания
+ * запускает `runVideoPipeline`, и дёргать его в лёгком DB-тесте означало бы
+ * гонку с `afterEach`, чистящим таблицы).
+ *
+ * Кадры лежат не в VideoAsset, а в своей таблице: каскад ассетов их не знает,
+ * и без этой функции перезапуск плана оставил бы кадры прошлого рядом с
+ * новыми (`@@unique([videoId, order])` дал бы конфликт вместо честной
+ * перезаписи).
+ */
+export async function resetEditPlanShots(videoId: number, stepKey: StepKey, stepsToReset: readonly StepKey[]): Promise<void> {
+  if (!stepsToReset.includes("edit_plan")) return
+
+  const removed = await prisma.videoShot.deleteMany({ where: { videoId } })
+  if (removed.count > 0) {
+    await logAgent('video-pipeline', 'info',
+      `Video ${videoId}: перезапуск с шага ${stepKey} — снесено ${removed.count} кадров плана монтажа`,
+      { videoId },
+    ).catch(() => {})
+  }
+}
+
 export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise<void> {
   // Каскад считаем по РЕАЛЬНОМУ порядку выполнения, а не по STEP_ORDER (там
   // lip_sync стоит после озвучки ради исторического stepIndex). Иначе перезапуск
@@ -1344,6 +1437,8 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
       ).catch(() => {})
     }
   }
+
+  await resetEditPlanShots(videoId, stepKey, stepsToReset)
 
   await prisma.videoGenerationStep.updateMany({
     where: {

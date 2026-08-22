@@ -48,7 +48,13 @@ import { runSubtitleKeywordAgent } from "./agents/subtitle-keyword-agent"
 import { pickTtsModel, getModel } from "./video-models"
 import { logStepCost } from "./balance/cost-ledger"
 import { mapStepKeyToService } from "./balance/cost-attribution"
-import { accumulateStepCost, stepAttemptForLedger } from "./video-cost-actual"
+import { accumulateStepCost, imageMegapixels, stepAttemptForLedger } from "./video-cost-actual"
+import { runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
+import { planEditShots } from "./agents/edit-planner-agent"
+import type { ResolvedEditProfile } from "./edit-plan/profile"
+import type { PlannedShotWithCost } from "./edit-plan/types"
+import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
+import { REPLICATE_KLING_16_DURATIONS, replicateVideoBilling } from "./media-provider/model-specs"
 import {
   loadFavoritePromptsForScenario,
   bumpFavoritePromptsUsage,
@@ -2497,6 +2503,224 @@ export async function runVideoTranscription(
     costUsd: result.costUsd,
     warning: result.warning,
   }
+}
+
+// ─── Шаг 3c (audio-first): план монтажа ─────────────────────────
+
+export interface VideoEditPlanResult {
+  status: "completed" | "repaired"
+  shots: PlannedShotWithCost[]
+  costUsd: number
+  warnings: string[]
+}
+
+export interface VideoEditPlanInput {
+  videoId: number
+  /** Отпечаток трека, для которого строится план — часть ключа кэша. */
+  trackFingerprint: string
+  trackDurationSec: number
+  fps: number
+  alignedScenes: readonly AlignedScene[]
+  /** Сцены, где ведущий говорит В КАДРЕ — вход дефолта раннера. */
+  presenterSceneOrders: readonly number[]
+  /** Уже разрешённый профиль (resolveEditProfile) — раннер профиль не резолвит сам. */
+  profile: ResolvedEditProfile
+  lipSyncMaxDurationSec: number
+  format: "portrait" | "landscape"
+  renderQuality: string
+  backgrounds: readonly EditPlanBackgroundOption[]
+  appScreens: readonly EditPlanAppScreenOption[]
+}
+
+/**
+ * Ключ кэша шага (требование 6 ревью задачи): отпечаток трека + снимок
+ * разрешённого профиля + число сцен. Совпадение — план для ЭТИХ входных данных
+ * уже посчитан и оплачен, повторный прогон отдаёт его как есть. Профиль входит
+ * в ключ целиком (не только его id): `resolveEditProfile` мог подставить другие
+ * значения при том же `editProfileId`, если поменялись переопределения ролика.
+ */
+function editPlanCacheKey(input: { trackFingerprint: string, profile: ResolvedEditProfile, sceneCount: number }): string {
+  return JSON.stringify({
+    trackFingerprint: input.trackFingerprint,
+    profile: input.profile,
+    sceneCount: input.sceneCount,
+  })
+}
+
+interface EditPlanSnapshot {
+  cacheKey: string
+  status: "completed" | "repaired"
+  shots: PlannedShotWithCost[]
+  warnings: string[]
+}
+
+function readEditPlanSnapshot(snapshot: unknown): EditPlanSnapshot | null {
+  const value = snapshot as Partial<EditPlanSnapshot> | null
+  if (!value || typeof value.cacheKey !== "string" || !Array.isArray(value.shots)) return null
+  return {
+    cacheKey: value.cacheKey,
+    status: value.status === "repaired" ? "repaired" : "completed",
+    shots: value.shots,
+    warnings: Array.isArray(value.warnings) ? value.warnings : [],
+  }
+}
+
+/**
+ * Шаг плана монтажа: сетка кадров кодом, смысл моделью, ремонт до неподвижной
+ * точки, каждый кадр — через `pickBackgroundSource` (§7). Идемпотентность —
+ * по образцу `runVideoTranscription` выше: `ensureStep` → кэш по
+ * `isStepCompleted(step) && step.outputSnapshot` с ключом
+ * {@link editPlanCacheKey} → `updateStep` → `logStepCost`. Продовая реализация
+ * `saveShots` делает `deleteMany`+`createMany` ОДИН раз за прогон — ровно
+ * тогда, когда кэш уже сказал "это новый план", а не на каждом повторе шага.
+ */
+export async function runVideoEditPlan(
+  input: VideoEditPlanInput,
+  deps: Partial<EditPlanStepDeps> = {},
+): Promise<VideoEditPlanResult> {
+  const { videoId } = input
+  const step = await ensureStep(videoId, "edit_plan", STEP_ORDER.indexOf("edit_plan"))
+
+  const cacheKey = editPlanCacheKey({
+    trackFingerprint: input.trackFingerprint,
+    profile: input.profile,
+    sceneCount: input.alignedScenes.length,
+  })
+
+  // Требование 7 ревью задачи: снимок разрешённого профиля пишется в лог шага.
+  // resolveEditProfile молча заменяет мусорные настройки дефолтами, и сама она
+  // остаётся чистой функцией — без этой строки подмена не видна нигде.
+  await appendStepLog(step.id, `Разрешённый профиль монтажа: ${JSON.stringify(input.profile)}`)
+
+  if (isStepCompleted(step) && step.outputSnapshot) {
+    const cached = readEditPlanSnapshot(step.outputSnapshot)
+    if (cached && cached.cacheKey === cacheKey) {
+      await appendStepLog(step.id, `План монтажа для этого трека уже готов (${cached.shots.length} кадров) — повторной оплаты нет`)
+      return { status: cached.status, shots: cached.shots, costUsd: 0, warnings: cached.warnings }
+    }
+  }
+
+  const attempt = stepAttemptForLedger(step.attemptCount + 1)
+  const costBefore = step.actualCost
+  await updateStep(step.id, { status: "running", startedAt: new Date(), attemptCount: attempt })
+  await updateVideoStatus(videoId, "generating_images", { currentStep: "edit_plan" })
+
+  // Ставки — из спек моделей, не литералы (требование 5 ревью задачи).
+  const videoBilling = replicateVideoBilling()
+  const imageSpec = findMediaSpec("replicate:flux-dev")
+  const imageUsd = imageSpec
+    ? estimateMediaCost(imageSpec, { images: 1, megapixels: imageMegapixels(input.format, input.renderQuality) })
+    : 0
+
+  const defaultDeps: EditPlanStepDeps = {
+    askModel: async (grid, context) => {
+      const response = await planEditShots({
+        editPrompt: context.editPrompt,
+        grid: grid.map(cell => ({
+          order: cell.order,
+          startSec: cell.startSec,
+          endSec: cell.endSec,
+          sceneOrder: cell.sceneOrder,
+          text: cell.text,
+        })),
+        backgrounds: context.backgrounds,
+        appScreens: context.appScreens,
+        presenterSceneOrders: context.presenterSceneOrders,
+        brollRatio: context.brollRatio,
+        shotChangeSec: context.shotChangeSec,
+        model: input.profile.llmModelId,
+        previousErrors: context.previousErrors,
+      })
+      return { shots: response.shots }
+    },
+    saveShots: async (shots) => {
+      // Один прогон = одна транзакция: удалить прошлый план целиком (если он
+      // был) и вставить свежий. Идемпотентность гарантирует кэш ВЫШЕ — эта
+      // функция вызывается только когда кэш уже сказал "план новый".
+      await prisma.$transaction([
+        prisma.videoShot.deleteMany({ where: { videoId } }),
+        prisma.videoShot.createMany({
+          data: shots.map(shot => ({
+            videoId,
+            order: shot.order,
+            startSec: shot.startSec,
+            endSec: shot.endSec,
+            sceneOrder: shot.sceneOrder,
+            foreground: shot.foreground,
+            background: shot.background,
+            backgroundClipId: shot.backgroundClipId,
+            appReferenceId: shot.appReferenceId,
+            idea: shot.idea,
+            pipEnabled: shot.pipEnabled,
+            costUsd: shot.costUsd,
+            degradeReason: shot.degradeReason,
+            status: "planned",
+          })),
+        }),
+      ])
+    },
+    log: async (message) => { await appendStepLog(step.id, message) },
+  }
+
+  let result: EditPlanStepResult
+  try {
+    result = await runEditPlanStep({
+      videoId,
+      trackDurationSec: input.trackDurationSec,
+      fps: input.fps,
+      alignedScenes: input.alignedScenes,
+      presenterSceneOrders: input.presenterSceneOrders,
+      profile: input.profile,
+      lipSyncMaxDurationSec: input.lipSyncMaxDurationSec,
+      minGenerativeVideoSec: REPLICATE_KLING_16_DURATIONS[0]!,
+      maxGenerativeVideoSec: REPLICATE_KLING_16_DURATIONS[1]!,
+      generativeVideoUsdPerSec: videoBilling.usdPerSecond,
+      imageUsd,
+      backgrounds: input.backgrounds,
+      appScreens: input.appScreens,
+    }, {
+      askModel: deps.askModel ?? defaultDeps.askModel,
+      saveShots: deps.saveShots ?? defaultDeps.saveShots,
+      log: deps.log ?? defaultDeps.log,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    await updateStep(step.id, {
+      status: "failed",
+      finishedAt: new Date(),
+      errorMessage: message.slice(0, 500),
+    })
+    await appendStepLog(step.id, `План монтажа не построен: ${message}`)
+    throw error
+  }
+
+  await updateStep(step.id, {
+    status: "completed",
+    finishedAt: new Date(),
+    errorMessage: null,
+    outputSnapshot: {
+      cacheKey,
+      status: result.status,
+      shots: result.shots,
+      warnings: result.warnings,
+    } as unknown as Record<string, unknown>,
+    actualCost: accumulateStepCost(costBefore, result.costUsd),
+  })
+  if (result.costUsd > 0) {
+    await logStepCost(
+      step.id,
+      "edit_plan",
+      mapStepKeyToService("edit_plan", null),
+      result.costUsd,
+      videoId,
+      input.profile.llmModelId,
+      { attempt },
+    )
+  }
+  for (const warning of result.warnings) await appendStepLog(step.id, warning)
+  await appendStepLog(step.id, `План монтажа готов: ${result.shots.length} кадров, статус "${result.status}", $${result.costUsd.toFixed(4)}`)
+
+  return { status: result.status, shots: result.shots, costUsd: result.costUsd, warnings: result.warnings }
 }
 
 // ─── Шаг 4: Генерация музыки ───────────────────────────────────

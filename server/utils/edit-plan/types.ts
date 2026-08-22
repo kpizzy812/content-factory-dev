@@ -31,3 +31,15 @@ export interface PlannedShot {
 export interface ShotPlan {
   shots: PlannedShot[]
 }
+
+/**
+ * Кадр плана вместе с деньгами и деградацией `pickBackgroundSource` (Task 5,
+ * требование 5) — то, что реально пишется в колонки `VideoShot.costUsd` /
+ * `VideoShot.degradeReason`. `PlannedShot` сам по себе денег не знает: он
+ * описывает ЗАПРОШЕННЫЙ фон (что решила модель или дефолт), а не то, что
+ * реально было исполнено после проверки бюджета §7.
+ */
+export interface PlannedShotWithCost extends PlannedShot {
+  costUsd: number
+  degradeReason: string | null
+}

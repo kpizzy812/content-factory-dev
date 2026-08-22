@@ -1,0 +1,31 @@
+{
+  "shots": [
+    {
+      "order": 0,
+      "foreground": "presenter",
+      "background": "none",
+      "backgroundClipId": null,
+      "appReferenceId": null,
+      "idea": null,
+      "pipEnabled": false
+    },
+    {
+      "order": 1,
+      "foreground": "none",
+      "background": "image",
+      "backgroundClipId": null,
+      "appReferenceId": null,
+      "idea": "Close-up of a phone screen glowing with a notification, soft studio lighting",
+      "pipEnabled": false
+    },
+    {
+      "order": 2,
+      "foreground": "presenter",
+      "background": "image",
+      "backgroundClipId": null,
+      "appReferenceId": null,
+      "idea": "Blurred cozy home office background, warm tones",
+      "pipEnabled": true
+    }
+  ]
+}

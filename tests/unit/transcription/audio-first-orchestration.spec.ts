@@ -129,10 +129,19 @@ vi.mock("../../../server/utils/video-pipeline-steps", async (importOriginal) => 
       appId: null,
       socialAccountId: null,
     })),
+    // Задача 5: шаг плана монтажа. Мокается тем же приёмом, что остальные шаги
+    // этого файла — оркестрационный тест проверяет ПОРЯДОК вызовов, а не
+    // содержательную работу шага (она покрыта tests/unit/edit-plan/runner.spec.ts).
+    runVideoEditPlan: vi.fn(async () => {
+      calls.order.push("edit_plan")
+      return { status: "completed", shots: [], costUsd: 0, warnings: [] }
+    }),
   }
 })
 
 vi.mock("../../../server/utils/lip-sync-runner", () => ({
+  // Задача 5: оркестратор резолвит потолок lip-sync модели ДО плана монтажа.
+  resolveModelDurationRange: vi.fn(() => ({ minDurationSec: 2, maxDurationSec: 10 })),
   runLipSyncStep: vi.fn(async (input: Record<string, unknown>) => {
     calls.order.push("lip_sync_generation")
     calls.lipSync.push(input)
@@ -264,6 +273,11 @@ function installGlobals() {
       create: async () => ({}),
       update: async () => ({}),
     },
+    // Задача 5: кадры плана монтажа живут не в VideoAsset — свой каскад в
+    // rerunVideoStep сносит их отдельным deleteMany.
+    videoShot: {
+      deleteMany: async () => ({ count: 0 }),
+    },
   }
 }
 
@@ -346,6 +360,7 @@ describe("оркестратор на маршруте audio-first", () => {
       "prompt_generation",
       "voiceover_generation",
       "transcription",
+      "edit_plan",
       "image_generation",
       "clip_generation",
       "lip_sync_generation",
