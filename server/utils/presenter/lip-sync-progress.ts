@@ -10,6 +10,13 @@
  * DB-free тестом.
  */
 
+// Импорт ТИПА, а не значения — стирается компилятором. Нужен только для поля
+// LipSyncSceneRecord.outputPath ниже (Task 6, ре-ревью 1, Important 2): без
+// него бренд LipSyncedClipPath терялся сразу за пределами lip-sync-runner.ts,
+// и потребителю (Task 8) пришлось бы восстанавливать его слепым `as`, ровно
+// той операцией, от которой бренд должен защищать.
+import type { LipSyncedClipPath } from "../video-tools/pip-compose"
+
 /**
  * Почему сцену с репликой синхронизировать НЕ удалось.
  *
@@ -133,8 +140,17 @@ export interface LipSyncSceneRecord {
   sceneIndex: number
   /** Исходный (не синхронизированный) клип этой сцены. */
   sourcePath: string
-  /** Готовый lip-synced файл. null — запись-отказ (см. skipped). */
-  outputPath: string | null
+  /**
+   * Готовый lip-synced файл. null — запись-отказ (см. skipped).
+   *
+   * Типизирован брендом `LipSyncedClipPath` (Task 6, ре-ревью 1, Important 2),
+   * а не сырой строкой: единственный писатель — `lip-sync-runner.ts`, и он
+   * всегда кладёт сюда либо `markLipSynced(renderedPath)`, либо `null`. Так
+   * потребитель шага 8 (сборка PiP), читая запись с непустым `outputPath`,
+   * получает готовый `LipSyncedClipPath` напрямую — без слепого `as`, который
+   * обнулил бы саму гарантию бренда на границе шага.
+   */
+  outputPath: LipSyncedClipPath | null
   /** Файл TTS реплики — переиспользуется, если текст не менялся. */
   audioPath: string | null
   /** Хэш spokenLine: сменился текст — старые аудио и видео негодны. */
@@ -182,7 +198,15 @@ export function readPreviousSceneRecords(snapshot: unknown): Map<number, LipSync
     if (!raw || typeof raw !== "object") continue
     const record = raw as Partial<LipSyncSceneRecord>
     if (typeof record.sceneIndex !== "number") continue
-    const outputPath = typeof record.outputPath === "string" ? record.outputPath : null
+    // Снапшот из БД — это JSON: бренд физически не переживает сериализацию,
+    // и здесь мы его восстанавливаем, доверяя тому, что записал единственный
+    // писатель (lip-sync-runner.ts::markLipSynced). Это не «минтит» новый
+    // LipSyncedClipPath из произвольной строки — это десериализация уже
+    // однажды помеченного значения, ровно как previous.reuseKey/durationSec
+    // ниже доверяют форме прошлой записи этого же раннера.
+    const outputPath = typeof record.outputPath === "string"
+      ? record.outputPath as LipSyncedClipPath
+      : null
     const skipped = isKnownSkipReason(record.skipped) ? record.skipped : null
     // Годятся два вида записей: готовый файл либо явный отказ с известной причиной.
     // Всё остальное — мусор, из которого нельзя понять, обработана сцена или нет.

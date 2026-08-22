@@ -16,6 +16,7 @@
  */
 
 import type { PipPosition } from "../edit-plan/types"
+import type { ResolvedEditProfile } from "../edit-plan/profile"
 
 /**
  * Путь к клипу, ПРОШЕДШЕМУ lip-sync.
@@ -37,7 +38,8 @@ export interface PipOverlayInput {
    * существует, чтобы функцию нельзя было вызвать раньше lip-sync.
    */
   foreground: LipSyncedClipPath
-  profile: { pipPosition: PipPosition, pipSize: number }
+  /** Ровно те два поля профиля, от которых зависит геометрия окна (Task 2). */
+  profile: Pick<ResolvedEditProfile, "pipPosition" | "pipSize">
   canvasWidth: number
   canvasHeight: number
   cornerRadiusPx?: number
@@ -49,9 +51,49 @@ const MARGIN_PX = 32
 /** Радиус скругления по умолчанию. */
 const DEFAULT_CORNER_RADIUS_PX = 48
 
+/** Во сколько раз высота портретного окна PiP больше его ширины. */
+const WINDOW_ASPECT_H_PER_W = 16 / 9
+
 /** Чётный размер: yuv420p нечётные стороны не кодирует. */
 function even(value: number): number {
   return Math.max(2, Math.floor(value / 2) * 2)
+}
+
+/**
+ * Размер окна PiP.
+ *
+ * ПОПРАВКА (ре-ревью 1, Important 1): окно всегда ПОРТРЕТНОЕ (9:16) независимо
+ * от ориентации холста — ведущий в горизонтальном окне выглядит обрезанным по
+ * груди, это осознанный выбор формы, а не следствие вертикального формата
+ * ролика. Но раньше высота считалась как `windowWidth * 16/9` БЕЗ проверки, что
+ * она вообще помещается в холст: на альбомном кадре (`1920x1080`, см.
+ * `render.ts` — `format === "landscape"`) окно, посчитанное от широкой стороны,
+ * легко оказывалось выше самого кадра (`pipSize=0.5` -> высота 1706px в кадре
+ * высотой 1080px), а `positionOf` защищала от отрицательных координат, но не от
+ * того, что размер окна физически больше холста.
+ *
+ * Здесь размер зажимается ДО вычисления позиции: пропорция 9:16 сохраняется
+ * всегда, но масштаб уменьшается настолько, чтобы окно С ОТСТУПАМИ (`MARGIN_PX`
+ * с обеих сторон каждой оси) гарантированно помещалось и по ширине, и по
+ * высоте. На портретном холсте (`canvasHeight > canvasWidth`, как раньше)
+ * зажим не срабатывает почти никогда — числа совпадают с расчётом до этой
+ * поправки.
+ */
+function windowSizeFor(canvasWidth: number, canvasHeight: number, pipSize: number): { width: number, height: number } {
+  const maxWidth = Math.max(2, canvasWidth - 2 * MARGIN_PX)
+  const maxHeight = Math.max(2, canvasHeight - 2 * MARGIN_PX)
+
+  const rawWidth = canvasWidth * pipSize
+  const rawHeight = rawWidth * WINDOW_ASPECT_H_PER_W
+
+  // scale <= 1 всегда: если окно и так помещается по обеим осям, размер не
+  // меняется (портретный холст — типичный случай); если нет — сжимается
+  // пропорционально по более тесной оси (альбомный холст — высота).
+  const scale = Math.min(1, maxWidth / rawWidth, maxHeight / rawHeight)
+
+  const width = even(rawWidth * scale)
+  const height = even(width * WINDOW_ASPECT_H_PER_W)
+  return { width, height }
 }
 
 function positionOf(
@@ -102,10 +144,9 @@ function roundedCornersAlphaExpr(radius: number): string {
 }
 
 export function buildPipOverlayFilter(input: PipOverlayInput): string[] {
-  const windowWidth = even(input.canvasWidth * input.profile.pipSize)
-  // Окно вертикальное, как и сам кадр: ведущий в горизонтальном окне выглядит
-  // обрезанным по груди.
-  const windowHeight = even(windowWidth * (16 / 9))
+  const { width: windowWidth, height: windowHeight } = windowSizeFor(
+    input.canvasWidth, input.canvasHeight, input.profile.pipSize,
+  )
   // Радиус не может быть больше половины стороны окна: иначе "внутренний
   // прямоугольник" в roundedCornersAlphaExpr схлопывается и маска ведёт себя
   // непредсказуемо на маленьких окнах.

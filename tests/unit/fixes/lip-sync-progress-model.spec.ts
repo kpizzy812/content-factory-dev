@@ -19,7 +19,10 @@ function record(sceneIndex: number, outputPath: string): LipSyncSceneRecord {
     sceneOrder: sceneIndex + 1,
     sceneIndex,
     sourcePath: `/a/scene_${sceneIndex}_clip.mp4`,
-    outputPath,
+    // В проде эту строку брендирует только markLipSynced (lip-sync-runner.ts).
+    // Тест конструирует LipSyncSceneRecord напрямую, минуя раннер, — как и
+    // в tests/unit/edit-plan/pip-compose.spec.ts.
+    outputPath: outputPath as never,
     audioPath: null,
     spokenLineHash: "hash",
     durationSec: 5,
