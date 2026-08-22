@@ -312,6 +312,7 @@ function buildScenario(seed: number): Scenario {
     profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec, generativeVideoEnabled: rng() < 0.5 },
     lipSyncMaxDurationSec,
     minGenerativeVideoSec: 5,
+    maxGenerativeVideoSec: 10,
     knownBackgroundIds: new Set<string>(),
   }
 

@@ -901,13 +901,21 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
     }
     if (shot.background === "video") {
       const tooShort = shot.endSec - shot.startSec < context.minGenerativeVideoSec - eps
+      // Task 5, требование 8: парный к generative_video_too_long даунгрейд —
+      // слияние коротких кадров (шаг 1b выше) может СОЗДАТЬ кадр длиннее
+      // потолка одного клипа так же, как оно уже создаёт presenter_too_long
+      // (relieveOversizedPresenters). Без этой ветки repair сообщил бы
+      // невалидный remaining, хотя мог починить его сам.
+      const tooLong = shot.endSec - shot.startSec > context.maxGenerativeVideoSec + eps
       const disabled = !context.profile.generativeVideoEnabled
-      if (tooShort || disabled) {
+      if (tooShort || tooLong || disabled) {
         shot.background = "image"
         changes.push({
           shotOrder: shot.order,
           finalShotOrder: null,
-          message: `Кадр ${shot.order}: генеративное видео заменено картинкой (${tooShort ? "короче минимума длительности" : "флаг профиля выключен"})`,
+          message: `Кадр ${shot.order}: генеративное видео заменено картинкой (${
+            tooShort ? "короче минимума длительности" : tooLong ? "длиннее одного клипа" : "флаг профиля выключен"
+          })`,
         })
       }
     }

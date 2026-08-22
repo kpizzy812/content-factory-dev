@@ -41,6 +41,16 @@ export type ViolationCode
     | "unknown_background"
     | "broll_ratio"
     | "generative_video_too_short"
+    /**
+     * Task 5, требование 8: один клип генеративного видео не заказать длиннее
+     * `maxGenerativeVideoSec` (10с, `REPLICATE_KLING_16_DURATIONS[1]`) — модели
+     * квантуют длительность 5/10с, а `presenter_too_long` ограничивает только
+     * PRESENTER-кадры. Кадр-перебивка длиннее 10с валиден геометрически, но
+     * исполнение всё равно отдаст картинку (см. `maxGenerativeVideoSec` в
+     * `background-source.ts`) — без этого кода план в БД врал бы о том, что
+     * реально будет доставлено.
+     */
+    | "generative_video_too_long"
     /** §7: флаг профиля выключен, а кадру назначено генеративное видео. */
     | "generative_video_disabled"
     | "out_of_track"
@@ -66,6 +76,14 @@ export interface ShotPlanContext {
   lipSyncMaxDurationSec: number
   /** Минимум генеративного видео: квантование 5/10 с (§7). */
   minGenerativeVideoSec: number
+  /**
+   * Потолок ОДНОГО клипа генеративного видео: 10 с
+   * (`REPLICATE_KLING_16_DURATIONS[1]`). Task 5, требование 8 — раньше
+   * `ShotPlanContext` знал только нижнюю границу квантования, и кадр длиннее
+   * 10 секунд с `background: "video"` проходил валидацию, хотя исполнение
+   * (`pickBackgroundSource`) всё равно отдало бы картинку.
+   */
+  maxGenerativeVideoSec: number
   knownBackgroundIds: ReadonlySet<string>
 }
 
@@ -239,6 +257,16 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
           code: "generative_video_disabled",
           shotOrder: shot.order,
           message: `Кадр ${shot.order} использует генеративное видео, а профиль его не разрешает (generativeVideoEnabled=false)`,
+        })
+      }
+      if (duration > input.maxGenerativeVideoSec + epsilon) {
+        // Task 5, требование 8: один клип генеративного видео длиннее потолка
+        // квантования (10с) заказать нельзя — исполнение отдаст картинку,
+        // и план не должен молчать об этом до оплаты.
+        violations.push({
+          code: "generative_video_too_long",
+          shotOrder: shot.order,
+          message: `Кадр ${shot.order} длится ${duration.toFixed(2)}с — один клип генеративного видео длиннее ${input.maxGenerativeVideoSec}с не заказать`,
         })
       }
     }

@@ -62,9 +62,11 @@ describe("дробление реплики длиннее потолка мод
 
   it("ставит между частями перебивку, если пауза не годится", () => {
     // §5.3 п.2: тогда склейка двух ракурсов ведущего вообще не встречается.
+    // Пауза 0.15с (< MEANINGFUL_PAUSE_SEC 0.35 — branch 1 её не берёт, но
+    // >= MIN_INTERLUDE_SEC 0.1 — требование 10 её не отклоняет как мигание).
     const result = splitLongPresenterLine({
       scene: scene([
-        ["раз", 0, 5.9], ["два", 5.95, 11.8],
+        ["раз", 0, 5.9], ["два", 6.05, 11.8],
       ]),
       maxDurationSec: 10,
       fps: 30,
@@ -73,6 +75,22 @@ describe("дробление реплики длиннее потолка мод
 
     expect(result.parts.length).toBeGreaterThanOrEqual(2)
     expect(result.interludes.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("требование 10: перебивка короче осмысленного порога (100 мс) не становится кадром", () => {
+    // Пауза 0.05с (~66.7мс после притяжки к кадру на fps=30) — короче
+    // MIN_INTERLUDE_SEC. Раньше становилась перебивкой-миганием; теперь
+    // кандидат отклоняется, и рез уходит в branch 3 (без перебивки, с WARN).
+    const result = splitLongPresenterLine({
+      scene: scene([["раз", 0, 5.9], ["два", 5.95, 11.8]]),
+      maxDurationSec: 10,
+      fps: 30,
+      brollAllowed: true,
+    })
+
+    expect(result.interludes).toEqual([])
+    expect(result.parts.length).toBeGreaterThanOrEqual(2)
+    expect(result.warning).toMatch(/WARN/)
   })
 
   it("режет по межсловному интервалу с WARN, когда перебивка запрещена", () => {

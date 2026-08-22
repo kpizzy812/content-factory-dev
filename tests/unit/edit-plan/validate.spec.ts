@@ -37,6 +37,7 @@ function context(shots: PlannedShot[], overrides: Record<string, unknown> = {}) 
     profile: DEFAULT_EDIT_PROFILE,
     lipSyncMaxDurationSec: 10,
     minGenerativeVideoSec: 5,
+    maxGenerativeVideoSec: 10,
     knownBackgroundIds: new Set<string>(),
     ...overrides,
   } as never
@@ -173,6 +174,23 @@ describe("валидация плана кадров", () => {
     expect(violations.map(v => v.code)).toContain("generative_video_too_short")
   })
 
+  it("отклоняет генеративное видео на кадре длиннее одного клипа (требование 8, задача 5)", () => {
+    // Один клип Kling не заказать длиннее 10с (REPLICATE_KLING_16_DURATIONS[1]).
+    // Кадр без ведущего геометрически валиден (presenter_too_long его не
+    // ограничивает), но исполнение (pickBackgroundSource) всё равно отдало бы
+    // картинку — план не должен молчать об этом до оплаты.
+    const violations = validateShotPlan(context([
+      shot({ order: 0, startSec: 0, endSec: 3.0, foreground: "none", background: "video" }),
+    ], {
+      trackDurationSec: 3.0,
+      minGenerativeVideoSec: 1,
+      maxGenerativeVideoSec: 2,
+      profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true },
+    }))
+
+    expect(violations.map(v => v.code)).toContain("generative_video_too_long")
+  })
+
   it("принимает генеративное видео на кадре достаточной длины при включённом флаге профиля", () => {
     // Зеркало предыдущего теста: минимум опущен до 1 с, кадр длится 3 с —
     // «video» не должен считаться коротким сам по себе, только относительно
@@ -184,6 +202,7 @@ describe("валидация плана кадров", () => {
       shot({ order: 0, startSec: 0, endSec: 3.0, foreground: "none", background: "video" }),
     ], {
       minGenerativeVideoSec: 1,
+      maxGenerativeVideoSec: 10,
       profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true },
     }))
 
@@ -197,7 +216,7 @@ describe("валидация плана кадров", () => {
     // проверяла только длину и молча пропускала такой кадр к оплате.
     const violations = validateShotPlan(context([
       shot({ order: 0, startSec: 0, endSec: 3.0, foreground: "none", background: "video" }),
-    ], { minGenerativeVideoSec: 1 }))
+    ], { minGenerativeVideoSec: 1, maxGenerativeVideoSec: 10 }))
 
     expect(violations.map(v => v.code)).toContain("generative_video_disabled")
     expect(violations.map(v => v.code)).not.toContain("generative_video_too_short")

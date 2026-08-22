@@ -19,6 +19,7 @@ function context(shots: PlannedShot[], overrides: Record<string, unknown> = {}) 
     profile: DEFAULT_EDIT_PROFILE,
     lipSyncMaxDurationSec: 10,
     minGenerativeVideoSec: 5,
+    maxGenerativeVideoSec: 10,
     knownBackgroundIds: new Set<string>(),
     ...overrides,
   } as never
@@ -80,6 +81,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -118,6 +120,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -147,6 +150,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -182,6 +186,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -303,6 +308,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -353,6 +359,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -463,6 +470,7 @@ describe("детерминированный ремонт плана кадро�
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -490,6 +498,7 @@ describe("детерминированный ремонт плана кадро�
       profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 0.8 },
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -559,6 +568,7 @@ describe("детерминированный ремонт плана кадро�
         profile: DEFAULT_EDIT_PROFILE,
         lipSyncMaxDurationSec: 10,
         minGenerativeVideoSec: 5,
+        maxGenerativeVideoSec: 10,
         knownBackgroundIds: new Set<string>(),
       } as never
       return repairShotPlan(ctx).plan.shots[0]!.endSec
@@ -589,6 +599,7 @@ describe("детерминированный ремонт плана кадро�
       {
         trackDurationSec: 2.0,
         minGenerativeVideoSec: 1,
+        maxGenerativeVideoSec: 10,
         profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true },
       },
     ))
@@ -596,12 +607,30 @@ describe("детерминированный ремонт плана кадро�
     expect(plan.shots[0]!.background).toBe("video")
   })
 
+  it("деградирует генеративное видео на кадре длиннее одного клипа до картинки (требование 8, задача 5)", () => {
+    // Парный к generative_video_too_short/generative_video_too_long даунгрейд:
+    // один клип Kling не заказать длиннее maxGenerativeVideoSec (10с в проде),
+    // кадр без ведущего не ограничен presenter_too_long и может прийти длиннее.
+    const { plan, changes } = repairShotPlan(context(
+      [{ ...base, order: 0, startSec: 0, endSec: 3.0, background: "video" }],
+      {
+        trackDurationSec: 3.0,
+        minGenerativeVideoSec: 1,
+        maxGenerativeVideoSec: 2,
+        profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true },
+      },
+    ))
+
+    expect(plan.shots[0]!.background).toBe("image")
+    expect(changes.some(c => c.message.includes("длиннее одного клипа"))).toBe(true)
+  })
+
   it("деградирует генеративное видео, когда флаг профиля выключен, даже при достаточной длине (Minor 6)", () => {
     // §7: «только... по флагу профиля». DEFAULT_EDIT_PROFILE.generativeVideoEnabled
     // === false — репэйр обязан деградировать кадр, даже если длина в порядке.
     const { plan } = repairShotPlan(context(
       [{ ...base, order: 0, startSec: 0, endSec: 3.0, background: "video" }],
-      { minGenerativeVideoSec: 1 },
+      { minGenerativeVideoSec: 1, maxGenerativeVideoSec: 10 },
     ))
 
     expect(plan.shots[0]!.background).toBe("image")
@@ -744,6 +773,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -775,6 +805,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(["clip-2"]),
     } as never
 
@@ -802,6 +833,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 3,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -840,6 +872,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 3,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -867,6 +900,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 3.0,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -930,6 +964,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 0.8 }, // порог слияния 0.32с — короче наших 0.59с
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 
@@ -963,6 +998,7 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
       profile: DEFAULT_EDIT_PROFILE,
       lipSyncMaxDurationSec: 10,
       minGenerativeVideoSec: 5,
+      maxGenerativeVideoSec: 10,
       knownBackgroundIds: new Set<string>(),
     } as never
 

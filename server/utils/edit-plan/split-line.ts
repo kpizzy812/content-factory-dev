@@ -122,6 +122,17 @@ const MEANINGFUL_PAUSE_SEC = 0.35
  */
 const MIN_MEANINGFUL_PART_SEC = MEANINGFUL_PAUSE_SEC
 
+/**
+ * Минимальная длина ПЕРЕБИВКИ КАК КАДРА (требование 10, задача 5) — не длина
+ * паузы, которая её породила, а длина итогового отрезка `to - from` после
+ * зажима курсором и потолком модели. Порог ниже {@link MEANINGFUL_PAUSE_SEC}
+ * НАМЕРЕННО: 0.35с отсёк бы и уже принятые, ревьюнутые сценарии branch 2
+ * (например перебивку 0.2с в тесте И-2) — 100 мс достаточно, чтобы устранить
+ * измеренный класс дефекта (вставки вплоть до 16.7 мс), не трогая кадры,
+ * которые уже были признаны монтажно приемлемыми.
+ */
+const MIN_INTERLUDE_SEC = 0.1
+
 /** Длина кадра — фолбэк на случай негодного fps, тем же приёмом, что и `validate.ts`. */
 function frameSec(fps: number): number {
   return Number.isFinite(fps) && fps > 0 ? 1 / fps : 1 / 60
@@ -199,7 +210,15 @@ function resolveIteration(
       // положительной.
       const from = Math.max(cursor, Math.min(snapSecToFrame(pause.startSec, fps), capSec))
       const to = Math.min(snapSecToFrame(pause.endSec, fps), capSec)
-      if (from > cursor && to > from && ensuresAdvance(cursor, to, fps) && isMeaningfulPart(cursor, from)) {
+      // Требование 10 (задача 5, план монтажа): раньше проверялась осмысленная
+      // длина ЧАСТИ ДО перебивки (isMeaningfulPart), но не длина самой
+      // перебивки — перебор на 20 000 сценариев нашёл 15% вставок короче
+      // 100 мс, минимум 16.7 мс. Кадр такой длины — мигание, за которое ещё и
+      // платят генерацией фона (§7). Перебивка короче осмысленного порога не
+      // становится кадром: кандидат отклоняется, цикл идёт к следующей по
+      // ширине паузе, а при их исчерпании — к branch 3 (рез без перебивки).
+      if (from > cursor && to > from && to - from >= MIN_INTERLUDE_SEC
+        && ensuresAdvance(cursor, to, fps) && isMeaningfulPart(cursor, from)) {
         return {
           part: { startSec: cursor, endSec: from },
           interlude: { startSec: from, endSec: to },
