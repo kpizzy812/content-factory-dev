@@ -39,18 +39,16 @@ const PIP_POSITIONS: readonly PipPosition[] = ["top_left", "top_right", "bottom_
 /**
  * Разрешения генеративного фона, допустимые в профиле.
  *
- * В `model-specs.ts` нет одной модели, однозначно закрывающей это поле:
- * `p-video-avatar` (спики-ту-видео аватар) описывает `resolutions` именно в
- * формате "720p"/"1080p", а основной провайдер фоновых клипов по PROJECT_CONTEXT
- * §5 — Kling 1.6 (`replicate:kling-v1.6-standard-t2v` / `-i2v`, capability
- * text_to_video/image_to_video) — задаёт `resolutions` в пиксельных строках
- * ("1080x1920" и т.п.), а не в этом формате. Дефолт поля в prisma ("720p")
- * зафиксирован до появления единого списка, поэтому здесь заведён минимальный
- * список из брифа задачи ("720p"/"1080p"), совместимый с текущим дефолтом.
- * Когда конкретная модель для этого поля определится, список нужно свести к
- * её `constraints.resolutions`.
+ * Потребитель поля — генеративный ФОН кадра, а не аватарная speech_to_video
+ * модель. Это Kling 1.6 t2v/i2v на Replicate (`replicate:kling-v1.6-standard-t2v`
+ * / `-i2v`, capability text_to_video/image_to_video в `model-specs.ts`) — тот
+ * же движок, чья ставка $0.045/с заложена в смету генеративного видео плана.
+ * `p-video-avatar` (speech_to_video, аватарный маршрут) сюда не относится и
+ * его формат "720p"/"1080p" Kling не примет вовсе: `constraints.resolutions`
+ * у обеих способностей Kling — пиксельные строки. Список ниже — их точная
+ * копия; менять его без сверки с `model-specs.ts` нельзя.
  */
-const GENERATIVE_VIDEO_RESOLUTIONS: readonly string[] = ["720p", "1080p"]
+const GENERATIVE_VIDEO_RESOLUTIONS: readonly string[] = ["1080x1920", "1920x1080", "1080x1080"]
 
 /**
  * Порог ВАЛИДНОСТИ шага смены картинки, а не порог зажима: значение короче
@@ -75,7 +73,7 @@ export const DEFAULT_EDIT_PROFILE: Readonly<ResolvedEditProfile> = Object.freeze
   pipSize: 0.28,
   generativeVideoEnabled: false,
   generativeVideoBudgetUsd: 0.5,
-  generativeVideoResolution: "720p",
+  generativeVideoResolution: "1080x1920",
   stepwiseApproval: false,
   llmModelId: null,
 })

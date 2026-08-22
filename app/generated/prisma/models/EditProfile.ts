@@ -1197,6 +1197,13 @@ export type $EditProfilePayload<ExtArgs extends runtime.Types.Extensions.Interna
     generativeVideoBudgetUsd: number
     /**
      * Разрешение генеративного фона — значение из constraints спеки модели.
+     * Потребитель поля — генеративный ФОН кадра (Kling 1.6 t2v/i2v на Replicate,
+     * capability text_to_video/image_to_video, ставка $0.045/с — та же, что
+     * заложена в смету генеративного видео), а не аватарная speech_to_video
+     * модель (`p-video-avatar`, формат "720p"/"1080p"). Kling принимает
+     * разрешение только пиксельной строкой; "1080x1920" — вертикаль (9:16,
+     * Reels), она же первой стоит в constraints.resolutions обеих способностей
+     * Kling в model-specs.ts.
      */
     generativeVideoResolution: string
     /**

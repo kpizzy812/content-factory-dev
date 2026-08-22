@@ -41,7 +41,9 @@ describe("схема монтажа", () => {
     expect(profile.pipPosition).toBe("bottom_right")
     expect(profile.pipSize).toBeCloseTo(0.28, 6)
     expect(profile.generativeVideoBudgetUsd).toBeCloseTo(0.5, 6)
-    expect(profile.generativeVideoResolution).toBe("720p")
+    // Формат Kling (потребитель поля — генеративный фон кадра), не аватарной
+    // speech_to_video модели: см. фикс-раунд 2 ревью Task 2.
+    expect(profile.generativeVideoResolution).toBe("1080x1920")
   })
 
   it("ролик наследует профиль и может перебить его полем", async () => {

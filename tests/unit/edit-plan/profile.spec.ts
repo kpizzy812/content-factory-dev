@@ -248,28 +248,37 @@ describe("разрешение монтажного профиля", () => {
     })
 
     describe("generativeVideoResolution", () => {
-      it("отсутствует — 720p", () => {
-        expect(resolveEditProfile(null, null).generativeVideoResolution).toBe("720p")
+      // Формат Kling (потребитель поля), не аватарной speech_to_video модели:
+      // "1080x1920" / "1920x1080" / "1080x1080" — пиксельные строки из
+      // constraints.resolutions обеих способностей Kling в model-specs.ts.
+      it("отсутствует — 1080x1920 (вертикаль, дефолт продукта)", () => {
+        expect(resolveEditProfile(null, null).generativeVideoResolution).toBe("1080x1920")
       })
       it("валидное значение профиля используется", () => {
-        expect(resolveEditProfile({ generativeVideoResolution: "1080p" }, null).generativeVideoResolution)
-          .toBe("1080p")
+        expect(resolveEditProfile({ generativeVideoResolution: "1920x1080" }, null).generativeVideoResolution)
+          .toBe("1920x1080")
       })
       it("валидное переопределение важнее профиля", () => {
         expect(
-          resolveEditProfile({ generativeVideoResolution: "720p" }, { generativeVideoResolution: "1080p" })
+          resolveEditProfile({ generativeVideoResolution: "1080x1920" }, { generativeVideoResolution: "1920x1080" })
             .generativeVideoResolution,
-        ).toBe("1080p")
+        ).toBe("1920x1080")
       })
       it("переопределение вне белого списка не топит валидный профиль", () => {
         expect(
-          resolveEditProfile({ generativeVideoResolution: "1080p" }, { generativeVideoResolution: "8k" })
+          resolveEditProfile({ generativeVideoResolution: "1920x1080" }, { generativeVideoResolution: "8k" })
             .generativeVideoResolution,
-        ).toBe("1080p")
+        ).toBe("1920x1080")
       })
       it("переопределение вне белого списка без валидного профиля откатывается на дефолт", () => {
         expect(resolveEditProfile(null, { generativeVideoResolution: "8k" }).generativeVideoResolution)
-          .toBe("720p")
+          .toBe("1080x1920")
+      })
+      it("формат аватарной модели ('720p'/'1080p') невалиден — Kling его не примет", () => {
+        expect(resolveEditProfile(null, { generativeVideoResolution: "720p" }).generativeVideoResolution)
+          .toBe("1080x1920")
+        expect(resolveEditProfile(null, { generativeVideoResolution: "1080p" }).generativeVideoResolution)
+          .toBe("1080x1920")
       })
     })
 
