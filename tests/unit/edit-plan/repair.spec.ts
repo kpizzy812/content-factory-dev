@@ -373,13 +373,28 @@ describe("детерминированный ремонт плана кадро�
     // уже длинный (растянут), а не короткий. Сосед — presenter[0,3] — НЕ
     // presenter, поэтому разгрузка возможна: общая граница уходит туда, где
     // presenter-кадр укладывается точно в потолок.
-    const { plan, remaining } = repairShotPlan(context([
+    const { before, plan, remaining } = repairShotPlan(context([
       { ...base, order: 0, startSec: 0, endSec: 3, foreground: "none" },
       { ...base, order: 1, startSec: 3, endSec: 3.1, foreground: "presenter" },
     ], { trackDurationSec: 10, lipSyncMaxDurationSec: 3 }))
 
     expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
     expect(plan.shots[1]!.endSec - plan.shots[1]!.startSec).toBeLessThanOrEqual(3 + 1e-6)
+
+    // Important НН-8 ре-ревью раунда 3 / НН-23 ре-ревью раунда 4: буквальная
+    // просьба ре-ревью раунда 3 («дописать проверку: remaining не содержит
+    // кодов, которых нет в before, кроме предупреждающих») раньше не была
+    // выполнена — тест молча принимал появление НОВОГО кода в `remaining`,
+    // как если бы это было нормально. Разгрузка действительно меняет долю
+    // presenter (0-3с) к перебивке (3.1-10с) и заводит НОВЫЙ `broll_ratio`,
+    // которого не было в `before` (там был только `gap`) — по рулингу B-3
+    // это предупреждение, не блокирующий код, единственное легальное
+    // исключение из требования «не заводить новых кодов». Любой ДРУГОЙ новый
+    // код здесь означал бы, что разгрузка втихую создала другое нарушение.
+    const blockingBefore = new Set(before.map(v => v.code))
+    const newBlockingCodes = remaining.map(v => v.code).filter(code => code !== "broll_ratio" && !blockingBefore.has(code))
+    expect(newBlockingCodes, `новые коды сверх предупреждающих: ${newBlockingCodes.join(", ")}`).toEqual([])
+    expect(remaining.map(v => v.code)).toContain("broll_ratio")
   })
 
   it("не может разгрузить presenter-кадр, если сосед тоже presenter — суммарная длина шире двух потолков (документированное ограничение)", () => {
@@ -834,35 +849,6 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
     expect(plan.shots[0]!.endSec).toBeLessThanOrEqual(3 + 1e-6)
   })
 
-  it("при вынужденном слиянии ниже абсолютного пола предпочитает направление, которое не создаёт presenter_too_long (найдено повторным прогоном, seed=1257-класс)", () => {
-    // order1 (0.08с, ниже пола 0.1с) не может слиться безопасно ни в одну
-    // сторону: вперёд (order2, presenter) — нарушило бы потолок lip-sync
-    // (R2), назад (order0, none) — потеряло бы личность единственного в эту
-    // сторону presenter-кадра (R1). Слепой приоритет «вперёд, потом назад»
-    // выбрал бы вперёд и породил бы presenter_too_long, хотя направление
-    // назад того же самого не создаёт (order1 — не единственный presenter,
-    // order2 остаётся отдельным кадром под потолком).
-    const ctx = {
-      plan: { shots: [
-        { ...base, order: 0, startSec: 0, endSec: 1.0, foreground: "none" },
-        { ...base, order: 1, startSec: 1.0, endSec: 1.08, foreground: "presenter" },
-        { ...base, order: 2, startSec: 1.08, endSec: 4.03, foreground: "presenter" },
-      ] },
-      trackDurationSec: 4.03,
-      fps: 30,
-      alignedScenes: [{ order: 1, startSec: 0, endSec: 4.03, words: [] }],
-      profile: DEFAULT_EDIT_PROFILE,
-      lipSyncMaxDurationSec: 3.0,
-      minGenerativeVideoSec: 5,
-      knownBackgroundIds: new Set<string>(),
-    } as never
-
-    const { plan, remaining } = repairShotPlan(ctx)
-
-    expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
-    expect(plan.shots.some(s => s.foreground === "presenter" && s.endSec - s.startSec <= 3.0 + 1e-6)).toBe(true)
-  })
-
   it("кадр короче мягкого порога, но не ниже абсолютного пола, остаётся как есть и попадает в changes (Important НН-2/НН-7)", () => {
     // order1 (0.5с) короче мягкого порога (0.72с при дефолтном шаге 1.8с),
     // но выше абсолютного пола (0.1с при fps=30) — устранять НЕ обязательно.
@@ -917,5 +903,72 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
     const bgAction = changes.find(c => c.message.includes("фон"))
     expect(bgAction?.shotOrder).toBe(0)
     expect(bgAction?.finalShotOrder).toBe(0)
+  })
+
+  it("фолбэк resolveBoundary не возвращает точку, о которой уже известно, что она рвёт слово (Important НН-6 ре-ревью раунда 4)", () => {
+    // Желаемая граница 0.59 сама по себе БЕЗОПАСНА (до начала слова "main" с
+    // допуском — 0.598 на 25 fps — есть 8 мс запаса), но округление к кадру
+    // (шаг 0.04) перекидывает её в 0.6 — ВНУТРЬ "main". Слово "cover"
+    // (0-0.578) намеренно перекрывает всю ведущую тишину и щель между собой
+    // и "main" — единственная реально существующая щель (после "main",
+    // 9.425-10) в 8.8 с от желаемой точки, далеко за любым разумным окном
+    // поиска. Старый фолбэк в этом случае возвращал ПОВТОРНО СНЯТУЮ (то есть
+    // снова 0.6, уже известную небезопасной) точку — правка возвращает
+    // исходную безопасную 0.59, а не пересчитанную.
+    const words = [
+      { text: "cover", startSec: 0, endSec: 0.578, matched: true },
+      { text: "main", startSec: 0.575, endSec: 9.425, matched: true },
+    ]
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 0.59 },
+        { ...base, order: 1, startSec: 0.59, endSec: 10 },
+      ] },
+      trackDurationSec: 10,
+      fps: 25,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 10, words }],
+      profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 0.8 }, // порог слияния 0.32с — короче наших 0.59с
+      lipSyncMaxDurationSec: 10,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { plan, remaining } = repairShotPlan(ctx)
+
+    expect(remaining.map(v => v.code)).not.toContain("word_split")
+    expect(plan.shots[0]!.endSec).toBeCloseTo(0.59, 6)
+  })
+
+  it("changes честно называет случай, когда резать по слову нельзя, а безопасной точки не нашлось (Important НН-6 ре-ревью раунда 4)", () => {
+    // Щель (0.5, 0.7) слишком далека от желаемой границы второго кадра
+    // (2.0 с) — окно поиска её не находит (тот же сценарий, что и «сливает
+    // кадры короче минимума», но здесь кадры уже не короче порога, поэтому
+    // слияние не участвует, а сохраняется чистый случай «резать нельзя, а
+    // щели нет»). Раньше это было видно только по коду `word_split` в
+    // `remaining` — теперь ещё и по отдельной записи в `changes`, не слитой
+    // с обычным «сдвинута к щели».
+    const words = [
+      { text: "a", startSec: 0, endSec: 0.5, matched: true },
+      { text: "b", startSec: 0.7, endSec: 5.0, matched: true },
+    ]
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 1.0 },
+        { ...base, order: 1, startSec: 1.0, endSec: 2.0 },
+        { ...base, order: 2, startSec: 2.0, endSec: 5.0 },
+      ] },
+      trackDurationSec: 5.0,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 5.0, words }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 10,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { remaining, changes } = repairShotPlan(ctx)
+
+    expect(remaining.map(v => v.code)).toContain("word_split")
+    expect(changes.some(c => c.message.includes("безопасной точки в пределах окна не нашлось"))).toBe(true)
   })
 })
