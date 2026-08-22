@@ -44,7 +44,14 @@ export interface ResolvedEditProfile {
   imageGenerationEnabled: boolean
 }
 
-const PIP_POSITIONS: readonly PipPosition[] = ["top_left", "top_right", "bottom_left", "bottom_right"]
+/**
+ * Экспортируется: HTTP-слой (`server/utils/edit-plan/edit-profile-api.ts`)
+ * переиспользует этот же список как whitelist валидации входа POST/PUT.
+ * Это не то же самое, что переиспользование клэмп-логики ниже — здесь просто
+ * общий источник истины для допустимых значений enum, дублировать который
+ * было бы чистым риском рассинхронизации.
+ */
+export const PIP_POSITIONS: readonly PipPosition[] = ["top_left", "top_right", "bottom_left", "bottom_right"]
 
 /**
  * Разрешения генеративного фона, допустимые в профиле.
