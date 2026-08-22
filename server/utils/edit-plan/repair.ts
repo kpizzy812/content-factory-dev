@@ -48,10 +48,39 @@
  *   зависеть от fps вместе с допуском округления (перенесено в `validate.ts`);
  *   проверка ссылки на фон в `validate.ts` приведена к тому же стилю (`||`),
  *   что уже был здесь.
+ *
+ * Фикс-раунд 3 (ре-ревью task-3-rereview-2.md, 2 Critical + 6 Important):
+ * защита ведущего и потолка из раунда 2 спасали одно и не смотрели на второе.
+ * - Critical НН-1: окно поиска щели могло утащить внутреннюю границу почти
+ *   на всю длину короткого кадра (окно считалось от `profile.shotChangeSec`,
+ *   а не от длины самого кадра), presenter-сегмент схлопывался в вырожденный,
+ *   и принудительное устранение вырожденного кадра обходило защиту R1,
+ *   стирая единственного ведущего на ПОЛНОСТЬЮ здоровом входе. Теперь окно
+ *   ограничено ещё и долей ЛОКАЛЬНОЙ длины кадра ({@link LOCAL_SPAN_WINDOW_RATIO}),
+ *   а перед принудительным устранением единственный presenter сначала
+ *   пытается быть спасён сдвигом границы за счёт соседа ({@link rescueOnlyPresenter}).
+ * - Critical НН-2: те же правила R1/R2 могли оставить кадр в один-три кадра
+ *   длиной (с оплаченным фоном) молча — `remaining` и `changes` пусты.
+ *   Заведён абсолютный пол ({@link absoluteMinShotSec}), ниже которого кадр
+ *   не может остаться в плане ни при каких мягких правилах (кроме спасения
+ *   единственного presenter).
+ * - Important Н-5 (доработано): `relieveOversizedPresenterEdge` заменена на
+ *   {@link relieveOversizedPresenters} — работает для ЛЮБОГО presenter-сегмента,
+ *   не только крайнего, и ищет ближайшую безопасную точку вместо немедленного
+ *   отказа при попадании в слово (замер: раньше 3751 отказ на 1892 применения).
+ * - Important Н-6 (доработано): допуск «рвёт ли слово» поднят до ПОЛНОГО
+ *   кадра (`validate.ts`) — прежних `halfFrameSec + 3мс` было недостаточно,
+ *   чтобы округление к кадру не могло само перекинуть уже проверенную
+ *   безопасную точку обратно в слово.
+ * - Important Н-7 (доработано): `changes` дополнен сдвигами границ
+ *   `resolveBoundary`, разгрузкой `relieveOversizedPresenters` и записью о
+ *   кадре, оставленном коротким без безопасного слияния — раньше все три
+ *   вида правок были бесшумны. Плюс `finalShotOrder` — номер в ИТОГОВОМ
+ *   плане, если кадр до него дожил.
  */
 
 import { snapSecToFrame } from "../voiceover/segment-cut"
-import { halfFrameSec, splitsWord, timelineEndSec, validateShotPlan } from "./validate"
+import { halfFrameSec, splitsWord, timelineEndSec, validateShotPlan, wordEdgeToleranceSec } from "./validate"
 import type { PlannedShot, ShotPlan } from "./types"
 import type { ResolvedEditProfile } from "./profile"
 import type { ShotPlanContext, ShotPlanViolation } from "./validate"
@@ -87,8 +116,43 @@ const MIN_SHOT_RATIO = 0.4
  * кадра при легальном минимальном шаге 0.8 с и 56% кадра при дефолтном 1.8 с
  * (замер ре-ревью: граница уехала ровно на всю ширину окна и утащила с собой
  * соседний кадр). Доля 0.3 заметно уже половины шага на всём диапазоне.
+ *
+ * Этого одного отношения оказалось недостаточно (Critical НН-1/НН-2 ре-ревью
+ * раунда 3): окно считалось от `profile.shotChangeSec` — ЦЕЛЕВОГО шага
+ * монтажа — и никак не было связано с ФАКТИЧЕСКОЙ длиной кадра, который оно
+ * режет. На коротком кадре (например, presenter-реплика в 0.9 с при
+ * `shotChangeSec` под 3 с) окно оказывалось шире самого кадра и утаскивало
+ * границу почти на всю его длину — вплоть до `timelineEnd`, схлопывая кадр в
+ * вырожденный и стирая единственного ведущего после принудительного слияния.
+ * См. {@link LOCAL_SPAN_WINDOW_RATIO}.
  */
 const SAFE_POINT_WINDOW_RATIO = 0.3
+
+/**
+ * Вторая, обязательная граница окна поиска (Critical НН-1/НН-2 ре-ревью
+ * раунда 3): окно не может быть шире доли ФАКТИЧЕСКОЙ длины кадра, границу
+ * которого сейчас двигаем — независимо от того, что разрешает
+ * `profile.shotChangeSec`. Итоговое окно — минимум из доли шага профиля и
+ * доли локальной длины кадра, поэтому короткий кадр защищён even когда
+ * `shotChangeSec` в профиле большой. Половина — эвристика «граница может
+ * забрать не больше половины кадра за один шаг», подобранная так, чтобы
+ * устранять оба воспроизведённых сценария (seed=11555, seed=432 ре-ревью),
+ * не проверялась перебором на оптимальность точного числа.
+ */
+const LOCAL_SPAN_WINDOW_RATIO = 0.5
+
+/**
+ * Абсолютный пол длины кадра, ниже которого кадр не может остаться в плане
+ * ни при каких мягких правилах — даже ценой потолка lip-sync или защиты
+ * presenter-идентичности (Critical НН-2 ре-ревью раунда 3): кадр короче
+ * этого порога — не смена плана, а мигание, неотличимое от брака монтажа, и
+ * при этом он всё равно получает оплаченный фон. 3 кадра — не эстетика: это
+ * общепринятый нижний порог читаемой смены плана (100-125 мс при 24-30 fps),
+ * заметно короче любого разумного `MIN_SHOT_RATIO`-порога. Единственное
+ * исключение — риск потерять ЕДИНСТВЕННОГО presenter-кадра: тогда вместо
+ * устранения применяется {@link rescueOnlyPresenter}.
+ */
+const ABSOLUTE_MIN_FRAMES = 3
 
 /** Экспортируется, чтобы тесты считали ожидаемый порог от того же профиля, а не дублировали формулу магическим числом. */
 export function minShotSec(profile: ResolvedEditProfile): number {
@@ -98,6 +162,11 @@ export function minShotSec(profile: ResolvedEditProfile): number {
 /** Экспортируется по той же причине, что {@link minShotSec}. */
 export function safePointWindowSec(profile: ResolvedEditProfile): number {
   return profile.shotChangeSec * SAFE_POINT_WINDOW_RATIO
+}
+
+/** Экспортируется по той же причине, что {@link minShotSec}. */
+export function absoluteMinShotSec(fps: number): number {
+  return ABSOLUTE_MIN_FRAMES / Math.max(fps, 1)
 }
 
 function collectGaps(context: ShotPlanContext, timelineEnd: number): WordGap[] {
@@ -134,6 +203,16 @@ function collectGaps(context: ShotPlanContext, timelineEnd: number): WordGap[] {
  * запаса сдвинула бы кадр вплотную к слову — притяжка к кадру (округление до
  * `snapSecToFrame`) могла бы тогда снова завести её внутрь слова. Если щель
  * уже удвоенного запаса — целимся в её середину, деваться некуда.
+ *
+ * Minor НН-13 ре-ревью раунда 2 (буква рулинга B3-10): рулинг предписывал
+ * мерить расстояние по ближней безопасной точке, но РЕЗАТЬ по-прежнему в
+ * середину щели. Здесь резать тоже по ближней точке — отступление, которое
+ * ре-ревью проверило отдельным экспериментом (та же реплика, но рез в
+ * середину) на 20 000 сценариях: дрейф идемпотентности не меняется (7 из
+ * 20 000 в обоих вариантах), `word_split` в `remaining` даже НИЖЕ у текущей
+ * реализации (7 311 против 7 545) — отступление признано безвредным, реализация
+ * не хуже буквы рулинга. Не меняю намеренно: буква рулинга работает хуже
+ * измеренного факта.
  */
 function nearestPointInGap(gap: WordGap, desiredSec: number, margin: number): number {
   const lo = gap.startSec + margin
@@ -178,7 +257,10 @@ function resolveBoundary(
     if (!splitsWord(words, snapped, fps)) return snapped
   }
 
-  const margin = halfFrameSec(fps) * 2
+  // Тот же допуск, что и решение «рвёт ли слово» (Minor НН-10 ре-ревью
+  // раунда 3) — раньше здесь был отдельный, случайно совпадающий по значению
+  // `halfFrameSec(fps) * 2`, никак не связанный с `wordEdgeToleranceSec`.
+  const margin = wordEdgeToleranceSec(fps)
 
   let best: number | null = null
   let bestDistance = Number.POSITIVE_INFINITY
@@ -208,12 +290,14 @@ function resolveBoundary(
  *   поглощает перебивку, но сам не исчезает.
  *
  * Геометрическая сломанность `eaten` (нулевая/отрицательная длина) здесь
- * НЕ считается пропуском проверок — раньше считалась, и ровно это давало
- * `presenter_too_long`: вырожденный кадр, поглощённый presenter-соседом БЕЗ
- * проверки потолка, мог протолкнуть его за предел (найдено тестом-свойством
- * #30, а не примером). Вырожденность обрабатывает вызывающая сторона
- * ({@link mergeShortSegments}) отдельным принудительным шагом, когда оба
- * безопасных направления отклонены.
+ * НЕ считается пропуском проверок. Доказуемо (не только по тесту): при
+ * вырожденном `eaten` (`b <= a` для интервала `[a,b)`) слияние вперёд даёт
+ * `survivor` бывший `[b,c]` → `[a,c]`, фактическая длина `c-a`, а эта функция
+ * меряет `max(b,c)-min(a,b) = c-b >= c-a`; слияние назад — симметрично. Оценка
+ * ВСЕГДА не меньше фактического результата, занизить её нельзя — значит если
+ * `canMergeSafely` отказала, кадр-выживший УЖЕ был бы выше потолка ДО
+ * слияния, и принудительный обход этой проверки в {@link mergeShortSegments}
+ * не может создать `presenter_too_long`, которого не было бы и так.
  */
 function canMergeSafely(eaten: Segment, survivor: Segment, lipSyncMaxDurationSec: number, eps: number): boolean {
   if (eaten.source.foreground === "presenter" && survivor.source.foreground !== "presenter") return false
@@ -228,8 +312,23 @@ function canMergeSafely(eaten: Segment, survivor: Segment, lipSyncMaxDurationSec
 }
 
 export interface ShotPlanRepairAction {
-  /** Кадр(ы), которых касается правка (по исходному, ещё не перенумерованному order). */
+  /**
+   * Кадр(ы), которых касается правка, в ИСХОДНОЙ (ещё не перенумерованной)
+   * нумерации — под этим номером кадр существовал в момент правки. Если
+   * правка была слиянием и кадр не пережил его, годного "нового" номера для
+   * него не существует в принципе — только у survivor-кадра есть шанс дожить
+   * до финальной нумерации, см. {@link ShotPlanRepairAction.finalShotOrder}.
+   */
   shotOrder: number | null
+  /**
+   * Номер этого же кадра в ИТОГОВОМ плане (`ShotPlanRepairResult.plan`),
+   * если кадр дожил до конца ремонта; `null`, если кадр был поглощён
+   * слиянием и в итоговом плане отдельно не существует (Minor НН-12 ре-ревью
+   * раунда 3: раньше `shotOrder` был единственным номером, а после
+   * перенумерации он не соответствовал НИЧЕМУ в возвращённом плане).
+   * Проставляется один раз, в самом конце {@link repairShotPlan}.
+   */
+  finalShotOrder: number | null
   message: string
 }
 
@@ -246,6 +345,7 @@ function applyMerge(
   const survivor = list[survivorIndex]!
   actions.push({
     shotOrder: seg.source.order,
+    finalShotOrder: null,
     message: `Кадр ${seg.source.order} (${(seg.endSec - seg.startSec).toFixed(2)}с) слит с ${direction === "forward" ? "следующим" : "предыдущим"} кадром ${survivor.source.order} — ${reason}`,
   })
   if (direction === "forward") {
@@ -256,32 +356,97 @@ function applyMerge(
   list.splice(index, 1)
 }
 
+function countPresenters(list: readonly Segment[]): number {
+  let count = 0
+  for (const seg of list) if (seg.source.foreground === "presenter") count += 1
+  return count
+}
+
+/**
+ * Спасает ЕДИНСТВЕННЫЙ оставшийся presenter-сегмент от принудительного
+ * устранения (Critical НН-1 ре-ревью раунда 3): забирает у ОДНОГО доступного
+ * соседа ровно столько секунд, чтобы `seg` набрал `floorSec`. Пробует вперёд,
+ * затем назад — тот же порядок, что и обычное слияние. Сосед только
+ * СЖИМАЕТСЯ на отданную величину, поэтому не может уйти в ноль или
+ * отрицательную длину сам (проверка `boundary` строго между `seg.startSec` и
+ * `seg.endSec` соседа гарантирует это). Возвращает `false`, если соседу
+ * самому нечем поделиться (тогда единственный оставшийся выход —
+ * зафиксировать потерю ведущего как меньшее зло по сравнению с оставленной
+ * невалидной геометрией — на 60 000+ сценариев проверки такой случай не
+ * воспроизведён ни разу).
+ */
+function rescueOnlyPresenter(list: Segment[], index: number, floorSec: number, eps: number): boolean {
+  const seg = list[index]!
+  const hasNext = index < list.length - 1
+  const hasPrev = index > 0
+  // Цель — не РОВНО floorSec, а floorSec + eps (нашлось перебором, seed=11555
+  // на committed диапазоне): `seg.endSec - floorSec`, посчитанный в IEEE754,
+  // не гарантированно даёт длину, которая при следующей проверке `< floorSec`
+  // окажется ЛОЖНОЙ — при неудачном округлении разность двух чисел разного
+  // порядка может откатиться на пару ULP НИЖЕ floorSec. Без запаса это
+  // зацикливало ремонт: спасение считает `seg` спасённым, следующий проход
+  // видит ту же самую (по факту не увеличившуюся) длину и спасает снова, до
+  // бесконечности — план не менялся, `actions` рос неограниченно (OOM).
+  // Запас `eps` (полкадра) на порядки больше любой ошибки округления и не
+  // меняет исход по существу: кадр всё равно на волосок над абсолютным полом.
+  const target = floorSec + eps
+
+  if (hasNext) {
+    const neighbor = list[index + 1]!
+    const boundary = seg.startSec + target
+    if (boundary < neighbor.endSec - eps) {
+      list[index] = { ...seg, endSec: boundary }
+      list[index + 1] = { ...neighbor, startSec: boundary }
+      return true
+    }
+  }
+  if (hasPrev) {
+    const neighbor = list[index - 1]!
+    const boundary = seg.endSec - target
+    if (boundary > neighbor.startSec + eps) {
+      list[index] = { ...seg, startSec: boundary }
+      list[index - 1] = { ...neighbor, endSec: boundary }
+      return true
+    }
+  }
+  return false
+}
+
 /**
  * Слияние коротких и геометрически сломанных кадров.
  *
- * Два прохода за итерацию, в порядке убывания приоритета безопасности
- * (Critical Н-1 ре-ревью, найдено тестом-свойством #30 — не примером):
+ * Порядок приоритетов на каждом кадре короче `threshold` (Critical Н-1/НН-1/
+ * НН-2 ре-ревью раундов 2 и 3):
  *
  * 1. БЕЗОПАСНОЕ слияние — {@link canMergeSafely} — пробуем со следующим,
- *    нельзя — с предыдущим. Покрывает и короткие, и вырожденные кадры: для
- *    вырожденного (нулевая/отрицательная длина) слияние в любом безопасном
- *    направлении устраняет проблему, ничего не нарушая.
- * 2. Если безопасное слияние отклонено ОБОИМИ соседями (или соседа нет):
- *    - кадр просто короткий (длина положительна) — оставляем как есть.
- *      Хуже нормального кадра, но лучше неустранимого нарушения и платного
- *      повторного запроса (рулинг заказчика);
- *    - кадр геометрически сломан (длина <= 0) — оставить нельзя вообще:
- *      `invalid_bounds`/`out_of_track` были ровно тем, от чего фикс-раунд 1
- *      уже отказался (Critical 2/3). Сливаем ПРИНУДИТЕЛЬНО, куда можем
- *      (вперёд приоритетнее), даже если это создаёт `presenter_too_long` —
- *      между гарантированно невалидной геометрией и потенциальным жёстким
- *      пределом выбирается меньшее зло. Это тупиковый путь: на реальных
- *      входах ffprobe-трек всегда положительной длины, а слова не выходят за
- *      его пределы, так что вырожденный кадр без единого безопасного соседа
- *      требует одновременного схождения нескольких патологий.
+ *    нельзя — с предыдущим. Покрывает и просто короткие, и геометрически
+ *    сломанные (`length <= 0`) кадры: оценка потолка в `canMergeSafely`
+ *    доказуемо консервативна (см. её докстринг), поэтому безопасное слияние
+ *    никогда не создаёт `presenter_too_long`, которого не было бы и так.
+ * 2. Если оба безопасных направления отклонены, а кадр НИЖЕ АБСОЛЮТНОГО
+ *    ПОЛА ({@link absoluteMinShotSec}) — оставить его как есть нельзя ни при
+ *    каких мягких правилах (Critical НН-2 ре-ревью раунда 3: 1-кадровый
+ *    presenter с оплаченным фоном и ПУСТЫМ `remaining` — это исходный
+ *    Critical 1, вернувшийся другим путём). Если это ЕДИНСТВЕННЫЙ
+ *    presenter-сегмент — сначала пробуем {@link rescueOnlyPresenter} (Critical
+ *    НН-1: защита ведущего важнее мягких правил слияния, но не важнее
+ *    геометрии), и только если спасти нечем — сливаем принудительно, куда
+ *    можем (вперёд приоритетнее). Принудительное слияние доказуемо не может
+ *    создать `presenter_too_long` (см. `canMergeSafely`), но МОЖЕТ стереть
+ *    presenter-идентичность — если сегмент не единственный presenter, эта
+ *    потеря не затрагивает инвариант «ведущий не исчезает из ролика».
+ * 3. Кадр короткий, но НЕ ниже абсолютного пола, и оба безопасных слияния
+ *    отклонены — остаётся как есть. Хуже нормального кадра, но лучше
+ *    неустранимого нарушения и платного повторного запроса (рулинг
+ *    заказчика). Такие кадры собираются отдельным проходом ПОСЛЕ стабилизации
+ *    списка (не в этом цикле — иначе перезапуск `while` после ДРУГОГО
+ *    слияния логировал бы один и тот же кадр повторно) и попадают в
+ *    `changes` с явной причиной (Important НН-2/НН-7 ре-ревью раунда 3:
+ *    третье плечо рулинга «оставить короткий И СКАЗАТЬ» раньше не было
+ *    реализовано вовсе).
  *
  * Фиксированная точка достигается за конечное число шагов: список строго
- * укорачивается на каждом успешном слиянии.
+ * укорачивается на каждом успешном слиянии, а спасение не меняет его длину.
  */
 function mergeShortSegments(
   initial: readonly Segment[],
@@ -291,6 +456,7 @@ function mergeShortSegments(
   const actions: ShotPlanRepairAction[] = []
   const eps = halfFrameSec(context.fps)
   const threshold = minShotSec(context.profile)
+  const floor = absoluteMinShotSec(context.fps)
 
   let changed = true
   while (changed) {
@@ -299,8 +465,8 @@ function mergeShortSegments(
       if (list.length === 1) break
       const seg = list[index]!
       const length = seg.endSec - seg.startSec
-      const degenerate = length <= 0
-      if (!degenerate && length >= threshold) continue
+      const belowFloor = length < floor
+      if (!belowFloor && length >= threshold) continue
 
       const hasNext = index < list.length - 1
       const hasPrev = index > 0
@@ -315,15 +481,63 @@ function mergeShortSegments(
         changed = true
         break
       }
-      if (!degenerate) continue // короткий, но геометрически здоровый — оставляем как есть
+      if (!belowFloor) continue // короткий, но выше абсолютного пола — залогируем отдельным проходом ниже
 
+      const isOnlyPresenter = seg.source.foreground === "presenter" && countPresenters(list) === 1
+      if (isOnlyPresenter && rescueOnlyPresenter(list, index, floor, eps)) {
+        actions.push({
+          shotOrder: seg.source.order,
+          finalShotOrder: null,
+          message: `Кадр ${seg.source.order} расширен до ${floor.toFixed(2)}с за счёт соседнего кадра — единственный кадр с ведущим в плане, устранить нельзя`,
+        })
+        changed = true
+        break
+      }
+
+      // Принудительное слияние ниже абсолютного пола игнорирует ОБА правила
+      // (R1 — личность presenter — и R2 — потолок lip-sync), но не вслепую:
+      // если хотя бы одно из направлений само по себе потолок НЕ нарушает —
+      // предпочитаем его, а не то, которое отверг `canMergeSafely` именно по
+      // R2 (найдено повторным прогоном на 20 000 сценариев, seed=1257 и семь
+      // других: `canMergeSafely` для НЕвырожденного (положительной длины)
+      // `eaten` даёт ТОЧНУЮ, а не завышенную оценку итоговой длины — доказательство
+      // в докстринге {@link canMergeSafely} держится только для вырожденного
+      // случая `b<=a`. Слепой приоритет «вперёд, потом назад» иногда выбирал
+      // направление, которое реально создавало `presenter_too_long`, хотя
+      // другое направление было доступно и потолок не превышало — притом что
+      // `canMergeSafely` его тоже отклонила по R1 (потеря личности не
+      // единственного presenter — цена, которую ре-ревью явно разрешило
+      // платить). Если ОБА направления нарушают потолок — деваться некуда,
+      // остаётся буквальное чтение рулинга Critical НН-2 («R1/R2 уступают
+      // устранению ниже пола»): сливаем вперёд, `presenter_too_long` (если
+      // возникнет) уйдёт в `remaining` честно, откуда его подхватит
+      // `splitLongPresenterLine` (Task 4).
+      const violatesCap = (survivor: Segment): boolean => {
+        if (survivor.source.foreground !== "presenter") return false
+        const mergedStart = Math.min(seg.startSec, survivor.startSec)
+        const mergedEnd = Math.max(seg.endSec, survivor.endSec)
+        return mergedEnd - mergedStart > context.lipSyncMaxDurationSec + eps
+      }
+      const forwardSafeFromCap = hasNext && !violatesCap(list[index + 1]!)
+      const backwardSafeFromCap = hasPrev && !violatesCap(list[index - 1]!)
+
+      if (forwardSafeFromCap) {
+        applyMerge(list, index, "forward", actions, "ниже абсолютного порога длины кадра, безопасного слияния и спасения нет")
+        changed = true
+        break
+      }
+      if (backwardSafeFromCap) {
+        applyMerge(list, index, "backward", actions, "ниже абсолютного порога длины кадра, безопасного слияния и спасения нет")
+        changed = true
+        break
+      }
       if (hasNext) {
-        applyMerge(list, index, "forward", actions, "нулевая или отрицательная длина, безопасного слияния нет")
+        applyMerge(list, index, "forward", actions, "ниже абсолютного порога длины кадра, безопасного слияния и спасения нет")
         changed = true
         break
       }
       if (hasPrev) {
-        applyMerge(list, index, "backward", actions, "нулевая или отрицательная длина, безопасного слияния нет")
+        applyMerge(list, index, "backward", actions, "ниже абсолютного порога длины кадра, безопасного слияния и спасения нет")
         changed = true
         break
       }
@@ -332,58 +546,144 @@ function mergeShortSegments(
       // плана без реального материала (например trackDurationSec <= 0).
     }
   }
+
+  // Кадры короче мягкого порога, но не ниже абсолютного пола, для которых
+  // оба безопасных слияния были отклонены, — залогировать здесь, а не в
+  // цикле выше: цикл перезапускается после КАЖДОГО успешного слияния, и
+  // повторное логирование одного и того же нетронутого кадра при каждом
+  // перезапуске задвоило бы записи (Important НН-7 ре-ревью раунда 3).
+  for (const seg of list) {
+    const length = seg.endSec - seg.startSec
+    if (length > 0 && length < threshold) {
+      actions.push({
+        shotOrder: seg.source.order,
+        finalShotOrder: null,
+        message: `Кадр ${seg.source.order} (${length.toFixed(2)}с) короче минимума монтажного шага, но безопасное слияние отклонено (потолок lip-sync или защита ведущего) — оставлен как есть`,
+      })
+    }
+  }
+
   return { segments: list, actions }
 }
 
 /**
- * Разгружает presenter-кадр на самом краю таймлайна, если он вырос за потолок
- * lip-sync из-за того, что первый/последний кадр по построению обязан
- * начинаться в 0 / заканчиваться в `timelineEnd` (Critical 2/3) — независимо
- * от того, сколько исходно "весил" сам кадр модели. Найдено тестом-свойством:
- * короткий presenter-кадр модели у самого края трека с большой непокрытой
- * дырой перед/после него молча наследует ВСЮ дыру, и это не проходит через
- * {@link mergeShortSegments} вовсе — там кадр к этому моменту уже длинный.
+ * Ближайшая к `desiredSec` безопасная (не рвущая слово) точка внутри окна,
+ * которая ДОПОЛНИТЕЛЬНО реально укладывает сегмент в потолок lip-sync —
+ * то есть лежит НЕ дальше `desiredSec` в сторону, сокращающую сегмент
+ * (`side==="end"`: не позже `desiredSec`; `side==="start"`: не раньше).
  *
- * Работает только когда сосед НЕ presenter: тогда общую границу можно сдвинуть
- * в его сторону — до кадра ровно под потолком, остаток отходит соседу без
- * ограничений (потолок есть только у presenter). Если сосед тоже presenter,
- * раздвинуть нечем: суммарная presenter-дистанция шире, чем два кадра под
- * потолком могут покрыть вместе — это не арифметика границ, а `splitLongPresenterLine`
- * (Task 4, §5.3), и конфликт остаётся как есть, честно попадая в `remaining`.
+ * Без этого фильтра {@link resolveBoundary} мог вернуть ближайшую по
+ * абсолютному расстоянию точку, даже если она лежит ПОСЛЕ потолка (то есть
+ * сокращает кадр, но потолок всё равно превышен) — притом что более
+ * дальняя, но соблюдающая потолок точка была в том же окне. Найдено повторным
+ * прогоном перебора на 20 000 сценариев (не входит в 5 именованных сидов
+ * ре-ревью раунда 3): presenter-кадр без presenter-соседа, с доступным
+ * НЕ-presenter соседом, всё равно получал `presenter_too_long`, потому что
+ * ближайшее к желаемой точке безопасное место оказывалось чуть ДАЛЬШЕ потолка,
+ * а место чуть БЛИЖЕ (и значит, соблюдающее потолок) отвергалось только из-за
+ * того, что было немного дальше по абсолютному расстоянию. Возвращает `null`,
+ * если ни одна точка в окне потолок не соблюдает — тогда вызывающий код
+ * откатывается на обычный {@link resolveBoundary} (частичное облегчение лучше
+ * никакого, как и раньше).
  */
-function relieveOversizedPresenterEdge(
-  segments: Segment[],
-  edge: "first" | "last",
-  lipSyncMaxDurationSec: number,
-  eps: number,
-  fps: number,
+function findCapRespectingPoint(
   words: readonly { startSec: number, endSec: number }[],
+  gaps: readonly WordGap[],
+  desiredSec: number,
+  side: "end" | "start",
+  fps: number,
+  windowSec: number,
+  timelineEnd: number,
+  margin: number,
+): number | null {
+  let best: number | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const gap of gaps) {
+    const point = nearestPointInGap(gap, desiredSec, margin)
+    if (splitsWord(words, point, fps)) continue
+    const respectsCap = side === "end" ? point <= desiredSec : point >= desiredSec
+    if (!respectsCap) continue
+    const distance = Math.abs(point - desiredSec)
+    if (distance <= windowSec && distance < bestDistance) {
+      bestDistance = distance
+      best = point
+    }
+  }
+  if (best === null) return null
+  return snapSecToFrame(Math.min(best, timelineEnd), fps)
+}
+
+/**
+ * Разгружает presenter-сегмент, выросший за потолок lip-sync, в сторону
+ * НЕ-presenter соседа — с какой угодно стороны и в какой угодно позиции
+ * плана, не только на краях (Important НН-5 ре-ревью раунда 3: раньше
+ * механизм смотрел только на первый/последний сегмент и при первом же
+ * попадании желаемой точки внутрь слова сразу сдавался, хотя щель могла
+ * быть рядом — замер показал 3751 отказ на 1892 применения, и 61% всех
+ * `presenter_too_long`, которые ремонт создаёт сам, чинятся именно этим
+ * сдвигом, просто раньше он до них не добирался).
+ *
+ * Сначала ищет точку, которая потолок РЕАЛЬНО соблюдает ({@link
+ * findCapRespectingPoint}); если такой нет в пределах `windowSec` —
+ * переиспользует {@link resolveBoundary}, то же ядро поиска безопасной точки,
+ * что и основные границы плана (частичное облегчение лучше никакого). Пробует
+ * сначала сжать с конца (нужен НЕ-presenter сосед справа), затем с начала
+ * (нужен НЕ-presenter сосед слева); если после первого сдвига кадр всё ещё
+ * длиннее потолка — второй сдвиг попробует ужать его ещё. Если оба соседа
+ * presenter — раздвинуть нечем: конфликт остаётся, честно попадая в
+ * `remaining` (не арифметика границ, а `splitLongPresenterLine`, Task 4,
+ * §5.3); то же самое, если даже с доступным НЕ-presenter соседом ни одна
+ * безопасная точка в окне не лежит ближе потолка, чем расположение слов
+ * позволяет физически — редкий, но геометрически честный остаток.
+ */
+function relieveOversizedPresenters(
+  segments: Segment[],
+  context: { lipSyncMaxDurationSec: number, fps: number },
+  words: readonly { startSec: number, endSec: number }[],
+  gaps: readonly WordGap[],
+  windowSec: number,
+  timelineEnd: number,
+  eps: number,
+  actions: ShotPlanRepairAction[],
 ): void {
-  if (segments.length < 2) return
+  for (let index = 0; index < segments.length; index += 1) {
+    const trySide = (side: "end" | "start"): boolean => {
+      const seg = segments[index]!
+      const length = seg.endSec - seg.startSec
+      if (seg.source.foreground !== "presenter" || length <= context.lipSyncMaxDurationSec + eps) return false
 
-  const index = edge === "first" ? 0 : segments.length - 1
-  const neighborIndex = edge === "first" ? 1 : segments.length - 2
-  const seg = segments[index]!
-  const length = seg.endSec - seg.startSec
-  if (seg.source.foreground !== "presenter" || length <= lipSyncMaxDurationSec + eps) return
+      const neighborIndex = side === "end" ? index + 1 : index - 1
+      if (neighborIndex < 0 || neighborIndex >= segments.length) return false
+      const neighbor = segments[neighborIndex]!
+      if (neighbor.source.foreground === "presenter") return false
 
-  const neighbor = segments[neighborIndex]!
-  const rawBoundary = edge === "first"
-    ? seg.startSec + lipSyncMaxDurationSec
-    : seg.endSec - lipSyncMaxDurationSec
-  const boundary = snapSecToFrame(rawBoundary, fps)
-  if (splitsWord(words, boundary, fps)) return
+      const desired = side === "end"
+        ? seg.startSec + context.lipSyncMaxDurationSec
+        : seg.endSec - context.lipSyncMaxDurationSec
+      const margin = wordEdgeToleranceSec(context.fps)
+      const capped = findCapRespectingPoint(words, gaps, desired, side, context.fps, windowSec, timelineEnd, margin)
+      const boundary = capped ?? resolveBoundary(words, gaps, desired, context.fps, windowSec, timelineEnd)
+      if (boundary <= seg.startSec + eps || boundary >= seg.endSec - eps) return false
 
-  if (edge === "first") {
-    if (boundary <= seg.startSec + eps || boundary >= neighbor.endSec - eps) return
-    if (neighbor.source.foreground === "presenter" && neighbor.endSec - boundary > lipSyncMaxDurationSec + eps) return
-    seg.endSec = boundary
-    neighbor.startSec = boundary
-  } else {
-    if (boundary >= seg.endSec - eps || boundary <= neighbor.startSec + eps) return
-    if (neighbor.source.foreground === "presenter" && boundary - neighbor.startSec > lipSyncMaxDurationSec + eps) return
-    seg.startSec = boundary
-    neighbor.endSec = boundary
+      if (side === "end") {
+        segments[index] = { ...seg, endSec: boundary }
+        segments[neighborIndex] = { ...neighbor, startSec: boundary }
+      } else {
+        segments[index] = { ...seg, startSec: boundary }
+        segments[neighborIndex] = { ...neighbor, endSec: boundary }
+      }
+      actions.push({
+        shotOrder: seg.source.order,
+        finalShotOrder: null,
+        message: `Кадр ${seg.source.order}: ${side === "end" ? "конец" : "начало"} сдвинут(о) на ${boundary.toFixed(2)}с — presenter длиннее потолка lip-sync, избыток отдан кадру ${neighbor.source.order}`,
+      })
+      return true
+    }
+
+    // "end" первым: соответствует прежнему поведению для последнего кадра
+    // плана (самый частый случай на практике — непокрытый хвост).
+    if (trySide("end")) continue
+    trySide("start")
   }
 }
 
@@ -429,7 +729,9 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
   const timelineEnd = timelineEndSec(trackDurationSec, fps)
   const gaps = collectGaps(context, timelineEnd)
   const words = context.alignedScenes.flatMap(scene => scene.words)
-  const windowSec = safePointWindowSec(context.profile)
+  const profileWindowSec = safePointWindowSec(context.profile)
+  const eps = halfFrameSec(fps)
+  const changes: ShotPlanRepairAction[] = []
 
   // 1a. "Сырые" границы: конец последнего — конец таймлайна, остальные —
   //     безопасная точка рядом с желаемым концом исходного кадра. Клэмп
@@ -441,6 +743,13 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
   //     100% случаев. Нефинитную исходную границу (кадр от модели с
   //     NaN/`undefined`, Critical 3 ревью) заменяем на начало кадра, а если и
   //     оно нечисловое — на 0.
+  //
+  //     Окно поиска щели дополнительно ограничено долей ЛОКАЛЬНОЙ длины
+  //     кадра (`localSpan`), а не только долей `profile.shotChangeSec`
+  //     (Critical НН-1/НН-2 ре-ревью раунда 3): окно от целевого шага
+  //     монтажа могло быть шире самого кадра, который оно режет, и утаскивало
+  //     границу почти на всю его длину — вплоть до `timelineEnd`, схлопывая
+  //     кадр в вырожденный (seed=11555, seed=432 ре-ревью).
   const boundaries: number[] = new Array(original.length + 1)
   boundaries[0] = 0
   boundaries[original.length] = timelineEnd
@@ -449,7 +758,22 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
     const originalEnd = Number.isFinite(shot.endSec) ? shot.endSec : shot.startSec
     const safeOriginalEnd = Number.isFinite(originalEnd) ? originalEnd : 0
     const desiredEnd = Math.min(safeOriginalEnd, timelineEnd)
-    boundaries[index] = resolveBoundary(words, gaps, desiredEnd, fps, windowSec, timelineEnd)
+    const localSpan = Math.max(0, desiredEnd - boundaries[index - 1]!)
+    const windowSec = Math.min(profileWindowSec, localSpan * LOCAL_SPAN_WINDOW_RATIO)
+    const resolved = resolveBoundary(words, gaps, desiredEnd, fps, windowSec, timelineEnd)
+    boundaries[index] = resolved
+
+    // §10 требует называть всякую деградацию — сдвиг границы ради безопасности
+    // слова является главной операцией §5.3, и раньше он не попадал в
+    // `changes` вовсе (Important НН-7 ре-ревью раунда 3).
+    const naive = snapSecToFrame(desiredEnd, fps)
+    if (Math.abs(resolved - naive) > eps) {
+      changes.push({
+        shotOrder: shot.order,
+        finalShotOrder: null,
+        message: `Кадр ${shot.order}: граница сдвинута с ${naive.toFixed(2)}с на ${resolved.toFixed(2)}с — резать по слову нельзя, взята ближайшая межсловная щель`,
+      })
+    }
   }
 
   const initialSegments: Segment[] = original.map((shot, index) => ({
@@ -463,19 +787,19 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
   //     2/3). Побочный эффект: presenter-кадр модели с большой непокрытой
   //     дырой перед/после себя молча наследует её целиком и может выйти за
   //     потолок lip-sync ДО того, как до него дойдёт слияние коротких кадров
-  //     (там он к этому моменту уже длинный, а не короткий). Разгружаем в
-  //     сторону НЕ-presenter соседа, если он есть — см. докстринг
-  //     {@link relieveOversizedPresenterEdge}.
-  const eps = halfFrameSec(fps)
-  relieveOversizedPresenterEdge(initialSegments, "first", context.lipSyncMaxDurationSec, eps, fps, words)
-  relieveOversizedPresenterEdge(initialSegments, "last", context.lipSyncMaxDurationSec, eps, fps, words)
+  //     (там он к этому моменту уже длинный, а не короткий) — разгружаем в
+  //     сторону НЕ-presenter соседа, если он есть, и не только на краях
+  //     (Important НН-5) — см. докстринг {@link relieveOversizedPresenters}.
+  relieveOversizedPresenters(initialSegments, context, words, gaps, profileWindowSec, timelineEnd, eps, changes)
 
   // 1b. Слияние кадров короче минимума монтажного шага (Critical 1 ревью,
-  //     переработано в Critical Н-1/Н-2/Н-3 ре-ревью): хвост участвует наравне
-  //     с остальными, слияние не создаёт presenter_too_long и не съедает
-  //     ВСЕ presenter-кадры — см. докстринги {@link canMergeSafely} и
+  //     переработано в Critical Н-1/НН-1/НН-2 ре-ревью раундов 2-3): хвост
+  //     участвует наравне с остальными, слияние не создаёт presenter_too_long,
+  //     не съедает ВСЕ presenter-кадры, а короче абсолютного пола кадр не
+  //     остаётся в плане молча — см. докстринги {@link canMergeSafely} и
   //     {@link mergeShortSegments}.
   const { segments, actions } = mergeShortSegments(initialSegments, context)
+  changes.push(...actions)
 
   // 1c. Слияние могло само подвинуть presenter-кадр на край (например,
   //     поглотив вырожденного НЕ-presenter соседа у самого края таймлайна) —
@@ -483,10 +807,7 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
   //     прогон ремонта над СВОИМ ЖЕ результатом находил бы разгрузку там, где
   //     первый проход её не видел (найдено тестом-свойством: нарушалась
   //     неподвижная точка).
-  relieveOversizedPresenterEdge(segments, "first", context.lipSyncMaxDurationSec, eps, fps, words)
-  relieveOversizedPresenterEdge(segments, "last", context.lipSyncMaxDurationSec, eps, fps, words)
-
-  const changes: ShotPlanRepairAction[] = [...actions]
+  relieveOversizedPresenters(segments, context, words, gaps, profileWindowSec, timelineEnd, eps, changes)
 
   const materialized: PlannedShot[] = segments.map(seg => ({
     ...seg.source,
@@ -517,6 +838,7 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
       shot.backgroundClipId = null
       changes.push({
         shotOrder: shot.order,
+        finalShotOrder: null,
         message: `Кадр ${shot.order}: фон "${previous}" сброшен в "${shot.background}" — ссылка не существует`,
       })
     }
@@ -527,6 +849,7 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
         shot.background = "image"
         changes.push({
           shotOrder: shot.order,
+          finalShotOrder: null,
           message: `Кадр ${shot.order}: генеративное видео заменено картинкой (${tooShort ? "короче минимума длительности" : "флаг профиля выключен"})`,
         })
       }
@@ -534,8 +857,18 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
   }
 
   // 3. Нумерация подряд с нуля: order — ключ (videoId, order) в БД и позиция в
-  //    склейке; дырки в нём означают потерянный кадр.
+  //    склейке; дырки в нём означают потерянный кадр. `changes` собирался в
+  //    ИСХОДНОЙ нумерации по ходу ремонта (кадр, съеденный слиянием, не имеет
+  //    "нового" номера в принципе) — здесь достраивается `finalShotOrder` для
+  //    записей, чей кадр дожил до итогового плана (Minor НН-12 ре-ревью
+  //    раунда 3: раньше `shotOrder` не соответствовал НИЧЕМУ в возвращённом
+  //    плане после перенумерации, и это документировалось, но не решалось).
+  const finalOrderByOriginal = new Map<number, number>()
+  materialized.forEach((shot, index) => finalOrderByOriginal.set(shot.order, index))
   materialized.forEach((shot, index) => { shot.order = index })
+  for (const action of changes) {
+    if (action.shotOrder !== null) action.finalShotOrder = finalOrderByOriginal.get(action.shotOrder) ?? null
+  }
 
   const plan: ShotPlan = { shots: materialized }
   const remaining = validateShotPlan({ ...context, plan })

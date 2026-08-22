@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
-import { minShotSec, repairShotPlan, safePointWindowSec } from "~~/server/utils/edit-plan/repair"
+import { absoluteMinShotSec, minShotSec, repairShotPlan, safePointWindowSec } from "~~/server/utils/edit-plan/repair"
 import type { PlannedShot } from "~~/server/utils/edit-plan/types"
 
 const WORDS = [
@@ -390,12 +390,21 @@ describe("детерминированный ремонт плана кадро�
     // число кадров — работа `splitLongPresenterLine` (Task 4, §5.3),
     // вызываемая ДО этой функции; сама по себе арифметика границ здесь
     // бессильна, и `remaining` честно сообщает об этом.
-    const { remaining } = repairShotPlan(context([
+    const { remaining, plan } = repairShotPlan(context([
       { ...base, order: 0, startSec: 0, endSec: 3, foreground: "presenter" },
       { ...base, order: 1, startSec: 3, endSec: 3.1, foreground: "presenter" },
     ], { trackDurationSec: 10, lipSyncMaxDurationSec: 3 }))
 
     expect(remaining.map(v => v.code)).toContain("presenter_too_long")
+    // Minor НН-9 ре-ревью раунда 3: прежняя версия теста проверяла только
+    // код в `remaining` и выживала при удалении самой проверки «оба соседа
+    // presenter» внутри `relieveOversizedPresenters` (её отсутствие давало
+    // ТОТ ЖЕ код другим путём). Граница между кадрами обязана остаться НА
+    // МЕСТЕ (3.0, конец трека 10.0) — это доказывает, что разгрузка честно
+    // не нашла куда сдвигать, а не «починила» что-то постороннее.
+    expect(plan.shots.length).toBe(2)
+    expect(plan.shots[0]!.endSec).toBeCloseTo(3, 6)
+    expect(plan.shots[1]!.endSec).toBeCloseTo(10, 6)
   })
 
   it("разгружает presenter-кадр, который сам оказался на краю в результате слияния (Critical Н-1, найдено тестом-свойством вне committed диапазона сидов)", () => {
@@ -504,13 +513,44 @@ describe("детерминированный ремонт плана кадро�
     expect(changes.some(c => c.message.includes("видео"))).toBe(true)
   })
 
-  it("считает допуски по fps контекста, а не только по 30 (Important Н-7)", () => {
-    const { remaining } = repairShotPlan(context([
-      { ...base, order: 0, startSec: 0, endSec: 1.4 },
-      { ...base, order: 1, startSec: 1.4, endSec: 3.0 },
-    ], { fps: 24 }))
+  it("допуск «рвёт ли слово» масштабируется по fps контекста, а не захардкожен (Important Н-7, Minor НН-9)", () => {
+    // Minor НН-9 ре-ревью раунда 3: прежняя версия («…не только по 30»)
+    // проверяла только отсутствие word_split при fps=24 — переживала
+    // мутацию, захардкодившую допуск как `halfFrameSec(60)*2` вместо
+    // `wordEdgeToleranceSec(fps)`, потому что окно поиска (0.54 с при
+    // дефолтном шаге) на порядок шире разницы допусков (доли кадра) и щель
+    // находилась в обоих случаях. Здесь измеряется КОНКРЕТНАЯ точка реза, а
+    // не факт устранения нарушения.
+    //
+    // Единственная щель — (2.9, 3.0). Желаемая граница 3.2 — внутри слова
+    // "b" (3.0-4.0), резать нельзя, ищем щель. Безопасная точка — ближний
+    // край щели минус допуск (полный кадр = 1/fps, см. `wordEdgeToleranceSec`
+    // в validate.ts): при fps=24 это 3.0 − 1/24 ≈ 2.9583, при fps=60 —
+    // 3.0 − 1/60 ≈ 2.9833. Оба значения — точные границы кадра на своём fps
+    // (снятие `snapSecToFrame` их не трогает), поэтому сравнение точное.
+    const words = [
+      { text: "a", startSec: 0, endSec: 2.9, matched: true },
+      { text: "b", startSec: 3.0, endSec: 4.0, matched: true },
+    ]
+    const resolvedEnd = (fps: number): number => {
+      const ctx = {
+        plan: { shots: [
+          { ...base, order: 0, startSec: 0, endSec: 3.2 },
+          { ...base, order: 1, startSec: 3.2, endSec: 4.0 },
+        ] },
+        trackDurationSec: 4.0,
+        fps,
+        alignedScenes: [{ order: 1, startSec: 0, endSec: 4.0, words }],
+        profile: DEFAULT_EDIT_PROFILE,
+        lipSyncMaxDurationSec: 10,
+        minGenerativeVideoSec: 5,
+        knownBackgroundIds: new Set<string>(),
+      } as never
+      return repairShotPlan(ctx).plan.shots[0]!.endSec
+    }
 
-    expect(remaining.map(v => v.code)).not.toContain("word_split")
+    expect(resolvedEnd(24)).toBeCloseTo(3.0 - 1 / 24, 6)
+    expect(resolvedEnd(60)).toBeCloseTo(3.0 - 1 / 60, 6)
   })
 
   it("деградирует генеративное видео на коротком кадре до картинки", () => {
@@ -659,5 +699,223 @@ describe("детерминированный ремонт плана кадро�
     repairShotPlan(context(shots))
 
     expect(shots).toEqual(snapshot)
+  })
+})
+
+describe("фикс-раунд 3: абсолютный пол, спасение единственного presenter, расширенная разгрузка", () => {
+  it("absoluteMinShotSec — три кадра на любом fps, не константа в секундах (Critical НН-2)", () => {
+    expect(absoluteMinShotSec(24)).toBeCloseTo(3 / 24, 9)
+    expect(absoluteMinShotSec(30)).toBeCloseTo(3 / 30, 9)
+    expect(absoluteMinShotSec(60)).toBeCloseTo(3 / 60, 9)
+  })
+
+  it("спасает единственный presenter-кадр от полного устранения при вырожденном слиянии (Critical НН-1)", () => {
+    // Presenter-кадр 0.08с (fps=30 → абсолютный пол 0.1с) — короче пола,
+    // безопасное слияние с любым соседом запрещено R1 (оба соседа не
+    // presenter, presenter не может быть съеден не-presenter'ом). Раньше
+    // такой кадр принудительно сливался и полностью стирал ведущего из
+    // ролика, даже если тот был единственным. Теперь сначала пробуется
+    // {@link rescueOnlyPresenter}: сосед отдаёт часть своей длины, чтобы
+    // presenter набрал пол, и остаётся в плане отдельным кадром.
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 1.0, foreground: "none" },
+        { ...base, order: 1, startSec: 1.0, endSec: 1.08, foreground: "presenter" },
+        { ...base, order: 2, startSec: 1.08, endSec: 5.0, foreground: "none" },
+      ] },
+      trackDurationSec: 5.0,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 5.0, words: [] }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 10,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { plan, changes } = repairShotPlan(ctx)
+
+    const presenterShot = plan.shots.find(s => s.foreground === "presenter")
+    expect(presenterShot).toBeDefined()
+    expect(presenterShot!.endSec - presenterShot!.startSec).toBeGreaterThanOrEqual(absoluteMinShotSec(30) - 1e-9)
+    expect(changes.some(c => c.message.includes("расширен") && c.message.includes("единственный"))).toBe(true)
+  })
+
+  it("устраняет presenter-кадр ниже абсолютного пола, даже если это не единственный ведущий в плане (Critical НН-2)", () => {
+    // Второй presenter-кадр (order2, 0.02с при полу 0.1с) с ОПЛАЧЕННЫМ фоном
+    // библиотеки — Critical 1 раунда 1, вернувшийся другим путём: раньше
+    // такой кадр мог остаться в плане молча, потому что R1/R2 запрещали оба
+    // безопасных направления слияния. Теперь ниже абсолютного пола R1/R2
+    // уступают устранению (кадр не единственный presenter — order0 тоже
+    // presenter, — так что защита ведущего в целом не нарушена).
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 1.0, foreground: "presenter" },
+        { ...base, order: 1, startSec: 1.0, endSec: 2.0, foreground: "none" },
+        { ...base, order: 2, startSec: 2.0, endSec: 2.02, foreground: "presenter", background: "library", backgroundClipId: "clip-2" },
+        { ...base, order: 3, startSec: 2.02, endSec: 5.0, foreground: "none" },
+      ] },
+      trackDurationSec: 5.0,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 5.0, words: [] }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 10,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(["clip-2"]),
+    } as never
+
+    const { plan, changes } = repairShotPlan(ctx)
+
+    for (const shot of plan.shots) {
+      expect(shot.endSec - shot.startSec).toBeGreaterThanOrEqual(absoluteMinShotSec(30) - 1e-9)
+    }
+    expect(changes.some(c => c.shotOrder === 2 && c.message.includes("ниже абсолютного порога"))).toBe(true)
+  })
+
+  it("разгружает presenter-кадр, оказавшийся ВНУТРИ плана, а не только на краю (Important Н-5)", () => {
+    // Раньше `relieveOversizedPresenterEdge` смотрел только на первый/
+    // последний сегмент плана. Здесь presenter-кадр — order1, СРЕДНИЙ из
+    // трёх (не первый, не последний), с НЕ-presenter соседом справа.
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 1.0, foreground: "none" },
+        { ...base, order: 1, startSec: 1.0, endSec: 5.0, foreground: "presenter" },
+        { ...base, order: 2, startSec: 5.0, endSec: 10.0, foreground: "none" },
+      ] },
+      trackDurationSec: 10.0,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 10.0, words: [] }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 3,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { plan, remaining } = repairShotPlan(ctx)
+
+    expect(plan.shots.length).toBe(3)
+    expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
+    const presenterShot = plan.shots.find(s => s.foreground === "presenter")!
+    expect(presenterShot.endSec - presenterShot.startSec).toBeLessThanOrEqual(3 + 1e-6)
+  })
+
+  it("при разгрузке предпочитает более ДАЛЬНЮЮ безопасную точку, которая укладывается в потолок, ближней, которая его нарушает (найдено повторным прогоном за пределами committed диапазона, seed=15423-класс)", () => {
+    // Желаемая граница — ровно потолок (3.0) — лежит ВНУТРИ слова "mid"
+    // (2.6-3.1), резать нельзя, ищем щель. Щель ДО потолка (2.5, 2.6) —
+    // безопасная точка в ней (≈2.5667) ДАЛЬШЕ от желаемой границы (0.4333с),
+    // но УКЛАДЫВАЕТ кадр в потолок. Щель ПОСЛЕ потолка (3.1, 3.12) — она
+    // слишком узкая (уже двух допусков), безопасная точка — её середина
+    // (3.11), БЛИЖЕ к желаемой границе (0.11с), но НАРУШАЕТ потолок (3.11 >
+    // 3.0 + допуск округления). Наивный «ближайшую по расстоянию» алгоритм
+    // выбрал бы вторую точку и оставил presenter_too_long, хотя первая,
+    // более дальняя, потолок соблюдает. {@link findCapRespectingPoint} ищет
+    // именно соблюдающую потолок точку в первую очередь.
+    const words = [
+      { text: "a", startSec: 0, endSec: 2.5, matched: true },
+      { text: "mid", startSec: 2.6, endSec: 3.1, matched: true },
+      { text: "b", startSec: 3.12, endSec: 3.14, matched: true },
+    ]
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 7, foreground: "presenter" },
+        { ...base, order: 1, startSec: 7, endSec: 10, foreground: "none" },
+      ] },
+      trackDurationSec: 10,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 10, words }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 3,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { plan, remaining } = repairShotPlan(ctx)
+
+    expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
+    expect(plan.shots[0]!.endSec).toBeLessThanOrEqual(3 + 1e-6)
+  })
+
+  it("при вынужденном слиянии ниже абсолютного пола предпочитает направление, которое не создаёт presenter_too_long (найдено повторным прогоном, seed=1257-класс)", () => {
+    // order1 (0.08с, ниже пола 0.1с) не может слиться безопасно ни в одну
+    // сторону: вперёд (order2, presenter) — нарушило бы потолок lip-sync
+    // (R2), назад (order0, none) — потеряло бы личность единственного в эту
+    // сторону presenter-кадра (R1). Слепой приоритет «вперёд, потом назад»
+    // выбрал бы вперёд и породил бы presenter_too_long, хотя направление
+    // назад того же самого не создаёт (order1 — не единственный presenter,
+    // order2 остаётся отдельным кадром под потолком).
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 1.0, foreground: "none" },
+        { ...base, order: 1, startSec: 1.0, endSec: 1.08, foreground: "presenter" },
+        { ...base, order: 2, startSec: 1.08, endSec: 4.03, foreground: "presenter" },
+      ] },
+      trackDurationSec: 4.03,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 4.03, words: [] }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 3.0,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { plan, remaining } = repairShotPlan(ctx)
+
+    expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
+    expect(plan.shots.some(s => s.foreground === "presenter" && s.endSec - s.startSec <= 3.0 + 1e-6)).toBe(true)
+  })
+
+  it("кадр короче мягкого порога, но не ниже абсолютного пола, остаётся как есть и попадает в changes (Important НН-2/НН-7)", () => {
+    // order1 (0.5с) короче мягкого порога (0.72с при дефолтном шаге 1.8с),
+    // но выше абсолютного пола (0.1с при fps=30) — устранять НЕ обязательно.
+    // Оба безопасных слияния отклонены потолком lip-sync (3с): вперёд и
+    // назад дают 3.5с > 3с. Кадр остаётся как есть, и это явно
+    // залогировано — раньше такая правка была полностью бесшумной.
+    const ctx = {
+      plan: { shots: [
+        { ...base, order: 0, startSec: 0, endSec: 3.0, foreground: "presenter" },
+        { ...base, order: 1, startSec: 3.0, endSec: 3.5, foreground: "presenter" },
+        { ...base, order: 2, startSec: 3.5, endSec: 6.5, foreground: "presenter" },
+      ] },
+      trackDurationSec: 6.5,
+      fps: 30,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 6.5, words: [] }],
+      profile: DEFAULT_EDIT_PROFILE,
+      lipSyncMaxDurationSec: 3.0,
+      minGenerativeVideoSec: 5,
+      knownBackgroundIds: new Set<string>(),
+    } as never
+
+    const { plan, remaining, changes } = repairShotPlan(ctx)
+
+    expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
+    expect(plan.shots.length).toBe(3)
+    expect(changes.some(c =>
+      c.shotOrder === 1
+      && c.message.includes("короче минимума монтажного шага")
+      && c.message.includes("оставлен как есть"))).toBe(true)
+  })
+
+  it("changes фиксирует обычный сдвиг границы ради безопасности слова, не только слияния (Important Н-7)", () => {
+    const { changes } = repairShotPlan(context([
+      { ...base, order: 0, startSec: 0, endSec: 1.4 },
+      { ...base, order: 1, startSec: 1.4, endSec: 3.0 },
+    ]))
+
+    expect(changes.some(c => c.shotOrder === 0 && c.message.includes("резать по слову нельзя"))).toBe(true)
+  })
+
+  it("finalShotOrder — null для съеденного слиянием кадра, номер в итоговом плане для выжившего (Minor НН-12)", () => {
+    const { changes, plan } = repairShotPlan(context([
+      { ...base, order: 0, startSec: 0, endSec: 2.7, background: "library", backgroundClipId: "нет-такого" },
+      { ...base, order: 1, startSec: 2.7, endSec: 3.0 },
+    ]))
+
+    expect(plan.shots.length).toBe(1)
+    const mergeAction = changes.find(c => c.message.includes("слит"))
+    expect(mergeAction?.shotOrder).toBe(1)
+    expect(mergeAction?.finalShotOrder).toBeNull()
+
+    const bgAction = changes.find(c => c.message.includes("фон"))
+    expect(bgAction?.shotOrder).toBe(0)
+    expect(bgAction?.finalShotOrder).toBe(0)
   })
 })
