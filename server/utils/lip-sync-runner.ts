@@ -107,6 +107,13 @@ import {
   type LipSyncSkipReason,
 } from "./presenter/lip-sync-progress"
 import { TIMELINE_FPS, type StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
+// Импорт ТИПА, а не значения — стирается компилятором, рантайм-граф импортов
+// этого файла не меняется. pip-compose.ts сам тянет только тип PipPosition из
+// edit-plan/types — ничего похожего на presenter/ffmpeg-adapter или
+// video-tools/ffmpeg здесь не появляется даже транзитивно (см. докстринг про
+// динамический импорт cutRecordingWindow выше: те два модуля обязаны остаться
+// статически недостижимыми из lip-sync-runner.ts).
+import type { LipSyncedClipPath } from "./video-tools/pip-compose"
 
 const STEP_KEY: StepKey = "lip_sync_generation"
 const STEP_ORDER_INDEX = 5
@@ -124,6 +131,17 @@ const FALLBACK_MAX_DURATION_SEC = 10
 const DEFAULT_TIMELINE_FPS = TIMELINE_FPS
 
 export type { LipSyncSceneRecord, LipSyncSkipReason }
+
+/**
+ * Пометить клип как прошедший lip-sync.
+ *
+ * Единственный способ получить `LipSyncedClipPath`. Вызывать только здесь и
+ * только после того, как модель вернула синхронизированный кадр: метка — это
+ * утверждение о факте, а не о намерении (spec §6.3).
+ */
+export function markLipSynced(path: string): LipSyncedClipPath {
+  return path as LipSyncedClipPath
+}
 
 export interface LipSyncStepResult {
   /** 'disabled' — фича выключена; 'skipped' — нет сцен с spokenLine; 'completed' — успех */
@@ -1475,9 +1493,16 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       syncedSceneCount++
       resyncedSceneCount++
 
+      // Оба маршрута (реальный lip-sync и аватарная генерация) доходят сюда только
+      // после того, как файл на renderedPath уже содержит финальный кадр с речью,
+      // синхронизированной с губами, — ЦЕЛЫМ кадром, до кропа/маски/наложения
+      // (spec §6.3). Это единственная точка шага, где факт синхронизации уже
+      // подтверждён, поэтому метка ставится именно здесь и ровно один раз.
+      const lipSyncedPath = markLipSynced(renderedPath)
+
       // Подстановка строго по индексу сцены: сравнение строк ломалось, как только
       // в БД оказывался путь прошлого прогона (findIndex возвращал -1).
-      updatedClipPaths[sceneIndex] = renderedPath
+      updatedClipPaths[sceneIndex] = lipSyncedPath
       sceneRecords.push({
         sceneOrder: scene.order,
         sceneIndex,
@@ -1487,7 +1512,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         // уже готовую сцену и оплатил бы её второй раз. Пустая строка — ровно то,
         // что увидит resolveSceneSourcePath, и якорь останется синтетическим.
         sourcePath: (presenterSourcePath || useAvatarRoute) ? "" : (sourceVideoPath ?? renderedPath),
-        outputPath: renderedPath,
+        outputPath: lipSyncedPath,
         // Тот файл, который реально ушёл в модель: у длинной реплики это её
         // ускоренная копия.
         audioPath: speechPath,
