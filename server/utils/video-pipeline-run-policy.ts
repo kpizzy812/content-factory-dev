@@ -327,6 +327,7 @@ export const STEP_EXECUTION_ORDER_AUDIO_FIRST: readonly StepKey[] = [
   "prompt_generation",
   "voiceover_generation",
   "transcription",
+  "edit_plan",
   "image_generation",
   "clip_generation",
   "lip_sync_generation",

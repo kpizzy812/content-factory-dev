@@ -29,6 +29,7 @@ describe("W2: сброс шага сносит артефакты", () => {
     expect(Object.keys(STEP_ASSET_TYPES).sort()).toEqual([
       "assembly",
       "clip_generation",
+      "edit_plan",
       "image_generation",
       "lip_sync_generation",
       "music_generation",

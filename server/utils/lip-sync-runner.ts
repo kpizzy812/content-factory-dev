@@ -1603,8 +1603,16 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   return result
 }
 
-/** Границы длительности источника берём из media-provider реестра, иначе — kling-дефолт. */
-function resolveModelDurationRange(modelId: string): { minDurationSec: number; maxDurationSec: number } {
+/**
+ * Границы длительности источника берём из media-provider реестра, иначе —
+ * kling-дефолт.
+ *
+ * Экспортирована (Task 5, video-pipeline.ts): раннер плана монтажа обязан
+ * знать ТОТ ЖЕ потолок lip-sync модели, что и сам lip-sync — иначе план
+ * посчитал бы кадр ведущего проходным по одному числу, а исполнение отбило бы
+ * его по другому.
+ */
+export function resolveModelDurationRange(modelId: string): { minDurationSec: number; maxDurationSec: number } {
   try {
     const spec = resolveMediaModel("lip_sync", modelId)
     return {

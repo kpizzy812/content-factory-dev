@@ -60,7 +60,7 @@ export const SPEND_GROUPS: GroupDefinition[] = [
   {
     key: 'text',
     label: 'Сценарии и критик',
-    stepKeys: ['prompt_generation'],
+    stepKeys: ['prompt_generation', 'edit_plan'],
   },
   {
     key: 'render',

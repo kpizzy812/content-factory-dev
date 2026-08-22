@@ -331,8 +331,13 @@ export const REPLICATE_KLING_16_DURATIONS = Object.freeze([5, 10])
  * $0.05 подтверждено страницей модели 14.08.2026 («or 20 seconds for $1»).
  * До этого стояло $0.045 «как оплачивалось на стенде» — смета клипов была
  * занижена на 11%, а заниженная смета уводит партию за пределы кошелька молча.
+ *
+ * Экспортирована (Task 5, edit-plan/runner.ts): раннер плана монтажа обязан
+ * считать бюджет генеративного фона по ЭТОЙ ЖЕ ставке, а не заводить свой
+ * литерал $0.05 — ровно та ошибка, ради которой существует докстринг
+ * `background-source.ts` про заниженную смету.
  */
-function replicateVideoBilling() {
+export function replicateVideoBilling() {
   return {
     unit: "output_second",
     usdPerSecond: readReplicatePrice("REPLICATE_VIDEO_PRICE_USD_PER_SEC", 0.05),

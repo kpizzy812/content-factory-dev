@@ -56,6 +56,13 @@ export async function callAnthropicAgent<T>(options: {
   maxTokens?: number
   /** 'haiku' для лёгких field-level задач, undefined — основная модель */
   tier?: 'haiku'
+  /**
+   * Явный id модели. Задан — побеждает и `tier`, и переменные окружения.
+   *
+   * Нужен монтажному профилю: полуавтоматическую систему надо тестировать на
+   * конкретной версии, иначе её смена меняет поведение молча (spec §5.2).
+   */
+  model?: string
   validate: (data: unknown) => T
   agentName?: string
   /**
@@ -74,7 +81,7 @@ export async function callAnthropicAgent<T>(options: {
 
   const haikuModel = process.env.ANTHROPIC_HAIKU_MODEL || 'claude-haiku-4-5-20251001'
   const sonnetModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
-  const modelUsed = options.tier === 'haiku' ? haikuModel : sonnetModel
+  const modelUsed = options.model || (options.tier === 'haiku' ? haikuModel : sonnetModel)
   const agentLabel = options.agentName ?? 'unknown-agent'
 
   // Транспорт через подписку Claude Code. При исчерпанном лимите откатываемся

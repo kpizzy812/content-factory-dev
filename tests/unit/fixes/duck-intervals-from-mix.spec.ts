@@ -71,7 +71,7 @@ vi.mock("../../../server/utils/video-pipeline-db", () => ({
   STEP_ORDER: [
     "prompt_generation", "image_generation", "clip_generation",
     "voiceover_generation", "music_generation", "lip_sync_generation", "assembly",
-    "transcription",
+    "transcription", "edit_plan",
   ],
   acquireLock: vi.fn(async () => ({ videoId: 31, token: "t" })),
   releaseLock: vi.fn(async () => {}),

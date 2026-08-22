@@ -41,6 +41,12 @@ export function mapStepKeyToService(
     case "prompt_generation":
       return "anthropic"
 
+    case "edit_plan":
+      // План монтажа — один вызов Anthropic, как prompt_generation. Без этой
+      // ветки default вернёт null, и расход не попадёт ни в AiAuditLog, ни в
+      // Video.totalCostActual.
+      return "anthropic"
+
     case "image_generation":
     case "clip_generation":
       // Раньше здесь стоял литерал "fal.ai", не глядя на модель. После перевода

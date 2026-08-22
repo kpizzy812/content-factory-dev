@@ -7,7 +7,11 @@ import { assetTypesForSteps } from "~~/server/utils/video-pipeline-reset"
 describe("порядок шагов на маршруте audio-first", () => {
   it("новый ключ дописан в конец STEP_ORDER — история роликов не переписывается", () => {
     expect(STEP_ORDER[0]).toBe("prompt_generation")
-    expect(STEP_ORDER[STEP_ORDER.length - 1]).toBe("transcription")
+    // Задача 5 дописала "edit_plan" ПОСЛЕ "transcription" тем же приёмом —
+    // последний элемент STEP_ORDER снова сдвинулся, сама transcription в
+    // персистентном порядке осталась на своём месте.
+    expect(STEP_ORDER[STEP_ORDER.length - 2]).toBe("transcription")
+    expect(STEP_ORDER[STEP_ORDER.length - 1]).toBe("edit_plan")
   })
 
   it("на новом маршруте озвучка идёт до транскрипции, а та — до клипов", () => {

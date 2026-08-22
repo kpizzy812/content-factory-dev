@@ -45,6 +45,9 @@ export const STEP_ASSET_TYPES: Record<StepKey, readonly VideoAssetType[]> = {
   lip_sync_generation: [],
   assembly: [],
   transcription: ["transcript"],
+  // Кадры живут в таблице VideoShot, а не в VideoAsset: их чистит отдельная
+  // ветка каскада в rerunVideoStep.
+  edit_plan: [],
 }
 
 /** Объединение типов ассетов для набора сбрасываемых шагов (без дублей). */
