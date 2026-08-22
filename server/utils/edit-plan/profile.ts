@@ -41,14 +41,17 @@ const PIP_POSITIONS: readonly PipPosition[] = ["top_left", "top_right", "bottom_
  *
  * Потребитель поля — генеративный ФОН кадра, а не аватарная speech_to_video
  * модель. Это Kling 1.6 t2v/i2v на Replicate (`replicate:kling-v1.6-standard-t2v`
- * / `-i2v`, capability text_to_video/image_to_video в `model-specs.ts`) — тот
- * же движок, чья ставка $0.045/с заложена в смету генеративного видео плана.
+ * / `-i2v`, capability text_to_video/image_to_video в `model-specs.ts`).
  * `p-video-avatar` (speech_to_video, аватарный маршрут) сюда не относится и
  * его формат "720p"/"1080p" Kling не примет вовсе: `constraints.resolutions`
  * у обеих способностей Kling — пиксельные строки. Список ниже — их точная
- * копия; менять его без сверки с `model-specs.ts` нельзя.
+ * копия; менять его без сверки с `model-specs.ts` нельзя. Обоснование через
+ * цену намеренно не приводится: `$0.045/с` фигурирует у ОБЕИХ моделей по
+ * разным причинам (у Kling это устаревшая заниженная смета, у `p-video-avatar`
+ * — актуальный тариф 1080p), поэтому денежный аргумент здесь только путает;
+ * формат определяется исключительно `constraints.resolutions`.
  */
-const GENERATIVE_VIDEO_RESOLUTIONS: readonly string[] = ["1080x1920", "1920x1080", "1080x1080"]
+export const GENERATIVE_VIDEO_RESOLUTIONS: readonly string[] = ["1080x1920", "1920x1080", "1080x1080"]
 
 /**
  * Порог ВАЛИДНОСТИ шага смены картинки, а не порог зажима: значение короче
@@ -144,9 +147,13 @@ export function resolveEditProfile(
   const resolutionRaw = firstValid(resolutionOf, patch.generativeVideoResolution, profile?.generativeVideoResolution)
 
   // Денежный ограничитель: дефолт 0.5 — только когда поле не задано НИГДЕ, ни
-  // в переопределении, ни в профиле. Если оно где-то задано, но невалидно или
-  // отрицательно, ворота закрываются в 0, а не открываются в дефолт — иначе
-  // мусор на входе разрешал бы трату, вместо того чтобы её запретить (§7).
+  // в переопределении, ни в профиле. Как и для остальных полей, валидное
+  // значение с любого уровня (override или profile) побеждает мусорное с
+  // другого — например, профиль 0.5 плюс мусорный override остаются 0.5.
+  // Ворота закрываются в 0 только тогда, когда поле ГДЕ-ТО задано, но НИ ОДНО
+  // из заданных значений не проходит проверку (невалидно или отрицательно) —
+  // тогда результат 0, а не разрешающий дефолт: мусор на входе не должен
+  // открывать трату вместо того чтобы её запретить (§7).
   const budgetOverrideRaw = patch.generativeVideoBudgetUsd
   const budgetProfileRaw = profile?.generativeVideoBudgetUsd
   const budgetIsSet = budgetOverrideRaw !== undefined || budgetProfileRaw !== undefined

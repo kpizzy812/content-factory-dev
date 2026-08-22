@@ -3,7 +3,8 @@ import { resolve } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_EDIT_PROFILE, resolveEditProfile } from "~~/server/utils/edit-plan/profile"
+import { DEFAULT_EDIT_PROFILE, GENERATIVE_VIDEO_RESOLUTIONS, resolveEditProfile } from "~~/server/utils/edit-plan/profile"
+import { resolveMediaModel } from "~~/server/utils/media-provider/registry"
 
 describe("разрешение монтажного профиля", () => {
   describe("базовое наследование", () => {
@@ -92,6 +93,16 @@ describe("разрешение монтажного профиля", () => {
     it("отрицательное явно заданное значение закрывает ворота в 0, а не в дефолт", () => {
       const resolved = resolveEditProfile(null, { generativeVideoBudgetUsd: -1 })
       expect(resolved.generativeVideoBudgetUsd).toBe(0)
+    })
+
+    it("валидный профиль переживает отрицательное переопределение — ворота НЕ закрываются", () => {
+      // Отличие от предыдущего теста: здесь профиль задаёт валидный потолок
+      // (0.5), а мусорное значение прилетает только в override. Ворота в 0 —
+      // это исход, когда НИ ОДИН заданный кандидат не валиден, а не любой факт
+      // невалидности где бы то ни было: валидный профиль побеждает мусорный
+      // override так же, как и для остальных полей.
+      const resolved = resolveEditProfile({ generativeVideoBudgetUsd: 0.5 }, { generativeVideoBudgetUsd: -1 })
+      expect(resolved.generativeVideoBudgetUsd).toBeCloseTo(0.5, 6)
     })
 
     it("мусорный тип явно заданного значения (без валидной альтернативы) закрывает ворота в 0", () => {
@@ -328,32 +339,37 @@ describe("разрешение монтажного профиля", () => {
     if (!modelMatch) throw new Error("model EditProfile отсутствует в schema.prisma")
     const body = modelMatch[1]
 
-    function schemaDefault(field: string): string | number | boolean {
-      const fieldMatch = body.match(new RegExp(`\\b${field}\\s+\\S+\\s+@default\\(([^)]+)\\)`))
-      if (!fieldMatch) throw new Error(`Поле ${field}: нет @default в model EditProfile`)
-      const raw = fieldMatch[1].trim()
+    // Список полей для сверки НЕ хардкодится: собираем все `имя Тип @default(...)`
+    // из тела модели (заодно ловим служебные поля вроде id/isDefault/createdAt —
+    // они отсеются на следующем шаге пересечением с ключами DEFAULT_EDIT_PROFILE)
+    // и берём пересечение с текущими ключами ResolvedEditProfile. Новое поле с
+    // @default, добавленное когда-нибудь в обе стороны (схему и профиль), войдёт
+    // в проверку само — без правки этого теста.
+    const rawDefaults = new Map<string, string>()
+    for (const match of body.matchAll(/(\w+)\s+\S+\s+@default\(([^)]+)\)/g)) {
+      const [, fieldName, rawValue] = match
+      if (!rawDefaults.has(fieldName)) rawDefaults.set(fieldName, rawValue.trim())
+    }
+
+    function parseSchemaDefault(raw: string): string | number | boolean {
       if (raw === "true") return true
       if (raw === "false") return false
       if (raw.startsWith("\"") && raw.endsWith("\"")) return raw.slice(1, -1)
       const parsed = Number(raw)
-      if (Number.isNaN(parsed)) throw new Error(`Не удалось разобрать дефолт ${field}: "${raw}"`)
+      if (Number.isNaN(parsed)) throw new Error(`Не удалось разобрать дефолт: "${raw}"`)
       return parsed
     }
 
-    const fieldsWithDefault: Array<keyof typeof DEFAULT_EDIT_PROFILE> = [
-      "brollRatio",
-      "shotChangeSec",
-      "pipEnabled",
-      "pipPosition",
-      "pipSize",
-      "generativeVideoEnabled",
-      "generativeVideoBudgetUsd",
-      "generativeVideoResolution",
-      "stepwiseApproval",
-    ]
+    type ProfileKey = keyof typeof DEFAULT_EDIT_PROFILE
+    const profileKeys = Object.keys(DEFAULT_EDIT_PROFILE) as ProfileKey[]
+    const fieldsWithDefault = profileKeys.filter(field => rawDefaults.has(field))
+
+    // Подстраховка от «регэксп перестал видеть схему и тихо проверяет ноль
+    // полей»: сейчас их девять, ниже быть не должно.
+    expect(fieldsWithDefault.length).toBeGreaterThanOrEqual(9)
 
     for (const field of fieldsWithDefault) {
-      const expected = schemaDefault(field)
+      const expected = parseSchemaDefault(rawDefaults.get(field)!)
       const actual = DEFAULT_EDIT_PROFILE[field]
       if (typeof expected === "number") {
         expect(actual as number, `поле ${field}`).toBeCloseTo(expected, 6)
@@ -362,10 +378,30 @@ describe("разрешение монтажного профиля", () => {
       }
     }
 
-    // editPrompt и llmModelId — String? без @default в схеме: дефолт null.
+    // editPrompt и llmModelId — единственные поля без @default в схеме
+    // (String? — нет дефолтного значения, дефолт null). Явная сверка, а не
+    // молчаливое исключение: если завтра у одного из них появится @default,
+    // этот список должен измениться осознанно, а не разойтись незаметно.
+    const fieldsWithoutDefault = profileKeys.filter(field => !rawDefaults.has(field)).sort()
+    expect(fieldsWithoutDefault).toEqual(["editPrompt", "llmModelId"])
     expect(body).toMatch(/\n\s*editPrompt\s+String\?/)
     expect(body).toMatch(/\n\s*llmModelId\s+String\?/)
     expect(DEFAULT_EDIT_PROFILE.editPrompt).toBeNull()
     expect(DEFAULT_EDIT_PROFILE.llmModelId).toBeNull()
+  })
+
+  it("белый список generativeVideoResolution совпадает с constraints.resolutions Kling в model-specs.ts", () => {
+    // GENERATIVE_VIDEO_RESOLUTIONS в profile.ts — ручная копия
+    // constraints.resolutions обеих способностей Kling (t2v/i2v). Дефолты уже
+    // стережёт тест выше через schema.prisma, но этот список схемой не
+    // описан — без отдельной проверки расхождение с моделью прошло бы молча.
+    const t2v = resolveMediaModel("text_to_video", "replicate:kling-v1.6-standard-t2v")
+    const i2v = resolveMediaModel("image_to_video", "replicate:kling-v1.6-standard-i2v")
+
+    expect(t2v.constraints.resolutions).toEqual(GENERATIVE_VIDEO_RESOLUTIONS)
+    expect(i2v.constraints.resolutions).toEqual(GENERATIVE_VIDEO_RESOLUTIONS)
+    // Дефолт профиля обязан быть значением, которое Kling реально принимает —
+    // иначе профиль по умолчанию сам себе противоречит.
+    expect(t2v.constraints.resolutions).toContain(DEFAULT_EDIT_PROFILE.generativeVideoResolution)
   })
 })

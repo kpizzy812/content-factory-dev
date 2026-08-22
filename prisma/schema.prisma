@@ -2597,12 +2597,14 @@ model EditProfile {
   generativeVideoBudgetUsd   Float    @default(0.5)
   /// Разрешение генеративного фона — значение из constraints спеки модели.
   /// Потребитель поля — генеративный ФОН кадра (Kling 1.6 t2v/i2v на Replicate,
-  /// capability text_to_video/image_to_video, ставка $0.045/с — та же, что
-  /// заложена в смету генеративного видео), а не аватарная speech_to_video
+  /// capability text_to_video/image_to_video), а не аватарная speech_to_video
   /// модель (`p-video-avatar`, формат "720p"/"1080p"). Kling принимает
   /// разрешение только пиксельной строкой; "1080x1920" — вертикаль (9:16,
   /// Reels), она же первой стоит в constraints.resolutions обеих способностей
-  /// Kling в model-specs.ts.
+  /// Kling в model-specs.ts. Ценой это обоснование не подкрепляем: $0.045/с
+  /// встречается у обеих моделей по разным причинам (у Kling — устаревшая
+  /// заниженная смета, у p-video-avatar — актуальный тариф 1080p) и как довод
+  /// только вводит в заблуждение.
   generativeVideoResolution  String   @default("1080x1920")
   /// Пошаговый режим: пайплайн ждёт решения оператора после каждого шага.
   /// Механизм ожидания — план 4 (§9); здесь только сам флаг профиля.
