@@ -54,6 +54,16 @@ export interface EditPlannerInput {
   presenterSceneOrders: readonly number[]
   brollRatio: number
   shotChangeSec: number
+  /**
+   * Разрешён ли PiP профилем (ре-ревью задачи, Important 4 / M-8): без этого
+   * модель узнаёт про PiP только из общего описания способности в системном
+   * промпте и тратит попытки на вариант, который раннер всё равно обнулит
+   * клэмпом. Раннер обнуляет `pipEnabled` независимо от этого поля — оно
+   * только про качество ответа, а не единственная защита.
+   */
+  pipAllowed: boolean
+  /** Разрешено ли генеративное видео профилем (M-8): иначе модель тратит попытки на вариант, который repair всё равно заменит картинкой. */
+  generativeVideoAllowed: boolean
   /** EditProfile.llmModelId — конкретная версия модели (spec §5.2). null — дефолт. */
   model: string | null
   /** Текст нарушений предыдущего плана — второй запрос по §5.3. */
@@ -154,13 +164,41 @@ function buildUserPrompt(input: EditPlannerInput): string {
     targetBrollRatio: input.brollRatio,
     targetShotChangeSec: input.shotChangeSec,
     presenterSceneOrders: input.presenterSceneOrders,
+    // M-8 ре-ревью задачи: без этих двух полей модель не знает, что PiP или
+    // генеративное видео запрещены профилем, и тратит попытки на вариант,
+    // который код всё равно отклонит (repair заменит "video" картинкой,
+    // раннер обнулит pipEnabled клэмпом) — впустую жжёт токены и качество
+    // плана на заведомо отвергаемый вариант.
+    pipAllowed: input.pipAllowed,
+    generativeVideoAllowed: input.generativeVideoAllowed,
     grid: input.grid,
     backgrounds: input.backgrounds,
     appScreens: input.appScreens,
   }
-  const base = `Plan the meaning of every shot in this grid:\n\n${JSON.stringify(payload, null, 2)}\n\nReturn JSON.`
+  const base = `Plan the meaning of every shot in this grid:\n\n${JSON.stringify(payload, null, 2)}\n\n`
+    + `${input.pipAllowed ? "" : "pipAllowed is false — never set \"pipEnabled\": true for any shot.\n"}`
+    + `${input.generativeVideoAllowed ? "" : "generativeVideoAllowed is false — never use \"background\": \"video\" for any shot.\n"}`
+    + `Return JSON.`
   if (!input.previousErrors) return base
   return `${base}\n\nYour previous answer produced an invalid plan. Fix these issues while keeping the same grid:\n${input.previousErrors}`
+}
+
+/**
+ * Токены под ответ растут с числом кадров сетки (Minor М-3 ревью задачи):
+ * фиксированные 8192 достаточны для короткого ролика (~30 кадров при
+ * `shotChangeSec` 1.8с), но трек на 3+ минуты уже даёт 90+ кадров, ответ
+ * обрезается, и `extractJsonFromText` падает 502 без единого retry на
+ * парс-ошибку. Оценка — по ~120 токенов на объект кадра (поля + JSON-обвязка)
+ * плюс запас на системную часть ответа; нижняя граница сохранена на прежних
+ * 8192, чтобы не уменьшить бюджет для коротких роликов.
+ */
+const TOKENS_PER_SHOT_ESTIMATE = 120
+const BASE_RESPONSE_TOKENS = 8192
+/** `scenario-pipeline.ts` уже просит 20000 у той же модели в проде без спецзаголовков — тот же потолок здесь. */
+const MAX_RESPONSE_TOKENS = 20000
+
+function estimateMaxTokens(gridSize: number): number {
+  return Math.min(MAX_RESPONSE_TOKENS, BASE_RESPONSE_TOKENS + Math.max(0, gridSize) * TOKENS_PER_SHOT_ESTIMATE)
 }
 
 export async function planEditShots(input: EditPlannerInput): Promise<EditPlannerResult> {
@@ -168,7 +206,7 @@ export async function planEditShots(input: EditPlannerInput): Promise<EditPlanne
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: buildUserPrompt(input),
     model: input.model ?? undefined,
-    maxTokens: 8192,
+    maxTokens: estimateMaxTokens(input.grid.length),
     agentName: "edit-planner",
     validate,
   })

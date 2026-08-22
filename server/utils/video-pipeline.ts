@@ -1383,9 +1383,25 @@ async function skipImageGenerationStep(
  * и без этой функции перезапуск плана оставил бы кадры прошлого рядом с
  * новыми (`@@unique([videoId, order])` дал бы конфликт вместо честной
  * перезаписи).
+ *
+ * `isAudioFirstRoute` (Minor М-9 ре-ревью задачи): раньше кадры сносились
+ * ТОЛЬКО когда `edit_plan` попадал в `stepsToReset`, а маршрут мог с тех пор
+ * СМЕНИТЬСЯ на legacy (`EDIT_PIPELINE` выключили или отвалилась модель
+ * транскрипции) — тогда `edit_plan` не существует в новом порядке ВООБЩЕ,
+ * `stepsToReset` его никогда не содержит, и строки `VideoShot` от прошлого
+ * (audio-first) плана остаются висеть навсегда: ролик пойдёт по старому
+ * маршруту, кадры ему не нужны, но никто их не почистит. Если маршрут ЭТОГО
+ * прогона — НЕ audio-first, чистим кадры при любом перезапуске: на legacy
+ * маршруте они не используются, а лишний `deleteMany` по пустой таблице —
+ * дешёвый no-op.
  */
-export async function resetEditPlanShots(videoId: number, stepKey: StepKey, stepsToReset: readonly StepKey[]): Promise<void> {
-  if (!stepsToReset.includes("edit_plan")) return
+export async function resetEditPlanShots(
+  videoId: number,
+  stepKey: StepKey,
+  stepsToReset: readonly StepKey[],
+  isAudioFirstRoute: boolean,
+): Promise<void> {
+  if (!stepsToReset.includes("edit_plan") && isAudioFirstRoute) return
 
   const removed = await prisma.videoShot.deleteMany({ where: { videoId } })
   if (removed.count > 0) {
@@ -1414,7 +1430,8 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
   // Ролик, начатый от звука, при отключённой транскрипции сюда не пройдёт:
   // каскад старого порядка снёс бы оплаченный единый трек (ассет voiceover_mix),
   // оставив шаг транскрипции completed с отпечатком уже несуществующего файла.
-  const stepsToReset = stepsToRerunFrom(stepKey, await resolveVideoRoute(videoId, routed?.editPipeline ?? false))
+  const isAudioFirstRoute = await resolveVideoRoute(videoId, routed?.editPipeline ?? false)
+  const stepsToReset = stepsToRerunFrom(stepKey, isAudioFirstRoute)
   if (stepsToReset.length === 0) throw new Error(`Неизвестный шаг: ${stepKey}`)
 
   const assetTypes = assetTypesForSteps(stepsToReset)
@@ -1438,7 +1455,7 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
     }
   }
 
-  await resetEditPlanShots(videoId, stepKey, stepsToReset)
+  await resetEditPlanShots(videoId, stepKey, stepsToReset, isAudioFirstRoute)
 
   await prisma.videoGenerationStep.updateMany({
     where: {

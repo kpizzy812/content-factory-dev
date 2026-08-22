@@ -49,7 +49,7 @@ import { pickTtsModel, getModel } from "./video-models"
 import { logStepCost } from "./balance/cost-ledger"
 import { mapStepKeyToService } from "./balance/cost-attribution"
 import { accumulateStepCost, imageMegapixels, stepAttemptForLedger } from "./video-cost-actual"
-import { runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
+import { EditPlanUnresolvedError, runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
 import { planEditShots } from "./agents/edit-planner-agent"
 import type { ResolvedEditProfile } from "./edit-plan/profile"
 import type { PlannedShotWithCost } from "./edit-plan/types"
@@ -2510,8 +2510,50 @@ export async function runVideoTranscription(
 export interface VideoEditPlanResult {
   status: "completed" | "repaired"
   shots: PlannedShotWithCost[]
+  /** Ledger-цена ЭТОГО шага (вызовы Anthropic) — то, что ушло в AiAuditLog. */
   costUsd: number
+  /** Прогнозная смета будущих фонов по плану — НЕ ledger, только для outputSnapshot/оценки ролика §14. */
+  plannedMediaCostUsd: number
   warnings: string[]
+}
+
+/**
+ * Плоская оценка стоимости ОДНОГО вызова монтажного агента (Critical 1
+ * ре-ревью задачи, Task 5, фикс-раунд 1).
+ *
+ * Раньше в ledger шага уходила `result.costUsd` — прогнозная смета БУДУЩИХ
+ * flux-картинок и Kling-видео по плану, а не цена самого вызова Anthropic:
+ * план без единого платного фона давал 0 и терял реально оплаченный вызов
+ * модели из учёта целиком; план с картинками задваивал расход, когда шаг
+ * генерации фонов их и правда сгенерирует.
+ *
+ * Решение — как у соседнего `prompt_generation` (`video-pipeline.ts`,
+ * `chargeStep(..., "anthropic", ..., prompts.scenePrompts ? 0.02 : 0.01)`):
+ * плоская оценка стоимости вызова, а не токенный расчёт. Умножается на
+ * `EditPlanStepResult.modelCallCount` — 1, если план сошёлся сразу, 2, если
+ * потребовался повторный запрос по §5.3; при несходимости ремонта оба
+ * оплаченных вызова всё равно попадают в ledger через `EditPlanUnresolvedError`.
+ */
+const EDIT_PLAN_MODEL_CALL_ESTIMATE_USD = 0.05
+
+/**
+ * Только поля профиля, которые реально влияют на ПЛАН (Important 1/2
+ * ре-ревью задачи): `pipPosition`/`pipSize`/`generativeVideoResolution`/
+ * `stepwiseApproval` не читает ни `grid.ts`, ни `edit-planner-agent.ts`, ни
+ * `pickBackgroundSource` — их правка не должна стоить повторной оплаты
+ * агента. `pipEnabled` остаётся: раннер клэмпит им `VideoShot.pipEnabled`,
+ * то есть он ВЛИЯЕТ на итоговые кадры.
+ */
+function planningRelevantProfile(profile: ResolvedEditProfile) {
+  return {
+    editPrompt: profile.editPrompt,
+    brollRatio: profile.brollRatio,
+    shotChangeSec: profile.shotChangeSec,
+    pipEnabled: profile.pipEnabled,
+    generativeVideoEnabled: profile.generativeVideoEnabled,
+    generativeVideoBudgetUsd: profile.generativeVideoBudgetUsd,
+    llmModelId: profile.llmModelId,
+  }
 }
 
 export interface VideoEditPlanInput {
@@ -2533,17 +2575,38 @@ export interface VideoEditPlanInput {
 }
 
 /**
- * Ключ кэша шага (требование 6 ревью задачи): отпечаток трека + снимок
- * разрешённого профиля + число сцен. Совпадение — план для ЭТИХ входных данных
- * уже посчитан и оплачен, повторный прогон отдаёт его как есть. Профиль входит
- * в ключ целиком (не только его id): `resolveEditProfile` мог подставить другие
- * значения при том же `editProfileId`, если поменялись переопределения ролика.
+ * Ключ кэша шага (требование 6 ревью задачи, сужен и расширен в фикс-раунде 1
+ * по Important 1/2): отпечаток трека + число сцен + потолок lip-sync + состав
+ * доступных фонов/скринов + ТОЛЬКО планing-релевантные поля профиля.
+ *
+ * Important 1: раньше ключ не включал `lipSyncMaxDurationSec` и состав
+ * `backgrounds`/`appScreens` — смена lip-sync модели (другой потолок) или
+ * заливка нового фона в библиотеку не промахивали кэш, и план оставался
+ * посчитан под старые условия.
+ * Important 2: раньше профиль сериализовался ЦЕЛИКОМ — правка `pipPosition`,
+ * `pipSize`, `generativeVideoResolution` или `stepwiseApproval` (полей, не
+ * влияющих ни на сетку, ни на промпт агента, ни на `pickBackgroundSource`)
+ * промахивала кэш и заново платила за агента без всякой причины.
+ *
+ * Идентификаторы фонов/скринов отсортированы: порядок enumeration из БД не
+ * гарантирован и не должен решать, совпал кэш или нет на ОДНОМ и том же
+ * множестве id.
  */
-function editPlanCacheKey(input: { trackFingerprint: string, profile: ResolvedEditProfile, sceneCount: number }): string {
+function editPlanCacheKey(input: {
+  trackFingerprint: string
+  profile: ResolvedEditProfile
+  sceneCount: number
+  lipSyncMaxDurationSec: number
+  backgroundIds: readonly string[]
+  appScreenIds: readonly string[]
+}): string {
   return JSON.stringify({
     trackFingerprint: input.trackFingerprint,
-    profile: input.profile,
+    profile: planningRelevantProfile(input.profile),
     sceneCount: input.sceneCount,
+    lipSyncMaxDurationSec: input.lipSyncMaxDurationSec,
+    backgroundIds: [...input.backgroundIds].sort(),
+    appScreenIds: [...input.appScreenIds].sort(),
   })
 }
 
@@ -2551,6 +2614,7 @@ interface EditPlanSnapshot {
   cacheKey: string
   status: "completed" | "repaired"
   shots: PlannedShotWithCost[]
+  plannedMediaCostUsd: number
   warnings: string[]
 }
 
@@ -2561,6 +2625,7 @@ function readEditPlanSnapshot(snapshot: unknown): EditPlanSnapshot | null {
     cacheKey: value.cacheKey,
     status: value.status === "repaired" ? "repaired" : "completed",
     shots: value.shots,
+    plannedMediaCostUsd: typeof value.plannedMediaCostUsd === "number" ? value.plannedMediaCostUsd : 0,
     warnings: Array.isArray(value.warnings) ? value.warnings : [],
   }
 }
@@ -2581,10 +2646,15 @@ export async function runVideoEditPlan(
   const { videoId } = input
   const step = await ensureStep(videoId, "edit_plan", STEP_ORDER.indexOf("edit_plan"))
 
+  const backgroundIds = input.backgrounds.map(b => b.id)
+  const appScreenIds = input.appScreens.map(s => s.id)
   const cacheKey = editPlanCacheKey({
     trackFingerprint: input.trackFingerprint,
     profile: input.profile,
     sceneCount: input.alignedScenes.length,
+    lipSyncMaxDurationSec: input.lipSyncMaxDurationSec,
+    backgroundIds,
+    appScreenIds,
   })
 
   // Требование 7 ревью задачи: снимок разрешённого профиля пишется в лог шага.
@@ -2596,7 +2666,7 @@ export async function runVideoEditPlan(
     const cached = readEditPlanSnapshot(step.outputSnapshot)
     if (cached && cached.cacheKey === cacheKey) {
       await appendStepLog(step.id, `План монтажа для этого трека уже готов (${cached.shots.length} кадров) — повторной оплаты нет`)
-      return { status: cached.status, shots: cached.shots, costUsd: 0, warnings: cached.warnings }
+      return { status: cached.status, shots: cached.shots, costUsd: 0, plannedMediaCostUsd: cached.plannedMediaCostUsd, warnings: cached.warnings }
     }
   }
 
@@ -2608,9 +2678,23 @@ export async function runVideoEditPlan(
   // Ставки — из спек моделей, не литералы (требование 5 ревью задачи).
   const videoBilling = replicateVideoBilling()
   const imageSpec = findMediaSpec("replicate:flux-dev")
+  // Important 3 ревью задачи: НЕ хардкод. Модели картинок нет в реестре —
+  // §10 требует деградацию до пустого фона (кадр отдаётся ведущему), а не
+  // тихую бесплатную картинку (то была бы ошибка M-4: `imageUsd=0` при
+  // отсутствии спеки делала бы план «бесплатным» молча; при
+  // `imageGenerationAllowed=false` `pickBackgroundSource` вообще не берёт
+  // `imageUsd` в расчёт, так что сама эта дыра закрывается тем же флагом).
+  const imageGenerationAllowed = imageSpec !== null
   const imageUsd = imageSpec
     ? estimateMediaCost(imageSpec, { images: 1, megapixels: imageMegapixels(input.format, input.renderQuality) })
     : 0
+  if (!imageGenerationAllowed) {
+    await appendStepLog(
+      step.id,
+      `Модель flux-dev не найдена в реестре — генерация картинки недоступна в этом прогоне, `
+      + `кадры без библиотечного/платного фона отдаются ведущему (§10)`,
+    )
+  }
 
   const defaultDeps: EditPlanStepDeps = {
     askModel: async (grid, context) => {
@@ -2628,6 +2712,8 @@ export async function runVideoEditPlan(
         presenterSceneOrders: context.presenterSceneOrders,
         brollRatio: context.brollRatio,
         shotChangeSec: context.shotChangeSec,
+        pipAllowed: context.pipAllowed,
+        generativeVideoAllowed: context.generativeVideoAllowed,
         model: input.profile.llmModelId,
         previousErrors: context.previousErrors,
       })
@@ -2676,6 +2762,7 @@ export async function runVideoEditPlan(
       maxGenerativeVideoSec: REPLICATE_KLING_16_DURATIONS[1]!,
       generativeVideoUsdPerSec: videoBilling.usdPerSecond,
       imageUsd,
+      imageGenerationAllowed,
       backgrounds: input.backgrounds,
       appScreens: input.appScreens,
     }, {
@@ -2685,14 +2772,33 @@ export async function runVideoEditPlan(
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    // Critical 1 ревью задачи, п.1: при несходимости ремонта модель уже
+    // спрошена (1 или 2 раза) и оплачена — эти вызовы не должны пропасть из
+    // ledger только потому, что шаг в итоге падает.
+    const modelCallCount = error instanceof EditPlanUnresolvedError ? error.modelCallCount : 0
+    const agentCostUsd = modelCallCount * EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
     await updateStep(step.id, {
       status: "failed",
       finishedAt: new Date(),
       errorMessage: message.slice(0, 500),
+      actualCost: accumulateStepCost(costBefore, agentCostUsd),
     })
+    if (agentCostUsd > 0) {
+      await logStepCost(
+        step.id, "edit_plan", mapStepKeyToService("edit_plan", null), agentCostUsd, videoId, input.profile.llmModelId, { attempt },
+      )
+    }
     await appendStepLog(step.id, `План монтажа не построен: ${message}`)
     throw error
   }
+
+  // Ledger получает плоскую оценку цены вызова(ов) агента, а НЕ
+  // `result.plannedMediaCostUsd` (Critical 1 ревью задачи) — см. докстринг
+  // `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD`. Прогнозная смета фонов уходит только
+  // в outputSnapshot, для будущей оценки ролика (§14), и в ledger не попадает
+  // никогда: она посчитается ЗАНОВО и по-настоящему, когда шаг генерации
+  // фонов реально их сгенерирует.
+  const agentCostUsd = result.modelCallCount * EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
 
   await updateStep(step.id, {
     status: "completed",
@@ -2702,25 +2808,30 @@ export async function runVideoEditPlan(
       cacheKey,
       status: result.status,
       shots: result.shots,
+      plannedMediaCostUsd: result.plannedMediaCostUsd,
       warnings: result.warnings,
     } as unknown as Record<string, unknown>,
-    actualCost: accumulateStepCost(costBefore, result.costUsd),
+    actualCost: accumulateStepCost(costBefore, agentCostUsd),
   })
-  if (result.costUsd > 0) {
+  if (agentCostUsd > 0) {
     await logStepCost(
       step.id,
       "edit_plan",
       mapStepKeyToService("edit_plan", null),
-      result.costUsd,
+      agentCostUsd,
       videoId,
       input.profile.llmModelId,
       { attempt },
     )
   }
   for (const warning of result.warnings) await appendStepLog(step.id, warning)
-  await appendStepLog(step.id, `План монтажа готов: ${result.shots.length} кадров, статус "${result.status}", $${result.costUsd.toFixed(4)}`)
+  await appendStepLog(
+    step.id,
+    `План монтажа готов: ${result.shots.length} кадров, статус "${result.status}", вызовов модели ${result.modelCallCount}, `
+    + `ledger $${agentCostUsd.toFixed(4)}, прогноз фонов $${result.plannedMediaCostUsd.toFixed(4)}`,
+  )
 
-  return { status: result.status, shots: result.shots, costUsd: result.costUsd, warnings: result.warnings }
+  return { status: result.status, shots: result.shots, costUsd: agentCostUsd, plannedMediaCostUsd: result.plannedMediaCostUsd, warnings: result.warnings }
 }
 
 // ─── Шаг 4: Генерация музыки ───────────────────────────────────
