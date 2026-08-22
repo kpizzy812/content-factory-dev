@@ -49,8 +49,9 @@ import { pickTtsModel, getModel } from "./video-models"
 import { logStepCost } from "./balance/cost-ledger"
 import { mapStepKeyToService } from "./balance/cost-attribution"
 import { accumulateStepCost, imageMegapixels, stepAttemptForLedger } from "./video-cost-actual"
-import { EditPlanUnresolvedError, runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
+import { EditPlanUnresolvedError, runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanModelUsage, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
 import { planEditShots } from "./agents/edit-planner-agent"
+import { calculateAnthropicCost } from "./ai-pricing"
 import type { ResolvedEditProfile } from "./edit-plan/profile"
 import type { PlannedShotWithCost } from "./edit-plan/types"
 import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
@@ -2518,23 +2519,66 @@ export interface VideoEditPlanResult {
 }
 
 /**
- * Плоская оценка стоимости ОДНОГО вызова монтажного агента (Critical 1
- * ре-ревью задачи, Task 5, фикс-раунд 1).
+ * Резервная оценка стоимости ОДНОГО вызова монтажного агента — используется
+ * ТОЛЬКО как fallback (Critical 1 ре-ревью задачи, фикс-раунд 2), когда для
+ * конкретного вызова нельзя посчитать реальную цену по токенам:
  *
- * Раньше в ledger шага уходила `result.costUsd` — прогнозная смета БУДУЩИХ
- * flux-картинок и Kling-видео по плану, а не цена самого вызова Anthropic:
- * план без единого платного фона давал 0 и терял реально оплаченный вызов
- * модели из учёта целиком; план с картинками задваивал расход, когда шаг
- * генерации фонов их и правда сгенерирует.
+ * 1. `ANTHROPIC_MOCK_MODE` — `tryMockAnthropicAgent` отдаёт статическую
+ *    фикстуру и не зовёт `onUsage` вовсе, usage физически нет (`null`).
+ * 2. Модель вызвана по-настоящему (usage есть), но её нет в тарифной таблице
+ *    `ai-pricing.ts` — `EditProfile.llmModelId` разрешает произвольную
+ *    строку, и будущая/кастомная версия модели туда законно не попадёт.
  *
- * Решение — как у соседнего `prompt_generation` (`video-pipeline.ts`,
- * `chargeStep(..., "anthropic", ..., prompts.scenePrompts ? 0.02 : 0.01)`):
- * плоская оценка стоимости вызова, а не токенный расчёт. Умножается на
- * `EditPlanStepResult.modelCallCount` — 1, если план сошёлся сразу, 2, если
- * потребовался повторный запрос по §5.3; при несходимости ремонта оба
- * оплаченных вызова всё равно попадают в ledger через `EditPlanUnresolvedError`.
+ * В фикс-раунде 1 эта константа ошибочно была ЕДИНСТВЕННЫМ механизмом (см.
+ * git-историю) — ре-ревью потребовало реального токенного расчёта через
+ * `calculateAnthropicCost`, потому что промпт агента растёт вместе с сеткой
+ * кадров (см. `estimateMaxTokens` в `edit-planner-agent.ts`), а сетка — с
+ * длиной ролика: плоская оценка систематически ЗАНИЖАЕТ цену на длинных
+ * роликах, тем же классом ошибки, что и заниженная ставка Kling в Task 4.
+ * Теперь это fallback на случай, когда токенных данных нет, а НЕ основной путь.
  */
 const EDIT_PLAN_MODEL_CALL_ESTIMATE_USD = 0.05
+
+/**
+ * Считает ledger-цену ОДНОГО вызова монтажного агента.
+ *
+ * Основной путь — реальный токенный расчёт (`calculateAnthropicCost`).
+ * Резервный — плоская оценка `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD`, но НИКОГДА
+ * молча: если usage есть, а модели нет в тарифной таблице, в лог шага уходит
+ * явное сообщение с известными токенами (чтобы тарифную таблицу можно было
+ * дополнить по факту) — цена вызова в этом случае была бы иначе тихим нулём,
+ * а вызов реально оплачен. Если usage нет вовсе (мок), fallback молчит:
+ * это ожидаемое поведение теста, не сигнал дыры в учёте.
+ */
+async function priceEditPlanModelCall(
+  usage: EditPlanModelUsage | null,
+  stepId: number,
+): Promise<number> {
+  if (!usage) return EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+
+  const computed = calculateAnthropicCost(usage.model, usage)
+  if (computed !== null) return computed
+
+  await appendStepLog(
+    stepId,
+    `План монтажа: модель "${usage.model}" не найдена в тарифной таблице (ai-pricing.ts) — реальная цена вызова `
+    + `НЕ измерена. Известные токены: input=${usage.inputTokens}, output=${usage.outputTokens}, `
+    + `cacheRead=${usage.cacheReadTokens ?? 0}, cacheCreate=${usage.cacheCreateTokens ?? 0}. `
+    + `Списана резервная оценка $${EDIT_PLAN_MODEL_CALL_ESTIMATE_USD} вместо измеренной цены — `
+    + `дополните тарифную таблицу этой моделью.`,
+  )
+  return EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+}
+
+/** Сумма ledger-цены по ВСЕМ реальным попыткам (Critical 1, п.3 ре-ревью, фикс-раунд 2): несходящийся ремонт платит за обе. */
+async function priceEditPlanModelCalls(
+  usages: readonly (EditPlanModelUsage | null)[],
+  stepId: number,
+): Promise<number> {
+  let total = 0
+  for (const usage of usages) total += await priceEditPlanModelCall(usage, stepId)
+  return total
+}
 
 /**
  * Только поля профиля, которые реально влияют на ПЛАН (Important 1/2
@@ -2543,6 +2587,15 @@ const EDIT_PLAN_MODEL_CALL_ESTIMATE_USD = 0.05
  * `pickBackgroundSource` — их правка не должна стоить повторной оплаты
  * агента. `pipEnabled` остаётся: раннер клэмпит им `VideoShot.pipEnabled`,
  * то есть он ВЛИЯЕТ на итоговые кадры.
+ *
+ * ВНИМАНИЕ тому, кто добавляет поле в `ResolvedEditProfile` (сомнение №2
+ * ре-ревью, принято как есть координатором): список ручной, не выводится из
+ * типа. Новое поле, которое реально влияет на план (читается `grid.ts`,
+ * `edit-planner-agent.ts` или `pickBackgroundSource`), но не добавлено сюда,
+ * даст молча УСТАРЕВШИЙ план из кэша — `editPlanCacheKey` не заметит его
+ * смены. Автоматизировать вывод "влияет ли поле на план" из типа
+ * невозможно — так решили сознательно: неверная автоматика хуже честного
+ * списка, который хотя бы виден при код-ревью.
  */
 function planningRelevantProfile(profile: ResolvedEditProfile) {
   return {
@@ -2717,7 +2770,9 @@ export async function runVideoEditPlan(
         model: input.profile.llmModelId,
         previousErrors: context.previousErrors,
       })
-      return { shots: response.shots }
+      // Critical 1, фикс-раунд 2: usage (или null в моке) идёт дальше в
+      // раннер нетронутым — денежная логика живёт только в этом файле.
+      return { shots: response.shots, usage: response.usage }
     },
     saveShots: async (shots) => {
       // Один прогон = одна транзакция: удалить прошлый план целиком (если он
@@ -2772,11 +2827,13 @@ export async function runVideoEditPlan(
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    // Critical 1 ревью задачи, п.1: при несходимости ремонта модель уже
-    // спрошена (1 или 2 раза) и оплачена — эти вызовы не должны пропасть из
-    // ledger только потому, что шаг в итоге падает.
-    const modelCallCount = error instanceof EditPlanUnresolvedError ? error.modelCallCount : 0
-    const agentCostUsd = modelCallCount * EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+    // Critical 1 ревью задачи, п.1 и п.3 (фикс-раунд 2): при несходимости
+    // ремонта модель уже спрошена (1 или 2 раза) и ОБЕ попытки реально
+    // оплачены — их usage не должен пропасть из ledger только потому, что
+    // шаг в итоге падает. Считаем по реальным токенам каждой попытки, а не
+    // числом попыток × константа.
+    const modelUsages = error instanceof EditPlanUnresolvedError ? error.modelUsages : []
+    const agentCostUsd = await priceEditPlanModelCalls(modelUsages, step.id)
     await updateStep(step.id, {
       status: "failed",
       finishedAt: new Date(),
@@ -2792,13 +2849,14 @@ export async function runVideoEditPlan(
     throw error
   }
 
-  // Ledger получает плоскую оценку цены вызова(ов) агента, а НЕ
-  // `result.plannedMediaCostUsd` (Critical 1 ревью задачи) — см. докстринг
-  // `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD`. Прогнозная смета фонов уходит только
-  // в outputSnapshot, для будущей оценки ролика (§14), и в ledger не попадает
+  // Ledger получает РЕАЛЬНУЮ токенную цену вызова(ов) агента (Critical 1,
+  // фикс-раунд 2), а НЕ `result.plannedMediaCostUsd` (Critical 1, фикс-раунд
+  // 1) и НЕ плоскую константу (см. докстринг `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD`
+  // — она теперь только fallback). Прогнозная смета фонов уходит только в
+  // outputSnapshot, для будущей оценки ролика (§14), и в ledger не попадает
   // никогда: она посчитается ЗАНОВО и по-настоящему, когда шаг генерации
   // фонов реально их сгенерирует.
-  const agentCostUsd = result.modelCallCount * EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+  const agentCostUsd = await priceEditPlanModelCalls(result.modelUsages, step.id)
 
   await updateStep(step.id, {
     status: "completed",

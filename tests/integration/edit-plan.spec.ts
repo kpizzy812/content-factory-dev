@@ -5,7 +5,8 @@ import { StorageKeys } from "~~/server/utils/storage/keys"
 import { runVideoEditPlan, type VideoEditPlanInput } from "~~/server/utils/video-pipeline-steps"
 import { resetEditPlanShots } from "~~/server/utils/video-pipeline"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
-import type { EditPlanModelShot } from "~~/server/utils/edit-plan/runner"
+import type { EditPlanModelShot, EditPlanModelUsage } from "~~/server/utils/edit-plan/runner"
+import { calculateAnthropicCost } from "~~/server/utils/ai-pricing"
 
 // `logAgent` — авто-импорт Nitro (как `prisma`, но prisma.ts сам себя кладёт в
 // globalThis в не-production, а agent-logger.ts — нет). video-pipeline.ts
@@ -328,17 +329,22 @@ describe("шаг edit_plan: идемпотентность и перезапус
     expect(shotsAfterSecond.map(s => s.id).sort()).toEqual(shotsAfterFirst.map(s => s.id).sort())
   })
 
-  it("ledger получает плоскую оценку цены вызова агента, а не смету фонов по плану (Critical 1 ре-ревью задачи)", async () => {
+  it("ledger получает реальную токенную цену вызова агента, а не смету фонов по плану и не плоскую константу (Critical 1 ре-ревью задачи, фикс-раунд 2)", async () => {
     // Раньше в ledger уходила Σ VideoShot.costUsd (смета БУДУЩИХ картинок/видео
     // по плану) под сервисом "anthropic" — план без единого платного фона терял
-    // реально оплаченный вызов модели из учёта целиком.
+    // реально оплаченный вызов модели из учёта целиком. В фикс-раунде 1 это
+    // заменили плоской константой ($0.05/вызов) — ре-ревью потребовало
+    // реального токенного расчёта: промпт агента растёт с сеткой кадров,
+    // плоская оценка систематически занижает цену на длинных роликах.
     //
-    // Сцена нарочно даёт РОВНО 3 кадра (а не 2, как в `baseInput()`) — со
-    // стандартными 2 кадрами 2×$0.025 = $0.05 численно СОВПАДАЕТ с плоской
-    // оценкой одного вызова модели, и мутация «положить в ledger
-    // plannedMediaCostUsd вместо агентской оценки» на 2-кадровом плане молча
-    // проходит тест (числа случайно равны). Обнаружено самой этой мутацией.
-    const askModel = happyAskModel()
+    // Сцена даёт РОВНО 3 кадра (а не 2, как в `baseInput()`) — со стандартными
+    // 2 кадрами 2×$0.025 = $0.05 численно СОВПАДАЕТ с прежней плоской оценкой,
+    // и коллизия маскирует дефекты денежной проводки. Оставлено с фикс-раунда 1.
+    const usage: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 12000, outputTokens: 3000 }
+    const askModel = vi.fn(async (grid: Array<{ order: number }>): Promise<{ shots: EditPlanModelShot[], usage: EditPlanModelUsage }> => ({
+      shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })),
+      usage,
+    }))
     const threeShotInput = baseInput({
       trackDurationSec: 6,
       alignedScenes: [{
@@ -358,32 +364,97 @@ describe("шаг edit_plan: идемпотентность и перезапус
     const shots = await prisma.videoShot.findMany({ where: { videoId } })
     expect(shots.length).toBe(3)
 
-    // Ledger-цена — плоская оценка ОДНОГО вызова модели (см. отчёт, п.
-    // EDIT_PLAN_MODEL_CALL_ESTIMATE_USD), а не сумма стоимостей кадров
-    // (3 × $0.025 = $0.075 — заведомо другое число).
+    // Цена — реально посчитана по токенам из usage (через ту же
+    // `calculateAnthropicCost`, что и продакшен-код — проверяем, что ЦИФРЫ
+    // ДОШЛИ до ledger, а не корректность самой тарифной таблицы), а НЕ сумма
+    // стоимостей кадров (3 × $0.025 = $0.075) и НЕ прежняя константа $0.05.
+    const expectedCostUsd = calculateAnthropicCost(usage.model, usage)
+    expect(expectedCostUsd).not.toBeNull()
+    expect(expectedCostUsd).not.toBeCloseTo(0.05, 6)
+    expect(expectedCostUsd).not.toBeCloseTo(0.075, 6)
+    expect(result.costUsd).toBeCloseTo(expectedCostUsd!, 6)
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(expectedCostUsd!, 6)
+
+    // Прогнозная смета фонов — ОТДЕЛЬНОЕ число (askModel просит "image" на
+    // каждый кадр, $0.025/кадр), в ledger не попадает вовсе.
+    expect(result.plannedMediaCostUsd).toBeCloseTo(0.075, 6)
+    expect(result.plannedMediaCostUsd).not.toBeCloseTo(result.costUsd, 6)
+  })
+
+  it("usage не сообщён (как в ANTHROPIC_MOCK_MODE) — цена вызова не становится тихим нулём, используется резервная оценка (Critical 1, п.4 ре-ревью задачи)", async () => {
+    // happyAskModel() не возвращает usage вовсе — ровно то, что реально
+    // происходит в моке: tryMockAnthropicAgent не зовёт onUsage. Проверяем,
+    // что это НЕ ломает учёт (нет строки в ledger) и НЕ даёт тихий $0.
+    const askModel = happyAskModel()
+
+    const result = await runVideoEditPlan(baseInput(), { askModel })
+
+    expect(result.costUsd).toBeGreaterThan(0)
+    const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
+    expect(ledgerRow).not.toBeNull()
+    expect(Number(ledgerRow!.costUsd)).toBe(result.costUsd)
+  })
+
+  it("модель вне тарифной таблицы — реальный вызов не превращается в тихий ноль, списана резервная оценка и лог явный (Critical 1, п.2 ре-ревью задачи)", async () => {
+    // usage ЕСТЬ (модель реально вызвана), но её нет в PRICING_TABLE
+    // (`ai-pricing.ts`) — EditProfile.llmModelId разрешает произвольную
+    // строку. `calculateAnthropicCost` вернёт null; наивная реализация дала
+    // бы costUsd=0 и потеряла бы реально оплаченный вызов из учёта — тот же
+    // класс дефекта, что был у imageUsd при отсутствующей спеке flux-dev.
+    const unknownModel = "claude-future-model-x1"
+    const askModel = vi.fn(async (grid: Array<{ order: number }>): Promise<{ shots: EditPlanModelShot[], usage: EditPlanModelUsage }> => ({
+      shots: grid.map(cell => ({ order: cell.order, foreground: "none", background: "image", idea: "фон" })),
+      usage: { model: unknownModel, inputTokens: 5000, outputTokens: 1000 },
+    }))
+
+    const result = await runVideoEditPlan(
+      baseInput({ profile: { ...DEFAULT_EDIT_PROFILE, llmModelId: unknownModel } }),
+      { askModel },
+    )
+
+    // Не ноль — резервная плоская оценка ($0.05), задокументированная как
+    // fallback именно на этот случай (EDIT_PLAN_MODEL_CALL_ESTIMATE_USD).
     expect(result.costUsd).toBeCloseTo(0.05, 6)
     const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
     expect(ledgerRow).not.toBeNull()
     expect(Number(ledgerRow!.costUsd)).toBeCloseTo(0.05, 6)
 
-    // Прогнозная смета фонов — ОТДЕЛЬНОЕ число (happyAskModel просит "image"
-    // на каждый кадр, $0.025/кадр), в ledger не попадает вовсе.
-    expect(result.plannedMediaCostUsd).toBeCloseTo(0.075, 6)
-    expect(result.plannedMediaCostUsd).not.toBeCloseTo(result.costUsd, 6)
+    // Явный лог с известными токенами — не молчим о том, что цена не измерена.
+    const step = await prisma.videoGenerationStep.findFirst({
+      where: { videoId, stepKey: "edit_plan" as never },
+      select: { logs: true },
+    })
+    const logMessages = (Array.isArray(step?.logs) ? step.logs : [])
+      .map(entry => String((entry as { msg?: unknown }).msg ?? ""))
+    expect(logMessages.some(msg => msg.includes(unknownModel) && msg.includes("тарифной таблице"))).toBe(true)
   })
 
-  it("ремонт не сходится после двух попыток — обе оплаченные попытки всё равно списаны в ledger (Critical 1 ре-ревью задачи, п.1)", async () => {
+  it("ремонт не сходится после двух попыток — обе оплаченные попытки всё равно списаны в ledger по реальным токенам (Critical 1 ре-ревью задачи, п.1 и п.3)", async () => {
     // Presenter-сцена занимает ВЕСЬ трек, потолок lip-sync невалиден (0) —
-    // presenter_too_long неустраним, обе попытки модели реально оплачены,
-    // а шаг в итоге честно падает.
-    const askModel = vi.fn(async () => ({ shots: [] as EditPlanModelShot[] }))
+    // presenter_too_long неустраним, обе попытки модели реально оплачены с
+    // РАЗНЫМ usage (вторая попытка — с previousErrors в промпте — обычно
+    // тяжелее), а шаг в итоге честно падает.
+    const usageByAttempt: EditPlanModelUsage[] = [
+      { model: "claude-sonnet-4-6", inputTokens: 4000, outputTokens: 800 },
+      { model: "claude-sonnet-4-6", inputTokens: 6000, outputTokens: 1200 },
+    ]
+    let call = 0
+    const askModel = vi.fn(async (): Promise<{ shots: EditPlanModelShot[], usage: EditPlanModelUsage }> => ({
+      shots: [],
+      usage: usageByAttempt[call++]!,
+    }))
 
     await expect(runVideoEditPlan(baseInput({ lipSyncMaxDurationSec: 0 }), { askModel })).rejects.toThrow()
 
     expect(askModel).toHaveBeenCalledTimes(2)
+    // Сумма ОБЕИХ попыток по их РЕАЛЬНЫМ usage — не 2×константа (это как раз
+    // то, что фикс-раунд 1 делал раньше) и не usage только последней попытки.
+    const expectedTotal = usageByAttempt.reduce((sum, usage) => sum + calculateAnthropicCost(usage.model, usage)!, 0)
     const ledgerRow = await prisma.aiAuditLog.findFirst({ where: { videoId, stepKey: "edit_plan" } })
     expect(ledgerRow).not.toBeNull()
-    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(0.1, 6)
+    expect(Number(ledgerRow!.costUsd)).toBeCloseTo(expectedTotal, 6)
     const step = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "edit_plan" as never } })
     expect(step?.status).toBe("failed")
   })

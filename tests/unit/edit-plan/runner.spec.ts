@@ -522,4 +522,59 @@ describe("шаг плана монтажа", () => {
     // video-pipeline-steps.ts, см. отчёт).
     expect(result.plannedMediaCostUsd).toBeGreaterThan(0)
   })
+
+  it("modelUsages несёт usage каждой реальной попытки — раннер только сохраняет, не считает деньги (Critical 1 ре-ревью задачи, фикс-раунд 2)", async () => {
+    const usage = { model: "claude-sonnet-4-6", inputTokens: 1234, outputTokens: 567 }
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number }>) => ({
+        shots: grid.map(cell => ({ order: cell.order, foreground: "none" as const, background: "image" as const, idea: "идея" })),
+        usage,
+      })),
+    })
+
+    const result = await runEditPlanStep(INPUT, dependencies)
+
+    expect(result.modelCallCount).toBe(1)
+    expect(result.modelUsages).toEqual([usage])
+  })
+
+  it("modelUsages пуст usage'ом null, когда askModel его не сообщает (мок Anthropic) — раннер не подставляет числа сам", async () => {
+    // Дефолтный `deps()` не возвращает usage вовсе — ровно то, что реально
+    // происходит в ANTHROPIC_MOCK_MODE (tryMockAnthropicAgent не зовёт onUsage).
+    const result = await runEditPlanStep(INPUT, deps())
+
+    expect(result.modelUsages).toEqual([null])
+  })
+
+  it("modelUsages несёт usage ОБЕИХ попыток при несходимости ремонта (Critical 1, п.3 ре-ревью задачи)", async () => {
+    const unfixable: EditPlanStepInput = {
+      ...INPUT,
+      alignedScenes: [{ order: 1, startSec: 0, endSec: 8, words: [
+        { text: "раз", startSec: 0, endSec: 3.8, matched: true },
+        { text: "два", startSec: 4.2, endSec: 8.0, matched: true },
+      ] }],
+      lipSyncMaxDurationSec: 0,
+    }
+    const usageByAttempt = [
+      { model: "claude-sonnet-4-6", inputTokens: 1000, outputTokens: 200 },
+      { model: "claude-sonnet-4-6", inputTokens: 1500, outputTokens: 300 },
+    ]
+    let call = 0
+    const dependencies = deps({
+      askModel: vi.fn(async () => ({ shots: [], usage: usageByAttempt[call++] })),
+    })
+
+    const { EditPlanUnresolvedError } = await import("~~/server/utils/edit-plan/runner")
+
+    // Ошибка обязана нести usage ОБЕИХ попыток, а не только последней —
+    // иначе video-pipeline-steps.ts посчитало бы деньги только за одну из
+    // двух реально оплаченных попыток.
+    await expect(runEditPlanStep(unfixable, dependencies)).rejects.toSatisfy((error: unknown) => {
+      expect(error).toBeInstanceOf(EditPlanUnresolvedError)
+      const unresolved = error as InstanceType<typeof EditPlanUnresolvedError>
+      expect(unresolved.modelCallCount).toBe(2)
+      expect(unresolved.modelUsages).toEqual(usageByAttempt)
+      return true
+    })
+  })
 })

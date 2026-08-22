@@ -132,11 +132,37 @@ export interface EditPlanStepInput {
   appScreens: readonly EditPlanAppScreenOption[]
 }
 
+/**
+ * Token usage одного вызова модели (ре-ревью Critical 1, фикс-раунд 2).
+ * Форма НАМЕРЕННО провайдер-агностична — раннер не обязан знать, что за
+ * моделью стоит Anthropic — но совпадает по полям с `AnthropicCallUsage`
+ * (`agents/call-anthropic.ts`), откуда её реально приносит
+ * `video-pipeline-steps.ts`: структурная совместимость TypeScript снимает
+ * нужду в явном мэппинге на границе.
+ */
+export interface EditPlanModelUsage {
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens?: number
+  cacheCreateTokens?: number
+}
+
 export interface EditPlanStepDeps {
   askModel: (
     grid: readonly EditPlanGridCellForModel[],
     context: EditPlanAskModelContext,
-  ) => Promise<{ shots: EditPlanModelShot[] }>
+  ) => Promise<{
+    shots: EditPlanModelShot[]
+    /**
+     * `null`, когда вызов не сообщил usage (`ANTHROPIC_MOCK_MODE` —
+     * `tryMockAnthropicAgent` не зовёт `onUsage` вовсе, токенов физически
+     * нет). Раннер не считает деньги сам (Critical 1 разделение
+     * ответственности) — он только СОХРАНЯЕТ usage каждой попытки, чтобы
+     * `video-pipeline-steps.ts` могло посчитать реальную ledger-цену.
+     */
+    usage?: EditPlanModelUsage | null
+  }>
   saveShots: (shots: readonly PlannedShotWithCost[]) => Promise<void>
   log: (message: string) => Promise<void>
 }
@@ -155,22 +181,36 @@ export interface EditPlanStepResult {
   plannedMediaCostUsd: number
   /**
    * Сколько раз этот прогон реально спросил модель (1 — сошлось сразу, 2 —
-   * потребовался повторный запрос по §5.3). DB-обвязка использует это число,
-   * а не `plannedMediaCostUsd`, чтобы посчитать ledger-цену шага.
+   * потребовался повторный запрос по §5.3). DB-обвязка использует это число
+   * только для лога — реальную ledger-цену считает по `modelUsages` ниже.
    */
   modelCallCount: number
+  /**
+   * Usage КАЖДОЙ реальной попытки, по порядку (длина === `modelCallCount`).
+   * Ре-ревью Critical 1, фикс-раунд 2: раньше ledger-цена была плоской
+   * константой × `modelCallCount`; теперь `video-pipeline-steps.ts` считает
+   * реальную цену по токенам через `calculateAnthropicCost`, и ей нужен
+   * usage КАЖДОЙ попытки, а не только последней — иначе несходящийся ремонт
+   * (2 реально оплаченных вызова) учёл бы только один.
+   */
+  modelUsages: Array<EditPlanModelUsage | null>
   warnings: string[]
 }
 
 /**
  * Ремонт не сошёлся за отведённое число попыток модели — план невалиден,
- * ролик не идёт дальше. Несёт `modelCallCount`: обе (или одна) попытки уже
- * реально оплачены, и это не должно потеряться вместе с исключением
- * (Critical 1 ревью задачи, п.1 — «при несходимости ремонта два оплаченных
- * вызова исчезают»).
+ * ролик не идёт дальше. Несёт `modelCallCount` и `modelUsages`: обе (или
+ * одна) попытки уже реально оплачены, и это не должно потеряться вместе с
+ * исключением (Critical 1 ревью задачи, п.1 — «при несходимости ремонта два
+ * оплаченных вызова исчезают»; фикс-раунд 2 — то же самое верно для usage,
+ * не только для счётчика).
  */
 export class EditPlanUnresolvedError extends Error {
-  constructor(message: string, public readonly modelCallCount: number) {
+  constructor(
+    message: string,
+    public readonly modelCallCount: number,
+    public readonly modelUsages: Array<EditPlanModelUsage | null>,
+  ) {
     super(message)
     this.name = "EditPlanUnresolvedError"
   }
@@ -391,6 +431,7 @@ export async function runEditPlanStep(
   let plan: ShotPlan | null = null
   let remaining: ShotPlanViolation[] = []
   let modelCallCount = 0
+  const modelUsages: Array<EditPlanModelUsage | null> = []
   let attemptWarnings: string[] = []
 
   for (let attempt = 1; attempt <= MAX_MODEL_ATTEMPTS; attempt += 1) {
@@ -404,6 +445,10 @@ export async function runEditPlanStep(
 
     const response = await deps.askModel(gridForModel, modelContext)
     modelCallCount += 1
+    // Critical 1, фикс-раунд 2: usage ЭТОЙ попытки сохраняется независимо от
+    // того, сойдётся ли план — несходящийся ремонт всё равно платит за обе
+    // попытки, и `video-pipeline-steps.ts` обязано посчитать обе.
+    modelUsages.push(response.usage ?? null)
     const { shots, unfilled } = materializeShots(grid.cells, response.shots ?? [], presenterSet, input.profile.pipEnabled)
     if (unfilled > 0) {
       const attemptNote = attempt > 1 ? " (повторный запрос)" : ""
@@ -426,6 +471,7 @@ export async function runEditPlanStep(
       throw new EditPlanUnresolvedError(
         `План монтажа невалиден после ремонта и ${MAX_MODEL_ATTEMPTS} запросов к модели: ${blocking.map(v => v.message).join("; ")}`,
         modelCallCount,
+        modelUsages,
       )
     }
   }
@@ -512,6 +558,7 @@ export async function runEditPlanStep(
     shots: finalShots,
     plannedMediaCostUsd,
     modelCallCount,
+    modelUsages,
     warnings,
   }
 }

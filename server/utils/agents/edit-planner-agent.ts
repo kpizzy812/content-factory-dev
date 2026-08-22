@@ -18,7 +18,7 @@
  * совпасть по длине с динамической сеткой кадров конкретного ролика.
  */
 
-import { callAnthropicAgent } from "./call-anthropic"
+import { callAnthropicAgent, type AnthropicCallUsage } from "./call-anthropic"
 import type { ShotBackground, ShotForeground } from "../edit-plan/types"
 
 export interface EditPlannerGridCell {
@@ -80,8 +80,21 @@ export interface EditPlannerRawShot {
   pipEnabled: boolean
 }
 
-export interface EditPlannerResult {
+/** Форма, которую реально проверяет `validate()` — то, что приходит из JSON-ответа модели. */
+interface EditPlannerParsedShots {
   shots: EditPlannerRawShot[]
+}
+
+export interface EditPlannerResult extends EditPlannerParsedShots {
+  /**
+   * Token usage этого вызова (ре-ревью Critical 1, фикс-раунд 2): `null` в
+   * `ANTHROPIC_MOCK_MODE` — `tryMockAnthropicAgent` отдаёт статическую
+   * фикстуру и не вызывает `onUsage` вовсе, токенов физически нет. Вызывающий
+   * код (`video-pipeline-steps.ts`) обязан явно обработать оба случая
+   * (усечённый usage и модель вне тарифной таблицы), а не тихо посчитать
+   * стоимость нулём.
+   */
+  usage: AnthropicCallUsage | null
 }
 
 const SYSTEM_PROMPT = `You are an edit planner for short-form vertical video.
@@ -117,7 +130,7 @@ function optionalString(value: unknown, field: string): string | null {
   throw new Error(`edit-planner: ${field} — ожидалась строка или null`)
 }
 
-function validate(data: unknown): EditPlannerResult {
+function validate(data: unknown): EditPlannerParsedShots {
   if (!data || typeof data !== "object") {
     throw new Error("edit-planner: ожидался object")
   }
@@ -202,12 +215,19 @@ function estimateMaxTokens(gridSize: number): number {
 }
 
 export async function planEditShots(input: EditPlannerInput): Promise<EditPlannerResult> {
-  return callAnthropicAgent({
+  // Ре-ревью Critical 1 (фикс-раунд 2): раньше ledger-цена шага была плоской
+  // константой независимо от реального размера ответа. `onUsage` зовётся
+  // callAnthropicAgent'ом РОВНО один раз после успешного парсинга (не зовётся
+  // вовсе в ANTHROPIC_MOCK_MODE — см. докстринг `EditPlannerResult.usage`).
+  let usage: AnthropicCallUsage | null = null
+  const parsed = await callAnthropicAgent({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: buildUserPrompt(input),
     model: input.model ?? undefined,
     maxTokens: estimateMaxTokens(input.grid.length),
     agentName: "edit-planner",
     validate,
+    onUsage: (reported) => { usage = reported },
   })
+  return { shots: parsed.shots, usage }
 }
