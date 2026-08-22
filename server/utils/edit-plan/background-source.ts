@@ -66,7 +66,8 @@
  *   недоступна» — любой фолбэк раньше был платной картинкой безусловно.
  *   Добавлено `imageGenerationAllowed`: когда `false`, ЛЮБАЯ деградация (и
  *   прямой запрос `requested: "image"`) идёт в `background: "none"` вместо
- *   картинки — бесплатно, ведущий на весь экран.
+ *   картинки — бесплатно, задний план пуст (заполнит ли его ведущий —
+ *   решает `foreground`, вне этого модуля; см. Н-2 ре-ревью).
  *
  * Не исправлено в этом раунде осознанно (см. отчёт задачи):
  * - **М-4** (два разных допуска на одно правило §7 в этом файле и в
@@ -130,15 +131,16 @@ export interface BackgroundPickInput {
    * деградация безусловно шла в платную картинку. `false` означает, что
    * НИКАКОЙ путь этой функции не может закончиться в `background: "image"` —
    * ни как деградация, ни как прямой запрос модели (`requested: "image"`);
-   * в обоих случаях кадр отдаётся ведущему на весь экран (`background: "none"`,
-   * бесплатно).
+   * в обоих случаях задний план кадра остаётся пустым (`background: "none"`,
+   * бесплатно) — заполнит ли его ведущий, эта функция не знает: `foreground`
+   * решается отдельно (`PlannedShot`, вне этого модуля).
    */
   imageGenerationAllowed: boolean
 }
 
 export interface BackgroundPick {
   background: ShotBackground
-  /** Фактическая стоимость выбранного источника (0 для всего, кроме `video`). */
+  /** Фактическая стоимость выбранного источника (0 для library/app_screen/none, положительна и для `image`, и для `video`). */
   costUsd: number
   /**
    * И-6 ре-ревью: сколько из `costUsd` идёт в счёт потолка §7
@@ -199,8 +201,8 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
         costUsd: 0,
         countsAgainstBudgetUsd: 0,
         degradeReason: reason
-          ? `${reason} — картинка тоже недоступна, кадр отдаётся ведущему на весь экран`
-          : "Картинка недоступна — кадр отдаётся ведущему на весь экран",
+          ? `${reason} — картинка тоже недоступна, задний план кадра остаётся пустым`
+          : "Картинка недоступна — задний план кадра остаётся пустым",
       }
     }
     return { background: "image", costUsd: input.imageUsd, countsAgainstBudgetUsd: 0, degradeReason: reason }
@@ -229,7 +231,7 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
           background: "none",
           costUsd: 0,
           countsAgainstBudgetUsd: 0,
-          degradeReason: "Картинка недоступна — кадр отдаётся ведущему на весь экран",
+          degradeReason: "Картинка недоступна — задний план кадра остаётся пустым",
         }
   }
 
@@ -245,13 +247,18 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
   if (!input.profile.generativeVideoEnabled) {
     return image("Генеративное видео выключено в профиле — кадр идёт картинкой с движением")
   }
-  // И-5: нефинитный вход (NaN/Infinity) проходил оба шлюза длительности ниже
-  // молча (`NaN < x` и `NaN > x` в JS всегда `false`) и разрешал оплату для
-  // кадра неизвестной длины/неизвестного остатка бюджета.
-  if (!Number.isFinite(input.durationSec) || !Number.isFinite(input.spentUsd)) {
+  // И-5/Н-1 ре-ревью: нефинитный вход проходил сравнения молча (`NaN < x` и
+  // `NaN > x` в JS всегда `false`) и разрешал оплату для кадра неизвестной
+  // длины/неизвестного остатка бюджета/невалидных границ квантования/потолка —
+  // все пять операндов денежной арифметики ниже, а не только длительность и
+  // потраченное. Потолок обязан быть проверен здесь же, а не полагаться на то,
+  // что `resolveEditProfile` всегда гарантирует его конечность.
+  if (!Number.isFinite(input.durationSec) || !Number.isFinite(input.spentUsd)
+    || !Number.isFinite(input.minGenerativeVideoSec) || !Number.isFinite(input.maxGenerativeVideoSec)
+    || !Number.isFinite(input.profile.generativeVideoBudgetUsd)) {
     return image(
-      "Длительность кадра или потраченная сумма не определены (NaN/Infinity) — "
-      + "генеративное видео не назначается",
+      "Длительность кадра, потраченная сумма, границы квантования или потолок бюджета "
+      + "не определены (NaN/Infinity) — генеративное видео не назначается",
     )
   }
   // М-2: ставка <= 0 (в том числе 0 — например, ставка не передана вызывающим

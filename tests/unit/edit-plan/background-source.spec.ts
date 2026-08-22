@@ -218,6 +218,25 @@ describe("И-5 (ре-ревью): нефинитный вход не откры�
 
     expect(pick.background).toBe("image")
   })
+
+  it("Н-1 (ре-ревью): NaN generativeVideoBudgetUsd больше не разрешает видео бесконечно", () => {
+    // Раньше проверка `Number.isFinite` покрывала только durationSec/spentUsd —
+    // NaN в потолке проходил `spentUsd + cost > NaN + GUARD` (всегда false) и
+    // разрешал платный клип без всякого ограничения.
+    const pick = pickBackgroundSource(input({
+      profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: Number.NaN },
+    }))
+
+    expect(pick.background).toBe("image")
+  })
+
+  it("Н-1 (ре-ревью): NaN в границах квантования (min/max) тоже не проходит молча", () => {
+    const viaMin = pickBackgroundSource(input({ minGenerativeVideoSec: Number.NaN, profile: enabledProfile }))
+    const viaMax = pickBackgroundSource(input({ maxGenerativeVideoSec: Number.NaN, profile: enabledProfile }))
+
+    expect(viaMin.background).toBe("image")
+    expect(viaMax.background).toBe("image")
+  })
 })
 
 describe("И-6 (ре-ревью): countsAgainstBudgetUsd отделён от costUsd", () => {
@@ -312,5 +331,17 @@ describe("М-10 (ре-ревью): §10 «фонов нет, генерация 
     const pick = pickBackgroundSource(input({ requested: "library", hasLibraryCandidate: false, imageGenerationAllowed: true }))
 
     expect(pick.background).toBe("image")
+  })
+
+  it("бонус ре-ревью: причина не обещает ведущего, которого функция не проверяла", () => {
+    // Функция не знает `foreground` кадра (это поле `PlannedShot`, вне этого
+    // модуля) — сообщение не имеет права утверждать "ведущий на весь экран",
+    // это могло бы быть чёрным экраном на кадре без ведущего (repair.ts:894
+    // решает ту же задачу через `shot.foreground`, здесь этого признака нет).
+    const pick = pickBackgroundSource(input({
+      requested: "library", hasLibraryCandidate: false, imageGenerationAllowed: false,
+    }))
+
+    expect(pick.degradeReason).not.toMatch(/ведущ/i)
   })
 })
