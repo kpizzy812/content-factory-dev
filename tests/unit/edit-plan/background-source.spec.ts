@@ -26,6 +26,9 @@ function input(overrides: Record<string, unknown> = {}) {
     imageUsd: 0.025,
     minGenerativeVideoSec: 5,
     maxGenerativeVideoSec: 10,
+    // М-10 ре-ревью: по умолчанию картинка доступна — тесты на её отсутствие
+    // переопределяют явно.
+    imageGenerationAllowed: true,
     ...overrides,
   }
 }
@@ -144,11 +147,15 @@ describe("выбор источника фона", () => {
     // spentUsd из нескольких предыдущих трат (не специально подобранное число).
     // Без эпсилон-допуска (FLOAT_GUARD) это ложно считалось бы превышением
     // бюджета ровно 0.3, хотя по смыслу кадр ровно на потолке и должен пройти.
+    // Ставка намеренно исчезающе мала (1e-12, а не 0 — М-2 ре-ревью запрещает
+    // нулевую ставку отдельным шлюзом ДО этой проверки), чтобы её собственный
+    // вклад в сумму не маскировал шум `spentUsd`, но сама попадала под "ставка
+    // положительна".
     const pick = pickBackgroundSource(input({
       spentUsd: 0.1 + 0.2, // 0.30000000000000004, а не 0.3
       durationSec: 5,
       profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 0.3 },
-      generativeVideoUsdPerSec: 0, // считаем только сравнение с потолком, не квантование
+      generativeVideoUsdPerSec: 1e-12,
     }))
 
     expect(pick.background).toBe("video")
@@ -186,5 +193,124 @@ describe("выбор источника фона", () => {
 
     expect(pick.degradeReason).toMatch(/профил/i)
     expect(pick.degradeReason).not.toMatch(/короче/i)
+  })
+})
+
+describe("И-5 (ре-ревью): нефинитный вход не открывает оплату", () => {
+  const enabledProfile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 5 }
+
+  it("NaN durationSec не проходит оба шлюза длительности молча", () => {
+    const pick = pickBackgroundSource(input({ durationSec: Number.NaN, profile: enabledProfile }))
+
+    expect(pick.background).toBe("image")
+    expect(pick.costUsd).toBeCloseTo(0.025, 6)
+    expect(pick.countsAgainstBudgetUsd).toBe(0)
+  })
+
+  it("Infinity durationSec — тот же безопасный исход", () => {
+    const pick = pickBackgroundSource(input({ durationSec: Number.POSITIVE_INFINITY, profile: enabledProfile }))
+
+    expect(pick.background).toBe("image")
+  })
+
+  it("NaN spentUsd не гасит проверку потолка навсегда", () => {
+    const pick = pickBackgroundSource(input({ spentUsd: Number.NaN, profile: enabledProfile }))
+
+    expect(pick.background).toBe("image")
+  })
+})
+
+describe("И-6 (ре-ревью): countsAgainstBudgetUsd отделён от costUsd", () => {
+  it("картинка стоит денег, но не считается против потолка генеративного видео", () => {
+    const pick = pickBackgroundSource(input({ requested: "library", hasLibraryCandidate: false }))
+
+    expect(pick.costUsd).toBeCloseTo(0.025, 6)
+    expect(pick.countsAgainstBudgetUsd).toBe(0)
+  })
+
+  it("деградировавшая до картинки генерация видео тоже не списывается с потолка", () => {
+    // Ключевой сценарий И-6: кадр ХОТЕЛ быть video, потолок исчерпан, деградация
+    // в картинку не должна повторно "тратить" бюджет генеративного видео.
+    const pick = pickBackgroundSource(input({ spentUsd: 0.49 }))
+
+    expect(pick.background).toBe("image")
+    expect(pick.costUsd).toBeCloseTo(0.025, 6)
+    expect(pick.countsAgainstBudgetUsd).toBe(0)
+  })
+
+  it("успешное генеративное видео целиком идёт в счёт потолка", () => {
+    const pick = pickBackgroundSource(input({ durationSec: 6, spentUsd: 0 }))
+
+    expect(pick.background).toBe("video")
+    expect(pick.countsAgainstBudgetUsd).toBeCloseTo(pick.costUsd, 9)
+    expect(pick.countsAgainstBudgetUsd).toBeCloseTo(0.5, 6)
+  })
+
+  it("пустой фон не считается против потолка", () => {
+    const pick = pickBackgroundSource(input({ requested: "none" }))
+
+    expect(pick.countsAgainstBudgetUsd).toBe(0)
+  })
+})
+
+describe("М-2 (ре-ревью): неположительная ставка закрывает ворота, а не открывает", () => {
+  const enabledProfile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 0 }
+
+  it("ставка 0 при нулевом бюджете раньше разрешала видео бесконечно — теперь деградирует", () => {
+    const pick = pickBackgroundSource(input({ generativeVideoUsdPerSec: 0, profile: enabledProfile }))
+
+    expect(pick.background).toBe("image")
+    expect(pick.degradeReason).toMatch(/ставк/i)
+  })
+
+  it("отрицательная ставка — тот же безопасный исход", () => {
+    const pick = pickBackgroundSource(input({ generativeVideoUsdPerSec: -0.05, profile: enabledProfile }))
+
+    expect(pick.background).toBe("image")
+  })
+})
+
+describe("М-9 (ре-ревью): полнота разбора ShotBackground", () => {
+  it("неизвестный источник фона деградирует, а не тратит бюджет генеративного видео", () => {
+    // Симулирует будущий член юниона, который забыли обработать явно (TS не
+    // даст скомпилировать такой вызов без `as never` — сам факт, что здесь
+    // нужен каст, и есть проверка полноты разбора компилятором).
+    const pick = pickBackgroundSource(input({ requested: "stock_video" as never }))
+
+    expect(pick.background).not.toBe("video")
+    expect(pick.countsAgainstBudgetUsd).toBe(0)
+  })
+})
+
+describe("М-10 (ре-ревью): §10 «фонов нет, генерация запрещена» — ведущий на весь экран", () => {
+  it("библиотека без кандидата и запрещённая генерация картинки уходят в none, а не в image", () => {
+    const pick = pickBackgroundSource(input({
+      requested: "library", hasLibraryCandidate: false, imageGenerationAllowed: false,
+    }))
+
+    expect(pick.background).toBe("none")
+    expect(pick.costUsd).toBe(0)
+    expect(pick.degradeReason).toMatch(/картинк/i)
+  })
+
+  it("прямой запрос картинки при запрещённой генерации тоже уходит в none", () => {
+    const pick = pickBackgroundSource(input({ requested: "image", imageGenerationAllowed: false }))
+
+    expect(pick.background).toBe("none")
+    expect(pick.costUsd).toBe(0)
+    expect(pick.degradeReason).not.toBeNull()
+  })
+
+  it("исчерпанный потолок генеративного видео при запрещённой генерации картинки — тоже none", () => {
+    const pick = pickBackgroundSource(input({ spentUsd: 0.49, imageGenerationAllowed: false }))
+
+    expect(pick.background).toBe("none")
+    expect(pick.costUsd).toBe(0)
+  })
+
+  it("при разрешённой генерации картинки поведение не меняется (регрессия по умолчанию)", () => {
+    const pick = pickBackgroundSource(input({ requested: "library", hasLibraryCandidate: false, imageGenerationAllowed: true }))
+
+    expect(pick.background).toBe("image")
   })
 })

@@ -13,31 +13,62 @@
  *
  * Функция чистая: границы приходят из выравнивания, потолок — из спеки модели.
  *
- * Фикс-раунд (task-4-review, поправка 2 задания): черновой алгоритм из брифа
+ * Фикс-раунд 1 (task-4-review.md, поправка 2 задания): черновой алгоритм из брифа
  * мог зависнуть. Цикл продвигал `cursor` результатом притяжки к кадру
- * (`snapSecToFrame`), а притяжка ОКРУГЛЯЕТ — если снапнутая точка реза (середина
- * найденной паузы или начало/конец узкой паузы под перебивку) попадала РОВНО на
- * `cursor` (пауза узкая и стоит вплотную к текущей границе), продвижения не
- * происходило: следующая итерация видела тот же `cursor`, находила ту же самую
- * паузу и возвращала ту же самую точку — бесконечный цикл, а не падение теста.
- * То же в ветке перебивки: `from` (притянутое начало короткой паузы) могло
- * оказаться РАВНО `cursor` (округление вниз до того же кадра, что и текущая
- * граница) — тогда часть до перебивки получала бы нулевую длину.
+ * (`snapSecToFrame`), а притяжка ОКРУГЛЯЕТ — если снапнутая точка реза попадала
+ * РОВНО на `cursor`, продвижения не происходило: следующая итерация видела тот
+ * же `cursor`, находила ту же самую паузу и возвращала ту же самую точку —
+ * бесконечный цикл. Лечение — {@link ensuresAdvance}: каждый кандидат на рез
+ * принимается только если гарантированно продвигает курсор минимум на кадр
+ * вперёд; если ни один из трёх пунктов порядка не даёт годной точки — четвёртый,
+ * безусловный случай: рез ровно по потолку модели.
  *
- * Лечение — {@link resolveIteration}: каждый кандидат на рез (все три пункта
- * порядка) принимается только если он гарантированно продвигает курсор минимум
- * на один кадр вперёд ({@link ensuresAdvance}); часть до перебивки в пункте 2
- * дополнительно обязана быть строго положительной длины. Если ни один из трёх
- * пунктов порядка не даёт годной точки — это значит, что рядом с курсором нет
- * ни одной паузы, за которую можно зацепиться без риска зависнуть, и тогда
- * применяется четвёртый, безусловный случай: рез ровно по потолку модели
- * (`snapSecToFrame(limit, fps)`), который гарантированно продвигает курсор на
- * весь `maxDurationSec` (а он на практике всегда на порядки больше одного
- * кадра — 10с потолка против ~33мс кадра на 30fps), то есть завершение цикла
- * гарантировано без ограничения на форму пауз во входных данных.
+ * Фикс-раунд 2 (ре-ревью task-4-review.md, 7 Important):
+ * - **И-1.** `ensuresAdvance` сравнивал два по-разному вычисленных числа БЕЗ
+ *   допуска на шум плавающей точки: `cursor + 1/fps` и снапнутый кандидат — на
+ *   `fps=24, cursor=7/24` разница накапливается в последнем разряде double и
+ *   ЗАКОННЫЙ однокадровый рез отвергался (замер ре-ревью: 1187 из 10000 комбинаций).
+ *   Добавлен допуск `ADVANCE_FLOAT_GUARD = 1e-9` — та же величина, что `FLOAT_GUARD`
+ *   в `background-source.ts`. Отдельно: порог «один кадр» решает задачу
+ *   ЗАВЕРШЕНИЯ, но не задачу §5.3 «смена плана выглядит намеренной» — часть в
+ *   один кадр (33 мс) для монтажа неотличима от брака. Добавлен второй, более
+ *   строгий порог {@link MIN_MEANINGFUL_PART_SEC}, обязательный для веток 1-3
+ *   (веток ВЫБОРА хорошего реза); ветка 4 (последний, безусловный случай — резать
+ *   уже НЕЧЕГО выбирать) по-прежнему гарантирует только продвижение на кадр,
+ *   потому что требовать от неё монтажного минимума при заведомо вырожденном
+ *   `maxDurationSec` (И-3) сделало бы завершение цикла недостижимым одновременно
+ *   с соблюдением потолка — for a cap smaller than the montage minimum this is
+ *   mathematically impossible to satisfy both at once.
+ * - **И-2.** Ветки 1 и 2 брали ЕДИНСТВЕННОГО кандидата (экстремум по длительности)
+ *   и при его провале сразу отдавали управление дальше по порядку §5.3, даже
+ *   если следующий кандидат ТОЙ ЖЕ ступени был бы принят. Переписаны как перебор
+ *   ВСЕХ кандидатов по убыванию предпочтения (как уже было в ветке 3) — первый
+ *   прошедший все проверки побеждает.
+ * - **И-3.** Ветка 4 продвигала курсор ровно на `maxDurationSec`, что доказуемо
+ *   достаточно, только если `maxDurationSec > 0`; при `maxDurationSec <= 0`
+ *   (в том числе NaN) курсор не двигался вовсе — бесконечный цикл с растущим
+ *   `parts`. Добавлен ранний выход: невалидный (нечисловой или неположительный)
+ *   `maxDurationSec` — реплика не дробится вовсе, отдаётся ведущему целиком с
+ *   WARN, дробить её нечем в принципе. Дополнительно, на случай положительного,
+ *   но ýже одного кадра потолка (`0 < maxDurationSec < 1/fps`), сама ветка 4
+ *   зажимает свой рез снизу гарантией продвижения — тогда часть выйдет ДЛИННЕЕ
+ *   такого (уже вырожденного) потолка, но цикл всё равно завершится.
+ * - **И-4.** `snapSecToFrame` на потолке округляет к БЛИЖАЙШЕМУ кадру, а не
+ *   вниз — на некратном fps (`29.97`, `23.976`) рез уезжает ЗА `maxDurationSec`
+ *   (`snapSecToFrame(10, 29.97) = 10.01001`), и провайдер lip-sync отобьёт такой
+ *   кусок уже после оплаты подготовки. Все резы, ограниченные потолком (`limit`),
+ *   теперь дополнительно зажимаются `floorToFrame(limit, fps)` — тот же приём,
+ *   которым `segment-cut.ts` уже решает эту задачу для конца трека.
+ * - **М-7.** Раньше сохранялся только ПЕРВЫЙ WARN (`if (result.warn && !warning)`) —
+ *   длинная реплика с несколькими вынужденными резами теряла информацию обо всех,
+ *   кроме первого. Теперь сообщения накапливаются в одну строку (тип
+ *   `warning: string | null` не меняется — интерфейс брифа сохранён).
+ * - **М-15.** `NaN` в `scene.startSec`/`scene.endSec` раньше молча гасил оба
+ *   ранних выхода и хвостовую дозапись, отдавая `{parts: [], warning: null}` —
+ *   неотличимо от честного «слов нет». Теперь явно проверяется и даёт WARN.
  */
 
-import { snapSecToFrame } from "../voiceover/segment-cut"
+import { floorToFrame, snapSecToFrame } from "../voiceover/segment-cut"
 import type { AlignedScene } from "../transcription/align"
 
 export interface SplitLineInput {
@@ -54,7 +85,8 @@ export interface SplitLineResult {
   parts: Array<{ startSec: number, endSec: number }>
   /** Отрезки под перебивку между частями. Пусто — перебивок нет. */
   interludes: Array<{ startSec: number, endSec: number }>
-  /** Заполнено, когда пришлось резать третьим (или вырожденным четвёртым) способом. */
+  /** Заполнено, когда пришлось резать третьим/четвёртым способом. Несколько
+   *  сообщений склеены переводом строки — М-7, тип не меняется. */
   warning: string | null
 }
 
@@ -79,19 +111,51 @@ function collectPauses(scene: AlignedScene): Pause[] {
 /** Пауза достаточной длины, чтобы смена плана в ней выглядела намеренной. */
 const MEANINGFUL_PAUSE_SEC = 0.35
 
+/**
+ * Минимальная длина ЧАСТИ (не паузы), при которой рез в ветках 1-3 ещё
+ * считается монтажным резом, а не стробом (И-1 ре-ревью: часть в один кадр —
+ * 33 мс — неотличима от брака монтажа). Совпадает с {@link MEANINGFUL_PAUSE_SEC}
+ * намеренно: оба числа отвечают на один и тот же вопрос — «достаточно ли это
+ * долго, чтобы выглядеть намеренным, а не случайным», просто применительно к
+ * разным величинам (пауза vs часть). Ветка 4 этой проверке не подчиняется —
+ * см. докстринг модуля, пункт И-3.
+ */
+const MIN_MEANINGFUL_PART_SEC = MEANINGFUL_PAUSE_SEC
+
 /** Длина кадра — фолбэк на случай негодного fps, тем же приёмом, что и `validate.ts`. */
 function frameSec(fps: number): number {
   return Number.isFinite(fps) && fps > 0 ? 1 / fps : 1 / 60
 }
 
+/** Допуск на шум плавающей точки — та же величина, что `FLOAT_GUARD` в `background-source.ts`. */
+const ADVANCE_FLOAT_GUARD = 1e-9
+
 /**
- * Гарантия продвижения (поправка 2): кандидат на рез принимается, только если
- * он уводит курсор вперёд минимум на один кадр. Без этой проверки узкая пауза,
- * снапнутая к тому же кадру, что и текущий курсор, зациклила бы дробление —
- * см. докстринг модуля.
+ * Гарантия продвижения (поправка 2 задания, уточнена И-1 ре-ревью): кандидат
+ * на рез принимается, только если он уводит курсор вперёд минимум на кадр —
+ * с допуском на шум плавающей точки, иначе `cursor + 1/fps`, посчитанный
+ * сложением, и `candidateCursor`, посчитанный округлением, расходятся в
+ * последнем разряде double и ЗАКОННЫЙ однокадровый рез отвергается (замер
+ * ре-ревью на сетке fps 24/25/30/50/60: 1187 из 10000 комбинаций).
+ *
+ * Экспортирована для точечного теста на эту самую арифметику — без экспорта
+ * воспроизвести конкретный отчётный пример (`fps=24, cursor=7/24, cut=8/24`)
+ * через публичный API потребовало бы неестественно маленького `maxDurationSec`.
  */
-function ensuresAdvance(cursor: number, candidateCursor: number, fps: number): boolean {
-  return candidateCursor >= cursor + frameSec(fps)
+export function ensuresAdvance(cursor: number, candidateCursor: number, fps: number): boolean {
+  return candidateCursor >= cursor + frameSec(fps) - ADVANCE_FLOAT_GUARD
+}
+
+/** Часть от `cursor` до кандидата — достаточно ли она длинна, чтобы не быть стробом (И-1). */
+function isMeaningfulPart(cursor: number, candidateCursor: number): boolean {
+  return candidateCursor - cursor >= MIN_MEANINGFUL_PART_SEC - ADVANCE_FLOAT_GUARD
+}
+
+interface IterationResult {
+  part: { startSec: number, endSec: number }
+  interlude: { startSec: number, endSec: number } | null
+  nextCursor: number
+  warn: string | null
 }
 
 function resolveIteration(
@@ -101,33 +165,41 @@ function resolveIteration(
   brollAllowed: boolean,
   fps: number,
   sceneOrder: number,
-): { part: { startSec: number, endSec: number }, interlude: { startSec: number, endSec: number } | null, nextCursor: number, warn: string | null } {
+): IterationResult {
   const inRange = pauses.filter(pause => pause.startSec > cursor && pause.endSec <= limit)
+  // И-4: ни один рез, ограниченный потолком, не имеет права уйти ЗА него —
+  // `snapSecToFrame` округляет к ближайшему кадру и на некратном fps может
+  // дать точку выше `limit`; `floorToFrame` — граница НЕ ПОЗЖЕ `limit`.
+  const capSec = floorToFrame(limit, fps)
 
   // 1. Самая длинная пауза в пределах потолка — там смена плана намеренная.
-  const meaningful = inRange
+  //    И-2: перебираем ВСЕХ кандидатов по убыванию длительности, а не только
+  //    самого длинного — провал геометрии у одного не должен ронять приоритет
+  //    §5.3 на ступень вниз, если следующий по длине кандидат годится.
+  const meaningfulSorted = inRange
     .filter(pause => pause.durationSec >= MEANINGFUL_PAUSE_SEC)
-    .sort((a, b) => b.durationSec - a.durationSec)[0]
-  if (meaningful) {
-    const cut = snapSecToFrame((meaningful.startSec + meaningful.endSec) / 2, fps)
-    if (ensuresAdvance(cursor, cut, fps)) {
+    .sort((a, b) => b.durationSec - a.durationSec)
+  for (const pause of meaningfulSorted) {
+    const cut = Math.min(snapSecToFrame((pause.startSec + pause.endSec) / 2, fps), capSec)
+    if (ensuresAdvance(cursor, cut, fps) && isMeaningfulPart(cursor, cut)) {
       return { part: { startSec: cursor, endSec: cut }, interlude: null, nextCursor: cut, warn: null }
     }
   }
 
-  // 2. Перебивка на самой широкой из оставшихся (заведомо не "намеренных") пауз:
+  // 2. Перебивка на широкой из оставшихся (заведомо не "намеренных") пауз:
   //    короткая пауза всё равно есть, но её мало для смены ракурса ведущего —
-  //    зато хватает, чтобы показать другой кадр между частями.
+  //    зато хватает, чтобы показать другой кадр между частями. И-2: тот же
+  //    перебор всех кандидатов, что и в ветке 1.
   if (brollAllowed) {
-    const widest = inRange.slice().sort((a, b) => b.durationSec - a.durationSec)[0]
-    if (widest) {
-      // Поправка 2: `from` зажат снизу значением `cursor`, а само разбиение
-      // принимается только если часть ДО перебивки положительной длины (иначе
-      // округление узкой паузы вниз к текущему кадру дало бы вырожденный кадр)
-      // и перебивка реально продвигает курсор хотя бы на кадр.
-      const from = Math.max(cursor, snapSecToFrame(widest.startSec, fps))
-      const to = snapSecToFrame(widest.endSec, fps)
-      if (from > cursor && to > from && ensuresAdvance(cursor, to, fps)) {
+    const widestSorted = inRange.slice().sort((a, b) => b.durationSec - a.durationSec)
+    for (const pause of widestSorted) {
+      // `from` зажат снизу значением `cursor` (поправка 2) и сверху `capSec`
+      // (И-4); `to` — тоже сверху `capSec`. Часть ДО перебивки обязана быть
+      // положительной И монтажно осмысленной (И-1), сама перебивка — тоже
+      // положительной.
+      const from = Math.max(cursor, Math.min(snapSecToFrame(pause.startSec, fps), capSec))
+      const to = Math.min(snapSecToFrame(pause.endSec, fps), capSec)
+      if (from > cursor && to > from && ensuresAdvance(cursor, to, fps) && isMeaningfulPart(cursor, from)) {
         return {
           part: { startSec: cursor, endSec: from },
           interlude: { startSec: from, endSec: to },
@@ -139,13 +211,13 @@ function resolveIteration(
   }
 
   // 3. Последняя возможность на межсловной паузе: ближайший к потолку интервал
-  //    (максимально использует разрешённую длину части), о чём надо сказать
-  //    вслух. Перебираем от ближайшего к потолку к самому раннему — первый же
-  //    прошедший проверку продвижения побеждает.
+  //    (максимально использует разрешённую длину части — Task 4 первый раунд,
+  //    подтверждено ре-ревью как улучшение качества монтажа относительно
+  //    брифового «ближайший к курсору»), о чём надо сказать вслух.
   const byProximityToLimit = inRange.slice().sort((a, b) => b.startSec - a.startSec)
   for (const pause of byProximityToLimit) {
-    const cut = snapSecToFrame((pause.startSec + pause.endSec) / 2, fps)
-    if (ensuresAdvance(cursor, cut, fps)) {
+    const cut = Math.min(snapSecToFrame((pause.startSec + pause.endSec) / 2, fps), capSec)
+    if (ensuresAdvance(cursor, cut, fps) && isMeaningfulPart(cursor, cut)) {
       return {
         part: { startSec: cursor, endSec: cut },
         interlude: null,
@@ -156,27 +228,46 @@ function resolveIteration(
     }
   }
 
-  // 4. Вырожденный случай (поправка 2): рядом с курсором нет НИ ОДНОЙ паузы,
-  //    за которую можно было бы зацепиться без риска не продвинуться вперёд
-  //    (либо пауз в диапазоне вообще нет — слова идут встык, либо все
-  //    найденные слишком узкие и снапаются обратно в текущий кадр). Резать
-  //    ровно по потолку модели: это гарантированно продвигает курсор на весь
-  //    `maxDurationSec`, а не на один кадр, и на практике потолок (десятки
-  //    кадров) на порядки больше кадра — цикл завершается за конечное число
-  //    шагов при любой форме пауз во входных данных.
-  const cut = snapSecToFrame(limit, fps)
+  // 4. Вырожденный случай: ни один кандидат из 1-3 не дал одновременно
+  //    гарантированное продвижение И монтажно осмысленную часть (либо пауз в
+  //    диапазоне вообще нет — слова идут встык). Резать по потолку модели —
+  //    единственный оставшийся способ гарантировать продвижение; монтажный
+  //    минимум здесь НЕ проверяется (см. докстринг модуля, И-1/И-3): это
+  //    последний рубеж перед зависанием, а не выбор среди альтернатив.
+  //    `Math.max(capSec, cursor + frameSec(fps))` — И-3: если сам потолок
+  //    (`capSec`) недостаточен для гарантии продвижения (вырожденный
+  //    `maxDurationSec` уже одного кадра), берём кадр вперёд ценой выхода
+  //    части за потолок — альтернатива (не двигаться вовсе) хуже.
+  const cut = Math.max(capSec, cursor + frameSec(fps))
   return {
     part: { startSec: cursor, endSec: cut },
     interlude: null,
     nextCursor: cut,
     warn: `WARN реплику сцены ${sceneOrder} пришлось резать по потолку модели в ${cut.toFixed(2)}с: `
-      + `рядом нет ни одной паузы, гарантированно продвигающей рез вперёд`,
+      + `рядом нет ни одной паузы, дающей монтажно осмысленный рез`,
   }
+}
+
+/** Есть ли смысл вообще пытаться дробить — потолок обязан быть положительным конечным числом. */
+function usableMaxDuration(maxDurationSec: number): boolean {
+  return Number.isFinite(maxDurationSec) && maxDurationSec > 0
 }
 
 export function splitLongPresenterLine(input: SplitLineInput): SplitLineResult {
   const { fps, maxDurationSec, scene } = input
   if (scene.words.length === 0) return { parts: [], interludes: [], warning: null }
+
+  // М-15: нечисловые границы сцены раньше молча гасили оба ранних выхода и
+  // хвостовую дозапись, отдавая {parts: [], warning: null} — неотличимо от
+  // честного «слов нет». Теперь явно проверяется.
+  if (!Number.isFinite(scene.startSec) || !Number.isFinite(scene.endSec)) {
+    return {
+      parts: [],
+      interludes: [],
+      warning: `WARN реплика сцены ${scene.order} имеет нечисловую границу `
+        + `(startSec=${scene.startSec}, endSec=${scene.endSec}) — дробление невозможно`,
+    }
+  }
 
   const startSec = snapSecToFrame(scene.startSec, fps)
   const endSec = snapSecToFrame(scene.endSec, fps)
@@ -184,10 +275,22 @@ export function splitLongPresenterLine(input: SplitLineInput): SplitLineResult {
     return { parts: [{ startSec, endSec }], interludes: [], warning: null }
   }
 
+  // И-3: невалидный (неположительный/нечисловой) потолок делает дробление по
+  // потолку неопределённым — ветка 4 не может гарантировать ни продвижение,
+  // ни соблюдение потолка одновременно. Резать нечем — реплика идёт целиком.
+  if (!usableMaxDuration(maxDurationSec)) {
+    return {
+      parts: [{ startSec, endSec }],
+      interludes: [],
+      warning: `WARN реплику сцены ${scene.order} нельзя дробить: потолок модели `
+        + `maxDurationSec=${maxDurationSec} невалиден (должен быть положительным числом)`,
+    }
+  }
+
   const pauses = collectPauses(scene)
   const parts: Array<{ startSec: number, endSec: number }> = []
   const interludes: Array<{ startSec: number, endSec: number }> = []
-  let warning: string | null = null
+  const warnings: string[] = []
 
   let cursor = startSec
   while (endSec - cursor > maxDurationSec) {
@@ -196,11 +299,13 @@ export function splitLongPresenterLine(input: SplitLineInput): SplitLineResult {
 
     parts.push(result.part)
     if (result.interlude) interludes.push(result.interlude)
-    if (result.warn && !warning) warning = result.warn
+    // М-7: раньше сохранялся только первый WARN — длинная реплика с
+    // несколькими вынужденными резами теряла все сообщения, кроме первого.
+    if (result.warn) warnings.push(result.warn)
     cursor = result.nextCursor
   }
 
   if (endSec > cursor) parts.push({ startSec: cursor, endSec })
 
-  return { parts, interludes, warning }
+  return { parts, interludes, warning: warnings.length > 0 ? warnings.join("\n") : null }
 }

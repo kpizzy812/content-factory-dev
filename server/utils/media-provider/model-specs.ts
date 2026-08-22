@@ -316,7 +316,14 @@ function mapKlingTextToVideo(input: {
 }
 
 const REPLICATE_KLING_16_ID = "kwaivgi/kling-v1.6-standard"
-const REPLICATE_KLING_16_DURATIONS = Object.freeze([5, 10])
+/**
+ * Экспортирован (ре-ревью Task 4, М-8): единственный законный источник границ
+ * квантования генеративного видео (5/10 с). До этого `edit-plan/background-source.ts`
+ * получал `minGenerativeVideoSec`/`maxGenerativeVideoSec` параметрами без
+ * общедоступного источника значений — вызывающий код был обречён хардкодить
+ * `5`/`10` сам, ровно то, что докстринг того же файла запрещает делать со ставкой.
+ */
+export const REPLICATE_KLING_16_DURATIONS = Object.freeze([5, 10])
 
 /**
  * Цена Kling 1.6 на Replicate — за секунду выхода, override через env.

@@ -2,10 +2,11 @@
  * Чем закрыть задний план кадра и во сколько это обойдётся.
  *
  * Порядок дешевизны §7: библиотека и скрин приложения бесплатны, картинка с
- * движением стоит $0.025 за кадр, генеративное видео — от $0.225 за клип.
+ * движением стоит $0.025 за кадр, генеративное видео — от $0.25 за клип (пять
+ * секунд по ставке $0.05/с — см. поправку 1 ниже).
  *
  * Потолок стоимости обязателен: на 300 роликов в сутки разница между $0.025 и
- * $0.225 за перебивку — это разница между рабочим сервисом и несогласованным
+ * $0.25 за перебивку — это разница между рабочим сервисом и несогласованным
  * счётом. При исчерпании потолка кадр не ломается, а деградирует до картинки, и
  * причина возвращается наружу, чтобы вызывающий записал её в лог шага.
  *
@@ -20,6 +21,66 @@
  * аватарный маршрут) — это ДРУГАЯ модель и другая причина цифры, к генерации
  * фона отношения не имеет (см. комментарий у `GENERATIVE_VIDEO_RESOLUTIONS` в
  * `profile.ts`).
+ *
+ * Фикс-раунд 1 (task-4-review.md, 7 Important + 3 обязательных Minor):
+ * - **М-1.** Шапка этого же файла сама несла устаревшую цифру `$0.225`
+ *   (= 5 × устаревшие $0.045) — ту самую, которую докстринг ставки ниже
+ *   объявляет заниженной. Файл противоречил сам себе на первом экране; здесь и
+ *   в спеке (`docs/superpowers/specs/2026-08-16-audio-first-editing-design.md`
+ *   §7) цифра исправлена на актуальную ($0.05/с → $0.25 за пять секунд,
+ *   $0.50 за десять).
+ * - **М-2.** `generativeVideoUsdPerSec <= 0` (в том числе 0 — например,
+ *   `REPLICATE_VIDEO_PRICE_USD_PER_SEC=0` в окружении) раньше делал
+ *   `cost = 0` и потолок бюджета переставал срабатывать НАВСЕГДА, даже при
+ *   нулевом бюджете — ставка "не передана" молча читалась как "бесплатно".
+ *   Теперь неположительная/нефинитная ставка сама по себе — причина
+ *   деградации: тариф не передали, значит генеративное видео не назначается,
+ *   а не назначается бесплатно.
+ * - **И-5.** Нефинитный `durationSec`/`spentUsd` (`NaN`/`Infinity`) проходил
+ *   ОБА шлюза длительности (`NaN < x` и `NaN > x` в JS всегда `false`) и
+ *   разрешал оплату генеративного видео для кадра неизвестной длины. Теперь
+ *   явная проверка `Number.isFinite` — тем же приёмом, что уже есть в
+ *   `profile.ts`/`validate.ts`/`segment-cut.ts`.
+ * - **И-6.** `costUsd` возвращался на ВСЕХ путях, включая бесплатные и
+ *   деградировавшую картинку, при том что `spentUsd` во входе документирован
+ *   как «потрачено на ГЕНЕРАТИВНЫЕ фоны». Раннер, написав очевидное
+ *   `spent += pick.costUsd`, начал бы списывать картинки ($0.025) с потолка
+ *   Kling — потолок исчерпывался бы втрое быстрее задуманного. Добавлено поле
+ *   `countsAgainstBudgetUsd` — то, что реально идёт в счёт потолка §7 (равно
+ *   `costUsd` для `video`, иначе 0); раннер обязан аккумулировать именно его.
+ *   Контракт вынесен в отдельное поле, а не в комментарий, — денежная граница
+ *   не должна держаться на том, что кто-то прочитал докстринг.
+ * - **М-3.** `billedSeconds` сравнивал с допуском `+FLOAT_GUARD`, который на
+ *   `durationSec = min + 1e-10` (за пределом минимума, но внутри допуска)
+ *   ошибочно брал ДЕШЁВЫЙ тариф, хотя провайдерский `pickDuration` уже
+ *   квантовал бы это вверх, к дорогому — вдвое заниженная смета в узком, но
+ *   реальном направлении. Допуск в этом ОДНОМ сравнении убран: `<=` без
+ *   `FLOAT_GUARD` — единственное место, где допуск двигал бы деньги вниз, а не
+ *   вверх (сравни с допуском в шлюзе минимума `input.durationSec <
+ *   input.minGenerativeVideoSec - FLOAT_GUARD` — там допуск СУЖАЕТ отказ, то
+ *   есть безопасен).
+ * - **М-9.** Полнота разбора `ShotBackground` теперь проверяется компилятором:
+ *   новый член юниона, не обработанный явно, красит сборку через `never`.
+ * - **М-10.** §10 требует «фонов нет, генерация запрещена → кадр отдаётся
+ *   ведущему на весь экран», а во входе не было признака «картинка
+ *   недоступна» — любой фолбэк раньше был платной картинкой безусловно.
+ *   Добавлено `imageGenerationAllowed`: когда `false`, ЛЮБАЯ деградация (и
+ *   прямой запрос `requested: "image"`) идёт в `background: "none"` вместо
+ *   картинки — бесплатно, ведущий на весь экран.
+ *
+ * Не исправлено в этом раунде осознанно (см. отчёт задачи):
+ * - **М-4** (два разных допуска на одно правило §7 в этом файле и в
+ *   `validate.ts`) — не унифицирован: `validate.ts` принадлежит Task 3,
+ *   объединение допусков потребовало бы новой связи между модулями ради
+ *   Minor-несоответствия, направление которого консервативно (валидация
+ *   мягче, оплата строже).
+ * - **И-7** (валидация плана не знает верхнюю границу генеративного видео) —
+ *   оставлено как явное требование к Task 5 (задокументировано в отчёте), а
+ *   не правка `validate.ts`/`repair.ts`: оба модуля Task 3, уже несколько раз
+ *   доведены до состояния "0 открытых находок ре-ревью", и добавление
+ *   обязательного поля в общий `ShotPlanContext` затрагивает 49+305 тестов
+ *   соседнего модуля ради дыры, которая здесь уже закрыта денежно (кадр не
+ *   будет оплачен неверно — не хватает только обратной связи модели ДО оплаты).
  */
 
 import type { ResolvedEditProfile } from "./profile"
@@ -41,12 +102,13 @@ export interface BackgroundPickInput {
   minGenerativeVideoSec: number
   /**
    * Верхняя граница квантования ОДНОГО клипа генеративного видео: 10 с
-   * (`REPLICATE_KLING_16_DURATIONS[1]`, `model-specs.ts`). Поле добавлено
-   * сверх брифа (см. отчёт задачи, поправка 3) — без него `billedSeconds`
-   * молча занижала бы смету на кадре длиннее 10 с, округляя его к тем же
-   * 10 с, как и обычный 6-10-секундный кадр. Это реальный, а не гипотетический
-   * случай: `validate.ts`/`repair.ts` (Task 3) ограничивают потолком lip-sync
-   * только PRESENTER-кадры (`presenter_too_long`) — кадр БЕЗ ведущего (чистая
+   * (`REPLICATE_KLING_16_DURATIONS[1]`, теперь экспортирован из
+   * `model-specs.ts` — М-8 ре-ревью). Поле добавлено сверх брифа (см. отчёт
+   * задачи, поправка 3) — без него `billedSeconds` молча занижала бы смету на
+   * кадре длиннее 10 с, округляя его к тем же 10 с, как и обычный
+   * 6-10-секундный кадр. Это реальный, а не гипотетический случай:
+   * `validate.ts`/`repair.ts` (Task 3) ограничивают потолком lip-sync только
+   * PRESENTER-кадры (`presenter_too_long`) — кадр БЕЗ ведущего (чистая
    * перебивка) такого ограничения не имеет и может прийти длиннее 10 с, а
    * заказать один клип Kling длиннее 10 с физически нельзя
    * (`durationOptions: REPLICATE_KLING_16_DURATIONS` в спеке модели).
@@ -61,11 +123,34 @@ export interface BackgroundPickInput {
    * округление провайдера решит подрезать по факту.
    */
   maxGenerativeVideoSec: number
+  /**
+   * М-10 ре-ревью: доступна ли вообще генерация картинки (flux-dev). §10
+   * спеки требует «фонов нет, генерация запрещена → кадр отдаётся ведущему на
+   * весь экран» — без этого признака выразить эту строку было нечем: любая
+   * деградация безусловно шла в платную картинку. `false` означает, что
+   * НИКАКОЙ путь этой функции не может закончиться в `background: "image"` —
+   * ни как деградация, ни как прямой запрос модели (`requested: "image"`);
+   * в обоих случаях кадр отдаётся ведущему на весь экран (`background: "none"`,
+   * бесплатно).
+   */
+  imageGenerationAllowed: boolean
 }
 
 export interface BackgroundPick {
   background: ShotBackground
+  /** Фактическая стоимость выбранного источника (0 для всего, кроме `video`). */
   costUsd: number
+  /**
+   * И-6 ре-ревью: сколько из `costUsd` идёт в счёт потолка §7
+   * (`profile.generativeVideoBudgetUsd`). Равно `costUsd` для `background === "video"`,
+   * иначе 0 — картинка и бесплатные источники НЕ считаются против потолка
+   * генеративного видео, хотя `costUsd` у картинки положителен. Раннер обязан
+   * аккумулировать `spentUsd` следующего вызова ИМЕННО из этого поля, а не из
+   * `costUsd`: `spentUsd += pick.countsAgainstBudgetUsd`. Разделение — прямое
+   * следствие того, что `generativeVideoBudgetUsd` (`profile.ts`) — потолок
+   * КОНКРЕТНО дорогих (Kling) фонов, а не суммарного расхода на все фоны ролика.
+   */
+  countsAgainstBudgetUsd: number
   /** Почему просьбу модели не выполнили. null — выполнили. */
   degradeReason: string | null
 }
@@ -88,35 +173,93 @@ const FLOAT_GUARD = 1e-9
  * длине значило бы занижать смету вдвое. Вызывающий обязан убедиться, что
  * `durationSec` уже проверен на верхнюю границу (`maxGenerativeVideoSec`) —
  * эта функция считает только квантование ВНУТРИ допустимого диапазона.
+ *
+ * М-3 ре-ревью: сравнение БЕЗ `FLOAT_GUARD`, в отличие от остальных трёх
+ * сравнений в этом файле. Здесь допуск двигал бы ДЕНЬГИ ВНИЗ: на
+ * `durationSec = min + 1e-10` (формально длиннее минимума, но внутри
+ * допуска) функция взяла бы дешёвый тариф, хотя провайдерский `pickDuration`
+ * (`model-specs.ts`) уже квантовал бы такую длительность ВВЕРХ, к дорогому —
+ * вдвое заниженная смета относительно того, что реально спишут. `<=` без
+ * допуска не мешает легитимному случаю «длительность равна минимуму с
+ * отрицательным шумом округления» (такой вход уже прошёл шлюз минимума с ЕГО
+ * допуском и придёт сюда чуть МЕНЬШЕ `minGenerativeVideoSec`, что `<=`
+ * пропускает верно).
  */
 function billedSeconds(durationSec: number, minGenerativeVideoSec: number, maxGenerativeVideoSec: number): number {
-  return durationSec <= minGenerativeVideoSec + FLOAT_GUARD ? minGenerativeVideoSec : maxGenerativeVideoSec
+  return durationSec <= minGenerativeVideoSec ? minGenerativeVideoSec : maxGenerativeVideoSec
 }
 
 export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick {
-  const image = (reason: string | null): BackgroundPick =>
-    ({ background: "image", costUsd: input.imageUsd, degradeReason: reason })
+  // М-10: деградация в картинку доступна только если генерация картинки
+  // вообще разрешена — иначе §10 требует отдать кадр ведущему на весь экран.
+  const image = (reason: string | null): BackgroundPick => {
+    if (!input.imageGenerationAllowed) {
+      return {
+        background: "none",
+        costUsd: 0,
+        countsAgainstBudgetUsd: 0,
+        degradeReason: reason
+          ? `${reason} — картинка тоже недоступна, кадр отдаётся ведущему на весь экран`
+          : "Картинка недоступна — кадр отдаётся ведущему на весь экран",
+      }
+    }
+    return { background: "image", costUsd: input.imageUsd, countsAgainstBudgetUsd: 0, degradeReason: reason }
+  }
 
   if (input.requested === "none") {
-    return { background: "none", costUsd: 0, degradeReason: null }
+    return { background: "none", costUsd: 0, countsAgainstBudgetUsd: 0, degradeReason: null }
   }
   if (input.requested === "library") {
     return input.hasLibraryCandidate
-      ? { background: "library", costUsd: 0, degradeReason: null }
+      ? { background: "library", costUsd: 0, countsAgainstBudgetUsd: 0, degradeReason: null }
       : image("В библиотеке нет подходящего фона — кадр идёт картинкой с движением")
   }
   if (input.requested === "app_screen") {
     return input.hasAppScreen
-      ? { background: "app_screen", costUsd: 0, degradeReason: null }
+      ? { background: "app_screen", costUsd: 0, countsAgainstBudgetUsd: 0, degradeReason: null }
       : image("Скрина приложения нет — кадр идёт картинкой с движением")
   }
   if (input.requested === "image") {
-    return { background: "image", costUsd: input.imageUsd, degradeReason: null }
+    // М-10: даже ПРЯМОЙ запрос модели на картинку не может быть выполнен,
+    // если генерация картинки недоступна — единственный оставшийся выход тот
+    // же, что и у любой другой деградации.
+    return input.imageGenerationAllowed
+      ? { background: "image", costUsd: input.imageUsd, countsAgainstBudgetUsd: 0, degradeReason: null }
+      : {
+          background: "none",
+          costUsd: 0,
+          countsAgainstBudgetUsd: 0,
+          degradeReason: "Картинка недоступна — кадр отдаётся ведущему на весь экран",
+        }
+  }
+
+  if (input.requested !== "video") {
+    // М-9: полнота разбора `ShotBackground`. Новый член юниона, не
+    // обработанный явно выше, красит сборку здесь через `never`, а не
+    // молча уезжает в денежную ветку генеративного видео.
+    const exhaustive: never = input.requested
+    return image(`Источник фона "${String(exhaustive)}" не поддержан — кадр идёт картинкой с движением`)
   }
 
   // Дальше только генеративное видео — самый дорогой источник.
   if (!input.profile.generativeVideoEnabled) {
     return image("Генеративное видео выключено в профиле — кадр идёт картинкой с движением")
+  }
+  // И-5: нефинитный вход (NaN/Infinity) проходил оба шлюза длительности ниже
+  // молча (`NaN < x` и `NaN > x` в JS всегда `false`) и разрешал оплату для
+  // кадра неизвестной длины/неизвестного остатка бюджета.
+  if (!Number.isFinite(input.durationSec) || !Number.isFinite(input.spentUsd)) {
+    return image(
+      "Длительность кадра или потраченная сумма не определены (NaN/Infinity) — "
+      + "генеративное видео не назначается",
+    )
+  }
+  // М-2: ставка <= 0 (в том числе 0 — например, ставка не передана вызывающим
+  // или `REPLICATE_VIDEO_PRICE_USD_PER_SEC=0` в окружении) обязана ЗАКРЫВАТЬ
+  // ворота, а не открывать их бесплатно: `cost = 0` иначе разрешил бы
+  // генеративное видео неограниченно, даже при нулевом бюджете.
+  if (!(input.generativeVideoUsdPerSec > 0)) {
+    return image("Ставка генеративного видео не передана или не положительна — генеративное видео не назначается")
   }
   if (input.durationSec < input.minGenerativeVideoSec - FLOAT_GUARD) {
     return image(
@@ -125,8 +268,8 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
     )
   }
   if (input.durationSec > input.maxGenerativeVideoSec + FLOAT_GUARD) {
-    // Поправка 3: кадр длиннее того, что умещается в один оплаченный клип —
-    // см. докстринг `maxGenerativeVideoSec` выше.
+    // Кадр длиннее того, что умещается в один оплаченный клип — см.
+    // докстринг `maxGenerativeVideoSec` выше.
     return image(
       `Кадр длиннее ${input.maxGenerativeVideoSec}с — один клип генеративного видео такой длины не заказать, `
       + `кадр идёт картинкой с движением`,
@@ -143,5 +286,5 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
     )
   }
 
-  return { background: "video", costUsd: cost, degradeReason: null }
+  return { background: "video", costUsd: cost, countsAgainstBudgetUsd: cost, degradeReason: null }
 }

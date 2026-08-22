@@ -80,8 +80,16 @@ export function snapSecToFrame(sec: number, fps: number): number {
   return usableFps(fps) ? Math.round(sec * fps) / fps : sec
 }
 
-/** Граница кадра НЕ ПОЗЖЕ заданной секунды — для верхних потолков. */
-function floorToFrame(sec: number, fps: number): number {
+/**
+ * Граница кадра НЕ ПОЗЖЕ заданной секунды — для верхних потолков.
+ *
+ * Экспортирован (ре-ревью Task 4, М-8/И-4): `snapSecToFrame` округляет к БЛИЖАЙШЕМУ
+ * кадру и на некратном fps может дать точку ВЫШЕ заданного потолка (например,
+ * `snapSecToFrame(10, 29.97) = 10.01001`) — для верхней границы это недопустимо,
+ * провайдер отобьёт заказ уже после оплаты подготовки. `split-line.ts` использует
+ * эту функцию для реза строго не позже `maxDurationSec`.
+ */
+export function floorToFrame(sec: number, fps: number): number {
   return usableFps(fps) ? Math.floor(sec * fps) / fps : sec
 }
 
