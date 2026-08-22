@@ -10,8 +10,17 @@
  * Функция чистая: ни БД, ни сети. Возвращает ВСЕ нарушения, а не первое —
  * ремонт (repair.ts) чинит их пачкой, а текст нарушений уходит в повторный
  * запрос к модели.
+ *
+ * Фикс-раунд 1 (ревью task-3-review.md): `validateShotPlan` и `repairShotPlan`
+ * обязаны сверяться с ОДНИМ и тем же концом таймлайна (`timelineEndSec`) и
+ * одним и тем же допуском (`halfFrameSec`) — иначе кадр, поставленный
+ * ремонтом ровно в конец трека, сама же валидация на некратной кадру
+ * длительности объявляет дырой (Critical 2, воспроизведено на 49.2% случайных
+ * длительностей). Обе функции экспортируются отсюда и импортируются в
+ * `repair.ts` ради этого согласия.
  */
 
+import { trackEndFrame } from "../voiceover/segment-cut"
 import type { AlignedScene } from "../transcription/align"
 import type { ResolvedEditProfile } from "./profile"
 import type { ShotPlan } from "./types"
@@ -24,7 +33,11 @@ export type ViolationCode
     | "unknown_background"
     | "broll_ratio"
     | "generative_video_too_short"
+    /** §7: флаг профиля выключен, а кадру назначено генеративное видео. */
+    | "generative_video_disabled"
     | "out_of_track"
+    /** Нечисловая граница (NaN/Infinity) или endSec <= startSec. */
+    | "invalid_bounds"
     | "empty"
 
 export interface ShotPlanViolation {
@@ -48,14 +61,46 @@ export interface ShotPlanContext {
   knownBackgroundIds: ReadonlySet<string>
 }
 
-/** Половина кадра при 30 fps. Мельче — это шум округления, а не дыра. */
-const EPSILON_SEC = 1 / 60
-
 /** Насколько фактическая доля перебивок может разойтись с целевой. */
 const RATIO_TOLERANCE = 0.15
 
+/**
+ * Плавающая точка: `Math.abs(0.55 - 0.4) === 0.15000000000000002` в JS, что
+ * строго больше `RATIO_TOLERANCE` (Minor 2 ревью). План, стоящий РОВНО на
+ * границе допуска, не обязан из-за шума округления считаться невалидным.
+ */
+const RATIO_FLOAT_GUARD = 1e-9
+
 /** Слово считается разорванным, если граница попала внутрь него глубже допуска. */
 const WORD_EDGE_TOLERANCE_SEC = 0.02
+
+/** Фолбэк эпсилона, когда fps не годится для арифметики (см. {@link halfFrameSec}). */
+const DEFAULT_EPSILON_SEC = 1 / 60
+
+/**
+ * Половина кадра — минимальный шум округления, который не считается дырой,
+ * нахлёстом или выходом за трек. Раньше была захардкожена под 30 fps (Minor 1
+ * ревью): на 24 fps половина кадра — 20.8 мс, и настоящая дыра меньше
+ * прежнего фиксированного порога 1/60 проходила бы проверку. Спека фиксирует
+ * 30 fps для этого пайплайна (§4.3), но `fps` — параметр контекста, а не
+ * встроенная константа, и допуск обязан считаться от него, а не от
+ * зашитого числа.
+ */
+function halfFrameSec(fps: number): number {
+  return Number.isFinite(fps) && fps > 0 ? 1 / (2 * fps) : DEFAULT_EPSILON_SEC
+}
+
+/**
+ * Реальный конец таймлайна: граница кадра НЕ ПОЗЖЕ измеренной длительности
+ * трека (`trackEndFrame` в `segment-cut.ts` — тот же приём, что использует
+ * вырезка кусков трека под lip-sync). Нефинитная/неположительная длительность
+ * — трека нет вовсе, таймлайну нечем заканчиваться позже нуля (Minor 4
+ * ревью: было протекание `Infinity` из `trackEndFrame` в план).
+ */
+function timelineEndSec(trackDurationSec: number, fps: number): number {
+  const end = trackEndFrame(trackDurationSec, fps)
+  return Number.isFinite(end) ? end : 0
+}
 
 export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
   const shots = [...input.plan.shots].sort((a, b) => a.startSec - b.startSec)
@@ -66,62 +111,110 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
   }
 
   const words = input.alignedScenes.flatMap(scene => scene.words)
+  const epsilon = halfFrameSec(input.fps)
+  const trackEnd = timelineEndSec(input.trackDurationSec, input.fps)
 
   let cursor = 0
   let brollSeconds = 0
-  let totalSeconds = 0
 
   for (const shot of shots) {
+    const hasFiniteBounds = Number.isFinite(shot.startSec) && Number.isFinite(shot.endSec)
     const duration = shot.endSec - shot.startSec
 
-    if (shot.startSec > cursor + EPSILON_SEC) {
+    if (!hasFiniteBounds || duration <= 0) {
+      violations.push({
+        code: "invalid_bounds",
+        shotOrder: shot.order,
+        message: hasFiniteBounds
+          ? `Кадр ${shot.order} имеет неположительную длительность: ${shot.startSec.toFixed(2)}-${shot.endSec.toFixed(2)}с`
+          : `Кадр ${shot.order} имеет нечисловую границу: startSec=${shot.startSec}, endSec=${shot.endSec}`,
+      })
+    }
+
+    if (!hasFiniteBounds) {
+      // NaN/Infinity ниже по цепочке гасят проверки молча (Important 2
+      // ревью): `Math.max(cursor, NaN) === NaN`, и дальше КАЖДОЕ сравнение
+      // курсора с NaN ложно — весь хвост плана после такого кадра перестаёт
+      // проверяться. Курсор и накопитель доли перебивок этот кадр не трогает.
+      continue
+    }
+
+    if (shot.startSec > cursor + epsilon) {
       violations.push({
         code: "gap",
         shotOrder: shot.order,
         message: `Дыра ${cursor.toFixed(2)}-${shot.startSec.toFixed(2)}с перед кадром ${shot.order}`,
       })
     }
-    if (shot.startSec < cursor - EPSILON_SEC) {
+    if (shot.startSec < cursor - epsilon) {
       violations.push({
         code: "overlap",
         shotOrder: shot.order,
         message: `Кадр ${shot.order} начинается в ${shot.startSec.toFixed(2)}с, когда предыдущий идёт до ${cursor.toFixed(2)}с`,
       })
     }
-    if (shot.endSec > input.trackDurationSec + EPSILON_SEC) {
+    if (shot.endSec > trackEnd + epsilon) {
       violations.push({
         code: "out_of_track",
         shotOrder: shot.order,
         message: `Кадр ${shot.order} заканчивается в ${shot.endSec.toFixed(2)}с, а трек длится ${input.trackDurationSec.toFixed(2)}с`,
       })
     }
-    if (shot.foreground === "presenter" && duration > input.lipSyncMaxDurationSec + EPSILON_SEC) {
+    if (shot.foreground === "presenter" && duration > input.lipSyncMaxDurationSec + epsilon) {
       violations.push({
         code: "presenter_too_long",
         shotOrder: shot.order,
         message: `Кадр ${shot.order} с ведущим длится ${duration.toFixed(2)}с при потолке модели ${input.lipSyncMaxDurationSec}с`,
       })
     }
-    if (shot.background === "library" && (!shot.backgroundClipId || !input.knownBackgroundIds.has(shot.backgroundClipId))) {
+
+    const missingLibraryRef = shot.background === "library"
+      && (!shot.backgroundClipId || !input.knownBackgroundIds.has(shot.backgroundClipId))
+    // §5.3 «ссылки на фоны существуют» — не только у библиотечных клипов
+    // (Minor 5 ревью): скрин приложения без ссылки на источник точно так же
+    // не из чего собрать.
+    const missingAppScreenRef = shot.background === "app_screen" && !shot.appReferenceId
+
+    if (missingLibraryRef) {
       violations.push({
         code: "unknown_background",
         shotOrder: shot.order,
         message: `Кадр ${shot.order} ссылается на фон ${shot.backgroundClipId ?? "(не указан)"}, которого нет в библиотеке`,
       })
-    }
-    if (shot.background === "video" && duration < input.minGenerativeVideoSec - EPSILON_SEC) {
-      // §7: модели продают 5 или 10 секунд. Двухсекундная перебивка стоила бы
-      // как пятисекундная, и три секунды оплаченного материала ушли бы в мусор.
+    } else if (missingAppScreenRef) {
       violations.push({
-        code: "generative_video_too_short",
+        code: "unknown_background",
         shotOrder: shot.order,
-        message: `Кадр ${shot.order} длится ${duration.toFixed(2)}с — генеративное видео не бывает короче ${input.minGenerativeVideoSec}с`,
+        message: `Кадр ${shot.order} использует app_screen без appReferenceId`,
       })
+    }
+
+    if (shot.background === "video") {
+      if (duration < input.minGenerativeVideoSec - epsilon) {
+        // §7: модели продают 5 или 10 секунд. Двухсекундная перебивка
+        // стоила бы как пятисекундная, и три секунды оплаченного материала
+        // ушли бы в мусор.
+        violations.push({
+          code: "generative_video_too_short",
+          shotOrder: shot.order,
+          message: `Кадр ${shot.order} длится ${duration.toFixed(2)}с — генеративное видео не бывает короче ${input.minGenerativeVideoSec}с`,
+        })
+      }
+      if (!input.profile.generativeVideoEnabled) {
+        // §7: «только для кадров длиной от 5 секунд, ПО ФЛАГУ ПРОФИЛЯ и в
+        // пределах потолка» (Minor 6 ревью) — валидация проверяла только
+        // длину, флаг молча пропускала.
+        violations.push({
+          code: "generative_video_disabled",
+          shotOrder: shot.order,
+          message: `Кадр ${shot.order} использует генеративное видео, а профиль его не разрешает (generativeVideoEnabled=false)`,
+        })
+      }
     }
 
     // Границу проверяем только внутреннюю: старт первого кадра и конец
     // последнего совпадают с границами трека и слово не рвут по построению.
-    if (shot.startSec > EPSILON_SEC && splitsWord(words, shot.startSec)) {
+    if (shot.startSec > epsilon && splitsWord(words, shot.startSec)) {
       violations.push({
         code: "word_split",
         shotOrder: shot.order,
@@ -129,21 +222,24 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
       })
     }
 
-    totalSeconds += duration
     if (shot.foreground !== "presenter") brollSeconds += duration
     cursor = Math.max(cursor, shot.endSec)
   }
 
-  if (cursor < input.trackDurationSec - EPSILON_SEC) {
+  if (cursor < trackEnd - epsilon) {
     violations.push({
       code: "gap",
       shotOrder: null,
-      message: `Хвост трека ${cursor.toFixed(2)}-${input.trackDurationSec.toFixed(2)}с не покрыт ни одним кадром`,
+      message: `Хвост трека ${cursor.toFixed(2)}-${trackEnd.toFixed(2)}с не покрыт ни одним кадром`,
     })
   }
 
-  const actualRatio = totalSeconds > 0 ? brollSeconds / totalSeconds : 0
-  if (Math.abs(actualRatio - input.profile.brollRatio) > RATIO_TOLERANCE) {
+  // Знаменатель — длина ТРЕКА, а не сумма длин кадров (Minor 8 ревью): на
+  // плане без дыр/нахлёстов/вырожденных кадров они совпадают, но сумма длин
+  // кадров бессмысленна именно тогда, когда план уже кривой (нахлёст даёт
+  // сумму больше трека, дыры — меньше, отрицательная длина — произвольно).
+  const actualRatio = trackEnd > 0 ? brollSeconds / trackEnd : 0
+  if (Math.abs(actualRatio - input.profile.brollRatio) > RATIO_TOLERANCE + RATIO_FLOAT_GUARD) {
     violations.push({
       code: "broll_ratio",
       shotOrder: null,
@@ -159,3 +255,8 @@ function splitsWord(words: readonly { startSec: number, endSec: number }[], atSe
   return words.some(word =>
     atSec > word.startSec + WORD_EDGE_TOLERANCE_SEC && atSec < word.endSec - WORD_EDGE_TOLERANCE_SEC)
 }
+
+// Экспортируется для repair.ts: обе функции обязаны сверяться с одним и тем
+// же понятием "рвёт слово" / "конец таймлайна" / "допуск округления" — иначе
+// именно такое расхождение и породило Critical 2.
+export { halfFrameSec, splitsWord, timelineEndSec }
