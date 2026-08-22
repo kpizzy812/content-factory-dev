@@ -61,6 +61,7 @@ export type EditProfileMinAggregateOutputType = {
   pipEnabled: boolean | null
   pipPosition: string | null
   pipSize: number | null
+  imageGenerationEnabled: boolean | null
   generativeVideoEnabled: boolean | null
   generativeVideoBudgetUsd: number | null
   generativeVideoResolution: string | null
@@ -82,6 +83,7 @@ export type EditProfileMaxAggregateOutputType = {
   pipEnabled: boolean | null
   pipPosition: string | null
   pipSize: number | null
+  imageGenerationEnabled: boolean | null
   generativeVideoEnabled: boolean | null
   generativeVideoBudgetUsd: number | null
   generativeVideoResolution: string | null
@@ -103,6 +105,7 @@ export type EditProfileCountAggregateOutputType = {
   pipEnabled: number
   pipPosition: number
   pipSize: number
+  imageGenerationEnabled: number
   generativeVideoEnabled: number
   generativeVideoBudgetUsd: number
   generativeVideoResolution: number
@@ -144,6 +147,7 @@ export type EditProfileMinAggregateInputType = {
   pipEnabled?: true
   pipPosition?: true
   pipSize?: true
+  imageGenerationEnabled?: true
   generativeVideoEnabled?: true
   generativeVideoBudgetUsd?: true
   generativeVideoResolution?: true
@@ -165,6 +169,7 @@ export type EditProfileMaxAggregateInputType = {
   pipEnabled?: true
   pipPosition?: true
   pipSize?: true
+  imageGenerationEnabled?: true
   generativeVideoEnabled?: true
   generativeVideoBudgetUsd?: true
   generativeVideoResolution?: true
@@ -186,6 +191,7 @@ export type EditProfileCountAggregateInputType = {
   pipEnabled?: true
   pipPosition?: true
   pipSize?: true
+  imageGenerationEnabled?: true
   generativeVideoEnabled?: true
   generativeVideoBudgetUsd?: true
   generativeVideoResolution?: true
@@ -294,6 +300,7 @@ export type EditProfileGroupByOutputType = {
   pipEnabled: boolean
   pipPosition: string
   pipSize: number
+  imageGenerationEnabled: boolean
   generativeVideoEnabled: boolean
   generativeVideoBudgetUsd: number
   generativeVideoResolution: string
@@ -338,6 +345,7 @@ export type EditProfileWhereInput = {
   pipEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   pipPosition?: Prisma.StringFilter<"EditProfile"> | string
   pipSize?: Prisma.FloatFilter<"EditProfile"> | number
+  imageGenerationEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   generativeVideoEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFilter<"EditProfile"> | number
   generativeVideoResolution?: Prisma.StringFilter<"EditProfile"> | string
@@ -361,6 +369,7 @@ export type EditProfileOrderByWithRelationInput = {
   pipEnabled?: Prisma.SortOrder
   pipPosition?: Prisma.SortOrder
   pipSize?: Prisma.SortOrder
+  imageGenerationEnabled?: Prisma.SortOrder
   generativeVideoEnabled?: Prisma.SortOrder
   generativeVideoBudgetUsd?: Prisma.SortOrder
   generativeVideoResolution?: Prisma.SortOrder
@@ -387,6 +396,7 @@ export type EditProfileWhereUniqueInput = Prisma.AtLeast<{
   pipEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   pipPosition?: Prisma.StringFilter<"EditProfile"> | string
   pipSize?: Prisma.FloatFilter<"EditProfile"> | number
+  imageGenerationEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   generativeVideoEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFilter<"EditProfile"> | number
   generativeVideoResolution?: Prisma.StringFilter<"EditProfile"> | string
@@ -410,6 +420,7 @@ export type EditProfileOrderByWithAggregationInput = {
   pipEnabled?: Prisma.SortOrder
   pipPosition?: Prisma.SortOrder
   pipSize?: Prisma.SortOrder
+  imageGenerationEnabled?: Prisma.SortOrder
   generativeVideoEnabled?: Prisma.SortOrder
   generativeVideoBudgetUsd?: Prisma.SortOrder
   generativeVideoResolution?: Prisma.SortOrder
@@ -439,6 +450,7 @@ export type EditProfileScalarWhereWithAggregatesInput = {
   pipEnabled?: Prisma.BoolWithAggregatesFilter<"EditProfile"> | boolean
   pipPosition?: Prisma.StringWithAggregatesFilter<"EditProfile"> | string
   pipSize?: Prisma.FloatWithAggregatesFilter<"EditProfile"> | number
+  imageGenerationEnabled?: Prisma.BoolWithAggregatesFilter<"EditProfile"> | boolean
   generativeVideoEnabled?: Prisma.BoolWithAggregatesFilter<"EditProfile"> | boolean
   generativeVideoBudgetUsd?: Prisma.FloatWithAggregatesFilter<"EditProfile"> | number
   generativeVideoResolution?: Prisma.StringWithAggregatesFilter<"EditProfile"> | string
@@ -458,6 +470,7 @@ export type EditProfileCreateInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -481,6 +494,7 @@ export type EditProfileUncheckedCreateInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -501,6 +515,7 @@ export type EditProfileUpdateInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -524,6 +539,7 @@ export type EditProfileUncheckedUpdateInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -546,6 +562,7 @@ export type EditProfileCreateManyInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -565,6 +582,7 @@ export type EditProfileUpdateManyMutationInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -586,6 +604,7 @@ export type EditProfileUncheckedUpdateManyInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -622,6 +641,7 @@ export type EditProfileCountOrderByAggregateInput = {
   pipEnabled?: Prisma.SortOrder
   pipPosition?: Prisma.SortOrder
   pipSize?: Prisma.SortOrder
+  imageGenerationEnabled?: Prisma.SortOrder
   generativeVideoEnabled?: Prisma.SortOrder
   generativeVideoBudgetUsd?: Prisma.SortOrder
   generativeVideoResolution?: Prisma.SortOrder
@@ -652,6 +672,7 @@ export type EditProfileMaxOrderByAggregateInput = {
   pipEnabled?: Prisma.SortOrder
   pipPosition?: Prisma.SortOrder
   pipSize?: Prisma.SortOrder
+  imageGenerationEnabled?: Prisma.SortOrder
   generativeVideoEnabled?: Prisma.SortOrder
   generativeVideoBudgetUsd?: Prisma.SortOrder
   generativeVideoResolution?: Prisma.SortOrder
@@ -673,6 +694,7 @@ export type EditProfileMinOrderByAggregateInput = {
   pipEnabled?: Prisma.SortOrder
   pipPosition?: Prisma.SortOrder
   pipSize?: Prisma.SortOrder
+  imageGenerationEnabled?: Prisma.SortOrder
   generativeVideoEnabled?: Prisma.SortOrder
   generativeVideoBudgetUsd?: Prisma.SortOrder
   generativeVideoResolution?: Prisma.SortOrder
@@ -759,6 +781,7 @@ export type EditProfileCreateWithoutAppInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -780,6 +803,7 @@ export type EditProfileUncheckedCreateWithoutAppInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -831,6 +855,7 @@ export type EditProfileScalarWhereInput = {
   pipEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   pipPosition?: Prisma.StringFilter<"EditProfile"> | string
   pipSize?: Prisma.FloatFilter<"EditProfile"> | number
+  imageGenerationEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   generativeVideoEnabled?: Prisma.BoolFilter<"EditProfile"> | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFilter<"EditProfile"> | number
   generativeVideoResolution?: Prisma.StringFilter<"EditProfile"> | string
@@ -850,6 +875,7 @@ export type EditProfileCreateWithoutVideosInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -872,6 +898,7 @@ export type EditProfileUncheckedCreateWithoutVideosInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -907,6 +934,7 @@ export type EditProfileUpdateWithoutVideosInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -929,6 +957,7 @@ export type EditProfileUncheckedUpdateWithoutVideosInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -949,6 +978,7 @@ export type EditProfileCreateManyAppInput = {
   pipEnabled?: boolean
   pipPosition?: string
   pipSize?: number
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -968,6 +998,7 @@ export type EditProfileUpdateWithoutAppInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -989,6 +1020,7 @@ export type EditProfileUncheckedUpdateWithoutAppInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1010,6 +1042,7 @@ export type EditProfileUncheckedUpdateManyWithoutAppInput = {
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   pipPosition?: Prisma.StringFieldUpdateOperationsInput | string
   pipSize?: Prisma.FloatFieldUpdateOperationsInput | number
+  imageGenerationEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   generativeVideoBudgetUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   generativeVideoResolution?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1062,6 +1095,7 @@ export type EditProfileSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   pipEnabled?: boolean
   pipPosition?: boolean
   pipSize?: boolean
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: boolean
   generativeVideoResolution?: boolean
@@ -1086,6 +1120,7 @@ export type EditProfileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   pipEnabled?: boolean
   pipPosition?: boolean
   pipSize?: boolean
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: boolean
   generativeVideoResolution?: boolean
@@ -1108,6 +1143,7 @@ export type EditProfileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   pipEnabled?: boolean
   pipPosition?: boolean
   pipSize?: boolean
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: boolean
   generativeVideoResolution?: boolean
@@ -1130,6 +1166,7 @@ export type EditProfileSelectScalar = {
   pipEnabled?: boolean
   pipPosition?: boolean
   pipSize?: boolean
+  imageGenerationEnabled?: boolean
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: boolean
   generativeVideoResolution?: boolean
@@ -1139,7 +1176,7 @@ export type EditProfileSelectScalar = {
   updatedAt?: boolean
 }
 
-export type EditProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "description" | "isDefault" | "editPrompt" | "brollRatio" | "shotChangeSec" | "pipEnabled" | "pipPosition" | "pipSize" | "generativeVideoEnabled" | "generativeVideoBudgetUsd" | "generativeVideoResolution" | "stepwiseApproval" | "llmModelId" | "createdAt" | "updatedAt", ExtArgs["result"]["editProfile"]>
+export type EditProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "description" | "isDefault" | "editPrompt" | "brollRatio" | "shotChangeSec" | "pipEnabled" | "pipPosition" | "pipSize" | "imageGenerationEnabled" | "generativeVideoEnabled" | "generativeVideoBudgetUsd" | "generativeVideoResolution" | "stepwiseApproval" | "llmModelId" | "createdAt" | "updatedAt", ExtArgs["result"]["editProfile"]>
 export type EditProfileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   app?: boolean | Prisma.EditProfile$appArgs<ExtArgs>
   videos?: boolean | Prisma.EditProfile$videosArgs<ExtArgs>
@@ -1186,6 +1223,17 @@ export type $EditProfilePayload<ExtArgs extends runtime.Types.Extensions.Interna
      * Доля ширины кадра под PiP-окно.
      */
     pipSize: number
+    /**
+     * Единственный рычаг оператора против неограниченного расхода на
+     * генерацию картинок фона (ре-ревью 3, Task 5, пункт 1): раньше
+     * `imageGenerationAllowed` в раннере вычислялся из наличия flux-dev в
+     * СТАТИЧЕСКОМ реестре моделей — модель там всегда есть, флаг всегда
+     * `true`, ветка §10 «генерация запрещена → кадр ведущему» в проде мертва.
+     * Потолок в долларах на это поле не вводится — решение владельца бренда,
+     * не платформы; выключатель обязателен, чтобы у оператора вообще была
+     * возможность закрыть эту статью расхода.
+     */
+    imageGenerationEnabled: boolean
     /**
      * Разворот решения от 14.08: генеративное видео на фон разрешено ОПЦИЕЙ
      * профиля и только для кадров от 5 секунд (§7). По умолчанию выключено.
@@ -1656,6 +1704,7 @@ export interface EditProfileFieldRefs {
   readonly pipEnabled: Prisma.FieldRef<"EditProfile", 'Boolean'>
   readonly pipPosition: Prisma.FieldRef<"EditProfile", 'String'>
   readonly pipSize: Prisma.FieldRef<"EditProfile", 'Float'>
+  readonly imageGenerationEnabled: Prisma.FieldRef<"EditProfile", 'Boolean'>
   readonly generativeVideoEnabled: Prisma.FieldRef<"EditProfile", 'Boolean'>
   readonly generativeVideoBudgetUsd: Prisma.FieldRef<"EditProfile", 'Float'>
   readonly generativeVideoResolution: Prisma.FieldRef<"EditProfile", 'String'>

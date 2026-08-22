@@ -32,6 +32,16 @@ export interface ResolvedEditProfile {
   generativeVideoResolution: string
   stepwiseApproval: boolean
   llmModelId: string | null
+  /**
+   * Единственный рычаг оператора против неограниченного расхода на генерацию
+   * картинок фона (ре-ревью 3, Task 5, пункт 1). Раньше `imageGenerationAllowed`
+   * в раннере вычислялся из `findMediaSpec("replicate:flux-dev") !== null` —
+   * статический реестр моделей содержит flux-dev всегда, флаг был вычисляемым
+   * хардкодом, а §10 «фонов нет, генерация запрещена → кадр ведущему» —
+   * недостижимой веткой. Дефолт `true`: поле — возможность ВЫКЛЮЧИТЬ
+   * генерацию, а не новое ограничение по умолчанию.
+   */
+  imageGenerationEnabled: boolean
 }
 
 const PIP_POSITIONS: readonly PipPosition[] = ["top_left", "top_right", "bottom_left", "bottom_right"]
@@ -79,6 +89,7 @@ export const DEFAULT_EDIT_PROFILE: Readonly<ResolvedEditProfile> = Object.freeze
   generativeVideoResolution: "1080x1920",
   stepwiseApproval: false,
   llmModelId: null,
+  imageGenerationEnabled: true,
 })
 
 function num(value: unknown): number | null {
@@ -177,5 +188,7 @@ export function resolveEditProfile(
     stepwiseApproval: firstValid(bool, patch.stepwiseApproval, profile?.stepwiseApproval)
       ?? DEFAULT_EDIT_PROFILE.stepwiseApproval,
     llmModelId: firstValid(text, patch.llmModelId, profile?.llmModelId) ?? DEFAULT_EDIT_PROFILE.llmModelId,
+    imageGenerationEnabled: firstValid(bool, patch.imageGenerationEnabled, profile?.imageGenerationEnabled)
+      ?? DEFAULT_EDIT_PROFILE.imageGenerationEnabled,
   }
 }

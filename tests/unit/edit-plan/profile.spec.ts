@@ -326,6 +326,27 @@ describe("разрешение монтажного профиля", () => {
         expect(resolveEditProfile({ llmModelId: "claude-x" }, { llmModelId: "" }).llmModelId).toBe("claude-x")
       })
     })
+
+    describe("imageGenerationEnabled (ре-ревью 3, Task 5, пункт 1)", () => {
+      it("отсутствует — true (дефолт: генерация разрешена, поле — рычаг ВЫКЛЮЧЕНИЯ)", () => {
+        expect(resolveEditProfile(null, null).imageGenerationEnabled).toBe(true)
+      })
+      it("профиль выключает генерацию картинок", () => {
+        expect(resolveEditProfile({ imageGenerationEnabled: false }, null).imageGenerationEnabled).toBe(false)
+      })
+      it("валидное переопределение важнее профиля", () => {
+        expect(
+          resolveEditProfile({ imageGenerationEnabled: false }, { imageGenerationEnabled: true })
+            .imageGenerationEnabled,
+        ).toBe(true)
+      })
+      it("мусорное переопределение (строка) не включает генерацию обратно, если профиль её выключил", () => {
+        expect(
+          resolveEditProfile({ imageGenerationEnabled: false }, { imageGenerationEnabled: "yes" })
+            .imageGenerationEnabled,
+        ).toBe(false)
+      })
+    })
   })
 
   it("дефолты совпадают с моделью EditProfile в prisma/schema.prisma", () => {
