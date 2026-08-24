@@ -31,6 +31,7 @@ export type VideoStepKey =
   | "voiceover_generation"
   | "transcription"
   | "edit_plan"
+  | "shot_background"
   | "music_generation"
   | "assembly"
 
@@ -146,6 +147,7 @@ export const STEP_LABELS: Record<VideoStepKey, string> = {
   voiceover_generation: "Озвучка (TTS)",
   transcription: "Транскрипция",
   edit_plan: "План монтажа",
+  shot_background: "Фоны кадров",
   music_generation: "Генерация музыки",
   assembly: "Сборка видео",
 }
@@ -161,6 +163,7 @@ export const STEP_ORDER: VideoStepKey[] = [
   "voiceover_generation",
   "transcription",
   "edit_plan",
+  "shot_background",
   "music_generation",
   "assembly",
 ]

@@ -677,6 +677,7 @@ enum VideoStepKey {
   assembly
   transcription
   edit_plan
+  shot_background
 }
 
 enum VideoStepStatus {
@@ -704,6 +705,7 @@ enum AssetType {
   thumbnail
   preview
   transcript
+  shot_background
 }
 
 enum ScenarioStatus {

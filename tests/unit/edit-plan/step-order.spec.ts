@@ -7,7 +7,10 @@ import { assetTypesForSteps, STEP_ASSET_TYPES } from "~~/server/utils/video-pipe
 describe("шаг плана монтажа в порядке шагов", () => {
   it("новый ключ дописан в конец STEP_ORDER — история роликов не переписывается", () => {
     expect(STEP_ORDER[0]).toBe("prompt_generation")
-    expect(STEP_ORDER[STEP_ORDER.length - 1]).toBe("edit_plan")
+    // Задача 1 сборки по кадрам дописала "shot_background" ПОСЛЕ "edit_plan"
+    // тем же приёмом — последний элемент STEP_ORDER снова сдвинулся, сама
+    // edit_plan в персистентном порядке осталась на своём месте.
+    expect(STEP_ORDER[STEP_ORDER.length - 2]).toBe("edit_plan")
   })
 
   it("на audio-first план монтажа идёт после транскрипции и до картинок", () => {

@@ -34,6 +34,7 @@ describe("W2: сброс шага сносит артефакты", () => {
       "lip_sync_generation",
       "music_generation",
       "prompt_generation",
+      "shot_background",
       "transcription",
       "voiceover_generation",
     ])

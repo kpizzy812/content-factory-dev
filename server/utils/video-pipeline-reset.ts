@@ -24,6 +24,7 @@ export type VideoAssetType
     | "thumbnail"
     | "preview"
     | "transcript"
+    | "shot_background"
 
 /**
  * Шаг → типы ассетов, которые он производит и обязан пересоздать.
@@ -48,6 +49,9 @@ export const STEP_ASSET_TYPES: Record<StepKey, readonly VideoAssetType[]> = {
   // Кадры живут в таблице VideoShot, а не в VideoAsset: их чистит отдельная
   // ветка каскада в rerunVideoStep.
   edit_plan: [],
+  // Фон кадра — свой тип ассета: у него адресация по order КАДРА, а не сцены,
+  // и перезапуск шага обязан сносить именно его, не трогая посценные картинки.
+  shot_background: ["shot_background"],
 }
 
 /** Объединение типов ассетов для набора сбрасываемых шагов (без дублей). */

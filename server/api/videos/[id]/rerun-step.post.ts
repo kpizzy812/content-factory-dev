@@ -1,4 +1,4 @@
-const VALID_STEPS = ["prompt_generation", "image_generation", "clip_generation", "music_generation", "assembly", "transcription", "edit_plan"] as const
+const VALID_STEPS = ["prompt_generation", "image_generation", "clip_generation", "music_generation", "assembly", "transcription", "edit_plan", "shot_background"] as const
 
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canRunAgent'], moduleSlug: 'video-generator' })

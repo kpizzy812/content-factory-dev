@@ -49,9 +49,11 @@ export function mapStepKeyToService(
 
     case "image_generation":
     case "clip_generation":
+    case "shot_background":
       // Раньше здесь стоял литерал "fal.ai", не глядя на модель. После перевода
       // кадров и клипов на Replicate это писало бы чужой расход на счётчик fal.
       // Модель вне реестра — оставляем прежний ответ, чтобы не менять историю.
+      // Фон кадра — та же медиа-модель (image/video), тот же резолв по спеке.
       return serviceFromSpec(modelId) ?? "fal.ai"
 
     case "lip_sync_generation": {

@@ -328,6 +328,9 @@ export const STEP_EXECUTION_ORDER_AUDIO_FIRST: readonly StepKey[] = [
   "voiceover_generation",
   "transcription",
   "edit_plan",
+  // Фон кадра считается ПОСЛЕ плана монтажа: план знает состав и тайминг
+  // кадров, фон генерируется под конкретный кадр из этого плана.
+  "shot_background",
   "image_generation",
   "clip_generation",
   "lip_sync_generation",

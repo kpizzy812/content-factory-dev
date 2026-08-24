@@ -24,7 +24,7 @@ export interface FalVideoResult {
   video: { url: string }
 }
 
-export type StepKey = "prompt_generation" | "image_generation" | "clip_generation" | "voiceover_generation" | "music_generation" | "lip_sync_generation" | "assembly" | "transcription" | "edit_plan"
+export type StepKey = "prompt_generation" | "image_generation" | "clip_generation" | "voiceover_generation" | "music_generation" | "lip_sync_generation" | "assembly" | "transcription" | "edit_plan" | "shot_background"
 
 /**
  * Порядок шагов для персистентного stepIndex и сортировки в UI.
@@ -48,6 +48,8 @@ export const STEP_ORDER: StepKey[] = [
   "transcription",
   // Дописан в конец намеренно тем же приёмом, что и transcription выше.
   "edit_plan",
+  // Тем же приёмом. Порядок ИСПОЛНЕНИЯ задаёт STEP_EXECUTION_ORDER_AUDIO_FIRST.
+  "shot_background",
 ]
 
 /** Результат генерации промптов — либо legacy (3 промпта), либо scene-level */

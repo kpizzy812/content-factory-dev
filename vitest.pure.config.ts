@@ -50,6 +50,7 @@ export default defineConfig({
       "tests/unit/voiceover/**/*.spec.ts",
       "tests/unit/presenter/**/*.spec.ts",
       "tests/unit/edit-plan/**/*.spec.ts",
+      "tests/unit/shots/**/*.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },

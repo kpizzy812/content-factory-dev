@@ -50,7 +50,7 @@ export const SPEND_GROUPS: GroupDefinition[] = [
   {
     key: 'video',
     label: 'Lip-sync и видео',
-    stepKeys: ['lip_sync_generation', 'clip_generation', 'image_generation'],
+    stepKeys: ['lip_sync_generation', 'clip_generation', 'image_generation', 'shot_background'],
   },
   {
     key: 'audio',
