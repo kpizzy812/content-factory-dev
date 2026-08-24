@@ -61,11 +61,23 @@
  *    unit-тест: без него именованные сиды 20565/432 (заведены как регрессия
  *    именно на этот фикс) проходили и на полностью откаченном коде раунда 3.
  *    Безусловно.
+ * 6. Ремонт сбрасывает ссылку на фон (`library`/`app_screen`) ТОЛЬКО когда её
+ *    действительно не существует, и не теряет саму ссылку; `unknown_background`
+ *    не доживает до `remaining` (I6 финального ревью ветки). Безусловно.
  *
  * Пять сидов, которыми ре-ревью раунда 3 воспроизвело падения (11555, 35487,
  * 20565, 432, 31997), закреплены отдельными именованными тестами ниже (не
  * только диапазоном `ITERATIONS`) — по прямому требованию рулинга: диапазон
  * можно уменьшать ради времени сьюты, но эти пять обязаны прогоняться всегда.
+ *
+ * I6 финального ревью ветки — домен генератора был уже, чем выглядел, по
+ * четырём осям сразу (пустые множества известных фонов, `expectSameShots` без
+ * `sceneOrder`, 2..6 кадров вместо реальных 60-100, всегда валидный fps).
+ * Расширение живёт ОТДЕЛЬНЫМ генератором `buildWideScenario` — см. его
+ * докстринг о том, почему нельзя было расширить `buildScenario` на месте.
+ * Перебор на расширенном домене нашёл настоящий дефект `repair.ts`
+ * (вырожденный кадр при негодном fps, 18 из 120 сценариев) — починен в
+ * `mergeShortSegments`; после фикса 2000 расширенных сценариев зелёные.
  */
 
 import { describe, expect, it } from "vitest"
@@ -98,15 +110,28 @@ function randRange(rng: () => number, min: number, max: number): number {
 
 type WordLayoutKind = "dense" | "sparse" | "touching" | "overlapping" | "none"
 
-/** Раскладки слов: густые/редкие паузы, встык (как `interpolate()` в align.ts), перекрывающиеся. */
-function generateWords(rng: () => number, trackDurationSec: number, kind: WordLayoutKind): AlignedScene["words"] {
+/**
+ * Раскладки слов: густые/редкие паузы, встык (как `interpolate()` в align.ts),
+ * перекрывающиеся.
+ *
+ * `maxWords` по умолчанию 40 — ИМЕННО столько было до расширения домена (I6):
+ * менять это число для основного генератора нельзя, иначе пять именованных
+ * сидов перестанут воспроизводить свои сценарии. Расширенный генератор
+ * передаёт своё значение явно.
+ */
+function generateWords(
+  rng: () => number,
+  trackDurationSec: number,
+  kind: WordLayoutKind,
+  maxWords = 40,
+): AlignedScene["words"] {
   if (kind === "none") return []
 
   const words: AlignedScene["words"] = []
   let cursor = randRange(rng, 0, 0.3)
   let index = 0
 
-  while (cursor < trackDurationSec - 0.2 && words.length < 40) {
+  while (cursor < trackDurationSec - 0.2 && words.length < maxWords) {
     const wordLen = randRange(rng, 0.15, 0.6)
     const end = Math.min(cursor + wordLen, trackDurationSec)
     if (end <= cursor) break
@@ -222,9 +247,17 @@ function breakUpUnsolvablePresenterRuns(shots: PlannedShot[], lipSyncMaxDuration
   }
 }
 
-/** "LLM-подобный" план: примерно равные кадры с джиттером, иногда — за концом трека или нулевой длины. */
-function generateShots(rng: () => number, trackDurationSec: number): PlannedShot[] {
-  const count = Math.max(2, Math.floor(randRange(rng, 2, 7)))
+/**
+ * "LLM-подобный" план: примерно равные кадры с джиттером, иногда — за концом
+ * трека или нулевой длины.
+ *
+ * `countOverride` (I6 финального ревью): когда не задан, число кадров берётся
+ * из rng РОВНО тем же вызовом, что и до расширения домена — поток PRNG
+ * основного генератора не сдвигается ни на шаг, и пять именованных сидов
+ * воспроизводят те же сценарии. Расширенный генератор задаёт масштаб явно.
+ */
+function generateShots(rng: () => number, trackDurationSec: number, countOverride?: number): PlannedShot[] {
+  const count = countOverride ?? Math.max(2, Math.floor(randRange(rng, 2, 7)))
   const nominal = trackDurationSec / count
   const shots: PlannedShot[] = []
   let cursor = 0
@@ -259,7 +292,17 @@ function generateShots(rng: () => number, trackDurationSec: number): PlannedShot
 
 const GEOMETRIC_CODES = ["gap", "overlap", "out_of_track", "invalid_bounds"] as const
 
-/** Сравнение планов по значению с допуском на плавающую точку — вместо хрупкого `toEqual`. */
+/**
+ * Сравнение планов по значению с допуском на плавающую точку — вместо хрупкого
+ * `toEqual`.
+ *
+ * I6 финального ревью ветки: раньше сравнивались только `startSec`, `endSec`,
+ * `foreground`, `background`, `backgroundClipId` и `order` — то есть ремонт,
+ * перепутавший `sceneOrder` между кадрами (а это привязка кадра к РЕПЛИКЕ: по
+ * ней шаг сборки ищет, что на кадре говорит ведущий), свойство неподвижной
+ * точки не нарушал вовсе. Добавлены все четыре недостающих поля
+ * `PlannedShot`: `sceneOrder`, `appReferenceId`, `idea`, `pipEnabled`.
+ */
 function expectSameShots(actual: readonly PlannedShot[], expected: readonly PlannedShot[], label: string): void {
   expect(actual.length, label).toBe(expected.length)
   for (let index = 0; index < actual.length; index += 1) {
@@ -271,6 +314,10 @@ function expectSameShots(actual: readonly PlannedShot[], expected: readonly Plan
     expect(a.background, `${label} shot[${index}].background`).toBe(e.background)
     expect(a.backgroundClipId, `${label} shot[${index}].backgroundClipId`).toBe(e.backgroundClipId)
     expect(a.order, `${label} shot[${index}].order`).toBe(e.order)
+    expect(a.sceneOrder, `${label} shot[${index}].sceneOrder`).toBe(e.sceneOrder)
+    expect(a.appReferenceId, `${label} shot[${index}].appReferenceId`).toBe(e.appReferenceId)
+    expect(a.idea, `${label} shot[${index}].idea`).toBe(e.idea)
+    expect(a.pipEnabled, `${label} shot[${index}].pipEnabled`).toBe(e.pipEnabled)
   }
 }
 
@@ -427,6 +474,45 @@ function checkProperties({ shots, context, label }: Scenario): void {
       `${label}: кадр ${s.order} короче абсолютного пола ${floor.toFixed(3)}с`,
     ).toBeGreaterThanOrEqual(floor - 1e-9)
   }
+
+  // Свойство 6 (I6 финального ревью): ремонт сбрасывает ссылку на фон ТОЛЬКО
+  // когда её действительно не существует. До расширения домена
+  // `knownBackgroundIds`/`knownAppScreenIds` были ВСЕГДА пусты, то есть ветка
+  // «ссылка существует, трогать нельзя» (`repair.ts`) перебором не
+  // проверялась ни разу: мутация «сбрасывать фон независимо от
+  // `knownBackgroundIds.has(...)`» перебор не красила.
+  //
+  // Сопоставление идёт по `sceneOrder`, а НЕ по `order`: шаг 3 `repairShotPlan`
+  // перенумеровывает `order` подряд с нуля (дырка в нумерации означала бы
+  // потерянный кадр), поэтому `order` итогового плана вообще не адресует
+  // исходный кадр. Генератор выдаёт каждому кадру уникальный `sceneOrder`, и
+  // ремонт его не трогает — это единственный стабильный ключ. Кадры,
+  // поглощённые слиянием, из плана просто исчезают.
+  const sourceBySceneOrder = new Map(shots.map(shot => [shot.sceneOrder, shot]))
+  for (const s of first.plan.shots) {
+    const source = sourceBySceneOrder.get(s.sceneOrder)
+    if (!source) continue
+    if (source.background === "library" && source.backgroundClipId
+      && context.knownBackgroundIds.has(source.backgroundClipId)) {
+      expect(s.background, `${label}: кадр sceneOrder=${s.sceneOrder} — фон library со СУЩЕСТВУЮЩЕЙ ссылкой сброшен`).toBe("library")
+      expect(s.backgroundClipId, `${label}: кадр sceneOrder=${s.sceneOrder} — ссылка на существующий фон потеряна`)
+        .toBe(source.backgroundClipId)
+    }
+    if (source.background === "app_screen" && source.appReferenceId
+      && context.knownAppScreenIds.has(source.appReferenceId)) {
+      expect(s.background, `${label}: кадр sceneOrder=${s.sceneOrder} — фон app_screen со СУЩЕСТВУЮЩЕЙ ссылкой сброшен`).toBe("app_screen")
+      expect(s.appReferenceId, `${label}: кадр sceneOrder=${s.sceneOrder} — ссылка на существующий скрин потеряна`)
+        .toBe(source.appReferenceId)
+    }
+  }
+
+  // Обратная сторона того же свойства: несуществующую ссылку ремонт обязан
+  // УБРАТЬ, а не оставить нарушение вызывающему — `unknown_background` чинится
+  // детерминированно и не имеет права дожить до `remaining`.
+  expect(
+    first.remaining.map(v => v.code),
+    `${label}: ремонт обязан сам чинить unknown_background`,
+  ).not.toContain("unknown_background")
 }
 
 /**
@@ -442,6 +528,112 @@ describe("свойства детерминированного ремонта (
   for (let seed = 1; seed <= ITERATIONS; seed += 1) {
     it(`сценарий #${seed}`, () => {
       checkProperties(buildScenario(seed))
+    })
+  }
+})
+
+// ── Расширенный домен (I6 финального ревью ветки) ────────────────────────────
+
+/**
+ * Четыре ограничения ПРЕЖНЕГО домена, каждое из которых прятало свой класс
+ * дефектов, и как они сняты:
+ *
+ * 1. `knownBackgroundIds`/`knownAppScreenIds` были ВСЕГДА пусты — ветка
+ *    «ссылка на фон существует, трогать нельзя» перебором не проверялась ни
+ *    разу. Здесь множества наполняются подмножеством тех же id, что генератор
+ *    кладёт в кадры, поэтому в одном сценарии встречаются все три случая:
+ *    ссылка есть и известна, ссылка есть и неизвестна, ссылки нет вовсе.
+ *    Проверяет свойство 6.
+ * 2. `expectSameShots` не сравнивал `sceneOrder` — снято в самой функции, для
+ *    ОБОИХ доменов сразу.
+ * 3. Кадров было 2..6, а реальная сетка ролика на 2-3 минуты — 60-100 ячеек:
+ *    каскадное поведение `mergeShortSegments` на масштабе не проверялось
+ *    вовсе. Здесь 60..100 кадров на треке 60..200 секунд и до 400 слов.
+ * 4. `fps` был всегда валиден (24/25/30/60) — фикс НН-19 (`absoluteMinShotSec`
+ *    при негодном fps) перебором не покрывался. Здесь в наборе есть 0,
+ *    отрицательный, `NaN` и некратный 29.97.
+ *
+ * Почему ОТДЕЛЬНЫМ генератором, а не правкой `buildScenario`: докстринг
+ * основного генератора прямо запрещает менять порядок потребления PRNG —
+ * пять именованных сидов обязаны воспроизводить ИМЕННО те сценарии, на
+ * которых их назвал ре-ревьюер раунда 3. Любое расширение внутри
+ * `buildScenario` (другой набор fps, другое число кадров) сдвинуло бы поток и
+ * молча превратило пять регрессионных тестов в пять произвольных.
+ */
+const WIDE_FPS = [24, 25, 29.97, 30, 60, 0, -30, Number.NaN] as const
+
+/** Масштаб реального ролика: 2-3 минуты нарезаны на 60-100 кадров. */
+function buildWideScenario(seed: number): Scenario {
+  // Множитель ОТЛИЧАЕТСЯ от основного генератора намеренно: одинаковый сид в
+  // двух доменах не должен давать один и тот же поток случайных чисел.
+  const rng = mulberry32(seed * 2246822519)
+  const fps = pick(rng, WIDE_FPS)
+  const trackDurationSec = randRange(rng, 60, 200)
+  const wordKind = pick(rng, ["dense", "sparse", "touching", "overlapping", "none"] as const)
+  const words = generateWords(rng, trackDurationSec, wordKind, 400)
+  const shotCount = Math.floor(randRange(rng, 60, 101))
+  const shots = generateShots(rng, trackDurationSec, shotCount)
+  const shotChangeSec = randRange(rng, 0.8, 3.0)
+  const lipSyncMaxDurationSec = pick(rng, [3, 5, 10])
+  breakUpUnsolvablePresenterRuns(shots, lipSyncMaxDurationSec, trackDurationSec)
+
+  // Подмножество РЕАЛЬНО назначенных генератором ссылок: часть кадров попадёт
+  // в ветку «ссылка существует» (фон обязан уцелеть), часть — в ветку
+  // «ссылка выдумана» (фон обязан сброситься).
+  const knownBackgroundIds = new Set<string>()
+  const knownAppScreenIds = new Set<string>()
+  for (const shot of shots) {
+    if (shot.backgroundClipId && rng() < 0.6) knownBackgroundIds.add(shot.backgroundClipId)
+    if (shot.appReferenceId && rng() < 0.6) knownAppScreenIds.add(shot.appReferenceId)
+  }
+
+  const context: ShotPlanContext = {
+    plan: { shots },
+    trackDurationSec,
+    fps,
+    alignedScenes: [{ order: 1, startSec: 0, endSec: trackDurationSec, words }],
+    profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec, generativeVideoEnabled: rng() < 0.5 },
+    lipSyncMaxDurationSec,
+    minGenerativeVideoSec: 5,
+    maxGenerativeVideoSec: 10,
+    knownBackgroundIds,
+    knownAppScreenIds,
+  }
+
+  const label = `wide seed=${seed} fps=${fps} track=${trackDurationSec.toFixed(4)} words=${wordKind} `
+    + `shots=${shots.length} known=${knownBackgroundIds.size}/${knownAppScreenIds.size}`
+  return { seed, shots, context, label }
+}
+
+/**
+ * Диапазон меньше основного (там 300): один сценарий здесь — 60-100 кадров и
+ * до 400 слов против 2-6 кадров и 40 слов, то есть на порядок дороже по
+ * времени. Держим сьюту быстрой; более широкий перебор гонялся отдельно, см.
+ * отчёт фикс-раунда.
+ */
+const WIDE_ITERATIONS = 120
+
+describe("свойства ремонта на расширенном домене (I6: масштаб ролика, негодный fps, существующие ссылки на фон)", () => {
+  for (let seed = 1; seed <= WIDE_ITERATIONS; seed += 1) {
+    it(`расширенный сценарий #${seed}`, () => {
+      checkProperties(buildWideScenario(seed))
+    })
+  }
+})
+
+/**
+ * Сиды, которыми расширенный домен ВПЕРВЫЕ воспроизвёл настоящий дефект
+ * `repair.ts` (`invalid_bounds` доживал до `remaining` при негодном fps:
+ * `absoluteMinShotSec` по НН-19 отдаёт 0, и сравнение `length < floor` на
+ * вырожденном кадре давало `0 < 0` === false — кадр объявлялся «коротким, но
+ * выше пола» и оставался в плане нулевой длины). Закреплены отдельными
+ * тестами по той же причине, что пять сидов раунда 3 выше: `WIDE_ITERATIONS`
+ * можно уменьшать ради времени сьюты, эти — нет.
+ */
+describe("сиды расширенного домена — регрессия на вырожденный кадр при негодном fps (I6)", () => {
+  for (const seed of [11, 20, 25, 32, 67]) {
+    it(`wide seed=${seed}`, () => {
+      checkProperties(buildWideScenario(seed))
     })
   }
 })
