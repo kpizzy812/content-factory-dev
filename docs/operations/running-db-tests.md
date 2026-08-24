@@ -65,6 +65,41 @@ docker run --rm \
 >
 > Про прогон вне контейнера: `bunx vitest run` работает и на Windows-хосте с базой в контейнере. Полная сьюта идёт около 50 минут, поэтому между правками дешевле гонять целевой набор по изменённым модулям — например `bunx vitest run tests/unit/balance-cost-ledger.spec.ts tests/unit/content-factory-batch.spec.ts tests/unit/pipeline-executors` укладывается в полторы минуты. И учтите: `vitest` отдаёт вывод целиком в конце, поэтому `... | tail -N` в фоне держит файл пустым до самого финиша — прогресс так не посмотреть.
 
+## `tests/api`: как гонять, чтобы не потерять час
+
+Наблюдения ветки `feat/frontend-rebuild` — каждое стоило простоя, поэтому записаны здесь, а не в отчёте очередной задачи.
+
+**Порциями по пять файлов, каждая отдельным прогоном.** `tests/api` целиком одним прогоном уводит машину в OOM. Потолок порции — пять файлов: OOM ловится уже на ШЕСТОМ файле. Цепочку порций одним запуском делать нельзя — падение первой травит следующие таймаутами хука, и вы получите каскад `Hook timed out` вместо результата второй порции.
+
+**Подметать осиротевшие `nuxi _dev` обязательно.** ЛЮБОЙ прогон `tests/api` оставляет по одному процессу на файл — и при штатном выходе тоже. Проверка и уборка:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'ContentFactory' } |
+  Select-Object ProcessId, CommandLine
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'ContentFactory' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+```
+
+**Гонять в тишине.** Прогоны `tests/api` недостоверны, когда параллельно работают другие агенты или сьюты: вместо результата приходят `Hook timed out` и `GetPortError`. Это не дефект кода и не повод чинить тест — это соседний процесс, занявший порт.
+
+**Время.** Один файл `tests/api` — три-четыре минуты вместе с подъёмом Nuxt. Двухминутного таймаута на команду не хватает: пишите вывод в файл и читайте его после, а не пайпите в `tail` во время прогона (vitest отдаёт вывод целиком в конце).
+
+## Чистая сьюта: гонять ДВАЖДЫ
+
+`bunx vitest run --config vitest.pure.config.ts` обязана гоняться и обычно, и с заданными `FFMPEG_PATH`/`FFPROBE_PATH`:
+
+```powershell
+$env:FFMPEG_PATH = (Get-Command ffmpeg).Source
+$env:FFPROBE_PATH = (Get-Command ffprobe).Source
+bunx vitest run --config vitest.pure.config.ts
+```
+
+Этим ловится нарушение инварианта lip-sync: модули, которые обязаны тянуть `presenter/ffmpeg-adapter.ts` и `video-tools/ffmpeg.ts` только динамически, при статическом импорте выполняют `setFfmpegPath` на уровне модуля — и сьюта краснеет ровно тогда, когда переменные заданы. В плане A так и поймали регрессию.
+
+## `bunx vitest` против `node ./node_modules/vitest/vitest.mjs`
+
+`bunx vitest` однажды дал внутреннюю ошибку «failed to find the current suite» на нетронутом файле, а `node ./node_modules/vitest/vitest.mjs run <файл>` на том же коде отработал. Это свойство способа запуска, а не дефект кода — не начинайте чинить тест, пока не проверили вторым способом.
+
 ## Сравнение с базовой точкой
 
 ```bash
