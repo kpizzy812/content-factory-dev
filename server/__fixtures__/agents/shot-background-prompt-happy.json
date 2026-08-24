@@ -1,0 +1,14 @@
+{
+  "prompts": [
+    {
+      "order": 0,
+      "prompt": "Cinematic close-up of a rising revenue chart glowing on a dark glass surface, shallow depth of field, soft rim light, no readable text",
+      "purpose": "Иллюстрация тезиса о росте"
+    },
+    {
+      "order": 1,
+      "prompt": "Wide cinematic shot of an empty modern office at sunrise, warm light through tall windows, soft haze, shallow depth of field, no people",
+      "purpose": "Нейтральная перебивка"
+    }
+  ]
+}
