@@ -43,6 +43,7 @@ import {
   runAudioFirstVoiceover,
   runVideoTranscription,
   runVideoEditPlan,
+  runShotBackgrounds,
   runMusicGeneration,
   runAssembly,
   hasAudioFirstTrack,
@@ -812,6 +813,49 @@ export async function runVideoPipeline(
         + (editPlan.warnings.length > 0 ? `, предупреждений: ${editPlan.warnings.length}` : ''),
         { videoId },
       ).catch(() => {})
+
+      /**
+       * ── 2d. Маршрут «монтаж от звука»: медиа фона на кадр ──
+       *
+       * Дополнительное условие `editPlan !== null` — план монтажа обязан
+       * реально построиться (не бросить): без него кадров в БД нет и
+       * производить фон нечем. Кадры читаются ИЗ БД (`runShotBackgrounds`
+       * сам делает `prisma.videoShot.findMany`), а не из `editPlan.shots`:
+       * в БД лежит то, что реально сохранено, и после перезапуска шага это
+       * единственный честный источник.
+       */
+      if (editPlan !== null) {
+        throwIfAborted(signal)
+
+        const appRecord = enrichmentContext.appId
+          ? await prisma.app.findUnique({ where: { id: enrichmentContext.appId }, select: { name: true } })
+          : null
+        const sceneTextByOrder = new Map<number, string>(
+          (videoPlan.scenes ?? [])
+            .map(scene => [scene.order, (scene.spokenLine ?? scene.voiceoverLine ?? "").trim()] as [number, string])
+            .filter(([, text]) => text.length > 0),
+        )
+
+        const shotBackgroundResult = await runShotBackgrounds({
+          videoId,
+          trackFingerprint: audioFirst.trackFingerprint,
+          format: video.format as "portrait" | "landscape",
+          renderQuality: video.renderQuality,
+          profile: resolvedEditProfile,
+          visualStyle: (variant.storyPlan as StoryPlan | null)?.globalVisualSystem?.stylePrompt ?? null,
+          appName: appRecord?.name ?? null,
+          imageModelId: effectiveImageModelId,
+          videoModelId: effectiveVideoModelId,
+          sceneTextByOrder,
+        })
+
+        await logAgent('video-pipeline', 'info',
+          `Video ${videoId}: фоны кадров готовы — ${shotBackgroundResult.renderedCount} нарисовано, `
+          + `${shotBackgroundResult.reusedCount} переиспользовано, статус "${shotBackgroundResult.status}"`
+          + (shotBackgroundResult.warnings.length > 0 ? `, предупреждений: ${shotBackgroundResult.warnings.length}` : ''),
+          { videoId },
+        ).catch(() => {})
+      }
     }
 
     /**
@@ -1407,6 +1451,32 @@ export async function resetEditPlanShots(
   if (removed.count > 0) {
     await logAgent('video-pipeline', 'info',
       `Video ${videoId}: перезапуск с шага ${stepKey} — снесено ${removed.count} кадров плана монтажа`,
+      { videoId },
+    ).catch(() => {})
+  }
+
+  // Ассеты фонов кадров (Task 4 плана «Сборка по кадрам») адресуются ТОЛЬКО
+  // `order` — без прямого FK на VideoShot. Новый план монтажа перенумерует
+  // кадры с чистого листа, и старый `shot_5_bg.png` под тем же order=5 стал
+  // бы фоном СОВСЕМ ДРУГОГО кадра — сирота, привязанная по совпадению числа,
+  // а не по смыслу. Общий каскад `rerunVideoStep` (assetTypesForSteps) это уже
+  // умеет для полного перезапуска шага, но `resetEditPlanShots` вызывается и
+  // отдельно (см. вызывающих), поэтому чистит эти ассеты сама — симметрично
+  // тому, что она сама же чистит VideoShot, а не полагается на внешний вызов.
+  const staleAssets = await prisma.videoAsset.findMany({
+    where: { videoId, type: "shot_background" as never },
+    select: { id: true, filePath: true },
+  })
+  if (staleAssets.length > 0) {
+    const removal = await removeAssetFiles(
+      staleAssets.map(a => a.filePath),
+      getAssetsDirFor(videoId),
+      createAssetFileRemovalDeps(),
+    )
+    await prisma.videoAsset.deleteMany({ where: { id: { in: staleAssets.map(a => a.id) } } })
+    await logAgent('video-pipeline', 'info',
+      `Video ${videoId}: перезапуск с шага ${stepKey} — снесено ${staleAssets.length} ассетов фонов кадров, `
+      + `файлов удалено ${removal.removed}, не удалось ${removal.failed}`,
       { videoId },
     ).catch(() => {})
   }

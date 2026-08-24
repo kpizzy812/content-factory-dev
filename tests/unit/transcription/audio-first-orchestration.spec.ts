@@ -136,6 +136,14 @@ vi.mock("../../../server/utils/video-pipeline-steps", async (importOriginal) => 
       calls.order.push("edit_plan")
       return { status: "completed", shots: [], costUsd: 0, warnings: [] }
     }),
+    // Task 4 плана «Сборка по кадрам»: тем же приёмом, что и остальные шаги —
+    // оркестрационный тест проверяет ПОРЯДОК вызовов (после edit_plan, до
+    // image_generation), а не содержательную работу шага (она покрыта
+    // tests/unit/shots/**, tests/integration/edit-plan.spec.ts).
+    runShotBackgrounds: vi.fn(async () => {
+      calls.order.push("shot_background")
+      return { status: "completed", renderedCount: 0, reusedCount: 0, costUsd: 0, warnings: [] }
+    }),
   }
 })
 
@@ -361,6 +369,7 @@ describe("оркестратор на маршруте audio-first", () => {
       "voiceover_generation",
       "transcription",
       "edit_plan",
+      "shot_background",
       "image_generation",
       "clip_generation",
       "lip_sync_generation",

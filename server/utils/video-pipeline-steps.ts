@@ -51,6 +51,9 @@ import { mapStepKeyToService } from "./balance/cost-attribution"
 import { accumulateStepCost, imageMegapixels, stepAttemptForLedger } from "./video-cost-actual"
 import { EditPlanUnresolvedError, runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanModelUsage, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
 import { planEditShots } from "./agents/edit-planner-agent"
+import { planShotBackgroundExecution, type PlannedShotRow, type ShotBackgroundAction } from "./edit-plan/shot-background-runner"
+import { planShotBackgroundPrompts, type ShotPromptInput, type ShotPromptRequest, type ShotPromptResult } from "./agents/shot-background-prompt-agent"
+import { materializeBackgroundClip, materializeAppReference, type ShotMediaDeps, type BackgroundClipRef, type AppReferenceRef } from "./edit-plan/shot-media-store"
 import { calculateAnthropicCost } from "./ai-pricing"
 import type { ResolvedEditProfile } from "./edit-plan/profile"
 import type { PlannedShotWithCost } from "./edit-plan/types"
@@ -2953,6 +2956,529 @@ export async function runVideoEditPlan(
   )
 
   return { status: result.status, shots: result.shots, costUsd: agentCostUsd, plannedMediaCostUsd: result.plannedMediaCostUsd, warnings: result.warnings }
+}
+
+// ─── Шаг 3d (audio-first): медиа фона на кадр ──────────────────
+
+export interface VideoShotBackgroundInput {
+  videoId: number
+  /** Отпечаток трека — часть ключа кэша, тем же приёмом, что у edit_plan. */
+  trackFingerprint: string
+  format: "portrait" | "landscape"
+  renderQuality: string
+  profile: ResolvedEditProfile
+  /** StoryPlan.globalVisualSystem.stylePrompt — единый стиль ролика для промптов фона. */
+  visualStyle: string | null
+  appName: string | null
+  imageModelId: string
+  videoModelId: string
+  /**
+   * Текст сцены по её `order` — контекст смысла для промпта фона.
+   * ОБЯЗАТЕЛЕН: `PlannedShotRow` знает только `sceneOrder`, самого текста в
+   * `VideoShot` нет, а промпт «под кадром звучит …» без него выродится в одну
+   * идею. Источник — `videoPlan.scenes` (`spokenLine` либо `voiceoverLine`),
+   * тот же, из которого строился трек.
+   */
+  sceneTextByOrder: ReadonlyMap<number, string>
+}
+
+export interface VideoShotBackgroundResult {
+  status: "completed" | "degraded"
+  renderedCount: number
+  reusedCount: number
+  costUsd: number
+  warnings: string[]
+}
+
+interface ShotBackgroundImageResult { localPath: string, costUsd: number }
+interface ShotBackgroundVideoResult { localPath: string, costUsd: number, effectiveDurationSec: number }
+
+export interface ShotBackgroundStepDeps {
+  /** Агент промптов (Task 3) — единственный платный вызов Anthropic шага, один на все кадры. */
+  planPrompts: (input: ShotPromptInput) => Promise<ShotPromptResult>
+  /** Платная генерация картинки под кадр (flux-dev, capability text_to_image). */
+  generateImage: (args: { order: number, prompt: string, outputPath: string }) => Promise<ShotBackgroundImageResult>
+  /** Платная генерация генеративного видео под кадр (Kling, capability text_to_video). */
+  generateVideo: (args: { order: number, prompt: string, billedSec: number, outputPath: string }) => Promise<ShotBackgroundVideoResult>
+  /** Бесплатная материализация библиотеки/скрина — Task 2. */
+  media: ShotMediaDeps
+}
+
+function shotBackgroundExt(kind: ShotBackgroundAction["kind"]): string {
+  return kind === "video" ? "mp4" : "png"
+}
+
+interface ShotBackgroundSnapshot {
+  cacheKey: string
+  status: "completed" | "degraded"
+  warnings: string[]
+}
+
+function readShotBackgroundSnapshot(snapshot: unknown): ShotBackgroundSnapshot | null {
+  const value = snapshot as Partial<ShotBackgroundSnapshot> | null
+  if (!value || typeof value.cacheKey !== "string") return null
+  return {
+    cacheKey: value.cacheKey,
+    status: value.status === "degraded" ? "degraded" : "completed",
+    warnings: Array.isArray(value.warnings) ? (value.warnings as string[]) : [],
+  }
+}
+
+/**
+ * Ключ кэша шага: отпечаток трека + отсортированный отпечаток кадров (order,
+ * background, backgroundClipId, appReferenceId, idea) + format + renderQuality
+ * + id модели картинок + id модели видео + планинг-релевантные поля профиля.
+ * Сортировка по order — тем же приёмом, что у `editPlanCacheKey`: порядок
+ * enumeration из БД не гарантирован и не должен решать, совпал кэш или нет.
+ */
+function shotBackgroundCacheKey(input: {
+  trackFingerprint: string
+  shots: readonly { order: number, background: string, backgroundClipId: string | null, appReferenceId: string | null, idea: string | null }[]
+  format: string
+  renderQuality: string
+  imageModelId: string
+  videoModelId: string
+  profile: ResolvedEditProfile
+}): string {
+  const shotsFingerprint = [...input.shots]
+    .sort((a, b) => a.order - b.order)
+    .map(s => ({ order: s.order, background: s.background, backgroundClipId: s.backgroundClipId, appReferenceId: s.appReferenceId, idea: s.idea }))
+  return JSON.stringify({
+    trackFingerprint: input.trackFingerprint,
+    shots: shotsFingerprint,
+    format: input.format,
+    renderQuality: input.renderQuality,
+    imageModelId: input.imageModelId,
+    videoModelId: input.videoModelId,
+    profile: {
+      imageGenerationEnabled: input.profile.imageGenerationEnabled,
+      generativeVideoEnabled: input.profile.generativeVideoEnabled,
+      generativeVideoBudgetUsd: input.profile.generativeVideoBudgetUsd,
+      generativeVideoResolution: input.profile.generativeVideoResolution,
+    },
+  })
+}
+
+/**
+ * Идемпотентность НА КАДР, второй уровень (требование брифа, приём
+ * `runImageGeneration`): `prisma.videoAsset` хранит `prompt` как отпечаток
+ * «под каким решением planShotBackgroundExecution родился этот файл» — идея
+ * кадра + действие (kind + id/billedSec). Смена ЛЮБОГО из них промахивает
+ * КОНКРЕТНО этот кадр, не трогая остальные — то, чего простое «ассет
+ * существует + файл на диске» не даёт: сам по себе факт существования не
+ * говорит, для КАКОЙ идеи файл был нарисован.
+ */
+function shotAssetFingerprint(idea: string | null, action: ShotBackgroundAction): string {
+  return JSON.stringify({ idea, action })
+}
+
+async function defaultShotFileExists(path: string): Promise<boolean> {
+  const { access } = await import("node:fs/promises")
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const defaultShotMediaDeps: ShotMediaDeps = {
+  downloadToFile: async (storageKey, localPath) => { await getStorageDriver().downloadToFile(storageKey, localPath) },
+  fileExists: defaultShotFileExists,
+  ensureDir: async (dirPath) => { await ensureDir(dirPath) },
+}
+
+/**
+ * Шаг `shot_background`: медиа фона НА КАДР — самый денежный шаг маршрута
+ * «монтаж от звука» (§7 спеки). Канон — `runVideoTranscription`/`runVideoEditPlan`
+ * выше в этом файле: `ensureStep` → кэш по отпечатку → `updateStep` →
+ * `logStepCost`/`mapStepKeyToService`, деньги списываются, только если
+ * `attemptCount` реально вырос.
+ *
+ * Правила выбора источника — в `planShotBackgroundExecution`
+ * (`edit-plan/shot-background-runner.ts`, переиспользует `pickBackgroundSource`
+ * из плана монтажа); этот раннер только материализует решение и платит за него.
+ *
+ * Идемпотентность — ДВА уровня:
+ *  1. шаг целиком: ключ кэша в `outputSnapshot`, совпал — ни провайдер картинок,
+ *     ни агент промптов не дёргаются, `VideoAsset` не создаются;
+ *  2. на кадр: `VideoAsset.prompt` несёт отпечаток решения ЭТОГО кадра
+ *     (`shotAssetFingerprint`) — смена `idea` промахивает кэш ровно его,
+ *     остальные кадры переиспользуют файл без похода к провайдеру.
+ *
+ * Деградация исполнения — НА КАДР: провайдер отказал уже ПОСЛЕ того, как
+ * `planShotBackgroundExecution` выбрал платный источник → кадр деградирует до
+ * `background: "none"` с названной причиной, а обработка остальных кадров
+ * продолжается (требование брифа «деградация до none при любом отказе
+ * исполнения»). Шаг падает целиком, только если НИ ОДИН кадр не получил ни
+ * фона, ни ведущего — §10: под речь совсем нечего показывать.
+ */
+export async function runShotBackgrounds(
+  input: VideoShotBackgroundInput,
+  deps: Partial<ShotBackgroundStepDeps> = {},
+): Promise<VideoShotBackgroundResult> {
+  const { videoId } = input
+  const step = await ensureStep(videoId, "shot_background", STEP_ORDER.indexOf("shot_background"))
+
+  const shotsRaw = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+  if (shotsRaw.length === 0) {
+    throw new Error(`Фоны кадров: у ролика ${videoId} нет ни одного кадра плана монтажа — производить нечего`)
+  }
+
+  const cacheKey = shotBackgroundCacheKey({
+    trackFingerprint: input.trackFingerprint,
+    shots: shotsRaw,
+    format: input.format,
+    renderQuality: input.renderQuality,
+    imageModelId: input.imageModelId,
+    videoModelId: input.videoModelId,
+    profile: input.profile,
+  })
+
+  if (isStepCompleted(step) && step.outputSnapshot) {
+    const cached = readShotBackgroundSnapshot(step.outputSnapshot)
+    if (cached && cached.cacheKey === cacheKey) {
+      await appendStepLog(step.id, `Фоны кадров для этого плана уже готовы (${shotsRaw.length} кадров) — повторной оплаты нет`)
+      return { status: cached.status, renderedCount: 0, reusedCount: shotsRaw.length, costUsd: 0, warnings: cached.warnings }
+    }
+  }
+
+  const attempt = stepAttemptForLedger(step.attemptCount + 1)
+  const costBefore = step.actualCost
+  await updateStep(step.id, { status: "running", startedAt: new Date(), attemptCount: attempt })
+  await updateVideoStatus(videoId, "generating_images", { currentStep: "shot_background" })
+
+  const assetsDir = getAssetsDir(videoId)
+  await ensureDir(assetsDir)
+
+  // Ставки — из спек моделей, литералов цены в коде нет.
+  const videoBilling = replicateVideoBilling()
+  const imageSpec = findMediaSpec(input.imageModelId) ?? findMediaSpec("replicate:flux-dev")
+  const imageModelAvailable = imageSpec !== null
+  const imageGenerationAllowed = input.profile.imageGenerationEnabled && imageModelAvailable
+  const imageUsd = imageSpec
+    ? estimateMediaCost(imageSpec, { images: 1, megapixels: imageMegapixels(input.format, input.renderQuality) })
+    : 0
+  if (!imageGenerationAllowed) {
+    await appendStepLog(
+      step.id,
+      input.profile.imageGenerationEnabled
+        ? `Модель картинок "${input.imageModelId}" не найдена в реестре — генерация недоступна в этом прогоне, кадры без фона отдаются ведущему (§10)`
+        : `Генерация картинки выключена профилем монтажа (imageGenerationEnabled=false) — кадры без библиотечного/платного фона отдаются ведущему (§10)`,
+    )
+  }
+
+  // Существование ссылок на библиотеку/скрины ПРОВЕРЯЕТСЯ ЗАНОВО на исполнении,
+  // а не наследуется из решения edit_plan: между планом и исполнением фон мог
+  // деактивироваться (см. докстринг shot-background-runner.ts).
+  const libraryIds = [...new Set(shotsRaw.map(s => s.backgroundClipId).filter((x): x is string => x !== null))]
+  const screenIds = [...new Set(shotsRaw.map(s => s.appReferenceId).filter((x): x is string => x !== null))]
+  const [libraryClips, appScreens] = await Promise.all([
+    libraryIds.length > 0
+      ? prisma.backgroundClip.findMany({ where: { id: { in: libraryIds }, isActive: true } })
+      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.backgroundClip.findMany>>),
+    screenIds.length > 0
+      ? prisma.appReferenceImage.findMany({ where: { id: { in: screenIds } } })
+      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.appReferenceImage.findMany>>),
+  ])
+  const libraryClipById = new Map(libraryClips.map(c => [c.id, c]))
+  const appScreenById = new Map(appScreens.map(s => [s.id, s]))
+
+  const rows: PlannedShotRow[] = shotsRaw.map(s => ({
+    order: s.order,
+    startSec: s.startSec,
+    endSec: s.endSec,
+    sceneOrder: s.sceneOrder,
+    foreground: s.foreground,
+    background: s.background,
+    backgroundClipId: s.backgroundClipId,
+    appReferenceId: s.appReferenceId,
+    idea: s.idea,
+    pipEnabled: s.pipEnabled,
+  }))
+
+  const plan = planShotBackgroundExecution({
+    shots: rows,
+    imageUsd,
+    imageGenerationAllowed,
+    generativeVideoEnabled: input.profile.generativeVideoEnabled,
+    generativeVideoBudgetUsd: input.profile.generativeVideoBudgetUsd,
+    generativeVideoUsdPerSec: videoBilling.usdPerSecond,
+    minGenerativeVideoSec: REPLICATE_KLING_16_DURATIONS[0]!,
+    maxGenerativeVideoSec: REPLICATE_KLING_16_DURATIONS[1]!,
+    knownBackgroundIds: new Set(libraryClipById.keys()),
+    knownAppScreenIds: new Set(appScreenById.keys()),
+  })
+  for (const warning of plan.warnings) await appendStepLog(step.id, warning)
+
+  const shotById = new Map(shotsRaw.map(s => [s.order, s]))
+
+  const planPrompts = deps.planPrompts ?? planShotBackgroundPrompts
+  const generateImage = deps.generateImage ?? (async (args) => {
+    const imageRoute = resolveMediaRoute("text_to_image", input.imageModelId)
+    const isLowQuality = input.renderQuality === "low"
+    const size = input.format === "portrait"
+      ? { width: isLowQuality ? 720 : 1080, height: isLowQuality ? 1280 : 1920 }
+      : { width: isLowQuality ? 1280 : 1920, height: isLowQuality ? 720 : 1080 }
+    const task = await runMediaTask({
+      capability: "text_to_image",
+      spec: imageRoute.primary,
+      fallbackSpec: imageRoute.fallback,
+      input: { prompt: args.prompt, width: size.width, height: size.height, count: 1 },
+      videoId,
+      stepId: step.id,
+      unitKey: `shot_${args.order}_bg`,
+      sceneOrder: args.order,
+      outputPath: args.outputPath,
+    })
+    return { localPath: task.localPath, costUsd: task.costUsd }
+  })
+  const generateVideo = deps.generateVideo ?? (async (args) => {
+    const videoRoute = resolveMediaRoute("text_to_video", input.videoModelId)
+    const aspectRatio = input.format === "portrait" ? "9:16" : "16:9"
+    const task = await runMediaTask({
+      capability: "text_to_video",
+      spec: videoRoute.primary,
+      fallbackSpec: videoRoute.fallback,
+      input: { prompt: args.prompt, durationSec: args.billedSec, aspectRatio, withAudio: false },
+      videoId,
+      stepId: step.id,
+      unitKey: `shot_${args.order}_bg`,
+      sceneOrder: args.order,
+      outputPath: args.outputPath,
+    })
+    return { localPath: task.localPath, costUsd: task.costUsd, effectiveDurationSec: task.effectiveDurationSec ?? args.billedSec }
+  })
+  const media = deps.media ?? defaultShotMediaDeps
+
+  let imageCostUsd = 0
+  let videoCostUsd = 0
+  let renderedCount = 0
+  let reusedCount = 0
+  const executionWarnings: string[] = []
+
+  // Цена вызова агента промптов считается ОДИН раз и переживает и happy-path,
+  // и падение ниже — тем же приёмом, что `priceEditPlanModelCall` у edit_plan.
+  let promptPriced: { costUsd: number, measured: boolean } | null = null
+  const ensurePromptPriced = async (usage: EditPlanModelUsage | null): Promise<{ costUsd: number, measured: boolean }> => {
+    if (promptPriced) return promptPriced
+    promptPriced = plan.promptOrders.length > 0
+      ? await priceEditPlanModelCall(usage, step.id)
+      : { costUsd: 0, measured: true }
+    return promptPriced
+  }
+  // Объявлена ВНЕ try, ЯЩИКОМ, а не голым `let`: reportUsage синхронный (до
+  // парсинга/validate внутри planPrompts) и обязан пережить исключение
+  // planPrompts — иначе catch не увидит уже полученный usage и спишет
+  // резервную оценку вместо измеренной цены, а то и вовсе ничего (падение
+  // planShotBackgroundPrompts, ещё до ensurePromptPriced в happy-path).
+  // Ящик (`{ value }`), а не `let promptUsage`: присвоение внутри onUsage —
+  // единственное место, где значение меняется, и TS для голого `let`,
+  // изменяемого ТОЛЬКО из вложенного замыкания, сужает тип во всех точках
+  // чтения ВНЕ замыкания до типа инициализатора (`null`), а не до объявленного
+  // `EditPlanModelUsage | null` — чтение свойства объекта этой узкой
+  // (некорректной для данного случая) эвристике не подвержено.
+  const promptUsageBox: { value: EditPlanModelUsage | null } = { value: null }
+
+  try {
+    // Промпты — ОДНИМ вызовом на все кадры из plan.promptOrders.
+    const promptsByOrder = new Map<number, string>()
+    if (plan.promptOrders.length > 0) {
+      const requests: ShotPromptRequest[] = plan.promptOrders.map((order) => {
+        const shot = shotById.get(order)!
+        const sceneText = shot.sceneOrder !== null ? input.sceneTextByOrder.get(shot.sceneOrder) ?? null : null
+        return { order, idea: shot.idea, sceneText, durationSec: shot.endSec - shot.startSec }
+      })
+      const promptResult = await planPrompts({
+        shots: requests,
+        visualStyle: input.visualStyle,
+        appName: input.appName,
+        format: input.format,
+        model: input.profile.llmModelId,
+        onUsage: (usage) => { promptUsageBox.value = usage },
+      })
+      for (const p of promptResult.prompts) promptsByOrder.set(p.order, p.prompt)
+    }
+    await ensurePromptPriced(promptUsageBox.value)
+
+    let anyVisible = false
+
+    for (const item of plan.items) {
+      const shot = shotById.get(item.order)!
+      let finalAction: ShotBackgroundAction = item.action
+      let finalDegradeReason = item.degradeReason
+      let costForShot: number | undefined // undefined = не трогать VideoShot.costUsd (переиспользован)
+
+      if (item.action.kind === "none") {
+        costForShot = 0
+        // "none" по решению планирования — стереть возможный СТАРЫЙ ассет:
+        // план сменился с "image"/"video" на "none" между прогонами.
+        const stale = await prisma.videoAsset.findFirst({ where: { videoId, type: "shot_background" as never, order: item.order } })
+        if (stale) await prisma.videoAsset.delete({ where: { id: stale.id } }).catch(() => {})
+      } else {
+        const fingerprint = shotAssetFingerprint(shot.idea, item.action)
+        const outputPath = join(assetsDir, `shot_${item.order}_bg.${shotBackgroundExt(item.action.kind)}`)
+        const existingAsset = await prisma.videoAsset.findFirst({
+          where: { videoId, type: "shot_background" as never, order: item.order },
+        })
+        const reusable = !!existingAsset
+          && existingAsset.prompt === fingerprint
+          && await media.fileExists(existingAsset.filePath ?? outputPath)
+
+        if (reusable) {
+          reusedCount += 1
+          // costForShot остаётся undefined — VideoShot.costUsd не трогаем,
+          // деньги за этот кадр уже отражены прошлым прогоном.
+        } else {
+          try {
+            let localPath: string
+            let generatedCost = 0
+            switch (item.action.kind) {
+              case "library": {
+                const clip = libraryClipById.get(item.action.backgroundClipId)
+                if (!clip) throw new Error(`фон "${item.action.backgroundClipId}" не найден или деактивирован`)
+                const ref: BackgroundClipRef = { id: clip.id, storageKey: clip.storageKey, sha1: clip.sha1, mimeType: clip.mimeType, kind: clip.kind }
+                localPath = await materializeBackgroundClip(ref, assetsDir, media)
+                break
+              }
+              case "app_screen": {
+                const screen = appScreenById.get(item.action.appReferenceId)
+                if (!screen) throw new Error(`скрин "${item.action.appReferenceId}" не найден`)
+                const ref: AppReferenceRef = { id: screen.id, appId: screen.appId, sha1: screen.sha1, mimeType: screen.mimeType, storageKey: screen.storageKey }
+                localPath = await materializeAppReference(ref, assetsDir, media)
+                break
+              }
+              case "image": {
+                const prompt = promptsByOrder.get(item.order)
+                if (!prompt) throw new Error("промпт не получен от агента")
+                const result = await generateImage({ order: item.order, prompt, outputPath })
+                localPath = result.localPath
+                generatedCost = result.costUsd
+                imageCostUsd += result.costUsd
+                break
+              }
+              case "video": {
+                const prompt = promptsByOrder.get(item.order)
+                if (!prompt) throw new Error("промпт не получен от агента")
+                const result = await generateVideo({ order: item.order, prompt, billedSec: item.action.billedSec, outputPath })
+                localPath = result.localPath
+                generatedCost = result.costUsd
+                videoCostUsd += result.costUsd
+                break
+              }
+            }
+            renderedCount += 1
+            costForShot = generatedCost
+
+            const assetData = {
+              filePath: localPath,
+              prompt: fingerprint,
+              duration: item.action.kind === "video" ? Math.round(item.action.billedSec) : null,
+            }
+            if (existingAsset) {
+              await prisma.videoAsset.update({ where: { id: existingAsset.id }, data: assetData })
+            } else {
+              await prisma.videoAsset.create({ data: { videoId, type: "shot_background" as never, order: item.order, ...assetData } })
+            }
+          } catch (error) {
+            // Деградация до none при отказе ИСПОЛНЕНИЯ (не путать с деградацией
+            // ПЛАНИРОВАНИЯ выше — она уже отражена в item.degradeReason):
+            // провайдер отказал уже ПОСЛЕ того, как planShotBackgroundExecution
+            // выбрал платный источник. Обработка остальных кадров продолжается.
+            const message = error instanceof Error ? error.message : String(error)
+            finalAction = { kind: "none" }
+            finalDegradeReason = finalDegradeReason
+              ? `${finalDegradeReason} — сверх этого исполнение отказало: ${message}`
+              : `Не удалось получить фон кадра: ${message}`
+            costForShot = 0
+            executionWarnings.push(`Кадр ${item.order}: ${finalDegradeReason}`)
+            if (existingAsset) await prisma.videoAsset.delete({ where: { id: existingAsset.id } }).catch(() => {})
+          }
+        }
+      }
+
+      if (finalAction.kind !== "none" || shot.foreground === "presenter") anyVisible = true
+
+      await prisma.videoShot.update({
+        where: { id: shot.id },
+        data: {
+          status: finalDegradeReason ? "degraded" : "completed",
+          degradeReason: finalDegradeReason,
+          ...(costForShot === undefined ? {} : { costUsd: costForShot }),
+        },
+      })
+    }
+
+    // §10: если НИ ОДИН кадр не получил ни фона, ни ведущего — под речь
+    // совсем нечего показывать, ролик не должен дойти до «готов» так.
+    if (!anyVisible) {
+      throw new Error(
+        `Фоны кадров ролика ${videoId}: ни один кадр не получил фона, а ведущего — тоже ни на одном (§10), `
+        + `показывать под речь нечего`,
+      )
+    }
+
+    const { costUsd: promptCostUsd, measured: promptMeasured } = await ensurePromptPriced(promptUsageBox.value)
+    const promptModelId: string | null = promptUsageBox.value === null ? null : promptUsageBox.value.model
+    const totalCostUsd = imageCostUsd + videoCostUsd + promptCostUsd
+    const overallStatus: "completed" | "degraded" = executionWarnings.length > 0 || plan.warnings.length > 0 ? "degraded" : "completed"
+    const warnings = [...plan.warnings, ...executionWarnings]
+
+    await updateStep(step.id, {
+      status: "completed",
+      finishedAt: new Date(),
+      errorMessage: null,
+      outputSnapshot: { cacheKey, status: overallStatus, warnings } as unknown as Record<string, unknown>,
+      actualCost: accumulateStepCost(costBefore, totalCostUsd),
+    })
+    if (imageCostUsd > 0) {
+      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.imageModelId)!, imageCostUsd, videoId, input.imageModelId, { attempt })
+    }
+    if (videoCostUsd > 0) {
+      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.videoModelId)!, videoCostUsd, videoId, input.videoModelId, { attempt })
+    }
+    if (promptCostUsd > 0) {
+      await logStepCost(step.id, "shot_background", "anthropic", promptCostUsd, videoId, promptModelId, { attempt, estimated: !promptMeasured })
+    }
+    await appendStepLog(
+      step.id,
+      `Фоны кадров готовы: ${renderedCount} нарисовано, ${reusedCount} переиспользовано, `
+      + `$${totalCostUsd.toFixed(4)} (картинки $${imageCostUsd.toFixed(4)}, видео $${videoCostUsd.toFixed(4)}, промпты $${promptCostUsd.toFixed(4)})`,
+    )
+
+    return { status: overallStatus, renderedCount, reusedCount, costUsd: totalCostUsd, warnings }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    // Частичное падение: то, что уже оплачено (картинки/видео до сбоя, и
+    // вызов агента промптов, если он состоялся), обязано остаться в ledger —
+    // тем же приёмом, что `chargePartialStepOnFailure` в video-pipeline.ts,
+    // только СВОИМ накопителем: этот шаг сам себя списывает целиком, а не
+    // через внешнего вызывающего.
+    const { costUsd: promptCostUsd, measured: promptMeasured } = await ensurePromptPriced(promptUsageBox.value)
+    const promptModelId: string | null = promptUsageBox.value === null ? null : promptUsageBox.value.model
+    const totalCostUsd = imageCostUsd + videoCostUsd + promptCostUsd
+    await updateStep(step.id, {
+      status: "failed",
+      finishedAt: new Date(),
+      errorMessage: message.slice(0, 1000),
+      actualCost: accumulateStepCost(costBefore, totalCostUsd),
+    })
+    if (imageCostUsd > 0) {
+      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.imageModelId)!, imageCostUsd, videoId, input.imageModelId, { attempt })
+    }
+    if (videoCostUsd > 0) {
+      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.videoModelId)!, videoCostUsd, videoId, input.videoModelId, { attempt })
+    }
+    if (promptCostUsd > 0) {
+      await logStepCost(step.id, "shot_background", "anthropic", promptCostUsd, videoId, promptModelId, { attempt, estimated: !promptMeasured })
+    }
+    await appendStepLog(
+      step.id,
+      `Фоны кадров не построены: ${message} (нарисовано до сбоя: ${renderedCount}, `
+      + `переиспользовано: ${reusedCount}, оплачено: $${totalCostUsd.toFixed(4)})`,
+    )
+    throw error
+  }
 }
 
 // ─── Шаг 4: Генерация музыки ───────────────────────────────────

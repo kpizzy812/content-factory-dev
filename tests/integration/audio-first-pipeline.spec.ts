@@ -529,6 +529,7 @@ describe("маршрут «монтаж от звука» собирает ро�
       "voiceover_generation",
       "transcription",
       "edit_plan",
+      "shot_background",
       "image_generation",
       "clip_generation",
       "lip_sync_generation",
