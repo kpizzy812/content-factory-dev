@@ -186,8 +186,16 @@ const FLOAT_GUARD = 1e-9
  * отрицательным шумом округления» (такой вход уже прошёл шлюз минимума с ЕГО
  * допуском и придёт сюда чуть МЕНЬШЕ `minGenerativeVideoSec`, что `<=`
  * пропускает верно).
+ *
+ * Экспортирована (Task 4 плана «Сборка по кадрам», shot-background-runner.ts):
+ * `BackgroundPick` возвращает `costUsd`, но не сами секунды квантования, а
+ * раннеру исполнения нужно записать РОВНО их (`ShotBackgroundAction.video.billedSec`
+ * — сколько секунд реально закажут у Kling) отдельно от денег. Тем же приёмом,
+ * что и `REPLICATE_KLING_16_DURATIONS`/`floorToFrame` выше по истории файла:
+ * единственный источник числа экспортируется, а не заводится вторым литералом
+ * на стороне вызывающего.
  */
-function billedSeconds(durationSec: number, minGenerativeVideoSec: number, maxGenerativeVideoSec: number): number {
+export function billedSeconds(durationSec: number, minGenerativeVideoSec: number, maxGenerativeVideoSec: number): number {
   return durationSec <= minGenerativeVideoSec ? minGenerativeVideoSec : maxGenerativeVideoSec
 }
 
