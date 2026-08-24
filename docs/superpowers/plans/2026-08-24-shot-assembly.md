@@ -442,6 +442,17 @@ git commit -m "feat: ключ шага shot_background разнесён по п�
 
 Две листовые способности, которых в проекте нет: «дай локальный файл этого фона» и «вырежи секунды [a, b] из готового клипа». Обе — вход для всего остального.
 
+> **Ruling S8-2 (принят по итогам ревью Task 2, 25.08.2026): поля `audioPresent` НЕ существует.**
+> Ревьюер прогнал реальный ffmpeg: при `audioPresent: true` на фактически немом источнике
+> команда не падает, а молча отдаёт файл БЕЗ аудиопотока — один stream вместо двух, и такой
+> файл сдвигает таймлайн в concat. Докстрингом это не лечится.
+> Звук кадров идёт в НОЛЬ по §6.4 (родная дорожка дублировала бы непрерывный трек и дала бы
+> двойную речь с эхом), то есть исходный звук не нужен НИКОГДА — ни у клипа ведущего, ни у
+> библиотечного фона. Поэтому граф один на все случаи: `anullsrc` добавляется ВСЕГДА,
+> исходная дорожка не маппится вовсе, флага нет — нет и класса ошибок «вызывающий сказал
+> неправду про источник». Блоки кода ниже написаны до этого рулинга и показывают прежнюю
+> сигнатуру; фактическая — без `audioPresent`.
+
 **Files:**
 - Create: `server/utils/edit-plan/shot-media-store.ts`
 - Create: `server/utils/video-tools/shot-cut.ts`
@@ -479,12 +490,12 @@ git commit -m "feat: ключ шага shot_background разнесён по п�
   export async function materializeAppReference(ref: AppReferenceRef, assetsDir: string, deps: ShotMediaDeps): Promise<string>
 
   // shot-cut.ts
+  // ВНИМАНИЕ: `audioPresent` убран рулингом S8-2 — см. врезку выше.
   export interface ShotSubClipRequest {
     sourcePath: string
     startSec: number
     durationSec: number
     outputPath: string
-    audioPresent: boolean
   }
   export function buildShotSubClipArgs(request: ShotSubClipRequest): string[]
 
