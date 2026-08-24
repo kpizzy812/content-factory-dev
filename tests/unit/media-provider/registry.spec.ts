@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   estimateMediaCost,
   mapMediaInput,
@@ -232,20 +232,6 @@ describe("media model registry", () => {
     expect(estimateMediaCost(model, { images: 3 })).toBeCloseTo(billing.usdPerImage * 3, 10)
   })
 
-  it("rejects REPLICATE_IMAGE_PRICE_USD=0 instead of quietly making the plan free (ре-ревью 3, Task 5, мелочь)", () => {
-    // Ноль в тарифе означает «бесплатно», а не «не задано» — тот же класс
-    // дефекта, что был у imageUsd=0 при отсутствующей спеке (Important 3).
-    const previous = process.env.REPLICATE_IMAGE_PRICE_USD
-    process.env.REPLICATE_IMAGE_PRICE_USD = "0"
-    try {
-      const model = resolveMediaModel("text_to_image")
-      expect(() => model.billing).toThrow(/REPLICATE_IMAGE_PRICE_USD=0/)
-    } finally {
-      if (previous === undefined) delete process.env.REPLICATE_IMAGE_PRICE_USD
-      else process.env.REPLICATE_IMAGE_PRICE_USD = previous
-    }
-  })
-
   it("keeps the one-image-per-unit invariant instead of losing the rest silently", () => {
     const model = resolveMediaModel("text_to_image")
 
@@ -273,5 +259,81 @@ describe("media model registry", () => {
       .toThrow("Unsupported media capability")
     expect(() => resolveMediaModel("lip_sync", "unknown/model"))
       .toThrow("Unsupported media model")
+  })
+})
+
+/**
+ * Important 3 финального ревью ветки: ленивый геттер `billing` спеки flux-dev
+ * бросал при `REPLICATE_IMAGE_PRICE_USD=0`, и падал не только план монтажа.
+ * Этот геттер читают ещё двое, и оба — на СТАРОМ маршруте:
+ *  * витрина моделей (`video-models.ts`) вызывает `toPricing(spec.billing)`
+ *    на КАЖДУЮ спеку прямо при импорте модуля — то есть под такой настройкой
+ *    окружения модуль не загружался вовсе, а не «отдавал 500 на одну ручку»;
+ *  * `run-media-task` читает `spec.billing.unit` на каждой медиазадаче, чтобы
+ *    решить, платная ли она.
+ *
+ * Рулинг: ноль — ЛЕГАЛЬНОЕ значение переменной («модель бесплатна / не
+ * тарифицируется»), а не мусор. Отличать его надо от ОТСУТСТВУЮЩЕГО (тогда
+ * дефолт спеки) и от НЕЧИСЛОВОГО/отрицательного (тогда отказ) — ровно это и
+ * делает `readReplicatePrice`, и это единственное место, где такое решение
+ * принимается.
+ */
+describe("тариф картинки из окружения: ноль легален, мусор — нет", () => {
+  const ENV_KEY = "REPLICATE_IMAGE_PRICE_USD"
+
+  /** Свежий импорт витрины под заданным значением переменной. */
+  async function withImagePrice<T>(value: string | undefined, body: () => Promise<T> | T): Promise<T> {
+    const previous = process.env[ENV_KEY]
+    if (value === undefined) delete process.env[ENV_KEY]
+    else process.env[ENV_KEY] = value
+    try {
+      vi.resetModules()
+      return await body()
+    }
+    finally {
+      if (previous === undefined) delete process.env[ENV_KEY]
+      else process.env[ENV_KEY] = previous
+      vi.resetModules()
+    }
+  }
+
+  it("ноль: витрина моделей строится и показывает нулевой тариф", async () => {
+    await withImagePrice("0", async () => {
+      const { IMAGE_MODELS, getDefaultImageModel } = await import("../../../server/utils/video-models")
+
+      expect(IMAGE_MODELS.length).toBeGreaterThan(0)
+      expect(getDefaultImageModel().pricing).toEqual({ unit: "image", base: 0 })
+    })
+  })
+
+  it("ноль: смета и гейт платных вызовов читают спеку без падения", async () => {
+    await withImagePrice("0", async () => {
+      const { estimateMediaCost: estimate, resolveMediaModel: resolve }
+        = await import("../../../server/utils/media-provider/registry")
+      const spec = resolve("text_to_image")
+
+      // То же выражение, по которому `run-media-task` решает, платная ли задача.
+      expect(spec.billing.unit).toBe("output_image")
+      expect(estimate(spec, { images: 3 })).toBe(0)
+    })
+  })
+
+  it("переменной нет: берётся подтверждённый дефолт спеки", async () => {
+    await withImagePrice(undefined, async () => {
+      const { getDefaultImageModel } = await import("../../../server/utils/video-models")
+
+      expect(getDefaultImageModel().pricing).toEqual({ unit: "image", base: 0.025 })
+    })
+  })
+
+  it("мусор и отрицательное значение по-прежнему отвергаются", async () => {
+    await withImagePrice("не-число", async () => {
+      const { resolveMediaModel: resolve } = await import("../../../server/utils/media-provider/registry")
+      expect(() => resolve("text_to_image").billing).toThrow(new RegExp(ENV_KEY))
+    })
+    await withImagePrice("-1", async () => {
+      const { resolveMediaModel: resolve } = await import("../../../server/utils/media-provider/registry")
+      expect(() => resolve("text_to_image").billing).toThrow(new RegExp(ENV_KEY))
+    })
   })
 })
