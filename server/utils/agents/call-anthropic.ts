@@ -66,8 +66,12 @@ export async function callAnthropicAgent<T>(options: {
   validate: (data: unknown) => T
   agentName?: string
   /**
-   * Опциональный callback с usage tokens. Зовётся ОДИН РАЗ после успешного парсинга
-   * ответа. Если retry'и были — отдаёт usage последней успешной попытки.
+   * Опциональный callback с usage tokens. Зовётся ОДИН РАЗ, СРАЗУ после того,
+   * как провайдер ответил, и РАНЬШЕ любого броска по содержимому ответа
+   * (пустой/непарсимый ответ, провал `validate`) — вызов уже оплачен, и учёт
+   * не должен зависеть от того, годится ли тело ответа (Critical 1 финального
+   * ревью). Если retry'и были — отдаёт usage последней успешной попытки.
+   * Ответ без поля `usage` не выдумывается: callback не зовётся вовсе.
    * При mock-режиме usage не сообщается (callback не зовётся).
    */
   onUsage?: (usage: AnthropicCallUsage) => void
@@ -211,11 +215,16 @@ export async function callAnthropicAgent<T>(options: {
     })
   }
 
-  const textBlock = response.content.find(c => c.type === 'text')
-  if (!textBlock?.text) {
-    throw createError({ statusCode: 502, message: `AI-сервис (${agentLabel}) вернул пустой ответ` })
-  }
-
+  // Critical 1 финального ревью ветки: usage сообщается ПЕРВЫМ ДЕЛОМ после
+  // ответа — раньше ЛЮБОГО броска, который возможен дальше. Провайдер уже
+  // посчитал входные токены, и «заплачено → расход записан» не должно зависеть
+  // от того, что именно окажется в теле ответа: пустой `content` (200 с
+  // генерацией, остановленной сразу на max_tokens), отсутствующее поле
+  // `content` вовсе, обрезанный JSON или ответ, не прошедший `validate`.
+  // Раньше блок стоял ниже проверки `textBlock` и первые два пути платили
+  // молча: `collectedUsages` шага оставался пустым, цена вызова — нулевой.
+  // Ре-ревью 3 разносило момент получения usage и момент возврата результата
+  // ради того же инварианта, но закрыло только парсинг и валидацию.
   if (options.onUsage && response.usage) {
     try {
       options.onUsage({
@@ -228,6 +237,11 @@ export async function callAnthropicAgent<T>(options: {
     } catch (err) {
       console.warn(`[anthropic:${agentLabel}] onUsage callback threw: ${err instanceof Error ? err.message : String(err)}`)
     }
+  }
+
+  const textBlock = response.content.find(c => c.type === 'text')
+  if (!textBlock?.text) {
+    throw createError({ statusCode: 502, message: `AI-сервис (${agentLabel}) вернул пустой ответ` })
   }
 
   const parsed = extractJsonFromText(textBlock.text, agentLabel)
