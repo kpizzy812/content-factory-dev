@@ -25,6 +25,10 @@ export default defineConfig({
       "tests/unit/scenario-marketing-validator-language.spec.ts",
       "tests/unit/scene-budget.spec.ts",
       "tests/unit/dev-auth.spec.ts",
+      // Ruling S8-1 (Task 4 плана «Сборка по кадрам»): табличный тест по STEP_ORDER
+      // обязан гонять быстро вместе с остальной чистой сьютой, а не только в
+      // полном прогоне с БД.
+      "tests/unit/balance-cost-attribution.spec.ts",
       "tests/unit/legacy-modules.spec.ts",
       "tests/unit/legacy-scheduler-gate.spec.ts",
       "tests/unit/legacy-navigation-contract.spec.ts",
