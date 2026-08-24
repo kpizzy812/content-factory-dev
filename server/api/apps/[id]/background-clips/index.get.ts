@@ -11,14 +11,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "Некорректный id приложения" })
   }
 
-  const app = await prisma.app.findUnique({ where: { id: appId }, select: { id: true } })
-  if (!app) throw createError({ statusCode: 404, message: "Приложение не найдено" })
-
+  // Авторизация ПО `appId` ИЗ URL — до любого ветвления по существованию
+  // приложения (Important 4 финального ревью): иначе разница 404 и 401/403
+  // работает неавторизованным оракулом существования `App.id`. Тот же порядок,
+  // что у соседнего DELETE, где эта аргументация расписана целиком.
   await requireScopedAccess(event, {
     permissions: ["canRead"],
     moduleSlug: "video-generator",
     appId,
   })
+
+  const app = await prisma.app.findUnique({ where: { id: appId }, select: { id: true } })
+  if (!app) throw createError({ statusCode: 404, message: "Приложение не найдено" })
 
   const clips = await prisma.backgroundClip.findMany({
     where: { appId, isActive: true },

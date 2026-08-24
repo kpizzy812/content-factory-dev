@@ -1042,3 +1042,114 @@ describe("DELETE /api/apps/:id/background-clips/:clipId", () => {
     ).rejects.toMatchObject({ statusCode: 401 })
   })
 })
+
+// ── Оракул существования приложения ──────────────────────────────────────────
+
+/**
+ * Important 4 финального ревью ветки: во всех четырёх эндпоинтах ниже
+ * `prisma.app.findUnique` + 404 «Приложение не найдено» стояли ДО
+ * `requireScopedAccess`. Значит по КОДУ ОТВЕТА запрос без единого права
+ * отличал существующий `App.id` от несуществующего: 404 против 401/403.
+ * `App.id` — последовательные целые, то есть перебором это карта арендаторов.
+ *
+ * Тот же класс дефекта DELETE-эндпоинт этой ветки специально закрывает и
+ * подробно объясняет в собственном докстринге; здесь остальные четыре
+ * приводятся к тому же порядку. Проверяется именно РАВЕНСТВО кодов, а не
+ * «401 где-то есть»: тесты выше уже покрывали 401/403 на СУЩЕСТВУЮЩЕМ
+ * приложении, и перестановка проверок их не трогала вовсе.
+ */
+describe("код ответа не выдаёт существование приложения тому, у кого нет доступа", () => {
+  const MISSING_APP_ID = 999_999_999
+
+  async function statusOf(run: () => Promise<unknown>): Promise<number> {
+    try {
+      await run()
+      return 200
+    }
+    catch (error) {
+      return (error as { statusCode?: number }).statusCode ?? 0
+    }
+  }
+
+  it("GET /api/edit-profiles: аноним и посторонний видят одно и то же", async () => {
+    const app = await createTestApp()
+    const outsiderApp = await createTestApp()
+    const outsider = await userWithAppAccess(outsiderApp.id)
+
+    const anonExisting = await statusOf(() => $fetch(`/api/edit-profiles?appId=${app.id}`))
+    const anonMissing = await statusOf(() => $fetch(`/api/edit-profiles?appId=${MISSING_APP_ID}`))
+    expect(anonExisting).toBe(401)
+    expect(anonMissing).toBe(anonExisting)
+
+    const headers = authHeaders(outsider.id)
+    const outsiderExisting = await statusOf(() => $fetch(`/api/edit-profiles?appId=${app.id}`, { headers }))
+    const outsiderMissing = await statusOf(() => $fetch(`/api/edit-profiles?appId=${MISSING_APP_ID}`, { headers }))
+    expect(outsiderExisting).toBe(403)
+    expect(outsiderMissing).toBe(outsiderExisting)
+  })
+
+  it("POST /api/edit-profiles: аноним и посторонний видят одно и то же", async () => {
+    const app = await createTestApp()
+    const outsiderApp = await createTestApp()
+    const outsider = await userWithAppAccess(outsiderApp.id)
+    const post = (appId: number, headers?: Record<string, string>) => $fetch(`/api/edit-profiles`, {
+      method: "POST", ...(headers ? { headers } : {}), body: { appId, name: "x" },
+    })
+
+    const anonExisting = await statusOf(() => post(app.id))
+    const anonMissing = await statusOf(() => post(MISSING_APP_ID))
+    expect(anonExisting).toBe(401)
+    expect(anonMissing).toBe(anonExisting)
+
+    const headers = authHeaders(outsider.id)
+    const outsiderExisting = await statusOf(() => post(app.id, headers))
+    const outsiderMissing = await statusOf(() => post(MISSING_APP_ID, headers))
+    expect(outsiderExisting).toBe(403)
+    expect(outsiderMissing).toBe(outsiderExisting)
+
+    expect(await prisma.editProfile.count()).toBe(0)
+  })
+
+  it("GET /api/apps/:id/background-clips: аноним и посторонний видят одно и то же", async () => {
+    const app = await createTestApp()
+    const outsiderApp = await createTestApp()
+    const outsider = await userWithAppAccess(outsiderApp.id)
+
+    const anonExisting = await statusOf(() => $fetch(`/api/apps/${app.id}/background-clips`))
+    const anonMissing = await statusOf(() => $fetch(`/api/apps/${MISSING_APP_ID}/background-clips`))
+    expect(anonExisting).toBe(401)
+    expect(anonMissing).toBe(anonExisting)
+
+    const headers = authHeaders(outsider.id)
+    const outsiderExisting = await statusOf(() => $fetch(`/api/apps/${app.id}/background-clips`, { headers }))
+    const outsiderMissing = await statusOf(() => $fetch(`/api/apps/${MISSING_APP_ID}/background-clips`, { headers }))
+    expect(outsiderExisting).toBe(403)
+    expect(outsiderMissing).toBe(outsiderExisting)
+  })
+
+  it("POST /api/apps/:id/background-clips: аноним и посторонний видят одно и то же", async () => {
+    const app = await createTestApp()
+    const outsiderApp = await createTestApp()
+    const outsider = await userWithAppAccess(outsiderApp.id)
+    const upload = (appId: number, headers?: Record<string, string>) => {
+      const form = new FormData()
+      form.append("file", pngFile(basePngBytes))
+      return $fetch(`/api/apps/${appId}/background-clips`, {
+        method: "POST", ...(headers ? { headers } : {}), body: form,
+      })
+    }
+
+    const anonExisting = await statusOf(() => upload(app.id))
+    const anonMissing = await statusOf(() => upload(MISSING_APP_ID))
+    expect(anonExisting).toBe(401)
+    expect(anonMissing).toBe(anonExisting)
+
+    const headers = authHeaders(outsider.id)
+    const outsiderExisting = await statusOf(() => upload(app.id, headers))
+    const outsiderMissing = await statusOf(() => upload(MISSING_APP_ID, headers))
+    expect(outsiderExisting).toBe(403)
+    expect(outsiderMissing).toBe(outsiderExisting)
+
+    expect(await prisma.backgroundClip.count()).toBe(0)
+  })
+})

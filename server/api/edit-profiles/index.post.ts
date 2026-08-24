@@ -15,14 +15,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "Поле \"appId\" обязательно и должно быть положительным целым числом" })
   }
 
-  const app = await prisma.app.findUnique({ where: { id: appId }, select: { id: true } })
-  if (!app) throw createError({ statusCode: 404, message: "Приложение не найдено" })
-
+  // Авторизация ПО `appId` ИЗ ТЕЛА — до любого ветвления по существованию
+  // приложения (Important 4 финального ревью): иначе разница 404 и 401/403
+  // работает неавторизованным оракулом существования `App.id`. Порядок и
+  // аргументация — как в докстринге
+  // `apps/[id]/background-clips/[clipId].delete.ts`.
   await requireScopedAccess(event, {
     permissions: ["canWrite"],
     moduleSlug: "video-generator",
     appId,
   })
+
+  const app = await prisma.app.findUnique({ where: { id: appId }, select: { id: true } })
+  if (!app) throw createError({ statusCode: 404, message: "Приложение не найдено" })
 
   const fields = parseEditProfileWrite(body, { requireName: true })
 

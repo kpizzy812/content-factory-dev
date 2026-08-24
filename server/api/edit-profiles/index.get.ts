@@ -14,14 +14,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "Query-параметр appId обязателен и должен быть положительным целым числом" })
   }
 
-  const app = await prisma.app.findUnique({ where: { id: appId }, select: { id: true } })
-  if (!app) throw createError({ statusCode: 404, message: "Приложение не найдено" })
-
+  // Авторизация ПО `appId` ИЗ ЗАПРОСА — до любого ветвления по существованию
+  // приложения (Important 4 финального ревью). Иначе разница 404 и 401/403
+  // превращается в неавторизованный оракул: `App.id` — последовательные целые,
+  // и перебор без единого права давал бы карту существующих приложений. Тот же
+  // порядок и та же аргументация, что в докстринге
+  // `apps/[id]/background-clips/[clipId].delete.ts`: `appId` целиком приходит
+  // из запроса и чтения БД не требует, откладывать авторизацию незачем.
   await requireScopedAccess(event, {
     permissions: ["canRead"],
     moduleSlug: "video-generator",
     appId,
   })
+
+  const app = await prisma.app.findUnique({ where: { id: appId }, select: { id: true } })
+  if (!app) throw createError({ statusCode: 404, message: "Приложение не найдено" })
 
   const profiles = await prisma.editProfile.findMany({
     where: { appId },
