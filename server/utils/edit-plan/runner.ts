@@ -39,7 +39,7 @@
 
 import { buildShotGrid } from "./grid"
 import { repairShotPlan } from "./repair"
-import { validateShotPlan } from "./validate"
+import { halfFrameSec, validateShotPlan } from "./validate"
 import { pickBackgroundSource } from "./background-source"
 import type { ShotPlanContext, ShotPlanViolation } from "./validate"
 import type { PlannedShot, PlannedShotWithCost, ShotBackground, ShotForeground, ShotPlan } from "./types"
@@ -548,22 +548,57 @@ export async function runEditPlanStep(
 
     spentUsd += pick.countsAgainstBudgetUsd
     plannedMediaCostUsd += pick.costUsd
-    if (pick.degradeReason) {
-      degradeCounts.set(pick.degradeReason, (degradeCounts.get(pick.degradeReason) ?? 0) + 1)
-    }
 
     // §10 (Important 3 ревью задачи): «фонов нет, генерация запрещена → кадр
     // отдаётся ведущему на весь экран». `pickBackgroundSource` меняет только
     // `background`; когда оно ВЫНУЖДЕННО схлопнулось в "none" (а не потому что
     // модель/дефолт САМИ попросили пустой фон), кадру нужен ведущий — иначе
-    // это чёрный экран, а не заявленная §10 деградация. Не гарантирует, что
-    // для этой сцены физически есть отснятый ведущий (это уже вопрос Task 6/7),
-    // но записывает НАМЕРЕНИЕ плана верно.
+    // это чёрный экран, а не заявленная §10 деградация.
     const forcedEmpty = pick.background === "none" && shot.background !== "none"
+
+    // Important 1 финального ревью ветки: этот цикл идёт ПОСЛЕ
+    // `repairToFixedPoint`, и его результат `validateShotPlan` больше не
+    // видит. Значит подмена `foreground` обязана САМА держать инварианты,
+    // которые валидация держит для presenter-кадров, — иначе в БД уезжает
+    // план, который шаг сборки физически не соберёт:
+    //  * потолок lip-sync (`presenter_too_long`, `validate.ts`): кадр длиннее
+    //    потолка модели kling-lip-sync не синхронизировать. Ровно тот случай,
+    //    ради недопущения которого написаны Task 3 и Task 4; допуск взят тот
+    //    же (`halfFrameSec`), что и в самой валидации, — иначе кадр на границе
+    //    считался бы то валидным, то нет;
+    //  * наличие `sceneOrder`: кадр-перебивка между частями одной реплики
+    //    (`splitLongPresenterLine`, `sceneOrder: null`) вообще не привязан ни
+    //    к какой реплике — искать, ЧТО на нём говорит ведущий, не по чему.
+    //    Кроме того, перебивка и существует затем, чтобы склейка двух ракурсов
+    //    ведущего не встречалась в кадре (§5.3): вернуть на неё ведущего —
+    //    отменить смысл собственного дробления.
+    // Членство `sceneOrder` в `presenterSceneOrders` НЕ требуется намеренно:
+    // §10 и §7 говорят «кадр отдаётся ведущему» без оговорки про закадрового
+    // нарратора, а сузить условие до presenter-сцен значило бы отдавать
+    // чёрный экран там, где сегодня спека требует ведущего.
+    const holdsPresenterInvariants = shot.sceneOrder !== null
+      && durationSec <= input.lipSyncMaxDurationSec + halfFrameSec(input.fps)
+    const forcePresenter = forcedEmpty && holdsPresenterInvariants
+
+    // Отказ обязан быть НАЗВАН, а не тихо оставить чёрный кадр: причина
+    // уезжает в `degradeReason` кадра и в warnings шага рядом с причиной
+    // самой деградации фона.
+    const refusalReason = forcedEmpty && !holdsPresenterInvariants
+      ? (shot.sceneOrder === null
+          ? "ведущего на этот кадр поставить нельзя: кадр не привязан ни к какой реплике (перебивка между частями)"
+          : `ведущего на этот кадр поставить нельзя: ${durationSec.toFixed(2)}с длиннее чем потолок lip-sync ${input.lipSyncMaxDurationSec}с`)
+      : null
+    const degradeReason = refusalReason
+      ? `${pick.degradeReason ?? "Задний план кадра пуст"} — ${refusalReason}`
+      : pick.degradeReason
+
+    if (degradeReason) {
+      degradeCounts.set(degradeReason, (degradeCounts.get(degradeReason) ?? 0) + 1)
+    }
 
     finalShots.push({
       ...shot,
-      foreground: forcedEmpty ? "presenter" : shot.foreground,
+      foreground: forcePresenter ? "presenter" : shot.foreground,
       background: pick.background,
       backgroundClipId: pick.background === "library" ? shot.backgroundClipId : null,
       appReferenceId: pick.background === "app_screen" ? shot.appReferenceId : null,
@@ -574,7 +609,7 @@ export async function runEditPlanStep(
       // не знает вовсе — клэмп только здесь.
       pipEnabled: forcedEmpty ? false : shot.pipEnabled,
       costUsd: pick.costUsd,
-      degradeReason: pick.degradeReason,
+      degradeReason,
     })
   }
 

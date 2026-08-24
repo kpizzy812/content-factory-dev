@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest"
 
 import { runEditPlanStep } from "~~/server/utils/edit-plan/runner"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
+import { validateShotPlan } from "~~/server/utils/edit-plan/validate"
 import type { EditPlanModelShot, EditPlanStepDeps, EditPlanStepInput } from "~~/server/utils/edit-plan/runner"
+import type { PlannedShotWithCost } from "~~/server/utils/edit-plan/types"
 
 /**
  * Тесты раннера шага плана монтажа.
@@ -604,5 +606,145 @@ describe("шаг плана монтажа", () => {
       expect(unresolved.modelUsages).toEqual(usageByAttempt)
       return true
     })
+  })
+})
+
+/**
+ * Important 1 финального ревью ветки: `forcedEmpty` ставил
+ * `foreground: "presenter"` уже ПОСЛЕ `repairToFixedPoint`, то есть после
+ * последней валидации. `foreground` — поле, от которого зависит правило
+ * `presenter_too_long` (`validate.ts`) и сама семантика «в этой сцене говорит
+ * ведущий»: подмена в обход валидации уводила в БД кадр ведущего длиннее
+ * потолка lip-sync и кадр ведущего без единой привязанной реплики
+ * (`sceneOrder: null`). Ни один из 27 тестов выше этого не ловил: все они
+ * подают короткие кадры внутри presenter-сцен.
+ *
+ * Выбрана вторая из двух разрешённых мандатом развязок — «подмена сама держит
+ * те же инварианты» (а не «переносим её до валидации»): цикл
+ * `pickBackgroundSource` обязан идти ПОСЛЕ ремонта, потому что он решает
+ * денежный вопрос §7 по ФИНАЛЬНЫМ длительностям кадров, а ремонт эти
+ * длительности ещё двигает. Перенос выбора фона выше ремонта означал бы
+ * считать деньги по границам, которых в плане не останется.
+ */
+describe("шаг плана монтажа: форсированный ведущий не обходит инварианты валидации (Important 1)", () => {
+  /** Нарушения итогового плана, кроме `broll_ratio` (рулинг: предупреждение, не блокирующее). */
+  function blockingViolations(input: EditPlanStepInput, shots: readonly PlannedShotWithCost[]) {
+    return validateShotPlan({
+      plan: { shots: shots.map(shot => ({ ...shot })) },
+      trackDurationSec: input.trackDurationSec,
+      fps: input.fps,
+      alignedScenes: input.alignedScenes,
+      profile: input.profile,
+      lipSyncMaxDurationSec: input.lipSyncMaxDurationSec,
+      minGenerativeVideoSec: input.minGenerativeVideoSec,
+      maxGenerativeVideoSec: input.maxGenerativeVideoSec,
+      knownBackgroundIds: new Set(input.backgrounds.map(background => background.id)),
+      knownAppScreenIds: new Set(input.appScreens.map(screen => screen.id)),
+    }).filter(violation => violation.code !== "broll_ratio")
+  }
+
+  // Сцена БЕЗ ведущего длиной 12с при `shotChangeSec: 12` укладывается в один
+  // кадр. Верхней границы у `shotChangeSec` в профиле нет (`profile.ts`
+  // проверяет только нижнюю, 0.8с), то есть «редкая смена планов» — легальная
+  // настройка оператора, а не вырожденный вход.
+  const LONG_BROLL_INPUT: EditPlanStepInput = {
+    ...INPUT,
+    profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 12 },
+    presenterSceneOrders: [],
+    trackDurationSec: 12,
+    alignedScenes: [{ order: 1, startSec: 0, endSec: 12, words: [
+      { text: "раз", startSec: 0, endSec: 5.0, matched: true },
+      { text: "два", startSec: 5.4, endSec: 12.0, matched: true },
+    ] }],
+    // Единственный рычаг оператора против расхода на картинки — то есть путь
+    // не экзотический, а ровно тот, ради которого флаг заводили.
+    imageGenerationAllowed: false,
+  }
+
+  it("кадр длиннее потолка lip-sync не отдаётся ведущему — иначе план нарушает presenter_too_long уже после валидации", async () => {
+    const result = await runEditPlanStep(LONG_BROLL_INPUT, deps())
+
+    const oversized = result.shots.filter(
+      shot => shot.endSec - shot.startSec > LONG_BROLL_INPUT.lipSyncMaxDurationSec,
+    )
+    // Сам вход обязан оставаться тем, ради чего написан: длинный кадр есть.
+    expect(oversized.length).toBeGreaterThan(0)
+    for (const shot of oversized) {
+      expect(shot.background).toBe("none")
+      expect(shot.foreground).not.toBe("presenter")
+    }
+    // Итоговый план — тот, что уедет в БД, — обязан проходить ту же самую
+    // валидацию, которую он проходил до цикла выбора фона.
+    expect(blockingViolations(LONG_BROLL_INPUT, result.shots)).toEqual([])
+  })
+
+  it("отказ назвать причиной: оператор видит, почему кадр остался пустым", async () => {
+    const result = await runEditPlanStep(LONG_BROLL_INPUT, deps())
+
+    expect(result.warnings.some(warning => /потолок lip-sync/i.test(warning))).toBe(true)
+    expect(result.shots.some(shot => /потолок lip-sync/i.test(shot.degradeReason ?? ""))).toBe(true)
+  })
+
+  // Перебивка между частями длинной реплики (`splitLongPresenterLine`) —
+  // единственный кадр сетки с `sceneOrder: null`: он не привязан ни к какой
+  // реплике. Реплика 10.5с при потолке 10с дробится ровно один раз; все паузы
+  // короче «намеренной» (0.35с), поэтому §5.3 идёт по ветке 2 — перебивка, а
+  // не рез. `shotChangeSec: 0.8` — легальный минимум профиля; при нём порог
+  // слияния коротких кадров (0.32с) ниже длины перебивки (0.33с), и она
+  // доживает до цикла выбора фона.
+  const INTERLUDE_INPUT: EditPlanStepInput = {
+    ...INPUT,
+    profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 0.8 },
+    presenterSceneOrders: [1],
+    trackDurationSec: 10.5,
+    alignedScenes: [{ order: 1, startSec: 0, endSec: 10.5, words: [
+      { text: "слово0", startSec: 0, endSec: 0.88, matched: true },
+      { text: "слово1", startSec: 1.0, endSec: 1.88, matched: true },
+      { text: "слово2", startSec: 2.0, endSec: 2.88, matched: true },
+      { text: "слово3", startSec: 3.0, endSec: 3.88, matched: true },
+      { text: "слово4", startSec: 4.0, endSec: 4.88, matched: true },
+      { text: "слово5", startSec: 5.0, endSec: 5.88, matched: true },
+      { text: "слово6", startSec: 6.0, endSec: 6.88, matched: true },
+      { text: "слово7", startSec: 7.0, endSec: 7.88, matched: true },
+      { text: "слово8", startSec: 8.0, endSec: 8.5, matched: true },
+      // Самая широкая пауза реплики (0.34с) — но всё ещё короче «намеренной».
+      { text: "слово9", startSec: 8.84, endSec: 9.7, matched: true },
+      { text: "слово10", startSec: 9.82, endSec: 10.5, matched: true },
+    ] }],
+    imageGenerationAllowed: false,
+  }
+
+  it("перебивка без привязанной реплики (sceneOrder: null) не отдаётся ведущему — синхронизировать её не с чем", async () => {
+    const dependencies = deps({
+      askModel: vi.fn(async (grid: Array<{ order: number, sceneOrder: number | null }>) => ({
+        shots: grid.map(cell => (cell.sceneOrder === null
+          ? { order: cell.order, foreground: "none", background: "image", idea: "перебивка" }
+          : { order: cell.order, foreground: "presenter", background: "none" })) as EditPlanModelShot[],
+      })),
+    })
+
+    const result = await runEditPlanStep(INTERLUDE_INPUT, dependencies)
+
+    const orphans = result.shots.filter(shot => shot.sceneOrder === null)
+    // Вход обязан оставаться тем, ради чего написан: перебивка в плане есть.
+    expect(orphans.length).toBeGreaterThan(0)
+    for (const shot of orphans) {
+      expect(shot.background).toBe("none")
+      expect(shot.foreground).not.toBe("presenter")
+      expect(shot.degradeReason).toMatch(/реплик/i)
+    }
+    expect(blockingViolations(INTERLUDE_INPUT, result.shots)).toEqual([])
+  })
+
+  it("кадр внутри реплики и в пределах потолка ведущему по-прежнему отдаётся (§10 не отменён)", async () => {
+    const result = await runEditPlanStep({ ...INPUT, imageGenerationAllowed: false }, deps())
+
+    expect(result.shots.length).toBeGreaterThan(1)
+    for (const shot of result.shots) {
+      expect(shot.sceneOrder).not.toBeNull()
+      expect(shot.endSec - shot.startSec).toBeLessThanOrEqual(INPUT.lipSyncMaxDurationSec)
+      expect(shot.background).toBe("none")
+      expect(shot.foreground).toBe("presenter")
+    }
   })
 })
