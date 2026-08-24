@@ -1872,6 +1872,18 @@ describe("композиция кадра", () => {
     expect(plan!.kind).toBe("presenter_full")
   })
 
+  it("presenter-кадр без своей сцены не берёт чужой клип — фон на весь экран", () => {
+    // Модель может вернуть foreground: "presenter" при sceneOrder: null, и
+    // валидация плана такого правила не имеет (ре-ревью фикс-раунда 24.08).
+    // Клипа ведущего у такого кадра нет физически: он привязан к сцене.
+    const plan = planShotComposition({
+      shot: shot({ foreground: "presenter" }),
+      sources: sources({ presenterPath: null }),
+      profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("background_full")
+  })
+
   it("ни ведущего, ни фона — null: такой кадр не существует и обязан быть слит", () => {
     const plan = planShotComposition({
       shot: shot({ foreground: "none" }),
@@ -1929,7 +1941,8 @@ bunx vitest run --config vitest.pure.config.ts tests/unit/shots/shot-compose.spe
 
 Правила:
 
-1. **Ветка выбирается так:** есть ведущий и фон и `shot.pipEnabled && profile.pipEnabled` → `pip`; есть ведущий (PiP выключен любой стороной) → `presenter_full`, фон отбрасывается; ведущего нет, фон есть → `background_full`; нет ни того ни другого → `null`.
+1. **Ветка выбирается по НАЛИЧИЮ ИСТОЧНИКОВ, а не по полю `foreground`:** есть ведущий и фон и `shot.pipEnabled && profile.pipEnabled` → `pip`; есть ведущий (PiP выключен любой стороной) → `presenter_full`, фон отбрасывается; ведущего нет, фон есть → `background_full`; нет ни того ни другого → `null`.
+   Различие принципиальное: `foreground: "presenter"` при `sceneOrder: null` **возможен** — модель вправе так вернуть, а валидация плана такого правила не имеет (подтверждено ре-ревью фикс-раунда 24.08.2026: подмена в `forcedEmpty` этого больше не создаёт, но ответ модели — создаёт). Клипа ведущего у такого кадра нет физически: он привязан к сцене. Доверять полю `foreground` значило бы искать несуществующий файл; доверять `sources.presenterPath` — корректно всегда.
 2. **PiP-фильтры берутся у `buildPipOverlayFilter`**, а не собираются заново. Её вход `foreground: LipSyncedClipPath` — тип, который и есть гарантия §6.3. **Слепой `as LipSyncedClipPath` в продакшн-коде запрещён:** строка приходит из `LipSyncSceneRecord.outputPath`, она уже брендирована.
 3. **Смещение** = `snapSecToFrame(Math.max(0, shot.startSec − sources.sceneStartSec), fps)`. Длительность = `snapSecToFrame(shot.endSec, fps) − snapSecToFrame(shot.startSec, fps)`.
 4. **`variationIndex` = `shot.order`**, а не `sceneOrder`: `pickShotVariationPlan` выбирает панораму по индексу, и на `sceneOrder` все кадры одной сцены получили бы одинаковое движение — ровно то, ради избавления от чего затевался кадровый монтаж.
