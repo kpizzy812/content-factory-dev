@@ -162,4 +162,61 @@ describe("свойства планирования фонов кадров", ()
     })
     expect(violations).toEqual([])
   })
+
+  /**
+   * Свойство 8 (ре-ревью Task 4, сомнение А): обратная сторона потолка §7.
+   * Свойства 2 и 3 структурно не могут поймать «накопитель считает
+   * costUsd вместо countsAgainstBudgetUsd» — Свойство 2 одностороннее
+   * (переучёт делает накопитель ТОЛЬКО консервативнее, сумма не может его
+   * превысить), Свойство 3 сверяет поля ОДНОГО пункта между собой, а
+   * мутация портит внутренний счётчик, влияющий на РЕШЕНИЯ по следующим
+   * кадрам. Это свойство проверяет именно решение: если кадр деградировал
+   * ПО ПРИЧИНЕ ПОТОЛКА (а не по длине/выключенному флагу/несуществующей
+   * ссылке), то одобренное К ЭТОМУ МОМЕНТУ плюс цена ЭТОГО кадра
+   * действительно превышают потолок — иначе деградация была бы
+   * необоснованной. На чистом коде — 0 нарушений, на мутации 1 — тысячи
+   * (проверено ре-ревьюером на этом же домене: 12 281 из 20 000 сидов).
+   */
+  it("Свойство 8: отказ по потолку обоснован — одобренное к этому моменту плюс цена этого кадра превышают потолок", () => {
+    const violations: string[] = []
+    for (let i = 0; i < SEEDS; i += 1) {
+      const input = INPUTS[i]!
+      let spentSoFar = 0
+      PLANS[i]!.items.forEach((item, index) => {
+        const isBudgetDegrade = (item.degradeReason ?? "").toLowerCase().includes("потолок")
+        if (isBudgetDegrade) {
+          const shot = input.shots[index]!
+          const duration = shot.endSec - shot.startSec
+          const billedSec = duration <= input.minGenerativeVideoSec ? input.minGenerativeVideoSec : input.maxGenerativeVideoSec
+          const wouldBeCost = billedSec * input.generativeVideoUsdPerSec
+          if (!(spentSoFar + wouldBeCost > input.generativeVideoBudgetUsd + 1e-9)) {
+            violations.push(
+              `seed=${i + 1}, order=${item.order}: деградация "по потолку", но `
+              + `${spentSoFar} + ${wouldBeCost} не превышает потолок ${input.generativeVideoBudgetUsd}`,
+            )
+          }
+        }
+        spentSoFar += item.countsAgainstBudgetUsd
+      })
+    }
+    expect(violations).toEqual([])
+  })
+
+  /**
+   * Свойство 9 (ре-ревью Task 4, сомнение А): §10 — если генерация картинки
+   * запрещена профилем, НИ ОДИН пункт плана не может быть "image", включая
+   * пути деградации (video/library/app_screen без кандидата упираются в
+   * ЭТОТ же флаг). Мутация 6 таблицы отчёта property-сьюту не красила —
+   * домен даёт 3 038 из 20 000 сидов с выключенным флагом, но свойства на
+   * этот случай не было вовсе.
+   */
+  it("Свойство 9: imageGenerationAllowed=false — ни один пункт плана не image", () => {
+    const violations = collectViolations(SEEDS, (i) => {
+      const input = INPUTS[i]!
+      if (input.imageGenerationAllowed) return null
+      const offender = PLANS[i]!.items.find(x => x.action.kind === "image")
+      return offender ? `seed=${i + 1}, order=${offender.order}: imageGenerationAllowed=false, но kind=image` : null
+    })
+    expect(violations).toEqual([])
+  })
 })
