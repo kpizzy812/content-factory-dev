@@ -49,7 +49,7 @@ import { runSubtitleKeywordAgent } from "./agents/subtitle-keyword-agent"
 import { pickTtsModel, getModel } from "./video-models"
 import { logStepCost } from "./balance/cost-ledger"
 import { mapStepKeyToService } from "./balance/cost-attribution"
-import { accumulateStepCost, imageMegapixels, stepAttemptForLedger } from "./video-cost-actual"
+import { accumulateStepCost, EDIT_PLAN_MODEL_CALL_ESTIMATE_USD, imageMegapixels, stepAttemptForLedger } from "./video-cost-actual"
 import { EditPlanUnresolvedError, runEditPlanStep, type EditPlanAppScreenOption, type EditPlanBackgroundOption, type EditPlanModelUsage, type EditPlanStepDeps, type EditPlanStepResult } from "./edit-plan/runner"
 import { planEditShots } from "./agents/edit-planner-agent"
 import { planShotBackgroundExecution, type PlannedShotRow, type ShotBackgroundAction } from "./edit-plan/shot-background-runner"
@@ -2531,8 +2531,8 @@ export interface VideoEditPlanResult {
 }
 
 /**
- * Резервная оценка стоимости ОДНОГО вызова монтажного агента — используется
- * ТОЛЬКО как fallback (Critical 1 ре-ревью задачи, фикс-раунд 2), когда для
+ * `EDIT_PLAN_MODEL_CALL_ESTIMATE_USD` (`video-cost-actual.ts`) здесь —
+ * ТОЛЬКО fallback (Critical 1 ре-ревью задачи, фикс-раунд 2), когда для
  * конкретного вызова нельзя посчитать реальную цену по токенам:
  *
  * 1. `ANTHROPIC_MOCK_MODE` — `tryMockAnthropicAgent` отдаёт статическую
@@ -2548,8 +2548,11 @@ export interface VideoEditPlanResult {
  * длиной ролика: плоская оценка систематически ЗАНИЖАЕТ цену на длинных
  * роликах, тем же классом ошибки, что и заниженная ставка Kling в Task 4.
  * Теперь это fallback на случай, когда токенных данных нет, а НЕ основной путь.
+ *
+ * Константа вынесена в `video-cost-actual.ts` (правка тарифа 24.08.2026):
+ * `estimateVideoCost` (`video-cost.ts`) обязана оценивать шаг `edit_plan` тем
+ * же числом, что здесь списывается как fallback, а не отдельным литералом.
  */
-const EDIT_PLAN_MODEL_CALL_ESTIMATE_USD = 0.05
 
 /**
  * Считает ledger-цену ОДНОГО вызова монтажного агента.

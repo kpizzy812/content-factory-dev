@@ -7,6 +7,8 @@
 
 import { getModel, getDefaultImageModel, getDefaultVideoModel, getDefaultTtsModel, getDefaultLipSyncModel, recommendModels } from "./video-models"
 import type { ModelMeta } from "./video-models"
+import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
+import { EDIT_PLAN_MODEL_CALL_ESTIMATE_USD } from "./video-cost-actual"
 
 // ─── Типы ──────────────────────────────────────────
 
@@ -43,6 +45,13 @@ export interface VideoCostConfig {
   lipSyncModelId?: string | null
   /** Список длительностей spokenLine-сцен (для точного биллинга) */
   lipSyncSceneDurations?: number[]
+  /**
+   * Ролик идёт маршрутом «монтаж от звука» (audio-first, spec
+   * 2026-08-16-audio-first-editing-design). Добавляет в смету транскрипцию и
+   * план монтажа (§7 спеки) — на старом маршруте этих шагов нет, и по
+   * умолчанию (undefined/false) смета не меняется ни на цент.
+   */
+  audioFirst?: boolean
 }
 
 export interface CostLineItem {
@@ -182,6 +191,47 @@ export function estimateVideoCost(config: VideoCostConfig): CostEstimate {
     modelName: "Claude Sonnet",
   })
   total += promptCost
+
+  // 1b. Транскрипция и план монтажа — ТОЛЬКО на маршруте audio-first (§7 спеки
+  // 2026-08-16-audio-first-editing-design): на старом маршруте этих шагов нет,
+  // и без audioFirst=true блок целиком пропускается — смета старого ролика не
+  // меняется.
+  if (config.audioFirst) {
+    // Транскрипция — единственная статья, ставка которой не литерал video-cost.ts,
+    // а спека модели (REPLICATE_WHISPER, hardware_second): её тариф зависит от
+    // времени GPU, а не от длины аудио, поэтому usage не нужен.
+    const transcriptionSpec = findMediaSpec("replicate:whisper")
+    if (transcriptionSpec) {
+      const transcriptionCost = estimateMediaCost(transcriptionSpec, {})
+      breakdown.push({
+        stage: "transcription",
+        label: "Транскрипция озвучки (Whisper)",
+        units: 1,
+        unitLabel: "ролик",
+        unitPrice: transcriptionCost,
+        subtotal: transcriptionCost,
+        modelName: transcriptionSpec.name,
+      })
+      total += transcriptionCost
+    } else {
+      warnings.push("Модель транскрипции не найдена в реестре — статья не включена в смету")
+    }
+
+    // edit_plan — та же оценка одного вызова агента, что runVideoEditPlan
+    // списывает как fallback (priceEditPlanModelCall, video-pipeline-steps.ts),
+    // а не отдельный придуманный литерал.
+    const editPlanCost = EDIT_PLAN_MODEL_CALL_ESTIMATE_USD
+    breakdown.push({
+      stage: "edit_plan",
+      label: "План монтажа (AI)",
+      units: 1,
+      unitLabel: "вызов",
+      unitPrice: editPlanCost,
+      subtotal: editPlanCost,
+      modelName: "Claude (edit_plan)",
+    })
+    total += editPlanCost
+  }
 
   // 2. Генерация изображений
   // skipImageGeneration теперь всегда генерит 1 thumbnail (preview для UI).
