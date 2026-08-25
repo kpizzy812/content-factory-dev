@@ -11,10 +11,10 @@ describe("способность transcription", () => {
     expect(specs[0]!.execution).toBe("sync_json")
   })
 
-  it("не включена, пока цена не подтверждена страницей модели", () => {
+  it("integrated=false осознанно (§4.1): цена уже подтверждена, но маршрут включается явной MEDIA_MODEL_TRANSCRIPTION", () => {
     const spec = listMediaSpecs("transcription")[0]!
 
-    expect(spec.billingConfirmed).toBe(false)
+    expect(spec.billingConfirmed).toBe(true)
     expect(spec.integrated).toBe(false)
   })
 
@@ -44,16 +44,24 @@ describe("способность transcription", () => {
     })).toThrow(/не размечает язык/)
   })
 
-  it("считает цену по секундам аудио", () => {
+  it("тарифицируется по времени GPU (hardware_second), а не по длине аудио", () => {
+    // Правка тарифа (24.08.2026, §14): страница модели платит за время
+    // выполнения на Nvidia T4 (~22с), а не за секунду аудио — старая
+    // audio_second была неверной ЕДИНИЦЕЙ, а не только неверным числом.
     const spec = listMediaSpecs("transcription")[0]!
     const billing = spec.billing
 
-    expect(billing.unit).toBe("audio_second")
-    if (billing.unit !== "audio_second") throw new Error("unreachable")
+    expect(billing.unit).toBe("hardware_second")
+    if (billing.unit !== "hardware_second") throw new Error("unreachable")
 
-    // Не сверяем литерал сам с собой: реально считаем цену через estimateMediaCost
-    // и проверяем, что она равна ставке спеки, умноженной на секунды аудио.
-    expect(estimateMediaCost(spec, { audioSeconds: 120 })).toBeCloseTo(120 * billing.usdPerSecond, 10)
-    expect(estimateMediaCost(spec, { audioSeconds: 0 })).toBe(0)
+    // Старая и новая единица дают РАЗНЫЕ числа на одном и том же аудио: цена
+    // теперь вообще не зависит от audioSeconds — 10 минут стоят как 1 минута.
+    const costFor10Min = estimateMediaCost(spec, { audioSeconds: 600 })
+    const costFor1Min = estimateMediaCost(spec, { audioSeconds: 60 })
+    expect(costFor10Min).toBe(costFor1Min)
+    expect(costFor10Min).toBeCloseTo(billing.estimatedSeconds * billing.usdPerSecond, 10)
+
+    // Факт (metrics.predict_time вебхука) переопределяет оценку из спеки.
+    expect(estimateMediaCost(spec, { hardwareSeconds: 10 })).toBeCloseTo(10 * billing.usdPerSecond, 10)
   })
 })

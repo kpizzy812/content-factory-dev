@@ -102,6 +102,22 @@ describe("lip_sync: премиальные модели того же семей
   })
 })
 
+describe("transcription: тариф подтверждён страницей модели", () => {
+  it("openai/whisper — hardware_second на T4 (~22с), а не за секунду аудио", () => {
+    // Страница модели (24.08.2026): «This model costs approximately $0.0048
+    // to run on Replicate, or 208 runs per $1» — плата за время GPU, модель
+    // работает на Nvidia T4 ($0.000225/с), типичное время выполнения ~22с.
+    // 0.000225 × 22 ≈ 0.00495 — сходится с «approximately $0.0048» страницы.
+    const whisper = spec("replicate:whisper")
+    expect(whisper.billing.unit).toBe("hardware_second")
+    expect(estimateMediaCost(whisper, {})).toBeCloseTo(0.00495, 6)
+    expect(whisper.billingConfirmed).toBe(true)
+    // integrated остаётся false осознанно (§4.1 спеки audio-first) — маршрут
+    // включается явной переменной MEDIA_MODEL_TRANSCRIPTION, а не этим фиксом.
+    expect(whisper.integrated).toBe(false)
+  })
+})
+
 describe("TTS: для русского токен равен символу", () => {
   it("считает $0.06 за 1000 символов", () => {
     // Страница модели: «$0.06 per thousand input tokens». Коэффициент

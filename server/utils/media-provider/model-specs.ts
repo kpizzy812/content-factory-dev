@@ -1985,13 +1985,26 @@ const FISH_S21_PRO: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>
 // ─── transcription: границы слов нашей же озвучки ────────────────
 
 /**
- * Whisper на Replicate. Цена НЕ подтверждена страницей модели (токена в
- * окружении нет — spec §14), поэтому `integrated: false`: модель видна в
- * реестре, но маршрут её не выберет и в смету она не попадёт.
+ * Whisper на Replicate. Тариф подтверждён страницей модели
+ * (https://replicate.com/openai/whisper, 24.08.2026 — §14 спеки
+ * 2026-08-16-audio-first-editing-design): «This model costs approximately
+ * $0.0048 to run on Replicate, or 208 runs per $1». Плата берётся ЗА ВРЕМЯ
+ * GPU, а не за длину аудио: модель работает на Nvidia T4 ($0.000225/с по
+ * тарифу Replicate за это железо), типичное время выполнения — около 22с.
+ * 0.000225 × 22 ≈ $0.00495 — сходится с «approximately $0.0048» страницы
+ * (расхождение объясняется тем, что «~22с» само округлено).
  *
- * Перед включением: подтвердить тариф страницей модели и сверить имена полей
- * входа со снятой схемой — `audio`, `language`, `word_timestamps` взяты из
- * публичной документации обёртки, а не из API.
+ * `integrated: false` остаётся ОСОЗНАННО — этим фиксом НЕ снимается: по §4.1
+ * спеки маршрут включается на стенде явной переменной MEDIA_MODEL_TRANSCRIPTION,
+ * и при заданной модели реестр проверку `integrated` не делает, так путь
+ * остаётся обратимым.
+ *
+ * НЕ подтверждено (остаётся до боевого включения): имена полей входа —
+ * `audio`, `language`, `word_timestamps` — по-прежнему взяты из публичной
+ * документации обёртки Replicate, а не из схемы API, снятой реальным вызовом
+ * (как это сделано для моделей speech_to_video выше, через
+ * `https://replicate.com/api/models/<owner>/<name>/versions`). Сверить схему
+ * входа нужно ДО боевого включения маршрута.
  */
 const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
   registryKey: "replicate:whisper",
@@ -1999,8 +2012,8 @@ const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionMod
   provider: "replicate",
   capability: "transcription",
   execution: "sync_json",
-  billing: { unit: "audio_second", usdPerSecond: 0.0002 },
-  billingConfirmed: false,
+  billing: { unit: "hardware_second", usdPerSecond: 0.000225, estimatedSeconds: 22 },
+  billingConfirmed: true,
   constraints: Object.freeze({
     languages: Object.freeze(["ru", "en"]),
     maxDurationSec: 600,
@@ -2035,8 +2048,8 @@ const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionMod
     "Русский распознаёт без отдельной настройки",
   ]),
   tradeoffs: Object.freeze([
-    "Цена не подтверждена страницей модели",
     "Схема входа снята с документации, а не с API",
+    "integrated=false до включения на стенде переменной MEDIA_MODEL_TRANSCRIPTION",
   ]),
   avgGenerationTime: "~10-30 сек на ролик",
 })

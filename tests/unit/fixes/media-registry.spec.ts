@@ -446,6 +446,10 @@ describe("контракт реестра", () => {
       "black-forest-labs/flux-dev",
       "kwaivgi/kling-v1.6-standard",
       "minimax/speech-02-turbo",
+      // Whisper подтверждён 24.08.2026: «approximately $0.0048 to run on
+      // Replicate» — hardware_second на T4 (~22с), а не audio_second.
+      // integrated остаётся false — это отдельный флаг (§4.1), не про цену.
+      "openai/whisper",
     ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue

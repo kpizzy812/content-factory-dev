@@ -8,8 +8,9 @@
  * бы «успех» с пустыми руками, хотя за задачу уже заплачено.
  *
  * Спека берётся напрямую через `listMediaSpecs("transcription")[0]`, а не через
- * `resolveMediaRoute`: модель `integrated: false` (цена не подтверждена
- * страницей модели), маршрут её не отдаст без явного запроса.
+ * `resolveMediaRoute`: модель `integrated: false` осознанно (§4.1 спеки
+ * audio-first — маршрут включается явной MEDIA_MODEL_TRANSCRIPTION, тариф уже
+ * подтверждён страницей модели), маршрут её не отдаст без явного запроса.
  */
 
 import { describe, expect, it, vi } from "vitest"
@@ -17,8 +18,10 @@ import { runMediaTask } from "~~/server/utils/media-provider/run-media-task"
 import { listMediaSpecs } from "~~/server/utils/media-provider/registry"
 
 const spec = listMediaSpecs("transcription")[0]!
-if (spec.billing.unit !== "audio_second") throw new Error("тест ожидает тариф audio_second")
-const usdPerSecond = spec.billing.usdPerSecond
+if (spec.billing.unit !== "hardware_second") throw new Error("тест ожидает тариф hardware_second")
+// hardware_second не читает usage.audioSeconds — цена не зависит от длины
+// аудио, только от факта hardwareSeconds (или оценки спеки, если факта нет).
+const expectedCostUsd = spec.billing.estimatedSeconds * spec.billing.usdPerSecond
 
 const input = {
   audioUrl: "https://cdn.example.com/voiceover.mp3",
@@ -56,9 +59,10 @@ describe("sync_json: транскрипция пишет структуру, а 
     expect(result.source).toBe("generated")
     expect(result.contentType).toBe("application/json")
     expect(result.raw).toEqual(raw)
-    // Цена не выводится из входа (deriveUsage у transcription отдаёт {}) — считается
-    // строго по usage, который передал вызывающий.
-    expect(result.costUsd).toBeCloseTo(42 * usdPerSecond, 10)
+    // usage.audioSeconds=42 передан вызывающим, но billing.unit=hardware_second
+    // его не читает вовсе — цена идёт по оценке спеки (billing.estimatedSeconds),
+    // потому что usage.hardwareSeconds (факт из метрик вебхука) здесь не передан.
+    expect(result.costUsd).toBeCloseTo(expectedCostUsd, 10)
   })
 
   it("сохранённый результат уже есть — провайдера не зовёт второй раз, raw читает из хранилища", async () => {
