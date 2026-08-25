@@ -3027,9 +3027,23 @@ function readShotBackgroundSnapshot(snapshot: unknown): ShotBackgroundSnapshot |
 /**
  * Ключ кэша шага: отпечаток трека + отсортированный отпечаток кадров (order,
  * background, backgroundClipId, appReferenceId, idea) + format + renderQuality
- * + id модели картинок + id модели видео + планинг-релевантные поля профиля.
- * Сортировка по order — тем же приёмом, что у `editPlanCacheKey`: порядок
- * enumeration из БД не гарантирован и не должен решать, совпал кэш или нет.
+ * + id модели картинок + id модели видео + `visualStyle`/`appName`/
+ * `llmModelId` (Ruling I-2 ре-ревью — все трое реально меняют РЕЗУЛЬТАТ
+ * промпта фона, `agents/shot-background-prompt-agent.ts`, и были забыты) +
+ * планинг-релевантные поля профиля. Сортировка по order — тем же приёмом,
+ * что у `editPlanCacheKey`: порядок enumeration из БД не гарантирован и не
+ * должен решать, совпал кэш или нет.
+ *
+ * `generativeVideoResolution` в ключе НЕТ, хотя поле профиля существует и
+ * влияет на генеративное видео по смыслу настройки (Ruling I-3 ре-ревью):
+ * `generateVideo` (см. ниже) собирает `TextToVideoInput` для Kling, а
+ * `mapInput` спеки (`model-specs.ts:400-410`) читает только `prompt/
+ * duration/aspect_ratio/negative_prompt` — `resolution` там не принимается
+ * вовсе, то есть исполнение поле физически не может учесть. Тот же вывод,
+ * что уже сделан для ПЛАНИРОВАНИЯ у `editPlanCacheKey`/`planningRelevantProfile`
+ * (`:2615-2621`, комментарий там ровно про эту ошибку), только подтверждённый
+ * заново для ИСПОЛНЕНИЯ: держать в ключе поле, которое ничего не меняет —
+ * платить за перезапуск агента промптов без единой причины.
  */
 function shotBackgroundCacheKey(input: {
   trackFingerprint: string
@@ -3038,6 +3052,8 @@ function shotBackgroundCacheKey(input: {
   renderQuality: string
   imageModelId: string
   videoModelId: string
+  visualStyle: string | null
+  appName: string | null
   profile: ResolvedEditProfile
 }): string {
   const shotsFingerprint = [...input.shots]
@@ -3050,26 +3066,38 @@ function shotBackgroundCacheKey(input: {
     renderQuality: input.renderQuality,
     imageModelId: input.imageModelId,
     videoModelId: input.videoModelId,
+    visualStyle: input.visualStyle,
+    appName: input.appName,
+    llmModelId: input.profile.llmModelId,
     profile: {
       imageGenerationEnabled: input.profile.imageGenerationEnabled,
       generativeVideoEnabled: input.profile.generativeVideoEnabled,
       generativeVideoBudgetUsd: input.profile.generativeVideoBudgetUsd,
-      generativeVideoResolution: input.profile.generativeVideoResolution,
     },
   })
 }
 
 /**
  * Идемпотентность НА КАДР, второй уровень (требование брифа, приём
- * `runImageGeneration`): `prisma.videoAsset` хранит `prompt` как отпечаток
- * «под каким решением planShotBackgroundExecution родился этот файл» — идея
- * кадра + действие (kind + id/billedSec). Смена ЛЮБОГО из них промахивает
- * КОНКРЕТНО этот кадр, не трогая остальные — то, чего простое «ассет
- * существует + файл на диске» не даёт: сам по себе факт существования не
- * говорит, для КАКОЙ идеи файл был нарисован.
+ * `runImageGeneration`): `prisma.videoAsset.prompt` хранит отпечаток «под
+ * каким решением этот файл был произведён» — действие (kind + id/billedSec)
+ * плюс, для `image`/`video`, РЕАЛЬНЫЙ текст промпта, который ушёл провайдеру
+ * (Ruling I-2 ре-ревью, заменяет прежний отпечаток по одной `idea`).
+ *
+ * Не `idea`: `idea` — только ОДИН из входов промпта
+ * (`agents/shot-background-prompt-agent.ts`), рядом ещё `visualStyle`/
+ * `appName`/`sceneText` — смена ЛЮБОГО из них меняет РЕЗУЛЬТАТ (сам текст),
+ * а старый отпечаток по одной `idea` эту смену не ловил: смена единого
+ * визуального стиля ролика молча оставляла картинку от старого стиля даже
+ * после промаха ОБЩЕГО ключа шага (`shotBackgroundCacheKey`). Хеш реального
+ * промпта закрывает разом любой источник изменения текста, а не только
+ * перечисленные явно поля.
+ *
+ * `library`/`app_screen`/`none` промпта не имеют вовсе — `promptText: null`,
+ * файл целиком определяется `action` (там уже есть id источника).
  */
-function shotAssetFingerprint(idea: string | null, action: ShotBackgroundAction): string {
-  return JSON.stringify({ idea, action })
+function shotAssetFingerprint(action: ShotBackgroundAction, promptText: string | null): string {
+  return JSON.stringify({ action, promptText })
 }
 
 async function defaultShotFileExists(path: string): Promise<boolean> {
@@ -3113,6 +3141,59 @@ const defaultShotMediaDeps: ShotMediaDeps = {
  * исполнения»). Шаг падает целиком, только если НИ ОДИН кадр не получил ни
  * фона, ни ведущего — §10: под речь совсем нечего показывать.
  */
+
+/**
+ * Пишет расход шага в ledger, СКЛАДЫВАЯ картинки и генеративное видео в ОДНУ
+ * строку, если обе модели резолвятся в один сервис (ruling C-1 ре-ревью).
+ *
+ * `logStepCost` дедуплицирует по `(videoId, stepKey, service, attempt)` — БЕЗ
+ * модели (`cost-ledger.ts:67-81`). У flux-dev и Kling сегодня один сервис
+ * (`"replicate"`), и смешанный кадровый план (картинки + видео в одной
+ * попытке — норма, а не край: потолок §7 сам деградирует часть видео в
+ * картинки) писал ВТОРУЮ строку под тем же ключом дедупа, и она молча
+ * проглатывалась — терялась именно дорогая половина (Kling).
+ *
+ * Расширение общего дедупа `cost-ledger.ts` до `(…, model)` — тоже рабочий
+ * вариант (честнее: сохранил бы раскладку по модели), но задет был бы общий
+ * модуль со своей сьютой тестов дедупа (`cost-ledger-attempt-dedupe.spec.ts`,
+ * `cost-ledger-attempt-write.spec.ts`) ради одного шага. Складывание в одну
+ * строку — локально, не трогает `cost-ledger.ts`, и целостность СУММЫ (что
+ * реально требуется — burn-rate не должен занижаться) важнее раскладки по
+ * модели НА УРОВНЕ ledger-строки: раскладка НА КАДР не теряется, она остаётся
+ * в `VideoShot.costUsd` каждой отдельной строки таблицы кадров.
+ *
+ * Если сервисы РАЗНЫЕ (сегодня недостижимо, но не исключено на будущее —
+ * например, картинки на Replicate, видео на fal) — пишутся две независимые
+ * строки, дедуп между ними физически не пересекается.
+ */
+async function logShotBackgroundMediaCosts(
+  stepId: number,
+  videoId: number,
+  attempt: number,
+  imageModelId: string,
+  imageCostUsd: number,
+  videoModelId: string,
+  videoCostUsd: number,
+): Promise<void> {
+  const imageService = mapStepKeyToService("shot_background", imageModelId)!
+  const videoService = mapStepKeyToService("shot_background", videoModelId)!
+
+  if (imageCostUsd > 0 && videoCostUsd > 0 && imageService === videoService) {
+    await logStepCost(
+      stepId, "shot_background", imageService, imageCostUsd + videoCostUsd, videoId,
+      imageCostUsd >= videoCostUsd ? imageModelId : videoModelId,
+      { attempt },
+    )
+    return
+  }
+  if (imageCostUsd > 0) {
+    await logStepCost(stepId, "shot_background", imageService, imageCostUsd, videoId, imageModelId, { attempt })
+  }
+  if (videoCostUsd > 0) {
+    await logStepCost(stepId, "shot_background", videoService, videoCostUsd, videoId, videoModelId, { attempt })
+  }
+}
+
 export async function runShotBackgrounds(
   input: VideoShotBackgroundInput,
   deps: Partial<ShotBackgroundStepDeps> = {},
@@ -3132,6 +3213,8 @@ export async function runShotBackgrounds(
     renderQuality: input.renderQuality,
     imageModelId: input.imageModelId,
     videoModelId: input.videoModelId,
+    visualStyle: input.visualStyle,
+    appName: input.appName,
     profile: input.profile,
   })
 
@@ -3316,7 +3399,10 @@ export async function runShotBackgrounds(
         const stale = await prisma.videoAsset.findFirst({ where: { videoId, type: "shot_background" as never, order: item.order } })
         if (stale) await prisma.videoAsset.delete({ where: { id: stale.id } }).catch(() => {})
       } else {
-        const fingerprint = shotAssetFingerprint(shot.idea, item.action)
+        const promptTextForFingerprint = item.action.kind === "image" || item.action.kind === "video"
+          ? promptsByOrder.get(item.order) ?? null
+          : null
+        const fingerprint = shotAssetFingerprint(item.action, promptTextForFingerprint)
         const outputPath = join(assetsDir, `shot_${item.order}_bg.${shotBackgroundExt(item.action.kind)}`)
         const existingAsset = await prisma.videoAsset.findFirst({
           where: { videoId, type: "shot_background" as never, order: item.order },
@@ -3404,6 +3490,11 @@ export async function runShotBackgrounds(
         data: {
           status: finalDegradeReason ? "degraded" : "completed",
           degradeReason: finalDegradeReason,
+          // Факт (ruling ре-ревью, сомнение Б) — что РЕАЛЬНО произведено для
+          // этого кадра, независимо от того, что запросил план (`background`,
+          // не трогаем никогда). Пишется в ту же строку update, которая здесь
+          // уже была, — цена поля ровно одна строка, как и обещано в ревью.
+          backgroundActual: finalAction.kind,
           ...(costForShot === undefined ? {} : { costUsd: costForShot }),
         },
       })
@@ -3424,19 +3515,28 @@ export async function runShotBackgrounds(
     const overallStatus: "completed" | "degraded" = executionWarnings.length > 0 || plan.warnings.length > 0 ? "degraded" : "completed"
     const warnings = [...plan.warnings, ...executionWarnings]
 
+    // Ruling I-1 ре-ревью: ключ кэша сохраняется, ТОЛЬКО если деградация (если
+    // она есть) — планировочная (детерминированная, повтор ничего не изменит).
+    // Деградация ИСПОЛНЕНИЯ (сеть/пятисотка провайдера) — событие среды, а не
+    // свойство материала (тот же разбор, что `DETERMINISTIC_SKIP_REASONS` в
+    // `presenter/lip-sync-progress.ts` делает для причин пропуска lip-sync):
+    // кадр, потерявший фон из-за секундного сбоя, не должен киснуть без него
+    // до ручного перезапуска шага. `null` здесь — не мусор, а сознательный
+    // сигнал: `readShotBackgroundSnapshot` его не примет за валидный кэш
+    // (`typeof cacheKey !== "string"`), следующий прогон пересчитает ВСЁ
+    // заново, но по деньгам это дёшево — успешные кадры защищены отпечатком
+    // НА кадр и переиспользуются бесплатно, платится заново только один
+    // вызов агента промптов.
+    const cacheKeyToStore = executionWarnings.length > 0 ? null : cacheKey
+
     await updateStep(step.id, {
       status: "completed",
       finishedAt: new Date(),
       errorMessage: null,
-      outputSnapshot: { cacheKey, status: overallStatus, warnings } as unknown as Record<string, unknown>,
+      outputSnapshot: { cacheKey: cacheKeyToStore, status: overallStatus, warnings } as unknown as Record<string, unknown>,
       actualCost: accumulateStepCost(costBefore, totalCostUsd),
     })
-    if (imageCostUsd > 0) {
-      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.imageModelId)!, imageCostUsd, videoId, input.imageModelId, { attempt })
-    }
-    if (videoCostUsd > 0) {
-      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.videoModelId)!, videoCostUsd, videoId, input.videoModelId, { attempt })
-    }
+    await logShotBackgroundMediaCosts(step.id, videoId, attempt, input.imageModelId, imageCostUsd, input.videoModelId, videoCostUsd)
     if (promptCostUsd > 0) {
       await logStepCost(step.id, "shot_background", "anthropic", promptCostUsd, videoId, promptModelId, { attempt, estimated: !promptMeasured })
     }
@@ -3454,29 +3554,31 @@ export async function runShotBackgrounds(
     // тем же приёмом, что `chargePartialStepOnFailure` в video-pipeline.ts,
     // только СВОИМ накопителем: этот шаг сам себя списывает целиком, а не
     // через внешнего вызывающего.
-    const { costUsd: promptCostUsd, measured: promptMeasured } = await ensurePromptPriced(promptUsageBox.value)
-    const promptModelId: string | null = promptUsageBox.value === null ? null : promptUsageBox.value.model
-    const totalCostUsd = imageCostUsd + videoCostUsd + promptCostUsd
-    await updateStep(step.id, {
-      status: "failed",
-      finishedAt: new Date(),
-      errorMessage: message.slice(0, 1000),
-      actualCost: accumulateStepCost(costBefore, totalCostUsd),
-    })
-    if (imageCostUsd > 0) {
-      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.imageModelId)!, imageCostUsd, videoId, input.imageModelId, { attempt })
-    }
-    if (videoCostUsd > 0) {
-      await logStepCost(step.id, "shot_background", mapStepKeyToService("shot_background", input.videoModelId)!, videoCostUsd, videoId, input.videoModelId, { attempt })
-    }
-    if (promptCostUsd > 0) {
-      await logStepCost(step.id, "shot_background", "anthropic", promptCostUsd, videoId, promptModelId, { attempt, estimated: !promptMeasured })
-    }
-    await appendStepLog(
-      step.id,
-      `Фоны кадров не построены: ${message} (нарисовано до сбоя: ${renderedCount}, `
-      + `переиспользовано: ${reusedCount}, оплачено: $${totalCostUsd.toFixed(4)})`,
-    )
+    //
+    // Ruling I-4 ре-ревью: весь учёт ниже обёрнут В СВОЙ try/catch, тем же
+    // приёмом, что `chargePartialStepOnFailure` (`video-pipeline.ts`) —
+    // падение записи расхода (обрыв БД, конфликт) не должно подменить
+    // ИСХОДНУЮ причину отказа шага, которая летит наружу из этого catch.
+    try {
+      const { costUsd: promptCostUsd, measured: promptMeasured } = await ensurePromptPriced(promptUsageBox.value)
+      const promptModelId: string | null = promptUsageBox.value === null ? null : promptUsageBox.value.model
+      const totalCostUsd = imageCostUsd + videoCostUsd + promptCostUsd
+      await updateStep(step.id, {
+        status: "failed",
+        finishedAt: new Date(),
+        errorMessage: message.slice(0, 1000),
+        actualCost: accumulateStepCost(costBefore, totalCostUsd),
+      })
+      await logShotBackgroundMediaCosts(step.id, videoId, attempt, input.imageModelId, imageCostUsd, input.videoModelId, videoCostUsd)
+      if (promptCostUsd > 0) {
+        await logStepCost(step.id, "shot_background", "anthropic", promptCostUsd, videoId, promptModelId, { attempt, estimated: !promptMeasured })
+      }
+      await appendStepLog(
+        step.id,
+        `Фоны кадров не построены: ${message} (нарисовано до сбоя: ${renderedCount}, `
+        + `переиспользовано: ${reusedCount}, оплачено: $${totalCostUsd.toFixed(4)})`,
+      )
+    } catch { /* учёт не должен подменять причину падения шага */ }
     throw error
   }
 }
