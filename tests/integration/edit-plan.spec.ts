@@ -1159,6 +1159,183 @@ describe("шаг shot_background: идемпотентность, деньги, 
     expect(anthropicRows).toHaveLength(0)
   })
 
+  /**
+   * Critical 1 финального ревью ветки. Модель промптов НЕДЕТЕРМИНИРОВАНА —
+   * ровно как в проде: `callAnthropicAgent` не задаёт `temperature`, то есть
+   * работает на дефолте 1.0, и один и тот же вход даёт РАЗНЫЙ текст.
+   *
+   * Все остальные фикстуры этого файла строят промпт ЧИСТОЙ функцией от
+   * входов — допущение, которого у прода нет. Пока отпечаток кадра включал
+   * текст промпта, любой промах ОБЩЕГО ключа шага перерисовывал и
+   * переоплачивал ВСЕ кадры (~$1 вместо обещанных $0.003), и ни один из 2845
+   * тестов этого не видел.
+   */
+  function nondeterministicDeps(overrides: Partial<ShotBackgroundStepDeps> = {}): ShotBackgroundStepDeps {
+    let call = 0
+    return happyDeps({
+      planPrompts: vi.fn(async (promptInput: {
+        shots: Array<{ order: number, idea: string | null }>
+        visualStyle: string | null
+        onUsage?: (u: EditPlanModelUsage) => void
+      }) => {
+        call += 1
+        promptInput.onUsage?.(PROMPT_USAGE)
+        return {
+          prompts: promptInput.shots.map(s => ({
+            order: s.order,
+            // Тот же вход — каждый раз ДРУГОЙ текст, как у модели на temperature 1.0.
+            prompt: `промпт ${s.order} (прогон ${call}, ${Math.random()}): ${s.idea ?? "без идеи"}`.padEnd(60, "."),
+            purpose: "тест",
+          })),
+          usage: PROMPT_USAGE,
+        }
+      }),
+      ...overrides,
+    })
+  }
+
+  it("Critical 1: промах ключа шага при НЕДЕТЕРМИНИРОВАННОЙ модели не переоплачивает ни одного кадра", async () => {
+    await makeShot({ order: 0, idea: "фон первого кадра" })
+    await makeShot({ order: 1, idea: "фон второго кадра" })
+
+    const deps1 = nondeterministicDeps()
+    const first = await runShotBackgrounds(baseShotInput(), deps1)
+    expect(first.renderedCount).toBe(2)
+
+    const assetsBefore = await prisma.videoAsset.findMany({
+      where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+    })
+
+    // Промах ОБЩЕГО ключа шага БЕЗ единого изменения во входах кадров:
+    // отпечаток трека сменился (трек пересинтезирован), а идеи, стиль, формат,
+    // качество и модели — те же. Агент промптов дёргается заново и отдаёт
+    // ДРУГОЙ текст на те же кадры.
+    const deps2 = nondeterministicDeps()
+    const second = await runShotBackgrounds(baseShotInput({ trackFingerprint: "fp-2" }), deps2)
+
+    // Один вызов агента — это и есть обещанные $0.003 за повтор.
+    expect(deps2.planPrompts).toHaveBeenCalledTimes(1)
+    // А вот кадры переоплачены быть не должны НИ ОДИН: их входы не менялись.
+    expect(deps2.generateImage).toHaveBeenCalledTimes(0)
+    expect(deps2.generateVideo).toHaveBeenCalledTimes(0)
+    expect(second.renderedCount).toBe(0)
+    expect(second.reusedCount).toBe(2)
+    expect(second.costUsd).toBeCloseTo(PROMPT_COST, 6)
+
+    const assetsAfter = await prisma.videoAsset.findMany({
+      where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+    })
+    // Отпечатки не сдвинулись — они не зависят от ВЫХОДА модели.
+    expect(assetsAfter.map(a => a.prompt)).toEqual(assetsBefore.map(a => a.prompt))
+    expect(assetsAfter.map(a => a.filePath)).toEqual(assetsBefore.map(a => a.filePath))
+  })
+
+  it("Critical 1: отказ провайдера на ОДНОМ кадре при недетерминированной модели — заново платится только он", async () => {
+    await makeShot({ order: 0, idea: "фон первого кадра" })
+    await makeShot({ order: 1, idea: "фон второго кадра" })
+
+    // Кадр 1 отказал → executionWarnings → ключ шага сохраняется как null,
+    // следующий прогон пересчитывает ВСЁ (докстринг runShotBackgrounds).
+    const deps1 = nondeterministicDeps({
+      generateImage: vi.fn(async (args: { order: number }) => {
+        if (args.order === 1) throw new Error("Replicate недоступен (симуляция)")
+        return { localPath: `/tmp/shot-${args.order}.png`, costUsd: 0.025 }
+      }),
+    })
+    const first = await runShotBackgrounds(baseShotInput(), deps1)
+    expect(first.status).toBe("degraded")
+
+    const deps2 = nondeterministicDeps()
+    const second = await runShotBackgrounds(baseShotInput(), deps2)
+
+    // Успешный кадр 0 защищён отпечатком входов и переиспользуется бесплатно.
+    expect(deps2.generateImage).toHaveBeenCalledTimes(1)
+    expect(deps2.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 1 }))
+    expect(second.renderedCount).toBe(1)
+    expect(second.reusedCount).toBe(1)
+  })
+
+  it("Critical 1: смена idea ОДНОГО кадра при недетерминированной модели перерисовывает ТОЛЬКО его", async () => {
+    await makeShot({ order: 0, idea: "фон первого кадра" })
+    const shot1 = await makeShot({ order: 1, idea: "фон второго кадра" })
+
+    await runShotBackgrounds(baseShotInput(), nondeterministicDeps())
+    await prisma.videoShot.update({ where: { id: shot1.id }, data: { idea: "фон второго кадра — переписан" } })
+
+    const deps2 = nondeterministicDeps()
+    const result2 = await runShotBackgrounds(baseShotInput(), deps2)
+
+    expect(deps2.generateImage).toHaveBeenCalledTimes(1)
+    expect(deps2.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 1 }))
+    expect(result2.renderedCount).toBe(1)
+    expect(result2.reusedCount).toBe(1)
+  })
+
+  /**
+   * Таблица ВХОДОВ отпечатка кадра (Critical 1 финального ревью): отпечаток
+   * обязан меняться от каждого входа, который меняет произведённый файл, —
+   * и не меняться от того, что к кадру отношения не имеет.
+   *
+   * Последние два ряда — пара, разведённая нарочно: `trackFingerprint`
+   * промахивает ОБЩИЙ ключ шага, но входом кадра не является (перерисовки
+   * быть не должно); тот же промах ПЛЮС другая реплика сцены — вход кадра
+   * сменился, перерисовка обязательна. `sceneText` в общий ключ шага не
+   * входит вовсе, поэтому в одиночку он проверяем только так.
+   *
+   * Тест красит красным удаление ЛЮБОГО поля из отпечатка: ряд этого поля
+   * ждёт `renderedCount: 1`, а получит переиспользование.
+   */
+  const FINGERPRINT_CASES: Array<{
+    name: string
+    second: Partial<VideoShotBackgroundInput>
+    patchShot?: { endSec: number }
+    redraws: boolean
+  }> = [
+    { name: "visualStyle", second: { visualStyle: "неоновый киберпанк" }, redraws: true },
+    { name: "appName", second: { appName: "Мойка-24" }, redraws: true },
+    { name: "format", second: { format: "landscape" }, redraws: true },
+    { name: "renderQuality", second: { renderQuality: "low" }, redraws: true },
+    {
+      name: "llmModelId профиля",
+      second: { profile: { ...DEFAULT_EDIT_PROFILE, llmModelId: "claude-opus-4-1" } },
+      redraws: true,
+    },
+    { name: "imageModelId", second: { imageModelId: "fal:flux-schnell" }, redraws: true },
+    {
+      name: "длительность кадра (вход промпта)",
+      second: { trackFingerprint: "fp-2" },
+      patchShot: { endSec: 5 },
+      redraws: true,
+    },
+    {
+      name: "sceneText (реплика под кадром)",
+      second: { trackFingerprint: "fp-2", sceneTextByOrder: new Map([[7, "совсем другая реплика"]]) },
+      redraws: true,
+    },
+    { name: "trackFingerprint — НЕ вход кадра", second: { trackFingerprint: "fp-2" }, redraws: false },
+  ]
+
+  it.each(FINGERPRINT_CASES)(
+    "отпечаток кадра: смена «$name» → перерисовка = $redraws",
+    async ({ second, patchShot, redraws }) => {
+      const sceneTextByOrder = new Map([[7, "исходная реплика сцены"]])
+      const shot = await makeShot({ order: 0, sceneOrder: 7, idea: "фон кадра" })
+
+      const deps1 = nondeterministicDeps()
+      await runShotBackgrounds(baseShotInput({ sceneTextByOrder }), deps1)
+      expect(deps1.generateImage).toHaveBeenCalledTimes(1)
+
+      if (patchShot) await prisma.videoShot.update({ where: { id: shot.id }, data: patchShot })
+
+      const deps2 = nondeterministicDeps()
+      const result = await runShotBackgrounds(baseShotInput({ sceneTextByOrder, ...second }), deps2)
+
+      expect(deps2.generateImage).toHaveBeenCalledTimes(redraws ? 1 : 0)
+      expect(result.renderedCount).toBe(redraws ? 1 : 0)
+      expect(result.reusedCount).toBe(redraws ? 0 : 1)
+    },
+  )
+
   it("backgroundActual хранит ФАКТ произведённого, background (план) не трогается", async () => {
     // 6с кадр — план просит "video", но потолок $0.30 ниже цены клипа $0.50 —
     // деградация до картинки. background остаётся "video" (план), а

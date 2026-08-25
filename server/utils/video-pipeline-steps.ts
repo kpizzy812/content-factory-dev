@@ -3087,26 +3087,51 @@ function shotBackgroundCacheKey(input: {
 }
 
 /**
+ * ВХОДЫ, из которых полностью определяется медиа-файл фона кадра: всё, что
+ * уходит агенту промптов (`agents/shot-background-prompt-agent.ts`
+ * `buildUserPrompt`), плюс параметры самой генерации (размер кадра и модель).
+ */
+interface ShotAssetInputs {
+  idea: string | null
+  sceneText: string | null
+  /** Округлена так же, как её видит агент промптов (`durationSec.toFixed(1)`). */
+  durationSec: number
+  visualStyle: string | null
+  appName: string | null
+  format: string
+  renderQuality: string
+  llmModelId: string | null
+  /** Модель, которая рисует ИМЕННО этот кадр: картиночная либо видео. */
+  mediaModelId: string
+}
+
+/**
  * Идемпотентность НА КАДР, второй уровень (требование брифа, приём
  * `runImageGeneration`): `prisma.videoAsset.prompt` хранит отпечаток «под
  * каким решением этот файл был произведён» — действие (kind + id/billedSec)
- * плюс, для `image`/`video`, РЕАЛЬНЫЙ текст промпта, который ушёл провайдеру
- * (Ruling I-2 ре-ревью, заменяет прежний отпечаток по одной `idea`).
+ * плюс, для `image`/`video`, ВХОДЫ этого решения (`ShotAssetInputs`).
  *
- * Не `idea`: `idea` — только ОДИН из входов промпта
- * (`agents/shot-background-prompt-agent.ts`), рядом ещё `visualStyle`/
- * `appName`/`sceneText` — смена ЛЮБОГО из них меняет РЕЗУЛЬТАТ (сам текст),
- * а старый отпечаток по одной `idea` эту смену не ловил: смена единого
- * визуального стиля ролика молча оставляла картинку от старого стиля даже
- * после промаха ОБЩЕГО ключа шага (`shotBackgroundCacheKey`). Хеш реального
- * промпта закрывает разом любой источник изменения текста, а не только
- * перечисленные явно поля.
+ * Считается по ВХОДАМ, а не по тексту промпта (Critical 1 финального ревью
+ * ветки). Прежняя версия клала в отпечаток РЕАЛЬНЫЙ текст, ушедший
+ * провайдеру, — но текст приходит от модели, а `callAnthropicAgent` не задаёт
+ * `temperature` (дефолт 1.0), то есть один и тот же вход даёт РАЗНЫЙ текст.
+ * Следствие было денежным: любой промах ОБЩЕГО ключа шага
+ * (`shotBackgroundCacheKey`) — секундная сетевая ошибка на ОДНОМ кадре,
+ * правка `idea` одного кадра, ручной перезапуск — перерисовывал и
+ * ПЕРЕОПЛАЧИВАЛ каждый кадр: порядка $1 вместо обещанных $0.003. Отпечаток по
+ * входам детерминирован по построению и от выхода модели не зависит вовсе.
  *
- * `library`/`app_screen`/`none` промпта не имеют вовсе — `promptText: null`,
+ * Не одна `idea`: `idea` — только ОДИН из входов промпта, рядом ещё
+ * `sceneText`/`visualStyle`/`appName`/`format`/длительность кадра, а размер
+ * картинки задаёт ещё и `renderQuality`. Смена ЛЮБОГО из них меняет
+ * произведённый файл, поэтому в отпечатке они все — перечисленные явно, а не
+ * транзитивно через текст, который мог измениться и сам по себе.
+ *
+ * `library`/`app_screen`/`none` промпта не имеют вовсе — `inputs: null`,
  * файл целиком определяется `action` (там уже есть id источника).
  */
-function shotAssetFingerprint(action: ShotBackgroundAction, promptText: string | null): string {
-  return JSON.stringify({ action, promptText })
+function shotAssetFingerprint(action: ShotBackgroundAction, inputs: ShotAssetInputs | null): string {
+  return JSON.stringify({ action, inputs })
 }
 
 async function defaultShotFileExists(path: string): Promise<boolean> {
@@ -3305,6 +3330,10 @@ export async function runShotBackgrounds(
 
   const shotById = new Map(shotsRaw.map(s => [s.order, s]))
 
+  /** Реплика, которая звучит под кадром, — вход и промпта, и отпечатка кадра. */
+  const sceneTextForShot = (shot: { sceneOrder: number | null }): string | null =>
+    shot.sceneOrder !== null ? input.sceneTextByOrder.get(shot.sceneOrder) ?? null : null
+
   const planPrompts = deps.planPrompts ?? planShotBackgroundPrompts
   const generateImage = deps.generateImage ?? (async (args) => {
     const imageRoute = resolveMediaRoute("text_to_image", input.imageModelId)
@@ -3378,8 +3407,7 @@ export async function runShotBackgrounds(
     if (plan.promptOrders.length > 0) {
       const requests: ShotPromptRequest[] = plan.promptOrders.map((order) => {
         const shot = shotById.get(order)!
-        const sceneText = shot.sceneOrder !== null ? input.sceneTextByOrder.get(shot.sceneOrder) ?? null : null
-        return { order, idea: shot.idea, sceneText, durationSec: shot.endSec - shot.startSec }
+        return { order, idea: shot.idea, sceneText: sceneTextForShot(shot), durationSec: shot.endSec - shot.startSec }
       })
       const promptResult = await planPrompts({
         shots: requests,
@@ -3408,10 +3436,22 @@ export async function runShotBackgrounds(
         const stale = await prisma.videoAsset.findFirst({ where: { videoId, type: "shot_background" as never, order: item.order } })
         if (stale) await prisma.videoAsset.delete({ where: { id: stale.id } }).catch(() => {})
       } else {
-        const promptTextForFingerprint = item.action.kind === "image" || item.action.kind === "video"
-          ? promptsByOrder.get(item.order) ?? null
+        // Отпечаток — от ВХОДОВ решения, а не от текста промпта (Critical 1
+        // финального ревью): текст недетерминирован, входы — нет.
+        const assetInputs: ShotAssetInputs | null = item.action.kind === "image" || item.action.kind === "video"
+          ? {
+              idea: shot.idea,
+              sceneText: sceneTextForShot(shot),
+              durationSec: Number((shot.endSec - shot.startSec).toFixed(1)),
+              visualStyle: input.visualStyle,
+              appName: input.appName,
+              format: input.format,
+              renderQuality: input.renderQuality,
+              llmModelId: input.profile.llmModelId,
+              mediaModelId: item.action.kind === "image" ? input.imageModelId : input.videoModelId,
+            }
           : null
-        const fingerprint = shotAssetFingerprint(item.action, promptTextForFingerprint)
+        const fingerprint = shotAssetFingerprint(item.action, assetInputs)
         const outputPath = join(assetsDir, `shot_${item.order}_bg.${shotBackgroundExt(item.action.kind)}`)
         const existingAsset = await prisma.videoAsset.findFirst({
           where: { videoId, type: "shot_background" as never, order: item.order },
