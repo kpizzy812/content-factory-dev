@@ -43,6 +43,21 @@ describe("композиция кадра", () => {
     expect(filters.at(-1)).toContain("[vout]")
   })
 
+  it("PiP несёт СВОИ backgroundIsStill/presenterOffsetSec из sources — оба поля не захардкожены (ре-ревью Task 5, фикс-раунд 1)", () => {
+    // backgroundIsStill: false — отличается от дефолта sources() (true), иначе
+    // мутация "захардкожено true" осталась бы незамеченной: значение совпало
+    // бы со входом случайно, а не потому что поле реально прокинуто.
+    const plan = planShotComposition({
+      shot: shot(), sources: sources({ backgroundIsStill: false }), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("pip")
+    expect((plan as { backgroundIsStill: boolean }).backgroundIsStill).toBe(false)
+    // 5.8 − 4.0 = 1.8 — то же смещение, что и в тесте "полный экран,
+    // смещение от начала сцены"; ненулевое, поэтому мутация "захардкожено 0"
+    // отличима от правильного значения.
+    expect((plan as { presenterOffsetSec: number }).presenterOffsetSec).toBeCloseTo(1.8, 6)
+  })
+
   it("PiP выключен на КАДРЕ — ведущий занимает весь экран, фон отбрасывается", () => {
     const plan = planShotComposition({ shot: shot({ pipEnabled: false }), sources: sources(), profile: PROFILE, ...CANVAS })
     expect(plan!.kind).toBe("presenter_full")
