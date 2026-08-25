@@ -87,6 +87,7 @@ import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
 import { mapStepKeyToService, type CostService } from "./balance/cost-attribution"
 import {
   clipVolumeWithVoiceoverFor,
+  decideVideoRoute,
   didLipSyncProduceNewClips,
   executionOrderFor,
   generatedUnitsFromAssetDelta,
@@ -113,10 +114,17 @@ import {
  * Поэтому здесь честное падение, а не тихий переход.
  */
 async function resolveVideoRoute(videoId: number, editPipeline: boolean): Promise<boolean> {
-  if (!editPipeline) return false
-  if (isTranscriptionRouteAvailable()) return true
+  // Исход считает `decideVideoRoute` (чистая функция, video-pipeline-run-policy.ts) —
+  // здесь только ввод-вывод: чтение реестра/БД и превращение "conflict" в 409.
+  // Смета ролика (`estimateVideoCost`) обязана видеть ТОТ ЖЕ исход, поэтому
+  // исход и решение вынесены раздельно — см. докстринг decideVideoRoute.
+  const transcriptionRouteAvailable = isTranscriptionRouteAvailable()
+  const audioFirstTrackExists = editPipeline && !transcriptionRouteAvailable
+    ? await hasAudioFirstTrack(videoId)
+    : false
 
-  if (await hasAudioFirstTrack(videoId)) {
+  const decision = decideVideoRoute({ editPipeline, transcriptionRouteAvailable, audioFirstTrackExists })
+  if (decision.kind === "conflict") {
     // 409, а не голый Error: это состояние ролика (конфликт настройки и уже
     // синтезированного трека), а не внутренний сбой. Голый Error здесь отдавал
     // бы 500 без объяснения на любом перезапуске шага такого ролика
@@ -127,7 +135,7 @@ async function resolveVideoRoute(videoId: number, editPipeline: boolean): Promis
         + `включите MEDIA_MODEL_TRANSCRIPTION или пересоберите ролик с нуля`,
     })
   }
-  return false
+  return decision.audioFirst
 }
 
 /**
@@ -543,7 +551,21 @@ export async function runVideoPipeline(
       ? videoPlan.scenes.length
       : (video.imageCount ?? 3)
 
+    /**
+     * Маршрут ролика резолвится ЗДЕСЬ, ДО сметы и до первой оплаты (см.
+     * докстринг `resolveVideoRoute`) — единственный вызов на весь прогон,
+     * его результат переиспользуется ниже (2b) вместо повторного резолва.
+     *
+     * Смета обязана знать ТОТ ЖЕ признак, что решает реальный пайплайн
+     * (§12 спеки «смета сходится с фактом»), а не сырой `video.editPipeline`:
+     * при включённом EDIT_PIPELINE, но не настроенной модели транскрипции,
+     * ролик уйдёт прежним маршрутом целиком (§10), и смета не должна
+     * добавлять статьи transcription/edit_plan, которых не будет.
+     */
+    const audioFirstRoute = await resolveVideoRoute(videoId, video.editPipeline)
+
     const costConfig = {
+      audioFirst: audioFirstRoute,
       imageModelId: effectiveImageModelId,
       videoModelId: effectiveVideoModelId,
       format: (video.format === "portrait" ? "vertical" : "horizontal") as "vertical" | "horizontal",
@@ -593,6 +615,11 @@ export async function runVideoPipeline(
       music: "music_generation",
       lip_sync: "lip_sync_generation",
       assembly: "assembly",
+      // audio-first (§7 спеки): смета попадает и в шаг, не только в total —
+      // иначе Video.totalCostEstimate знает про эти статьи, а VideoGenerationStep
+      // конкретного шага estimatedCost=0, что расходится в UI по шагам.
+      transcription: "transcription",
+      edit_plan: "edit_plan",
     }
     for (const item of costEstimate.breakdown) {
       const stepKey = stageToStepKey[item.stage]
@@ -667,18 +694,15 @@ export async function runVideoPipeline(
     let alignedScenes: readonly AlignedScene[] = []
 
     /**
-     * Маршрут ролика решается ЗДЕСЬ и ДО первой оплаты.
-     *
-     * Транскрипция на audio-first не опция, а условие сборки: без границ слов
-     * lip-sync пропускает каждую сцену ведущего, своих клипов у них нет, и
-     * «собранный» ролик оказывается склейкой перебивок под непрерывную речь.
-     * Поэтому ролик, которому транскрипция недоступна в принципе (модель не
+     * `audioFirstRoute` резолвлен ВЫШЕ (перед costConfig, тем же вызовом
+     * `resolveVideoRoute`) — переиспользуем то же значение, а не резолвим
+     * маршрут второй раз: транскрипция на audio-first не опция, а условие
+     * сборки. Ролик, которому транскрипция недоступна в принципе (модель не
      * настроена) и который от звука ещё не собирали, уходит прежним маршрутом
      * ЦЕЛИКОМ — ни трек, ни куски, ни аватарные кадры не оплачены впустую.
      * Ролик, у которого трек уже есть, вместо этого честно падает (см.
-     * resolveVideoRoute).
+     * resolveVideoRoute) — и упал бы ещё ДО этой строки, на резолве выше.
      */
-    const audioFirstRoute = await resolveVideoRoute(videoId, video.editPipeline)
     if (video.editPipeline && !audioFirstRoute) {
       await logAgent('video-pipeline', 'warn',
         `Video ${videoId}: EDIT_PIPELINE включён, но модель транскрипции не настроена `

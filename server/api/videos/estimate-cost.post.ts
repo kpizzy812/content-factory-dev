@@ -11,6 +11,8 @@
  */
 import { estimateVideoCost, getCostOptimizationTips, COST_PRESETS } from "~~/server/utils/video-cost"
 import type { VideoCostConfig } from "~~/server/utils/video-cost"
+import { decideVideoRoute, resolveEditPipelineFlag } from "~~/server/utils/video-pipeline-run-policy"
+import { isTranscriptionRouteAvailable } from "~~/server/utils/transcription/media-task"
 
 type RequestBody = VideoCostConfig & {
   /** Если задан - подгружается storyPlan выбранного варианта. */
@@ -50,6 +52,26 @@ export default defineEventHandler(async (event) => {
         enriched.voiceoverLines = storyPlan.voiceoverPlan.lines.map(l => (l.text ?? '').length)
       }
     }
+  }
+
+  // Ролика ещё нет (эндпоинт считает ДО создания Video) — `resolveVideoRoute`
+  // (video-pipeline.ts) требует videoId и неприменим здесь. Но у ролика,
+  // которого ещё нет, не может быть УЖЕ синтезированного единого трека —
+  // третья ветка `decideVideoRoute` (audioFirstTrackExists) структурно
+  // недостижима на этом эндпоинте, это не подмена признака, а его честное
+  // значение для случая «ролик будет создан прямо сейчас». Признак маршрута —
+  // тот же (`EDIT_PIPELINE` + доступность модели транскрипции), что решает
+  // `resolveVideoRoute` для только что созданного ролика.
+  //
+  // Явный body.audioFirst (если клиент когда-нибудь его пришлёт) не
+  // перезаписываем — вычисляем только когда клиент его не передал.
+  if (enriched.audioFirst === undefined) {
+    const decision = decideVideoRoute({
+      editPipeline: resolveEditPipelineFlag(process.env),
+      transcriptionRouteAvailable: isTranscriptionRouteAvailable(),
+      audioFirstTrackExists: false,
+    })
+    enriched.audioFirst = decision.kind === "route" && decision.audioFirst
   }
 
   const estimate = estimateVideoCost(enriched)

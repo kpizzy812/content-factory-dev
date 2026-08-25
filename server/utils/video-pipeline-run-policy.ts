@@ -61,6 +61,46 @@ export function resolveEditPipelineFlag(env: Record<string, string | undefined>)
   return TRUTHY.has((env.EDIT_PIPELINE ?? "").trim().toLowerCase())
 }
 
+/** Исход `decideVideoRoute` — исполнение маршрута, либо честный конфликт (§10). */
+export type VideoRouteDecision =
+  | { kind: "route", audioFirst: boolean }
+  | { kind: "conflict" }
+
+/**
+ * РЕШЕНИЕ маршрута ролика — чистая часть `resolveVideoRoute` (`video-pipeline.ts`).
+ *
+ * Сама `resolveVideoRoute` ходит в БД (`hasAudioFirstTrack`) и в реестр моделей
+ * (`isTranscriptionRouteAvailable`) — здесь только исход по уже прочитанным
+ * фактам, без сети и без Prisma. Вынесена намеренно (правка тарифа 24-25.08.2026,
+ * §12 спеки «смета сходится с фактом»): смета ролика (`estimateVideoCost` через
+ * `video-cost.ts` и `estimate-cost.post.ts`) обязана знать, пойдёт ли ролик
+ * audio-first, ТЕМ ЖЕ САМЫМ способом, что и сам пайплайн — а не по сырому
+ * `Video.editPipeline`/`EDIT_PIPELINE`, который лжёт ровно в одном случае:
+ * маршрут включён, а модель транскрипции не настроена.
+ *
+ * Три исхода:
+ *  - `editPipeline` выключен — старый маршрут, безусловно;
+ *  - `editPipeline` включён и модель транскрипции настроена — audio-first;
+ *  - `editPipeline` включён, модели нет, но у ролика уже есть синтезированный
+ *    единый трек (собирали от звука раньше, потом отключили модель) —
+ *    `conflict`: возврат на старый маршрут задним числом потерял бы деньги
+ *    (см. докстринг `resolveVideoRoute`) — вызывающий обязан бросить 409 сам,
+ *    эта функция ошибок не бросает;
+ *  - `editPipeline` включён, модели нет, трека тоже нет — деградация на
+ *    старый маршрут целиком, ничего не оплачено впустую (§10).
+ */
+export function decideVideoRoute(input: {
+  editPipeline: boolean
+  transcriptionRouteAvailable: boolean
+  /** Есть ли у ролика уже синтезированный единый трек (audio-first начали собирать раньше). */
+  audioFirstTrackExists: boolean
+}): VideoRouteDecision {
+  if (!input.editPipeline) return { kind: "route", audioFirst: false }
+  if (input.transcriptionRouteAvailable) return { kind: "route", audioFirst: true }
+  if (input.audioFirstTrackExists) return { kind: "conflict" }
+  return { kind: "route", audioFirst: false }
+}
+
 /**
  * Громкость родных дорожек клипов под озвучкой — зависит от ФАКТА, состоялся
  * ли единый трек audio-first, а не от выбранного маршрута ролика. Дорожка
