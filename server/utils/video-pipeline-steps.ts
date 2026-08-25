@@ -3428,13 +3428,20 @@ export async function runShotBackgrounds(
       let finalAction: ShotBackgroundAction = item.action
       let finalDegradeReason = item.degradeReason
       let costForShot: number | undefined // undefined = не трогать VideoShot.costUsd (переиспользован)
+      // Файл фона ЭТОГО кадра реально сменился на диске (Critical 2 финального
+      // ревью): собранный кадр `shot_N_composed.mp4` от прошлого прогона
+      // больше не соответствует своему фону и обязан быть пересобран.
+      let backgroundChanged = false
 
       if (item.action.kind === "none") {
         costForShot = 0
         // "none" по решению планирования — стереть возможный СТАРЫЙ ассет:
         // план сменился с "image"/"video" на "none" между прогонами.
         const stale = await prisma.videoAsset.findFirst({ where: { videoId, type: "shot_background" as never, order: item.order } })
-        if (stale) await prisma.videoAsset.delete({ where: { id: stale.id } }).catch(() => {})
+        if (stale) {
+          await prisma.videoAsset.delete({ where: { id: stale.id } }).catch(() => {})
+          backgroundChanged = true
+        }
       } else {
         // Отпечаток — от ВХОДОВ решения, а не от текста промпта (Critical 1
         // финального ревью): текст недетерминирован, входы — нет.
@@ -3520,6 +3527,7 @@ export async function runShotBackgrounds(
             }
             renderedCount += 1
             costForShot = generatedCost
+            backgroundChanged = true
 
             const assetData = {
               filePath: localPath,
@@ -3544,7 +3552,10 @@ export async function runShotBackgrounds(
               : `Не удалось получить фон кадра: ${message}`
             costForShot = 0
             executionWarnings.push(`Кадр ${item.order}: ${finalDegradeReason}`)
-            if (existingAsset) await prisma.videoAsset.delete({ where: { id: existingAsset.id } }).catch(() => {})
+            if (existingAsset) {
+              await prisma.videoAsset.delete({ where: { id: existingAsset.id } }).catch(() => {})
+              backgroundChanged = true
+            }
           }
         }
       }
@@ -3562,6 +3573,18 @@ export async function runShotBackgrounds(
           // уже была, — цена поля ровно одна строка, как и обещано в ревью.
           backgroundActual: finalAction.kind,
           ...(costForShot === undefined ? {} : { costUsd: costForShot }),
+          // Critical 2 финального ревью ветки: собранный кадр
+          // (`shot_N_composed.mp4`) не является `VideoAsset` и ни одним
+          // каскадом сброса не сносится, а `composeVideoShots` переиспользует
+          // его по ключу «путь + status=completed + файл существует» —
+          // содержимого этот ключ не кодирует. Пока `assetPath` не обнулялся,
+          // оператор перезапускал платный шаг фонов, ПЛАТИЛ за новые
+          // картинки/клипы и получал ролик байт в байт прежний, без единой
+          // ошибки. Обнуляем ТОЛЬКО у кадров, чей фон реально сменился:
+          // переиспользованные кадры сохраняют `assetPath` и ffmpeg по ним
+          // повторно не гоняется — идемпотентность Ruling S8-7 цела, соседи
+          // остаются оплаченными.
+          ...(backgroundChanged ? { assetPath: null } : {}),
         },
       })
     }

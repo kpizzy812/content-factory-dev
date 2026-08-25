@@ -24,9 +24,10 @@
  *
  * @vitest-environment node
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { spawn } from "node:child_process"
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -38,9 +39,13 @@ import { ensureDir, getAssetsDir, probeMediaDuration } from "~~/server/utils/ren
 ;(globalThis as Record<string, unknown>).ensureDir = ensureDir
 ;(globalThis as Record<string, unknown>).getAssetsDir = () => workDir
 
-import { composeVideoShots } from "~~/server/utils/video-pipeline-steps"
+import {
+  composeVideoShots, runShotBackgrounds,
+  type ShotBackgroundStepDeps, type VideoShotBackgroundInput,
+} from "~~/server/utils/video-pipeline-steps"
 import { planShotAssembly } from "~~/server/utils/render"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
+import type { EditPlanModelUsage } from "~~/server/utils/edit-plan/runner"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 
 /** Кадры этого теста живут в своей временной директории, а не в storage/. */
@@ -71,6 +76,11 @@ async function renderTestClip(path: string, durationSec: number, toneHz: number)
 
 async function writeCorruptFile(path: string): Promise<void> {
   await writeFile(path, "это не видео, а обычный текст — ffmpeg обязан отказаться его декодировать\n")
+}
+
+/** Содержимое файла байт в байт — «ролик другой» проверяется им, а не только mtime. */
+async function sha1OfFile(path: string): Promise<string> {
+  return createHash("sha1").update(await readFile(path)).digest("hex")
 }
 
 interface Fixture {
@@ -370,4 +380,115 @@ describe("composeVideoShots: оркестрация на реальной БД �
     expect(Math.abs(secondFitSec! - 5.0)).toBeLessThan(0.15)
     expect(secondFitSec!).toBeGreaterThan(3.0) // разведено с прежней целью (2с) с явным запасом
   }, 60_000)
+
+  /**
+   * Critical 2 финального ревью ветки. Ключ переиспользования собранного кадра —
+   * «путь + `status: completed` + файл существует» — содержимого не кодирует, а
+   * `runShotBackgrounds` не трогал `assetPath`. Оператор перезапускал платный
+   * шаг фонов, ПЛАТИЛ за новые картинки и получал ролик байт в байт прежний,
+   * без единой ошибки: `shot_N_composed.mp4` не `VideoAsset` и ни одним
+   * каскадом не сносится.
+   *
+   * Тест идёт настоящим продакшн-путём (`runShotBackgrounds` → `composeVideoShots`
+   * на реальной БД и реальном ffmpeg), а не подменяет строки руками, и смотрит
+   * НАБЛЮДАЕМЫЙ результат — sha1 собранного файла. Второе требование брифа
+   * («без сноса чужих кадров») проверяется соседом: у кадра, чей фон
+   * переиспользован, собранный файл обязан остаться тем же (mtime не сдвинут) —
+   * иначе «чиню» превращается в «пересобираю всё каждый раз».
+   */
+  it("Critical 2: перерисованный фон обесценивает собранный кадр, сосед остаётся оплаченным", async () => {
+    const { videoId } = await createFixture()
+
+    const greenPath = join(workDir, "bg_green.png")
+    const redPath = join(workDir, "bg_red.png")
+    await renderStillImage(greenPath, "green")
+    await renderStillImage(redPath, "red")
+
+    for (const order of [0, 1]) {
+      await prisma.videoShot.create({
+        data: {
+          videoId, order, startSec: order * 2, endSec: order * 2 + 2, sceneOrder: null,
+          foreground: "none", background: "image", idea: `идея кадра ${order}`, pipEnabled: false,
+        },
+      })
+    }
+    const assemblyStep = await prisma.videoGenerationStep.create({
+      data: { videoId, stepKey: "assembly" as never, stepIndex: 6, status: "running" as never },
+    })
+
+    const PROMPT_USAGE: EditPlanModelUsage = { model: "claude-sonnet-4-6", inputTokens: 400, outputTokens: 80 }
+    const shotInput: VideoShotBackgroundInput = {
+      videoId,
+      trackFingerprint: "fp-compose-1",
+      format: "portrait",
+      renderQuality: "medium",
+      profile: { ...DEFAULT_EDIT_PROFILE },
+      visualStyle: null,
+      appName: null,
+      imageModelId: "replicate:flux-dev",
+      videoModelId: "replicate:kling-v1.6-standard-t2v",
+      sceneTextByOrder: new Map<number, string>(),
+    }
+    /** Провайдер картинок подменён: платных вызовов нет, а файл — реальный PNG на диске. */
+    function shotDeps(imageFor: (order: number) => string): ShotBackgroundStepDeps {
+      return {
+        planPrompts: vi.fn(async (promptInput: {
+          shots: Array<{ order: number, idea: string | null }>
+          onUsage?: (u: EditPlanModelUsage) => void
+        }) => {
+          promptInput.onUsage?.(PROMPT_USAGE)
+          return {
+            prompts: promptInput.shots.map(s => ({
+              order: s.order,
+              prompt: `промпт кадра ${s.order}: ${s.idea ?? "без идеи"}`.padEnd(60, "."),
+              purpose: "тест",
+            })),
+            usage: PROMPT_USAGE,
+          }
+        }),
+        generateImage: vi.fn(async (args: { order: number }) => ({ localPath: imageFor(args.order), costUsd: 0.025 })),
+        generateVideo: vi.fn(async (args: { order: number, billedSec: number }) => ({
+          localPath: imageFor(args.order), costUsd: args.billedSec * 0.05, effectiveDurationSec: args.billedSec,
+        })),
+      } as ShotBackgroundStepDeps
+    }
+
+    // ── Первый прогон: оба кадра на ЗЕЛЁНОМ фоне, оба собраны ──────────────
+    const bgFirst = await runShotBackgrounds(shotInput, shotDeps(() => greenPath))
+    expect(bgFirst.renderedCount).toBe(2)
+
+    const composeFirst = await composeVideoShots(videoId, { id: assemblyStep.id }, [], DEFAULT_EDIT_PROFILE, "portrait")
+    expect(composeFirst!.composedCount).toBe(2)
+
+    const shotsAfterFirst = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+    const composedPath0 = shotsAfterFirst[0]!.assetPath!
+    const composedPath1 = shotsAfterFirst[1]!.assetPath!
+    const sha0Before = await sha1OfFile(composedPath0)
+    const sha1Before = await sha1OfFile(composedPath1)
+    const mtime0Before = (await stat(composedPath0)).mtimeMs
+
+    // ── Оператор переписал идею ОДНОГО кадра: шаг фонов рисует его КРАСНЫМ,
+    // сосед переиспользуется бесплатно (отпечаток входов не сдвинулся) ─────
+    await prisma.videoShot.updateMany({ where: { videoId, order: 1 }, data: { idea: "идея кадра 1 — переписана" } })
+    const bgSecond = await runShotBackgrounds(shotInput, shotDeps(order => (order === 1 ? redPath : greenPath)))
+    expect(bgSecond.renderedCount).toBe(1)
+    expect(bgSecond.reusedCount).toBe(1)
+    const assets = await prisma.videoAsset.findMany({
+      where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+    })
+    expect(assets[1]!.filePath).toBe(redPath) // фон кадра 1 действительно новый
+
+    // ── Второй монтаж: кадр 1 обязан быть ДРУГИМ файлом, кадр 0 — тем же ────
+    const composeSecond = await composeVideoShots(videoId, { id: assemblyStep.id }, [], DEFAULT_EDIT_PROFILE, "portrait")
+    expect(composeSecond!.composedCount).toBe(2)
+
+    const shotsAfterSecond = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+    const sha1After = await sha1OfFile(shotsAfterSecond[1]!.assetPath!)
+    expect(sha1After).not.toBe(sha1Before)
+
+    // Сосед: тот же путь, тот же файл, ffmpeg по нему не гонялся заново.
+    expect(shotsAfterSecond[0]!.assetPath).toBe(composedPath0)
+    expect(await sha1OfFile(shotsAfterSecond[0]!.assetPath!)).toBe(sha0Before)
+    expect((await stat(shotsAfterSecond[0]!.assetPath!)).mtimeMs).toBe(mtime0Before)
+  }, 180_000)
 })
