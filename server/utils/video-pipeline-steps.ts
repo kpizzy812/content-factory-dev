@@ -3425,12 +3425,24 @@ export async function runShotBackgrounds(
           try {
             let localPath: string
             let generatedCost = 0
+            // Вид медиа по факту создания — единственный писатель этого поля
+            // для типа `shot_background` (Task 5, фикс-раунд 1): раньше
+            // `assetData` его не заполняла вовсе, и `shotBackgroundIsStill`
+            // ниже по стеку (Task 5, композиция) была вынуждена откатываться
+            // на расширение файла. Литерал по kind — тот же приём, что уже
+            // используют соседние типы ассетов (`persistExtendedClipAsset`
+            // жёстко пишет "video/mp4"); для library/app_screen источник
+            // может знать РЕАЛЬНЫЙ mime (BackgroundClip.mimeType/
+            // AppReferenceImage.mimeType) — он точнее жёсткого дефолта по
+            // kind и предпочитается, когда есть.
+            let contentType: string
             switch (item.action.kind) {
               case "library": {
                 const clip = libraryClipById.get(item.action.backgroundClipId)
                 if (!clip) throw new Error(`фон "${item.action.backgroundClipId}" не найден или деактивирован`)
                 const ref: BackgroundClipRef = { id: clip.id, storageKey: clip.storageKey, sha1: clip.sha1, mimeType: clip.mimeType, kind: clip.kind }
                 localPath = await materializeBackgroundClip(ref, assetsDir, media)
+                contentType = clip.mimeType ?? (clip.kind === "image" ? "image/png" : "video/mp4")
                 break
               }
               case "app_screen": {
@@ -3438,6 +3450,8 @@ export async function runShotBackgrounds(
                 if (!screen) throw new Error(`скрин "${item.action.appReferenceId}" не найден`)
                 const ref: AppReferenceRef = { id: screen.id, appId: screen.appId, sha1: screen.sha1, mimeType: screen.mimeType, storageKey: screen.storageKey }
                 localPath = await materializeAppReference(ref, assetsDir, media)
+                // Скрин приложения — всегда картинка по определению модели.
+                contentType = screen.mimeType ?? "image/png"
                 break
               }
               case "image": {
@@ -3447,6 +3461,7 @@ export async function runShotBackgrounds(
                 localPath = result.localPath
                 generatedCost = result.costUsd
                 imageCostUsd += result.costUsd
+                contentType = "image/png"
                 break
               }
               case "video": {
@@ -3456,6 +3471,7 @@ export async function runShotBackgrounds(
                 localPath = result.localPath
                 generatedCost = result.costUsd
                 videoCostUsd += result.costUsd
+                contentType = "video/mp4"
                 break
               }
             }
@@ -3466,6 +3482,7 @@ export async function runShotBackgrounds(
               filePath: localPath,
               prompt: fingerprint,
               duration: item.action.kind === "video" ? Math.round(item.action.billedSec) : null,
+              contentType,
             }
             if (existingAsset) {
               await prisma.videoAsset.update({ where: { id: existingAsset.id }, data: assetData })
@@ -3716,15 +3733,26 @@ export async function runMusicGeneration(
 // пути в `VideoShot.assetPath` — интерфейсная точка, которую Task 6
 // потребляет (см. таблицу конфликтов плана, пара «4 → 6»).
 
-/** Вид фона по факту на диске — а не по `VideoShot.background` (план мог сказать
- * одно, деградация исполнения дала другое, и после деградации `video → image`
- * поле плана продолжает врать — см. Task 4). `VideoAsset.contentType`
- * шаг `shot_background` сегодня не заполняет ни для одного действия
- * (грепом подтверждено: `assetData` в `runShotBackgrounds` этого поля не
- * содержит) — поэтому решающим остаётся расширение файла, который реально
- * лежит на диске; `contentType` проверяется первым на случай, если шаг
- * когда-нибудь начнёт его писать. */
-function shotBackgroundIsStill(asset: { contentType: string | null, filePath: string }): boolean {
+/**
+ * Вид фона по факту на диске — а не по `VideoShot.background` (план мог
+ * сказать одно, деградация исполнения дала другое, и после деградации
+ * `video → image` поле плана продолжает врать — см. Task 4).
+ *
+ * `contentType` — решающий и первый: `runShotBackgrounds` (Task 5,
+ * фикс-раунд 1) заполняет его при КАЖДОМ создании/обновлении ассета
+ * `shot_background`, тем же приёмом, что и соседние типы ассетов
+ * (`persistExtendedClipAsset` пишет литерал `"video/mp4"`).
+ *
+ * Расширение файла — фолбэк ВТОРЫМ эшелоном, а не основной путь: он
+ * закрывает записи, созданные ДО этой правки (contentType=null в уже
+ * существующих строках БД), и любой будущий провал классификации по
+ * mime — но никогда не решает при исправно заполненном `contentType`.
+ * Нераспознанное расширение (не `.mp4/.mov/.webm`) фолбэк трактует как
+ * КАРТИНКУ — тот же дефолт, что уже раньше был у `shotBackgroundExt`/
+ * `extFor` для незнакомого mime; проверка не должна расширяться на
+ * произвольные видео-контейнеры вслепую.
+ */
+export function shotBackgroundIsStill(asset: { contentType: string | null, filePath: string }): boolean {
   if (asset.contentType) {
     if (asset.contentType.startsWith("video/")) return false
     if (asset.contentType.startsWith("image/")) return true
