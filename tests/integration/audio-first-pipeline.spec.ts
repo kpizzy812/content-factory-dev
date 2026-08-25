@@ -531,6 +531,16 @@ describe("маршрут «монтаж от звука» собирает ро�
     await runVideoPipeline(videoId)
 
     // 1. Шаги выполнены в порядке audio-first.
+    //
+    // Список ключей не изменился с Task 4 (там же дописан `shot_background`),
+    // хотя Task 7 выключает генерацию картинок и клипов на этом маршруте:
+    // пропущенный шаг всё равно заводит строку `VideoGenerationStep` и
+    // получает `finishedAt` РОВНО там, где раньше вставал завершённый
+    // (`skipImageGenerationStep`/`skipClipGenerationStep`, video-pipeline.ts) —
+    // `stepKeysInExecutionOrder` сортирует по `startedAt ?? finishedAt`, и
+    // пропуск от исполнения по ключам неотличим. Сам факт пропуска проверяем
+    // ниже отдельно — по статусу, стоимости и отсутствию продукта, а не по
+    // этому списку.
     expect(await stepKeysInExecutionOrder(videoId)).toEqual([
       "prompt_generation",
       "voiceover_generation",
@@ -543,6 +553,48 @@ describe("маршрут «монтаж от звука» собирает ро�
       "music_generation",
       "assembly",
     ])
+
+    // 1b. Task 7: посценные картинки и клипы НЕ оплачены и НЕ сгенерированы.
+    //
+    // Их продукт на кадровом маршруте никуда не идёт — фон каждого кадра уже
+    // нарисовал шаг `shot_background` (лог прогона выше показывает ровно три
+    // submit `fal-ai/flux/dev`, по числу кадров-фонов, и ни одного лишнего).
+    // Экономия доказывается фактом в БД, а не выведена из отсутствия строк в
+    // логе: статус шага, нулевая стоимость, нулевой ledger и ни одного
+    // VideoAsset(type=image|clip).
+    const sceneMediaSteps = await prisma.videoGenerationStep.findMany({
+      where: { videoId, stepKey: { in: ["image_generation", "clip_generation"] as never[] } },
+      select: { stepKey: true, status: true, actualCost: true, attemptCount: true, outputSnapshot: true },
+    })
+    expect(sceneMediaSteps).toHaveLength(2)
+    for (const step of sceneMediaSteps) {
+      expect(step.status).toBe("skipped")
+      expect(Number(step.actualCost)).toBe(0)
+      // Пропущенный шаг attemptCount не трогает — тот же приём, что и у
+      // presenterOnly, счётчик остаётся на нуле, за провайдера не заходили.
+      expect(step.attemptCount).toBe(0)
+      expect((step.outputSnapshot as { reason?: string } | null)?.reason)
+        .toBe("shot_route_scene_media_not_needed")
+    }
+    expect(await prisma.aiAuditLog.count({
+      where: { videoId, stepKey: { in: ["image_generation", "clip_generation"] } },
+    })).toBe(0)
+    // Ни одной картинки: `image_generation` не заходил в провайдер вовсе —
+    // ни VideoAsset(type=image), ни превью.
+    expect(await prisma.videoAsset.count({ where: { videoId, type: "image" as never } })).toBe(0)
+    // Клипы: `VideoAsset(type=clip)` пишет и `runClipGeneration` (сырой
+    // Kling-клип, `scene_N_clip.mp4`), и `runLipSyncStep` (готовый
+    // синхронизированный фрагмент, `scene_N_lipsync.mp4`, lip-sync-runner.ts:1566)
+    // — один тип на два разных продукта. Отличаем по имени файла: посценная
+    // генерация клипов пропущена, значит СЫРОГО (не lipsync) клипа быть не
+    // должно ни одного, а lip-sync клипы (продукт из библиотеки ведущей) —
+    // законны и обязаны остаться, иначе бы упала соседняя проверка 6 ниже.
+    const clipAssetPaths = (await prisma.videoAsset.findMany({
+      where: { videoId, type: "clip" as never },
+      select: { filePath: true },
+    })).map(a => a.filePath ?? "")
+    expect(clipAssetPaths.length).toBeGreaterThan(0)
+    expect(clipAssetPaths.every(path => /_lipsync\.mp4$/.test(path))).toBe(true)
 
     // План монтажа реально построен и записан в свою таблицу (не VideoAsset).
     const shotsAfterFirstRun = await prisma.videoShot.findMany({ where: { videoId } })
@@ -572,8 +624,10 @@ describe("маршрут «монтаж от звука» собирает ро�
     // `MediaPrediction` здесь не инструмент: `synthesizeSpeech` зовёт
     // `runMediaTask` без `persist`, а fal-ветка пишет prediction только когда
     // результат перенесён в постоянное хранилище (`if (storage && identity)`),
-    // так что у TTS записи нет вовсе — проверено прогоном (в ролике только
-    // 3 × text_to_image и 1 × transcription).
+    // так что у TTS записи нет вовсе — проверено прогоном (в ролике
+    // 3 × text_to_image от `shot_background` — по фону на кадр — и
+    // 1 × transcription; посценных `image_generation`/`clip_generation`
+    // предсказаний с Task 7 нет вовсе, см. проверку 1b выше).
     expect(await prisma.videoAsset.count({ where: { videoId, type: "voiceover_mix" as never } })).toBe(1)
     expect(await prisma.videoAsset.count({ where: { videoId, type: "voiceover" as never } })).toBe(0)
 

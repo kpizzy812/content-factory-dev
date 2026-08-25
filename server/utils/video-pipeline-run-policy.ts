@@ -90,6 +90,28 @@ export function shouldReconcileVoiceover(audioFirstTrackCompleted: boolean): boo
   return !audioFirstTrackCompleted
 }
 
+/**
+ * Нужны ли ролику посценные картинки и клипы.
+ *
+ * На кадровом маршруте в ролик попадают только кадры (`VideoShot`), у каждого
+ * свой фон от шага `shot_background`. Посценные картинки и text-to-video при
+ * этом никуда не идут: их продукт не оказывается ни в одном кадре склейки.
+ * Оставленные включёнными, они стоят порядка $0.25 картинок и полную цену
+ * Kling-клипов на КАЖДЫЙ ролик — при 300 роликах в сутки это самая дорогая
+ * бесполезная статья пайплайна.
+ *
+ * Смотрим на ФАКТ трека и на ФАКТ кадров, а не на флаг ролика: маршрут может
+ * быть выбран, а трек не состояться (`empty_script`,
+ * `legacy_mode_no_single_track`), и тогда собирать будет нечего.
+ */
+export function sceneMediaNeeded(input: {
+  audioFirstTrackCompleted: boolean
+  shotCount: number
+}): boolean {
+  if (!input.audioFirstTrackCompleted) return true
+  return input.shotCount === 0
+}
+
 /** Результат планирования заказанных длин клипов под трек — см. `planAlignedClipTargets`. */
 export interface AlignedClipTargetsPlan {
   /**

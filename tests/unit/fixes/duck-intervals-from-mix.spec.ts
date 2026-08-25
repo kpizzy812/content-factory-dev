@@ -165,6 +165,10 @@ function installGlobals() {
       updateMany: async () => ({ count: 0 }),
     },
     videoAsset: { count: async () => 0, findFirst: async () => null, create: async () => ({}), update: async () => ({}) },
+    // Задача 7: `sceneMediaNeeded` (video-pipeline.ts) считает ФАКТ кадров
+    // запросом videoShot.count — этот файл кадровый маршрут не проверяет,
+    // ноль кадров сохраняет для него прежнее (посценное) поведение.
+    videoShot: { count: async () => 0 },
   }
 }
 

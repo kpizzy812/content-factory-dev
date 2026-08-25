@@ -48,6 +48,7 @@ import {
   runAssembly,
   hasAudioFirstTrack,
   loadEnrichmentContext,
+  type ClipStepResult,
   type VoiceoverStepResult,
 } from "./video-pipeline-steps"
 import { planSceneKinds } from "./broll-plan"
@@ -89,6 +90,7 @@ import {
   didLipSyncProduceNewClips,
   executionOrderFor,
   generatedUnitsFromAssetDelta,
+  sceneMediaNeeded,
   shouldApplyVoiceoverClipPaths,
   snapshotInvalidationPatch,
   stepsInvalidatedByFreshClips,
@@ -873,6 +875,22 @@ export async function runVideoPipeline(
      */
     const audioFirstTrackCompleted = audioFirstTrack?.status === 'completed'
 
+    /**
+     * ФАКТ кадров — сколько строк `VideoShot` реально сохранено в БД у этого
+     * ролика. Читаем из БД, а не из `editPlan` (объект в памяти): тем же
+     * приёмом, каким `runShotBackgrounds`/`composeVideoShots` сами читают
+     * кадры (см. докстринг выше, блок 2d) — БД остаётся единственным честным
+     * источником и после рестарта процесса, когда `editPlan` в памяти пуст.
+     */
+    const shotCount = await prisma.videoShot.count({ where: { videoId } })
+    /**
+     * Нужны ли ЭТОМУ ролику посценные картинки и клипы (Task 7 плана «Сборка
+     * по кадрам»). На кадровом маршруте (трек состоялся, кадры есть) их
+     * продукт никуда не идёт — сборка собирает кадры, а не сгенерированные
+     * клипы (см. докстринг `sceneMediaNeeded`, video-pipeline-run-policy.ts).
+     */
+    const sceneMediaIsNeeded = sceneMediaNeeded({ audioFirstTrackCompleted, shotCount })
+
     // 3. Генерация изображений — story-driven может пропустить этот шаг
     const effectiveImageCount = videoPlan.mode !== 'legacy_simple'
       ? videoPlan.scenes.length
@@ -910,13 +928,18 @@ export async function runVideoPipeline(
 
     let imgResult: Awaited<ReturnType<typeof runImageGeneration>>
     try {
-      // Ролик из живых фрагментов ведущей не рисует ни одного кадра, включая превью.
+      // Ролик из живых фрагментов ведущей не рисует ни одного кадра, включая
+      // превью. На кадровом маршруте (Task 7, `sceneMediaIsNeeded=false`)
+      // рисовать тоже нечего: фон каждого кадра уже нарисован шагом
+      // `shot_background`, а посценная картинка в склейку не попадает.
       imgResult = presenterOnly
         ? await skipImageGenerationStep(videoId)
-        : await runImageGeneration(
-          videoId, prompts, video.format, effectiveImageCount,
-          effectiveImageModelId, video.renderQuality, videoPlan,
-        )
+        : !sceneMediaIsNeeded
+          ? await skipImageGenerationStep(videoId, "shot_route_scene_media_not_needed")
+          : await runImageGeneration(
+            videoId, prompts, video.format, effectiveImageCount,
+            effectiveImageModelId, video.renderQuality, videoPlan,
+          )
     } catch (stepError) {
       // Упавшая попытка тоже оставляет свою строку в ledger — картинки,
       // скачанные до сбоя, провайдер уже выставил в счёт.
@@ -961,14 +984,20 @@ export async function runVideoPipeline(
 
     let clipResult: Awaited<ReturnType<typeof runClipGeneration>>
     try {
-      clipResult = await runClipGeneration(
-        videoId, prompts, video.format, video.clipDuration,
-        effectiveVideoModelId, video.generateAudio, videoPlan,
-        variant.storyPlan as StoryPlan | null,
-        presenterSceneIndexes,
-        brollSceneIndexes,
-        imagePathsByScene,
-      )
+      // Та же причина, что у картинок (см. проверку `sceneMediaIsNeeded` выше):
+      // на кадровом маршруте продукт клипов в склейку не попадает — сборка
+      // берёт кадры (`VideoShot`), а Kling здесь самая дорогая впустую
+      // оплаченная статья пайплайна (см. докстринг `sceneMediaNeeded`).
+      clipResult = sceneMediaIsNeeded
+        ? await runClipGeneration(
+          videoId, prompts, video.format, video.clipDuration,
+          effectiveVideoModelId, video.generateAudio, videoPlan,
+          variant.storyPlan as StoryPlan | null,
+          presenterSceneIndexes,
+          brollSceneIndexes,
+          imagePathsByScene,
+        )
+        : await skipClipGenerationStep(videoId, prompts.scenePrompts?.scenes?.length ?? effectiveImageCount)
     } catch (stepError) {
       // Клипы — самый дорогой шаг: три скачанных Kling-клипа из упавшего прогона
       // это ~$1, и терять их в отчёте нельзя.
@@ -1397,19 +1426,61 @@ async function skipPromptGenerationStep(
 
 /**
  * Помечает генерацию изображений пропущенной: в ролике из живых фрагментов
- * ведущей ни один кадр не рисуется нейросетью, включая превью.
+ * ведущей ни один кадр не рисуется нейросетью, включая превью. С Task 7 тем
+ * же путём идёт кадровый маршрут (`reason` тогда —
+ * "shot_route_scene_media_not_needed"): фон каждого кадра уже нарисовал шаг
+ * `shot_background`, посценная картинка в склейку не попадает.
  */
 async function skipImageGenerationStep(
   videoId: number,
+  reason: string = "presenter_only_video",
 ): Promise<{ imagePaths: string[], imageRemoteUrls: string[], generatedCount: number }> {
   const step = await ensureStep(videoId, "image_generation", STEP_ORDER.indexOf("image_generation"))
   await updateStep(step.id, {
     status: "skipped",
     finishedAt: new Date(),
     actualCost: 0,
-    outputSnapshot: { reason: "presenter_only_video", imagePaths: [], imageRemoteUrls: [], generatedCount: 0 },
+    outputSnapshot: { reason, imagePaths: [], imageRemoteUrls: [], generatedCount: 0 },
   })
   return { imagePaths: [], imageRemoteUrls: [], generatedCount: 0 }
+}
+
+/**
+ * Помечает генерацию клипов пропущенной (Task 7): на кадровом маршруте
+ * (`sceneMediaNeeded` вернула false — трек состоялся, кадры есть) фон
+ * каждого кадра уже произвёл шаг `shot_background`, а посценный клип никуда
+ * не идёт — оплатить его значит заплатить самую дорогую статью пайплайна
+ * впустую на КАЖДОМ ролике (см. докстринг `sceneMediaNeeded`,
+ * video-pipeline-run-policy.ts).
+ *
+ * Ячейка на КАЖДУЮ сцену — тем же контрактом, что и у обычного
+ * `runClipGeneration` (см. `ClipStepResult`), а НЕ пустой массив. Причина не
+ * косметика: `runLipSyncStep` отличает «ролик целиком снят ведущей»
+ * (`presenterOnlyVideo`, lip-sync-runner.ts) от «клипов нет вовсе» только
+ * когда РЕПЛИКА ЕСТЬ У КАЖДОЙ сцены — а на кадровом маршруте рядом с
+ * ведущей штатно стоят перебивки без реплики (их фон делает
+ * `shot_background`, звук — общий трек), и для такого ролика
+ * `presenterOnlyVideo` не сработает. Без ячейки на каждую сцену
+ * `isAssignableClipIndex` отбросил бы сцену ведущего как «индекс вне
+ * списка» (массив длиной 0 короче любого валидного индекса), и
+ * синхронизация губ сломалась бы ровно для того вида ролика, ради которого
+ * писалась эта задача — проверено `tests/integration/audio-first-pipeline.spec.ts`,
+ * где сцена перебивки существует именно затем, чтобы ролик не стал
+ * `presenterOnly`.
+ */
+async function skipClipGenerationStep(
+  videoId: number,
+  sceneCount: number,
+): Promise<ClipStepResult> {
+  const step = await ensureStep(videoId, "clip_generation", STEP_ORDER.indexOf("clip_generation"))
+  const clipPaths = new Array<string>(sceneCount).fill("")
+  await updateStep(step.id, {
+    status: "skipped",
+    finishedAt: new Date(),
+    actualCost: 0,
+    outputSnapshot: { reason: "shot_route_scene_media_not_needed", clipPaths, generatedCount: 0 },
+  })
+  return { clipPaths, generatedCount: 0, scenes: [] }
 }
 
 /**

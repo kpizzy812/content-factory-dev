@@ -283,7 +283,16 @@ function installGlobals() {
     },
     // Задача 5: кадры плана монтажа живут не в VideoAsset — свой каскад в
     // rerunVideoStep сносит их отдельным deleteMany.
+    //
+    // Задача 7: `sceneMediaNeeded` (video-pipeline.ts) считает ФАКТ кадров
+    // запросом к БД, а `runVideoEditPlan`/`runShotBackgrounds` здесь —
+    // моки, реальных строк `VideoShot` не пишут. `count: 0` — честное
+    // отражение этого факта, а не костыль: с ним `sceneMediaNeeded` остаётся
+    // `true` (кадров нет — посценные шаги нужны), и мокнутые
+    // `runImageGeneration`/`runClipGeneration` из проверок этого файла
+    // продолжают вызываться ровно как раньше.
     videoShot: {
+      count: async () => 0,
       deleteMany: async () => ({ count: 0 }),
     },
   }
