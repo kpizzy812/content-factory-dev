@@ -24,8 +24,10 @@
  *     «готов».
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { tmpdir } from "node:os"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import type { SubtitlePlacement } from "~~/shared/types/story"
 
@@ -35,7 +37,18 @@ const h = vi.hoisted(() => ({
   updates: [] as Record<string, unknown>[],
   assembleCalls: [] as Array<Record<string, unknown>>,
   videoShotRows: [] as Array<Record<string, unknown>>,
+  videoAssetRows: [] as Array<Record<string, unknown>>,
   videoRow: null as Record<string, unknown> | null,
+}))
+
+// Н-3 (ре-ревью фикс-раунда 1): для теста «дубль order не роняет ролик без
+// субтитров» composeVideoShots обязана реально СОБРАТЬСЯ (иначе сборка
+// отказывает раньше, до того места, где решается, вызывать ли
+// buildScenesByPositionForShotTimeline). renderShotComposition — единственная
+// точка, где нужен настоящий ffmpeg; мокаем её в no-op, чтобы кадр считался
+// собранным без реального процесса.
+vi.mock("../../../server/utils/video-tools/shot-compose-runner", () => ({
+  renderShotComposition: async () => {},
 }))
 
 vi.mock("../../../server/utils/video-pipeline-db", () => ({
@@ -44,6 +57,10 @@ vi.mock("../../../server/utils/video-pipeline-db", () => ({
   appendStepLog: async (_id: number, line: string) => { h.logs.push(line) },
   isStepCompleted: () => false,
   updateVideoStatus: async () => undefined,
+  STEP_ORDER: [
+    "prompt_generation", "image_generation", "clip_generation", "voiceover_generation",
+    "music_generation", "lip_sync_generation", "assembly", "transcription", "edit_plan",
+  ],
 }))
 
 vi.mock("../../../server/utils/render", () => ({
@@ -82,7 +99,12 @@ function installGlobals(withShotDb: boolean) {
     return { filePath: "final.mp4", duration: 30, durationFit: undefined }
   }
   const prisma: Record<string, unknown> = {
-    videoAsset: { findFirst: async () => null, create: async () => ({}), update: async () => ({}) },
+    videoAsset: {
+      findFirst: async () => null,
+      findMany: async () => h.videoAssetRows,
+      create: async () => ({}),
+      update: async () => ({}),
+    },
   }
   // Сценарий A (флага нет вовсе) намеренно НЕ даёт `video`/`videoShot` вовсе:
   // случайный поход в БД внутри кадровой ветки должен уронить тест ошибкой,
@@ -93,6 +115,7 @@ function installGlobals(withShotDb: boolean) {
     }
     prisma.videoShot = {
       findMany: async () => h.videoShotRows,
+      update: async () => ({}),
     }
   }
   g.prisma = prisma
@@ -122,12 +145,29 @@ async function loadSteps(withShotDb: boolean) {
   return await import("../../../server/utils/video-pipeline-steps")
 }
 
+let scratchDir: string
+let bgImagePath: string
+
+beforeAll(async () => {
+  scratchDir = await mkdtemp(join(tmpdir(), "cf-shot-route-inertness-"))
+  bgImagePath = join(scratchDir, "bg.png")
+  // Содержимое не важно — composeVideoShots (в этом тесте) только проверяет
+  // существование файла (`defaultShotFileExists`) и записи assetPath, а
+  // реальный рендер замокан (см. vi.mock выше).
+  await writeFile(bgImagePath, "заглушка фона для проверки существования файла")
+})
+
+afterAll(async () => {
+  await rm(scratchDir, { recursive: true, force: true }).catch(() => {})
+})
+
 beforeEach(() => {
   h.step = { id: 44, attemptCount: 0, actualCost: 0, outputSnapshot: null }
   h.logs.length = 0
   h.updates.length = 0
   h.assembleCalls.length = 0
   h.videoShotRows = []
+  h.videoAssetRows = []
   h.videoRow = null
 })
 
@@ -232,5 +272,80 @@ describe("Task 6: инертность старого маршрута — до�
     ).rejects.toThrow()
 
     expect(h.logs.some(l => l.includes("voiceoverReconciliation"))).toBe(false)
+  })
+
+  // Н-3 (ре-ревью фикс-раунда 1, Minor исполняемый в этом раунде): отказ на
+  // дубле `order` не должен срабатывать, если субтитры выключены — показывать
+  // чужой текст было бы попросту нечего. `buildScenesByPositionForShotTimeline`
+  // теперь вызывается ТОЛЬКО под `subtitlesEnabled` (см. runAssembly).
+  it("Н-3: дубль order с несошедшимся тождеством НЕ роняет ролик, если субтитры выключены", async () => {
+    h.videoShotRows = [{
+      id: "shot1", order: 0, startSec: 0, endSec: 2, sceneOrder: null,
+      foreground: "none", pipEnabled: false, background: "library",
+      assetPath: null, status: "planned",
+    }]
+    h.videoAssetRows = [{ order: 0, filePath: bgImagePath, contentType: "image/png" }]
+    h.videoRow = { editProfileId: null, editOverrides: null, editProfile: null, applicationId: null, voiceoverReconciliation: null }
+
+    // Дубль order [1,1,2] в плане, а в alignedScenes — только ДВЕ сцены с
+    // order=1 (сцена order=2 «выпала из трека») — длины не совпадают
+    // (тождество сломано), order дублируется среди alignedScenes. Если бы
+    // buildScenesByPositionForShotTimeline позвали, она бы бросила (см.
+    // shot-scenes-by-position.spec.ts). При выключенных субтитрах звать её
+    // не должны вовсе.
+    const dupOrderPlan: StoryDrivenVideoPlan = {
+      mode: "story_driven",
+      scenes: [1, 1, 2].map(order => ({
+        order,
+        durationSec: 5,
+        subtitleCopy: `Сцена ${order}`,
+        subtitlePlacement: BOTTOM,
+        spokenLine: null,
+        voiceoverLine: null,
+      })),
+      subtitleStyle: null,
+    } as unknown as StoryDrivenVideoPlan
+
+    const steps = await loadSteps(true)
+    const result = await steps.runAssembly(41, CLIPS, null, false, "Хук", "CTA", "portrait", dupOrderPlan, {
+      clipSceneOrders: [1, 1, 2],
+      shotRouteActive: true,
+      alignedScenes: [
+        { order: 1, startSec: 0, endSec: 1, words: [] },
+        { order: 1, startSec: 1, endSec: 2, words: [] },
+      ] as never,
+      voiceoverDurationSec: 2,
+    })
+
+    expect(result.filePath).toBe("final.mp4")
+    expect(h.assembleCalls).toHaveLength(1)
+    expect(h.assembleCalls[0]!.shotTimeline).toBeDefined()
+  })
+
+  // Н-5 (ре-ревью фикс-раунда 1): `trackDurationSec: extras?.voiceoverDurationSec
+  // ?? последний.endSec` делал проверку покрытия хвоста таймлайна тавтологией —
+  // фолбэк брал число ИЗ ТЕХ ЖЕ shots, которые assertShotsCoverTrack сверяет
+  // против него же. Убрано: `voiceoverDurationSec` теперь обязателен на
+  // кадровом маршруте, отсутствие — честный отказ, а не молчаливая тавтология.
+  it("Н-5: voiceoverDurationSec не доехал — честный отказ, а не тавтологичный фолбэк на конец последнего кадра", async () => {
+    h.videoShotRows = [{
+      id: "shot1", order: 0, startSec: 0, endSec: 2, sceneOrder: null,
+      foreground: "none", pipEnabled: false, background: "library",
+      assetPath: null, status: "planned",
+    }]
+    h.videoAssetRows = [{ order: 0, filePath: bgImagePath, contentType: "image/png" }]
+    h.videoRow = { editProfileId: null, editOverrides: null, editProfile: null, applicationId: null, voiceoverReconciliation: null }
+
+    const steps = await loadSteps(true)
+    await expect(
+      steps.runAssembly(41, CLIPS, null, false, "Хук", "CTA", "portrait", plan(), {
+        clipSceneOrders: [1, 2, 3],
+        shotRouteActive: true,
+        // voiceoverDurationSec НЕ передан — старый фолбэк подставил бы 2с
+        // (endSec последнего кадра) и проверка покрытия PASS'ила бы всегда.
+      }),
+    ).rejects.toThrow(/измеренная длина трека не доехала/)
+
+    expect(h.assembleCalls).toHaveLength(0)
   })
 })

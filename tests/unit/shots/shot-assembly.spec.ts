@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildClipLaneAudioFilter, planShotAssembly } from "~~/server/utils/render"
+import { buildAudioMixFilters, buildClipLaneAudioFilter, planShotAssembly } from "~~/server/utils/render"
 
 const SHOTS = [
   { order: 0, startSec: 0, endSec: 1.8, path: "/a/shot_0.mp4" },
@@ -138,6 +138,57 @@ describe("решения кадровой сборки", () => {
         hasVoiceover: true, clipLaneVolume: 0, voiceoverIntervals: [{ startSec: 1, endSec: 3 }],
       })
       expect(filter).toBe("[0:a]volume=0.000:enable='between(t,1.00,3.00)'[va]")
+    })
+  })
+
+  // Н-4 (ре-ревью фикс-раунда 1): `buildClipLaneAudioFilter` сама была
+  // покрыта, но `assembleVideo` был волен подменить ВЫЗОВ этой функции
+  // литералом — граница проверки «переехала на шаг», а не исчезла. Теперь
+  // `assembleVideo` строит ВСЕ три дорожки микса ОДНИМ вызовом
+  // `buildAudioMixFilters` — тестируем именно её, единственную оставшуюся
+  // точку, где строки фильтров формируются.
+  describe("buildAudioMixFilters — единственная точка сборки ВСЕХ дорожек микса (§6.4, Н-4)", () => {
+    it("только клип-лейн (нет музыки, нет voiceover-лейна) — громкость кадров доходит до строки графа", () => {
+      const { audioFilters, mixLabels } = buildAudioMixFilters({
+        hasVoiceover: true,
+        clipLaneVolume: 0,
+        musicInputIdx: null,
+        musicLaneVolume: 0.3,
+        voiceoverInputIdx: null,
+        voiceoverGainFilter: "volume=6.02dB",
+      })
+      expect(audioFilters).toEqual(["[0:a]volume=0.000[va]"])
+      expect(mixLabels).toEqual(["[va]"])
+    })
+
+    it("все три дорожки (клипы+музыка+voiceover) — три фильтра, три лейбла, в правильном порядке", () => {
+      const { audioFilters, mixLabels } = buildAudioMixFilters({
+        hasVoiceover: true,
+        clipLaneVolume: 0,
+        musicInputIdx: 1,
+        musicLaneVolume: 0.12,
+        voiceoverInputIdx: 2,
+        voiceoverGainFilter: "volume=6.02dB",
+      })
+      expect(audioFilters).toEqual([
+        "[0:a]volume=0.000[va]",
+        "[1:a]volume=0.120[ma]",
+        "[2:a]volume=6.02dB[vo]",
+      ])
+      expect(mixLabels).toEqual(["[va]", "[ma]", "[vo]"])
+    })
+
+    it("голоса нет, есть музыка — клип-лейн на полную (1.0), музыка на musicVolume без ducking", () => {
+      const { audioFilters, mixLabels } = buildAudioMixFilters({
+        hasVoiceover: false,
+        clipLaneVolume: 0.3,
+        musicInputIdx: 1,
+        musicLaneVolume: 0.3,
+        voiceoverInputIdx: null,
+        voiceoverGainFilter: "volume=0.00dB",
+      })
+      expect(audioFilters).toEqual(["[0:a]volume=1.000[va]", "[1:a]volume=0.300[ma]"])
+      expect(mixLabels).toEqual(["[va]", "[ma]"])
     })
   })
 })
