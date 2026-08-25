@@ -4048,7 +4048,7 @@ export async function composeVideoShots(
 }
 
 /** Сцена сценария, у которой нужен только текст под субтитр и его раскладка. */
-interface ShotTimelineTextScene {
+export interface ShotTimelineTextScene {
   order: number
   spokenLine?: string | null
   voiceoverLine?: string | null
@@ -4079,15 +4079,21 @@ function shotTimelineTextOf(scene: ShotTimelineTextScene | undefined): { text: s
  *     (длины совпадают, `order` совпадает поэлементно) — сопоставляем по
  *     ПОЗИЦИИ. Дубль `order` не мешает: индекс уже однозначен.
  *  2. Тождество НЕ подтверждено, но `order` среди `alignedScenes` НЕ
- *     повторяется — сопоставление по `order` безопасно (неоднозначности нет
- *     по построению), берём его.
- *  3. Тождество не подтверждено И `order` повторяется — сопоставить текст с
- *     ПРАВИЛЬНОЙ сценой нечем ни одним из двух способов. Показ субтитра на
- *     чужой речи хуже отказа (§10): бросаем явно, тем же приёмом, что
- *     ворота старого маршрута на дубле `order` (`planAlignedClipTargets`:
- *     «две сцены выравнивания указывают на один и тот же клип»).
+ *     повторяется И среди `planScenes` тоже не повторяется — сопоставление
+ *     по `order` безопасно (неоднозначности нет по построению ни с одной
+ *     стороны), берём его.
+ *  3. Тождество не подтверждено И `order` повторяется — либо среди
+ *     `alignedScenes`, либо среди `planScenes` (фикс-раунд 2, Н-2, ре-ревью:
+ *     дубль ТОЛЬКО в `planScenes` при уникальных `alignedScenes` раньше
+ *     решался `Map`-построением «последний победил» и молча подставлял
+ *     текст чужой сцены — симптом тот же, что у исходного Critical 2, просто
+ *     источник дубля другой). Сопоставить текст с ПРАВИЛЬНОЙ сценой нечем ни
+ *     одним из способов. Показ субтитра на чужой речи хуже отказа (§10):
+ *     бросаем явно, тем же приёмом, что ворота старого маршрута на дубле
+ *     `order` (`planAlignedClipTargets`: «две сцены выравнивания указывают
+ *     на один и тот же клип»).
  */
-function buildScenesByPositionForShotTimeline(
+export function buildScenesByPositionForShotTimeline(
   alignedScenes: readonly AlignedScene[],
   planScenes: readonly ShotTimelineTextScene[],
 ): ReadonlyArray<{ text: string, placement?: SubtitlePlacement } | undefined> {
@@ -4095,14 +4101,33 @@ function buildScenesByPositionForShotTimeline(
     return alignedScenes.map((_, i) => shotTimelineTextOf(planScenes[i]))
   }
 
-  const orderCounts = new Map<number, number>()
-  for (const scene of alignedScenes) orderCounts.set(scene.order, (orderCounts.get(scene.order) ?? 0) + 1)
-  const hasDuplicateOrder = [...orderCounts.values()].some(count => count > 1)
-  if (hasDuplicateOrder) {
+  const alignedOrderCounts = new Map<number, number>()
+  for (const scene of alignedScenes) alignedOrderCounts.set(scene.order, (alignedOrderCounts.get(scene.order) ?? 0) + 1)
+  const hasDuplicateAlignedOrder = [...alignedOrderCounts.values()].some(count => count > 1)
+  if (hasDuplicateAlignedOrder) {
     throw new Error(
       "Кадровые субтитры: у сцен выравнивания повторяется order, а позиционное тождество с планом "
       + "монтажа не подтверждено — сопоставить текст с правильной сценой нельзя. Показ субтитра на "
       + "чужой речи хуже отказа: сборка остановлена, готовым ролик не помечается (§10).",
+    )
+  }
+
+  // Н-2 (ре-ревью фикс-раунда 1): order уникален СРЕДИ alignedScenes, но
+  // `planScenes` мог дублировать его САМ ПО СЕБЕ (Claude иногда присылает
+  // повторяющиеся order — та же реальность, что в `buildSceneClipIndexMap`).
+  // Построение `Map` «последний победил» тихо подставило бы текст ЧУЖОЙ
+  // одноимённой сцены плана — молчаливая подмена того же класса, что и
+  // исходный Critical 2, просто с другой стороны сопоставления.
+  const planOrderCounts = new Map<number, number>()
+  for (const scene of planScenes) planOrderCounts.set(scene.order, (planOrderCounts.get(scene.order) ?? 0) + 1)
+  const neededAmbiguousPlanOrders = [...new Set(alignedScenes.map(s => s.order))]
+    .filter(order => (planOrderCounts.get(order) ?? 0) > 1)
+  if (neededAmbiguousPlanOrders.length > 0) {
+    throw new Error(
+      "Кадровые субтитры: у сцен плана монтажа повторяется order "
+      + `(${neededAmbiguousPlanOrders.join(", ")}), а позиционное тождество с выравниванием не `
+      + "подтверждено — сопоставить текст с правильной сценой нельзя. Показ субтитра на чужой речи "
+      + "хуже отказа: сборка остановлена, готовым ролик не помечается (§10).",
     )
   }
 
@@ -4571,23 +4596,42 @@ export async function runAssembly(
         )
       }
       {
+        // Верхняя граница таймлайна — измеренная длина трека
+        // (`extras.voiceoverDurationSec`), БЕЗ фолбэка на конец последнего
+        // кадра (фикс-раунд 2, Н-5, ре-ревью): фолбэк молча брал число ИЗ
+        // ТЕХ ЖЕ `shots`, которые `assertShotsCoverTrack` обязана против него
+        // же и сверить — проверка хвоста таймлайна вырождалась в тавтологию
+        // (`trackDurationSec === последний.endSec` по построению, PASS
+        // всегда). На кадровом маршруте трек обязан быть измерен — тот же
+        // факт, из которого проставляется сам `shotRouteActive`
+        // (`video-pipeline.ts`), — и отсутствие числа честнее считать браком
+        // входа, чем достраивать его из данных, которые оно же должно
+        // проверять.
+        if (typeof extras?.voiceoverDurationSec !== 'number' || !(extras.voiceoverDurationSec > 0)) {
+          throw new Error(
+            `Кадровый монтаж ролика ${videoId}: измеренная длина трека не доехала до сборки — без неё `
+            + "нечем проверить, что кадры покрывают трек целиком. Сборка остановлена, готовым ролик не "
+            + "помечается (§10)",
+          )
+        }
+
         // Субтитры кадрового маршрута — от АБСОЛЮТНОГО времени трека
         // (`buildTrackSubtitleSegments`), а не от позиции клипа в склейке:
         // `AlignedScene`/`VideoShot` живут в одном пространстве координат
         // (Task 6, главное упрощение задачи — см. shot-subtitles.ts). Текст
         // сопоставляется с `alignedScenes` СТРОГО ПОЗИЦИОННО, а не по `order`
         // (Critical 2, фикс-раунд 1) — `buildScenesByPositionForShotTimeline`
-        // бросит явно, если `order` дублируется и позиционное тождество с
-        // планом не подтверждено (см. её докстринг).
+        // бросит явно, если `order` дублируется (в выравнивании ИЛИ в плане,
+        // Н-2 фикс-раунда 2) и позиционное тождество с планом не подтверждено
+        // (см. её докстринг). Считается ТОЛЬКО при включённых субтитрах
+        // (Н-3, ре-ревью): ролик без субтитров падать из-за дубля order,
+        // которому нечего было бы показывать, не должен.
         const shotTrackAlignedScenes = extras?.alignedScenes ?? []
-        const scenesByPosition = isStoryDriven
-          ? buildScenesByPositionForShotTimeline(shotTrackAlignedScenes, videoPlan.scenes)
-          : []
         const presetMetaForChunks = getPresetByKey(extras?.subtitlePreset)
-        const subtitleSegments = subtitlesEnabled
+        const subtitleSegments = subtitlesEnabled && isStoryDriven
           ? buildTrackSubtitleSegments({
             alignedScenes: shotTrackAlignedScenes,
-            scenesByPosition,
+            scenesByPosition: buildScenesByPositionForShotTimeline(shotTrackAlignedScenes, videoPlan.scenes),
             maxChars: maxCharsForWidth(
               format === 'portrait' ? 1080 : 1920,
               format === 'portrait' ? presetMetaForChunks.fontSizePortrait : presetMetaForChunks.fontSizeLandscape,
@@ -4598,11 +4642,7 @@ export async function runAssembly(
 
         shotTimeline = {
           shots: composeResult.shots,
-          // Верхняя граница таймлайна — измеренная длина трека (тот же вход,
-          // что уже несёт `extras.voiceoverDurationSec`). Кадры по построению
-          // покрывают трек ровно, поэтому конец последнего кадра — тот же
-          // фолбэк, если длина трека почему-то не доехала.
-          trackDurationSec: extras?.voiceoverDurationSec ?? composeResult.shots[composeResult.shots.length - 1]!.endSec,
+          trackDurationSec: extras.voiceoverDurationSec,
           subtitleSegments: subtitleSegments.length > 0 ? subtitleSegments : undefined,
         }
         await appendStepLog(

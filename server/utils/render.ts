@@ -208,6 +208,60 @@ export function buildClipLaneAudioFilter(opts: {
     : `[0:a]volume=${opts.clipLaneVolume.toFixed(3)}[va]`
 }
 
+/** Три звуковые дорожки микса (§6.4) — массивы фильтров и их выходных лейблов для `amix`. */
+export interface AudioMixPlan {
+  audioFilters: string[]
+  mixLabels: string[]
+}
+
+/**
+ * Строит ВСЕ звуковые дорожки микса (клипы/кадры, музыка, voiceover) — чистая
+ * функция, единственная точка, откуда `assembleVideo` берёт `audioFilters`/
+ * `mixLabels` для `-filter_complex` (фикс-раунд 2, Н-4, ре-ревью).
+ *
+ * До этого раунда §6.4 проверялась только на уровне `buildClipLaneAudioFilter`
+ * САМОЙ ПО СЕБЕ — но `assembleVideo` был волен подменить ВЫЗОВ этой функции
+ * литералом (`audioFilters.push('[0:a]volume=1.000[va]')` вместо
+ * `audioFilters.push(buildClipLaneAudioFilter({...}))`), и ни один тест этого
+ * не поймал бы: изолированный юнит на `buildClipLaneAudioFilter` не видит,
+ * ЗОВЁТ ли её вообще `assembleVideo`. Теперь `assembleVideo` строит
+ * `audioFilters`/`mixLabels` ТОЛЬКО через эту функцию — подменить клип-лейн
+ * литералом, не трогая эту функцию, стало невозможно физически (другого
+ * места, где строка для `[va]` формируется, не осталось), а сама функция
+ * проверяется юнит-тестом дословно по всем трём дорожкам сразу.
+ */
+export function buildAudioMixFilters(opts: {
+  hasVoiceover: boolean
+  clipLaneVolume: number
+  voiceoverIntervals?: ReadonlyArray<{ startSec: number, endSec: number }>
+  musicInputIdx: number | null
+  musicLaneVolume: number
+  voiceoverInputIdx: number | null
+  voiceoverGainFilter: string
+}): AudioMixPlan {
+  const audioFilters: string[] = []
+  const mixLabels: string[] = []
+
+  audioFilters.push(buildClipLaneAudioFilter({
+    hasVoiceover: opts.hasVoiceover,
+    clipLaneVolume: opts.clipLaneVolume,
+    voiceoverIntervals: opts.voiceoverIntervals,
+  }))
+  mixLabels.push('[va]')
+
+  if (opts.musicInputIdx !== null) {
+    audioFilters.push(`[${opts.musicInputIdx}:a]volume=${opts.musicLaneVolume.toFixed(3)}[ma]`)
+    mixLabels.push('[ma]')
+  }
+
+  if (opts.voiceoverInputIdx !== null) {
+    audioFilters.push(`[${opts.voiceoverInputIdx}:a]${opts.voiceoverGainFilter}[vo]`)
+    mixLabels.push('[vo]')
+  }
+
+  return { audioFilters, mixLabels }
+}
+
 /**
  * Чистые РЕШЕНИЯ кадровой сборки (Task 6, §5/§8) — без ffmpeg и файловой
  * системы, поэтому проверяются юнит-тестом напрямую. `assembleVideo` вызывает
@@ -1602,43 +1656,27 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
         voiceoverInputIdx = musicInputIdx !== null ? 2 : 1
       }
 
-      const audioFilters: string[] = []
-      const mixLabels: string[] = []
-
-      // Clip-native audio lane. При закадровом голосе приглушаем — но точечно,
-      // если известно, на каких отрезках он звучит. Строка фильтра — из
-      // `buildClipLaneAudioFilter` (§6.4, Important 3 фикс-раунда 1): решение
-      // и его исполнение в ffmpeg-графе не могут разойтись, а сама строка
-      // проверяется юнит-тестом дословно.
-      audioFilters.push(buildClipLaneAudioFilter({
+      // Три дорожки микса — клипы/кадры, музыка (с ducking если есть
+      // voiceover), voiceover (главный голос, громкость приводится к цели:
+      // MiniMax отдаёт −25.8 LUFS, Fish −17.4, разброс 8 LU — без этого смена
+      // модели озвучки уводила громкость всей партии, см. video-tools/loudness.ts;
+      // именно УСИЛЕНИЕМ, а не фильтром loudnorm — тот буферизует три секунды
+      // и отдаёт их с нулевым PTS, дорожка уезжает вперёд относительно
+      // картинки, ролик 24: голос звучал на 3с раньше, фраза начиналась на
+      // чужой сцене). Строятся ОДНИМ вызовом `buildAudioMixFilters` (§6.4,
+      // фикс-раунд 2, Н-4, ре-ревью): единственная точка, где формируются
+      // строки фильтров для `[va]`/`[ma]`/`[vo]` — подменить клип-лейн (или
+      // любую другую дорожку) литералом в обход этой функции больше негде.
+      const musicLaneVolume = hasVoiceover ? musicVolumeWithVoiceover : musicVolume
+      const { audioFilters, mixLabels } = buildAudioMixFilters({
         hasVoiceover,
         clipLaneVolume: shotPlan.clipLaneVolume,
         voiceoverIntervals,
-      }))
-      mixLabels.push('[va]')
-
-      // Music lane (с ducking если есть voiceover)
-      if (musicInputIdx !== null) {
-        const musicLaneVolume = hasVoiceover ? musicVolumeWithVoiceover : musicVolume
-        audioFilters.push(`[${musicInputIdx}:a]volume=${musicLaneVolume.toFixed(3)}[ma]`)
-        mixLabels.push('[ma]')
-      }
-
-      // Voiceover lane (главный голос).
-      //
-      // Громкость приводится к цели, а не берётся «как отдала модель»: MiniMax
-      // отдаёт −25.8 LUFS, Fish −17.4, разброс 8 LU. Без этого смена модели
-      // озвучки уводила громкость всей партии (см. video-tools/loudness.ts).
-      //
-      // Именно УСИЛЕНИЕМ, а не фильтром loudnorm: тот буферизует три секунды и
-      // отдаёт их с нулевым PTS, из-за чего его дорожка уезжает вперёд
-      // относительно картинки. Ролик 24: голос звучал на 3 секунды раньше, фраза
-      // начиналась на чужой сцене — ровно та жалоба, из-за которой всё и
-      // затевалось. Общий уровень доводит второй проход по готовому файлу.
-      if (voiceoverInputIdx !== null) {
-        audioFilters.push(`[${voiceoverInputIdx}:a]${buildVoiceGainFilter(voiceoverLoudness)}[vo]`)
-        mixLabels.push('[vo]')
-      }
+        musicInputIdx,
+        musicLaneVolume,
+        voiceoverInputIdx,
+        voiceoverGainFilter: buildVoiceGainFilter(voiceoverLoudness),
+      })
 
       // Нормализации микса ЗДЕСЬ нет по той же причине: loudnorm в графе сдвигает
       // звук относительно картинки. Уровень всего ролика приводит второй проход по
