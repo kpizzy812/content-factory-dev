@@ -788,10 +788,22 @@ describe("шаг shot_background: идемпотентность, деньги, 
 
   function happyDeps(overrides: Partial<ShotBackgroundStepDeps> = {}): ShotBackgroundStepDeps {
     return {
-      planPrompts: vi.fn(async (promptInput: { shots: Array<{ order: number }>, onUsage?: (u: EditPlanModelUsage) => void }) => {
+      // Текст промпта зависит от idea И от visualStyle (не только от order) —
+      // иначе отпечаток кадра (Ruling I-2: JSON({action, promptText})) не
+      // различал бы смену idea/стиля, и DB-тесты на per-кадровую
+      // идемпотентность проверяли бы не то, что заявлено.
+      planPrompts: vi.fn(async (promptInput: {
+        shots: Array<{ order: number, idea: string | null }>
+        visualStyle: string | null
+        onUsage?: (u: EditPlanModelUsage) => void
+      }) => {
         promptInput.onUsage?.(PROMPT_USAGE)
         return {
-          prompts: promptInput.shots.map(s => ({ order: s.order, prompt: `тестовый промпт ${s.order}`.padEnd(60, "."), purpose: "тест" })),
+          prompts: promptInput.shots.map(s => ({
+            order: s.order,
+            prompt: `тестовый промпт ${s.order}: ${s.idea ?? "без идеи"} / стиль=${promptInput.visualStyle ?? "нет"}`.padEnd(60, "."),
+            purpose: "тест",
+          })),
           usage: PROMPT_USAGE,
         }
       }),
@@ -974,5 +986,190 @@ describe("шаг shot_background: идемпотентность, деньги, 
 
     expect(await prisma.videoShot.count({ where: { videoId } })).toBe(0)
     expect(await prisma.videoAsset.count({ where: { videoId, type: "shot_background" as never } })).toBe(0)
+  })
+
+  // ── Фикс-раунд 1 (ре-ревью): C-1, I-1, I-2, M-A..M-D ──────────────────────
+
+  it("C-1: картинка и генеративное видео в ОДНОЙ попытке — сумма replicate-строк в ledger равна image+video, ни одна не проглочена дедупом", async () => {
+    await makeShot({ order: 0, background: "image", idea: "фон картинкой" })
+    // 10с кадр без ведущего — квантуется в 10с, стоит $0.50.
+    await makeShot({ order: 1, startSec: 10, endSec: 20, background: "video", idea: "фон видео" })
+
+    const deps = happyDeps()
+    const profile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 5 }
+    const result = await runShotBackgrounds(baseShotInput({ profile }), deps)
+
+    expect(deps.generateImage).toHaveBeenCalledTimes(1)
+    expect(deps.generateVideo).toHaveBeenCalledTimes(1)
+
+    const expectedImageCost = 0.025
+    const expectedVideoCost = 10 * 0.05
+    expect(result.costUsd).toBeCloseTo(PROMPT_COST + expectedImageCost + expectedVideoCost, 6)
+
+    // mapStepKeyToService("shot_background", "replicate:flux-dev") ===
+    // mapStepKeyToService("shot_background", "replicate:kling-v1.6-standard-t2v")
+    // === "replicate" — обе модели резолвятся в ОДИН сервис. Дедуп logStepCost
+    // по (videoId, stepKey, service, attempt) без учёта модели раньше глотал
+    // вторую строку целиком (Critical C-1 ре-ревью).
+    const replicateRows = await prisma.aiAuditLog.findMany({
+      where: { videoId, stepKey: "shot_background", service: "replicate" },
+    })
+    const replicateSum = replicateRows.reduce((sum, r) => sum + Number(r.costUsd), 0)
+    expect(replicateSum).toBeCloseTo(expectedImageCost + expectedVideoCost, 6)
+    // Ровно ОДНА строка (обе суммы сложены, а не потеряны) — решение C-1:
+    // складывать в одну строку при совпавшем сервисе, а не расширять общий
+    // дедуп cost-ledger.ts.
+    expect(replicateRows).toHaveLength(1)
+  })
+
+  it("I-1: отказ провайдера на кадре не замерзает в кэше — следующий прогон снова идёт к провайдеру за ЭТИМ кадром", async () => {
+    await makeShot({ order: 0, idea: "фон первого кадра" })
+    await makeShot({ order: 1, idea: "фон второго кадра" })
+
+    let failOrder1 = true
+    const deps1 = happyDeps({
+      generateImage: vi.fn(async (args: { order: number }) => {
+        if (args.order === 1 && failOrder1) throw new Error("сеть недоступна (симуляция)")
+        return { localPath: `/tmp/shot-${args.order}.png`, costUsd: 0.025 }
+      }),
+    })
+    const first = await runShotBackgrounds(baseShotInput(), deps1)
+    expect(first.status).toBe("degraded")
+    expect(deps1.generateImage).toHaveBeenCalledTimes(2)
+
+    // Сеть "восстановилась" — но идемпотентность НЕ должна была заморозить
+    // кадр 1 без фона до ручного перезапуска: деградация исполнения — это
+    // событие среды, а не свойство материала (см. docstring рядом с
+    // cacheKeyToStore в runShotBackgrounds).
+    failOrder1 = false
+    const deps2 = happyDeps()
+    const second = await runShotBackgrounds(baseShotInput(), deps2)
+
+    // Кадр 0 успешно нарисован в первом прогоне — переиспользуется бесплатно.
+    expect(deps2.generateImage).toHaveBeenCalledTimes(1)
+    expect(deps2.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 1 }))
+    expect(second.status).toBe("completed")
+
+    const shots = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+    expect(shots[1]!.status).toBe("completed")
+    expect(shots[1]!.degradeReason).toBeNull()
+  })
+
+  it("I-2: смена visualStyle промахивает ОБЩИЙ ключ и отпечаток кадра — фон перерисовывается", async () => {
+    await makeShot({ order: 0, idea: "фон первого кадра" })
+
+    const deps1 = happyDeps()
+    await runShotBackgrounds(baseShotInput({ visualStyle: "стиль А" }), deps1)
+    expect(deps1.generateImage).toHaveBeenCalledTimes(1)
+
+    const deps2 = happyDeps()
+    const result2 = await runShotBackgrounds(baseShotInput({ visualStyle: "стиль Б" }), deps2)
+
+    // Общий ключ шага промахнулся (visualStyle в нём есть) — промпты просят
+    // заново; реальный текст промпта изменился вместе со стилем (мок это
+    // отражает), значит отпечаток НА КАДР тоже разошёлся — картинка
+    // перерисовывается, а не молча остаётся от старого стиля.
+    expect(deps2.planPrompts).toHaveBeenCalledTimes(1)
+    expect(deps2.generateImage).toHaveBeenCalledTimes(1)
+    expect(result2.status).toBe("completed")
+  })
+
+  it("M-A: ассет есть и отпечаток совпал, но файла на диске нет — перерисовывается, а не тихо теряется", async () => {
+    await makeShot({ order: 0, idea: "фон первого кадра" }) // этот кадр "теряет" файл на диске
+    const shot1 = await makeShot({ order: 1, idea: "фон второго кадра" }) // форсирует промах ОБЩЕГО ключа
+
+    await runShotBackgrounds(baseShotInput(), happyDeps())
+
+    await prisma.videoShot.update({ where: { id: shot1.id }, data: { idea: "фон второго кадра — изменён" } })
+
+    // fileExists лжёт "false" именно для файла кадра 0 (потеря диска —
+    // перезапуск контейнера, другая нода); кадр 1 в любом случае перерисуется,
+    // раз его отпечаток разошёлся вместе с idea.
+    const deps2 = happyDeps({
+      media: {
+        downloadToFile: vi.fn(async () => {}),
+        fileExists: vi.fn(async (path: string) => !path.endsWith("shot-0.png")),
+        ensureDir: vi.fn(async () => {}),
+      },
+    })
+    const result2 = await runShotBackgrounds(baseShotInput(), deps2)
+
+    expect(deps2.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 0 }))
+    expect(deps2.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 1 }))
+    expect(deps2.generateImage).toHaveBeenCalledTimes(2)
+    expect(result2.renderedCount).toBe(2)
+    expect(result2.reusedCount).toBe(0)
+  })
+
+  it("M-B: planPrompts бросает ПОСЛЕ onUsage — оплаченный вызов не теряется, ledger пишется из catch", async () => {
+    await makeShot({ order: 0, idea: "фон кадра" })
+
+    const deps = happyDeps({
+      planPrompts: vi.fn(async (promptInput: { onUsage?: (u: EditPlanModelUsage) => void }) => {
+        promptInput.onUsage?.(PROMPT_USAGE)
+        throw new Error("обрезанный ответ агента (симуляция)")
+      }),
+    })
+
+    await expect(runShotBackgrounds(baseShotInput(), deps)).rejects.toThrow(/обрезанный ответ/)
+
+    const step = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "shot_background" as never } })
+    expect(step?.status).toBe("failed")
+    expect(Number(step!.actualCost)).toBeCloseTo(PROMPT_COST, 6)
+
+    const ledgerRows = await prisma.aiAuditLog.findMany({
+      where: { videoId, stepKey: "shot_background", service: "anthropic" },
+    })
+    expect(ledgerRows).toHaveLength(1)
+    expect(Number(ledgerRows[0]!.costUsd)).toBeCloseTo(PROMPT_COST, 6)
+  })
+
+  it("M-C: VideoShot.costUsd — ФАКТ от провайдера, а не СМЕТА плана (числа разведены нарочно)", async () => {
+    await makeShot({ order: 0, idea: "фон кадра" })
+
+    // Смета плана для одной картинки — $0.025 (тариф flux-dev,
+    // model-specs.ts). Мок провайдера возвращает ДРУГОЕ число: различить
+    // факт и смету можно, только если в VideoShot.costUsd пишется реально
+    // вернувшееся число, а не результат planShotBackgroundExecution.
+    const deps = happyDeps({
+      generateImage: vi.fn(async (args: { order: number }) => ({ localPath: `/tmp/shot-${args.order}.png`, costUsd: 0.031 })),
+    })
+    await runShotBackgrounds(baseShotInput(), deps)
+
+    const shot = await prisma.videoShot.findFirst({ where: { videoId, order: 0 } })
+    expect(Number(shot!.costUsd)).toBeCloseTo(0.031, 6)
+    expect(Number(shot!.costUsd)).not.toBeCloseTo(0.025, 6)
+  })
+
+  it("M-D: ролик целиком на библиотечных фонах — planPrompts не вызван, строки anthropic в ledger нет", async () => {
+    const clip = await prisma.backgroundClip.create({
+      data: { appId, storageKey: StorageKeys.backgroundClip(appId, "libshot1"), sha1: "libshot1", kind: "screen_recording" },
+    })
+    await makeShot({ order: 0, background: "library", backgroundClipId: clip.id, idea: null })
+
+    const deps = happyDeps()
+    const result = await runShotBackgrounds(baseShotInput(), deps)
+
+    expect(deps.planPrompts).toHaveBeenCalledTimes(0)
+    expect(result.costUsd).toBe(0)
+
+    const anthropicRows = await prisma.aiAuditLog.findMany({
+      where: { videoId, stepKey: "shot_background", service: "anthropic" },
+    })
+    expect(anthropicRows).toHaveLength(0)
+  })
+
+  it("backgroundActual хранит ФАКТ произведённого, background (план) не трогается", async () => {
+    // 6с кадр — план просит "video", но потолок $0.30 ниже цены клипа $0.50 —
+    // деградация до картинки. background остаётся "video" (план), а
+    // backgroundActual обязан отражать то, что реально произведено ("image").
+    await makeShot({ order: 0, startSec: 0, endSec: 6, background: "video", idea: "движение камеры" })
+
+    const profile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 0.3 }
+    await runShotBackgrounds(baseShotInput({ profile }), happyDeps())
+
+    const shot = await prisma.videoShot.findFirst({ where: { videoId, order: 0 } })
+    expect(shot!.background).toBe("video")
+    expect(shot!.backgroundActual).toBe("image")
   })
 })
