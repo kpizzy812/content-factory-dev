@@ -491,4 +491,85 @@ describe("composeVideoShots: оркестрация на реальной БД �
     expect(await sha1OfFile(shotsAfterSecond[0]!.assetPath!)).toBe(sha0Before)
     expect((await stat(shotsAfterSecond[0]!.assetPath!)).mtimeMs).toBe(mtime0Before)
   }, 180_000)
+
+  /**
+   * Important 3 финального ревью ветки. Покрытие трека проверялось по
+   * ЗАЯВЛЕННЫМ интервалам `VideoShot`, а ffmpeg не обязан выдать заказанную
+   * длительность: живой замер ревьюера — вырезка `-t 2.000` из источника в
+   * 1.0с даёт файл 1.000000с и EXIT=0. Добивку удержанием кадра имела только
+   * ветка `background_full`; `presenter_full` и `pip` — нет.
+   *
+   * Достижимый путь (`fitPresenterClipsToScenes`): у записи lip-sync нет
+   * соответствующей сцены в ТЕКУЩЕМ выравнивании — клип берётся как есть, к
+   * длине сцены не приводится, а `sceneStartSec` откатывается на
+   * `shot.startSec`. Заказанная длина кадра оказывается втрое больше клипа.
+   * Итог до правки: склейка короче трека, `amix duration=first` режет речь,
+   * ролик помечается готовым — девятый путь §10.
+   */
+  it("Important 3: presenter-исходник короче кадра — собранный файл всё равно равен заявленной длине (presenter_full и pip)", async () => {
+    const { videoId } = await createFixture()
+
+    const shortPresenterPath = join(workDir, "presenter_short.mp4")
+    await renderTestClip(shortPresenterPath, 1.0, 1000) // втрое короче любого из кадров ниже
+    // Фон PiP — ДВИЖУЩИЙСЯ (testsrc), а не заливка: только на нём видно, что
+    // добита была короткая дорожка ВЕДУЩЕГО, а не весь кадр целиком.
+    const bgMovingPath = join(workDir, "bg_pip_moving.mp4")
+    await renderTestClip(bgMovingPath, 4.0, 300)
+
+    // order 0 [0,3) — presenter_full; order 1 [3,6) — pip (фон + ведущий).
+    for (const s of [
+      { order: 0, startSec: 0, endSec: 3, sceneOrder: 7, pipEnabled: false },
+      { order: 1, startSec: 3, endSec: 6, sceneOrder: 8, pipEnabled: true },
+    ]) {
+      await prisma.videoShot.create({
+        data: {
+          videoId, order: s.order, startSec: s.startSec, endSec: s.endSec, sceneOrder: s.sceneOrder,
+          foreground: "presenter", pipEnabled: s.pipEnabled, background: s.order === 1 ? "image" : "none",
+        },
+      })
+    }
+    await prisma.videoAsset.create({
+      data: { videoId, type: "shot_background" as never, order: 1, filePath: bgMovingPath, contentType: "video/mp4" },
+    })
+    await prisma.videoGenerationStep.create({
+      data: {
+        videoId, stepKey: "lip_sync_generation" as never, stepIndex: 5, status: "completed" as never,
+        outputSnapshot: {
+          scenes: [7, 8].map((sceneOrder, index) => ({
+            sceneOrder, sceneIndex: index, sourcePath: shortPresenterPath, outputPath: shortPresenterPath,
+            audioPath: null, spokenLineHash: null, reuseKey: null, durationSec: 1.0, skipped: null,
+          })),
+        },
+      },
+    })
+    const assemblyStep = await prisma.videoGenerationStep.create({
+      data: { videoId, stepKey: "assembly" as never, stepIndex: 6, status: "running" as never },
+    })
+
+    // Выравнивание НЕ содержит сцен 7 и 8 — приводить клип не к чему.
+    const profile = { ...DEFAULT_EDIT_PROFILE, pipEnabled: true }
+    const result = await composeVideoShots(videoId, { id: assemblyStep.id }, [], profile, "portrait")
+
+    expect(result).not.toBeNull()
+    expect(result!.composedCount).toBe(2)
+
+    const shots = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+    const presenterFullSec = await probeMediaDuration(shots[0]!.assetPath!)
+    const pipSec = await probeMediaDuration(shots[1]!.assetPath!)
+
+    // До правки оба файла выходили ~1.0с при заказанных 3.0с — молча, с EXIT=0.
+    expect(presenterFullSec).not.toBeNull()
+    expect(pipSec).not.toBeNull()
+    expect(Math.abs(presenterFullSec! - 3.0)).toBeLessThan(0.15)
+    expect(Math.abs(pipSec! - 3.0)).toBeLessThan(0.15)
+
+    // Добита короткая дорожка ВЕДУЩЕГО, а не итог наложения: фон в хвосте
+    // кадра продолжает жить. Замри-добивка поверх готового PiP дала бы здесь
+    // два одинаковых кадра — длительность сошлась бы, а картинка встала.
+    const tailA = join(workDir, "pip_tail_a.png")
+    const tailB = join(workDir, "pip_tail_b.png")
+    await ffmpeg(["-ss", "1.5", "-i", shots[1]!.assetPath!, "-frames:v", "1", tailA])
+    await ffmpeg(["-ss", "2.5", "-i", shots[1]!.assetPath!, "-frames:v", "1", tailB])
+    expect(await sha1OfFile(tailA)).not.toBe(await sha1OfFile(tailB))
+  }, 180_000)
 })

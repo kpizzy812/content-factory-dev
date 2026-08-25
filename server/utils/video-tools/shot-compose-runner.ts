@@ -24,7 +24,7 @@
  */
 
 import { spawn } from "node:child_process"
-import { mkdir, unlink } from "node:fs/promises"
+import { mkdir, rename, unlink } from "node:fs/promises"
 import { dirname } from "node:path"
 
 import type { ShotComposition } from "./shot-compose"
@@ -45,6 +45,42 @@ const FFMPEG_BIN = process.env.FFMPEG_PATH || process.env.FFMPEG_BIN || "ffmpeg"
 
 /** Кадр короче этого не существует — тот же порог, что у `shot-cut.ts`. */
 const MIN_FRAME_GAP_SEC = 1 / 30
+
+/**
+ * Добивает файл до заказанной длины удержанием последнего кадра, если ffmpeg
+ * выдал КОРОЧЕ (Important 3 финального ревью ветки).
+ *
+ * `-t`/`-shortest` — потолок, а не гарантия: живой замер ревьюера показал, что
+ * вырезка `-t 2.000` из источника длиной 1.0с даёт файл 1.000000с и EXIT=0.
+ * Кадр, вышедший короче своего интервала, укорачивает всю склейку: `amix
+ * duration=first` режет речь по видеодорожке, вожжённые субтитры (они
+ * адресуются временем ВИДЕО) уезжают вместе с картинкой, а ролик получает
+ * статус «готов» — девятый путь §10.
+ *
+ * Защита была только у `background_full`; здесь она общая для ВСЕХ веток,
+ * включая будущие. Звук трогать нельзя никогда (§8) — его и не трогаем:
+ * дорожка кадра синтетическая (`anullsrc`), `buildClipHoldLastFrameArgs`
+ * добивает её тишиной, а не растягивает.
+ *
+ * Длиннее заказанного не добиваем и не режем: усечение — единственный
+ * измеренный отказ (дрейф штатных вырезок ревьюер намерил < 1 мс), а лишний
+ * re-encode на каждом кадре стоит дороже, чем возможные лишние 30 мс хвоста.
+ */
+async function holdShortFileToDuration(path: string, targetSec: number): Promise<boolean> {
+  const actualSec = await probeMediaDuration(path)
+  if (actualSec === null || actualSec >= targetSec - MIN_FRAME_GAP_SEC) return false
+
+  // `holdLastFrameFittedClip` не умеет писать в свой же вход — уводим короткий
+  // файл в сторону, а результат кладём обратно на ожидаемый путь.
+  const shortPath = `${path}.short.mp4`
+  await rename(path, shortPath)
+  try {
+    await holdLastFrameFittedClip(shortPath, path, targetSec - actualSec)
+  } finally {
+    await unlink(shortPath).catch(() => {})
+  }
+  return true
+}
 
 /**
  * Полноэкранный фон: неподвижная картинка получает движение
@@ -173,6 +209,14 @@ async function renderPip(
       durationSec: composition.durationSec,
       outputPath: presenterTemp,
     })
+    // Ведущий короче кадра здесь НЕ добивается намеренно, и это проверено
+    // живым ffmpeg (Important 3, фикс-волна): `overlay` работает с
+    // `eof_action=repeat` по умолчанию, то есть сам удерживает последний кадр
+    // PiP-окна до конца ФОНА, а `-shortest` считает выходные потоки — [vout]
+    // длится столько же, сколько фон. Замер: фон 3.000с + ведущий 1.000с тем
+    // же графом дают выход 3.000000с. Отдельная добивка presenter-временника
+    // была бы мёртвым кодом, а замри-добивка поверх готового наложения ещё и
+    // заморозила бы заодно живой фон.
     const args = buildPipOverlayArgs({
       backgroundPath: bgTemp,
       presenterPath: presenterTemp,
@@ -187,7 +231,15 @@ async function renderPip(
   }
 }
 
-/** Собирает один кадр монтажа в один готовый файл по плану `planShotComposition`. */
+/**
+ * Собирает один кадр монтажа в один готовый файл по плану `planShotComposition`.
+ *
+ * Последним делом — замер готового файла и добивка удержанием кадра, если он
+ * вышел короче заказанного (Important 3 финального ревью). Проверка стоит
+ * ЗДЕСЬ, а не в каждой ветке: так её нельзя забыть в новой ветке композиции,
+ * и она страхует даже те ветки, где добивка уже сделана внутри (`pip`,
+ * `background_full`) — там она просто ничего не находит.
+ */
 export async function renderShotComposition(request: ShotComposeRequest): Promise<void> {
   await mkdir(dirname(request.outputPath), { recursive: true })
   const { composition } = request
@@ -200,7 +252,7 @@ export async function renderShotComposition(request: ShotComposeRequest): Promis
         durationSec: composition.durationSec,
         outputPath: request.outputPath,
       })
-      return
+      break
     case "background_full":
       await renderBackgroundFull({
         backgroundPath: composition.backgroundPath,
@@ -210,8 +262,10 @@ export async function renderShotComposition(request: ShotComposeRequest): Promis
         outputPath: request.outputPath,
         format: request.format,
       })
-      return
+      break
     case "pip":
       await renderPip(composition, request.outputPath, request.format)
   }
+
+  await holdShortFileToDuration(request.outputPath, composition.durationSec)
 }

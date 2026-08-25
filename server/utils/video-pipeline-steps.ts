@@ -3575,7 +3575,7 @@ export async function runShotBackgrounds(
           ...(costForShot === undefined ? {} : { costUsd: costForShot }),
           // Critical 2 финального ревью ветки: собранный кадр
           // (`shot_N_composed.mp4`) не является `VideoAsset` и ни одним
-          // каскадом сброса не сносится, а `composeVideoShots` переиспользует
+          // каскадом сброса не сносится, а `composeVideoShots` переиспускает
           // его по ключу «путь + status=completed + файл существует» —
           // содержимого этот ключ не кодирует. Пока `assetPath` не обнулялся,
           // оператор перезапускал платный шаг фонов, ПЛАТИЛ за новые
@@ -3922,6 +3922,19 @@ async function fitPresenterClipsToScenes(
   return presenterPathBySceneOrder
 }
 
+/**
+ * Допуск сверки ИЗМЕРЕННОЙ длительности собранного кадра с заявленным
+ * интервалом — два кадра сетки 30fps (Important 3 финального ревью).
+ *
+ * Ровно на кадр шире порога добивки в `shot-compose-runner.ts`
+ * (`MIN_FRAME_GAP_SEC = 1/30`): добивка срабатывает, как только файл короче
+ * больше чем на кадр, значит остаток после неё меньше кадра — и честная
+ * деградация здесь не может сработать на дрейфе кодека. Дрейф штатных
+ * вырезок ревьюер намерил < 1 мс, так что запас не съедает защиту: реальный
+ * отказ (источник вдвое короче заказа) она видит с огромным перевесом.
+ */
+const SHOT_MEASURED_TOLERANCE_SEC = 2 / TIMELINE_FPS
+
 /** Один готовый кадр монтажа — вход кадрового таймлайна сборки (Task 6). */
 export interface ComposedShot {
   order: number
@@ -4077,6 +4090,23 @@ export async function composeVideoShots(
 
     try {
       await renderShotComposition({ composition, outputPath, format })
+
+      // Important 3 финального ревью: покрытие трека дальше проверяется по
+      // ЗАЯВЛЕННЫМ интервалам (`assertShotsCoverTrack`), а ffmpeg не обязан
+      // выдать заказанную длительность — `-t`/`-shortest` только потолок.
+      // Здесь заявленное сверяется с ИЗМЕРЕННЫМ ровно один раз, у источника:
+      // `renderShotComposition` уже добила короткий файл удержанием кадра, и
+      // если после этого файл ВСЁ РАВНО короче интервала — кадр деградирует
+      // честно, дыру увидит `assertShotsCoverTrack`, и ролик не дойдёт до
+      // «готов» короче своей речи (§10).
+      const measuredSec = await probeMediaDuration(outputPath)
+      if (measuredSec !== null && measuredSec < composition.durationSec - SHOT_MEASURED_TOLERANCE_SEC) {
+        throw new Error(
+          `собранный файл короче своего интервала: ${measuredSec.toFixed(3)}с вместо ${composition.durationSec.toFixed(3)}с `
+          + "(источник кадра короче заказа, добивка удержанием кадра не помогла)",
+        )
+      }
+
       await prisma.videoShot.update({
         where: { id: original.id },
         data: { assetPath: outputPath, status: "completed", degradeReason: null },
