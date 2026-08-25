@@ -2690,8 +2690,24 @@ model VideoShot {
   sceneOrder       Int?
   /// presenter | none
   foreground       String          @default("none")
-  /// library | image | video | app_screen | none
+  /// library | image | video | app_screen | none — ПЛАН: что решил шаг
+  /// edit_plan (saveShots, после pickBackgroundSource). Шаг shot_background
+  /// это поле НЕ переписывает никогда, даже если исполнение деградировало
+  /// (потолок §7 исчерпан, ссылка на фон исчезла, отказ провайдера) —
+  /// перезапись была бы необратимой: подняли потолок генеративного видео —
+  /// а кадр больше не "просит" видео, потому что забыл, что просил. Что
+  /// реально снято — см. backgroundActual.
   background       String          @default("none")
+  /// library | image | video | app_screen | none — ФАКТ: что реально произвёл шаг
+  /// shot_background после потолка §7 и отказов исполнения. null — шаг ещё
+  /// не исполнялся для этого кадра (только план). Отдельное поле от
+  /// background (ruling ре-ревью Task 4, сомнение Б): без него факт
+  /// восстановим только парсингом VideoAsset.prompt, а таблица кадров в UI и
+  /// перегенерация одного кадра показывали бы оператору план вместо факта.
+  /// В ключ кэша шага НЕ входит — иначе чтение этого поля через сортированный
+  /// отпечаток кадров дало бы петлю (шаг сам меняет то, от чего считает свой
+  /// кэш).
+  backgroundActual String?
   backgroundClipId String?
   backgroundClip   BackgroundClip? @relation(fields: [backgroundClipId], references: [id], onDelete: SetNull)
   /// Скрин приложения как фон: id AppReferenceImage. Отдельным полем, а не

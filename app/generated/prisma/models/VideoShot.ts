@@ -59,6 +59,7 @@ export type VideoShotMinAggregateOutputType = {
   sceneOrder: number | null
   foreground: string | null
   background: string | null
+  backgroundActual: string | null
   backgroundClipId: string | null
   appReferenceId: string | null
   idea: string | null
@@ -81,6 +82,7 @@ export type VideoShotMaxAggregateOutputType = {
   sceneOrder: number | null
   foreground: string | null
   background: string | null
+  backgroundActual: string | null
   backgroundClipId: string | null
   appReferenceId: string | null
   idea: string | null
@@ -103,6 +105,7 @@ export type VideoShotCountAggregateOutputType = {
   sceneOrder: number
   foreground: number
   background: number
+  backgroundActual: number
   backgroundClipId: number
   appReferenceId: number
   idea: number
@@ -145,6 +148,7 @@ export type VideoShotMinAggregateInputType = {
   sceneOrder?: true
   foreground?: true
   background?: true
+  backgroundActual?: true
   backgroundClipId?: true
   appReferenceId?: true
   idea?: true
@@ -167,6 +171,7 @@ export type VideoShotMaxAggregateInputType = {
   sceneOrder?: true
   foreground?: true
   background?: true
+  backgroundActual?: true
   backgroundClipId?: true
   appReferenceId?: true
   idea?: true
@@ -189,6 +194,7 @@ export type VideoShotCountAggregateInputType = {
   sceneOrder?: true
   foreground?: true
   background?: true
+  backgroundActual?: true
   backgroundClipId?: true
   appReferenceId?: true
   idea?: true
@@ -298,6 +304,7 @@ export type VideoShotGroupByOutputType = {
   sceneOrder: number | null
   foreground: string
   background: string
+  backgroundActual: string | null
   backgroundClipId: string | null
   appReferenceId: string | null
   idea: string | null
@@ -343,6 +350,7 @@ export type VideoShotWhereInput = {
   sceneOrder?: Prisma.IntNullableFilter<"VideoShot"> | number | null
   foreground?: Prisma.StringFilter<"VideoShot"> | string
   background?: Prisma.StringFilter<"VideoShot"> | string
+  backgroundActual?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   backgroundClipId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   appReferenceId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   idea?: Prisma.StringNullableFilter<"VideoShot"> | string | null
@@ -368,6 +376,7 @@ export type VideoShotOrderByWithRelationInput = {
   sceneOrder?: Prisma.SortOrderInput | Prisma.SortOrder
   foreground?: Prisma.SortOrder
   background?: Prisma.SortOrder
+  backgroundActual?: Prisma.SortOrderInput | Prisma.SortOrder
   backgroundClipId?: Prisma.SortOrderInput | Prisma.SortOrder
   appReferenceId?: Prisma.SortOrderInput | Prisma.SortOrder
   idea?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -397,6 +406,7 @@ export type VideoShotWhereUniqueInput = Prisma.AtLeast<{
   sceneOrder?: Prisma.IntNullableFilter<"VideoShot"> | number | null
   foreground?: Prisma.StringFilter<"VideoShot"> | string
   background?: Prisma.StringFilter<"VideoShot"> | string
+  backgroundActual?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   backgroundClipId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   appReferenceId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   idea?: Prisma.StringNullableFilter<"VideoShot"> | string | null
@@ -422,6 +432,7 @@ export type VideoShotOrderByWithAggregationInput = {
   sceneOrder?: Prisma.SortOrderInput | Prisma.SortOrder
   foreground?: Prisma.SortOrder
   background?: Prisma.SortOrder
+  backgroundActual?: Prisma.SortOrderInput | Prisma.SortOrder
   backgroundClipId?: Prisma.SortOrderInput | Prisma.SortOrder
   appReferenceId?: Prisma.SortOrderInput | Prisma.SortOrder
   idea?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -452,6 +463,7 @@ export type VideoShotScalarWhereWithAggregatesInput = {
   sceneOrder?: Prisma.IntNullableWithAggregatesFilter<"VideoShot"> | number | null
   foreground?: Prisma.StringWithAggregatesFilter<"VideoShot"> | string
   background?: Prisma.StringWithAggregatesFilter<"VideoShot"> | string
+  backgroundActual?: Prisma.StringNullableWithAggregatesFilter<"VideoShot"> | string | null
   backgroundClipId?: Prisma.StringNullableWithAggregatesFilter<"VideoShot"> | string | null
   appReferenceId?: Prisma.StringNullableWithAggregatesFilter<"VideoShot"> | string | null
   idea?: Prisma.StringNullableWithAggregatesFilter<"VideoShot"> | string | null
@@ -473,6 +485,7 @@ export type VideoShotCreateInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -496,6 +509,7 @@ export type VideoShotUncheckedCreateInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   backgroundClipId?: string | null
   appReferenceId?: string | null
   idea?: string | null
@@ -517,6 +531,7 @@ export type VideoShotUpdateInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -540,6 +555,7 @@ export type VideoShotUncheckedUpdateInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -562,6 +578,7 @@ export type VideoShotCreateManyInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   backgroundClipId?: string | null
   appReferenceId?: string | null
   idea?: string | null
@@ -583,6 +600,7 @@ export type VideoShotUpdateManyMutationInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -603,6 +621,7 @@ export type VideoShotUncheckedUpdateManyInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -640,6 +659,7 @@ export type VideoShotCountOrderByAggregateInput = {
   sceneOrder?: Prisma.SortOrder
   foreground?: Prisma.SortOrder
   background?: Prisma.SortOrder
+  backgroundActual?: Prisma.SortOrder
   backgroundClipId?: Prisma.SortOrder
   appReferenceId?: Prisma.SortOrder
   idea?: Prisma.SortOrder
@@ -671,6 +691,7 @@ export type VideoShotMaxOrderByAggregateInput = {
   sceneOrder?: Prisma.SortOrder
   foreground?: Prisma.SortOrder
   background?: Prisma.SortOrder
+  backgroundActual?: Prisma.SortOrder
   backgroundClipId?: Prisma.SortOrder
   appReferenceId?: Prisma.SortOrder
   idea?: Prisma.SortOrder
@@ -693,6 +714,7 @@ export type VideoShotMinOrderByAggregateInput = {
   sceneOrder?: Prisma.SortOrder
   foreground?: Prisma.SortOrder
   background?: Prisma.SortOrder
+  backgroundActual?: Prisma.SortOrder
   backgroundClipId?: Prisma.SortOrder
   appReferenceId?: Prisma.SortOrder
   idea?: Prisma.SortOrder
@@ -849,6 +871,7 @@ export type VideoShotCreateWithoutAppReferenceInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -871,6 +894,7 @@ export type VideoShotUncheckedCreateWithoutAppReferenceInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   backgroundClipId?: string | null
   idea?: string | null
   pipEnabled?: boolean
@@ -921,6 +945,7 @@ export type VideoShotScalarWhereInput = {
   sceneOrder?: Prisma.IntNullableFilter<"VideoShot"> | number | null
   foreground?: Prisma.StringFilter<"VideoShot"> | string
   background?: Prisma.StringFilter<"VideoShot"> | string
+  backgroundActual?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   backgroundClipId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   appReferenceId?: Prisma.StringNullableFilter<"VideoShot"> | string | null
   idea?: Prisma.StringNullableFilter<"VideoShot"> | string | null
@@ -942,6 +967,7 @@ export type VideoShotCreateWithoutVideoInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -963,6 +989,7 @@ export type VideoShotUncheckedCreateWithoutVideoInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   backgroundClipId?: string | null
   appReferenceId?: string | null
   idea?: string | null
@@ -1010,6 +1037,7 @@ export type VideoShotCreateWithoutBackgroundClipInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   idea?: string | null
   pipEnabled?: boolean
   status?: string
@@ -1032,6 +1060,7 @@ export type VideoShotUncheckedCreateWithoutBackgroundClipInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   appReferenceId?: string | null
   idea?: string | null
   pipEnabled?: boolean
@@ -1079,6 +1108,7 @@ export type VideoShotCreateManyAppReferenceInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   backgroundClipId?: string | null
   idea?: string | null
   pipEnabled?: boolean
@@ -1099,6 +1129,7 @@ export type VideoShotUpdateWithoutAppReferenceInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1121,6 +1152,7 @@ export type VideoShotUncheckedUpdateWithoutAppReferenceInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1142,6 +1174,7 @@ export type VideoShotUncheckedUpdateManyWithoutAppReferenceInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1162,6 +1195,7 @@ export type VideoShotCreateManyVideoInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   backgroundClipId?: string | null
   appReferenceId?: string | null
   idea?: string | null
@@ -1183,6 +1217,7 @@ export type VideoShotUpdateWithoutVideoInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1204,6 +1239,7 @@ export type VideoShotUncheckedUpdateWithoutVideoInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1225,6 +1261,7 @@ export type VideoShotUncheckedUpdateManyWithoutVideoInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   backgroundClipId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1247,6 +1284,7 @@ export type VideoShotCreateManyBackgroundClipInput = {
   sceneOrder?: number | null
   foreground?: string
   background?: string
+  backgroundActual?: string | null
   appReferenceId?: string | null
   idea?: string | null
   pipEnabled?: boolean
@@ -1267,6 +1305,7 @@ export type VideoShotUpdateWithoutBackgroundClipInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1289,6 +1328,7 @@ export type VideoShotUncheckedUpdateWithoutBackgroundClipInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1310,6 +1350,7 @@ export type VideoShotUncheckedUpdateManyWithoutBackgroundClipInput = {
   sceneOrder?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   foreground?: Prisma.StringFieldUpdateOperationsInput | string
   background?: Prisma.StringFieldUpdateOperationsInput | string
+  backgroundActual?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   appReferenceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pipEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -1333,6 +1374,7 @@ export type VideoShotSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   sceneOrder?: boolean
   foreground?: boolean
   background?: boolean
+  backgroundActual?: boolean
   backgroundClipId?: boolean
   appReferenceId?: boolean
   idea?: boolean
@@ -1358,6 +1400,7 @@ export type VideoShotSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   sceneOrder?: boolean
   foreground?: boolean
   background?: boolean
+  backgroundActual?: boolean
   backgroundClipId?: boolean
   appReferenceId?: boolean
   idea?: boolean
@@ -1383,6 +1426,7 @@ export type VideoShotSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   sceneOrder?: boolean
   foreground?: boolean
   background?: boolean
+  backgroundActual?: boolean
   backgroundClipId?: boolean
   appReferenceId?: boolean
   idea?: boolean
@@ -1408,6 +1452,7 @@ export type VideoShotSelectScalar = {
   sceneOrder?: boolean
   foreground?: boolean
   background?: boolean
+  backgroundActual?: boolean
   backgroundClipId?: boolean
   appReferenceId?: boolean
   idea?: boolean
@@ -1421,7 +1466,7 @@ export type VideoShotSelectScalar = {
   updatedAt?: boolean
 }
 
-export type VideoShotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "videoId" | "order" | "startSec" | "endSec" | "sceneOrder" | "foreground" | "background" | "backgroundClipId" | "appReferenceId" | "idea" | "pipEnabled" | "status" | "assetPath" | "costUsd" | "perceptualHash" | "degradeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["videoShot"]>
+export type VideoShotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "videoId" | "order" | "startSec" | "endSec" | "sceneOrder" | "foreground" | "background" | "backgroundActual" | "backgroundClipId" | "appReferenceId" | "idea" | "pipEnabled" | "status" | "assetPath" | "costUsd" | "perceptualHash" | "degradeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["videoShot"]>
 export type VideoShotInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   video?: boolean | Prisma.VideoDefaultArgs<ExtArgs>
   backgroundClip?: boolean | Prisma.VideoShot$backgroundClipArgs<ExtArgs>
@@ -1464,9 +1509,27 @@ export type $VideoShotPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      */
     foreground: string
     /**
-     * library | image | video | app_screen | none
+     * library | image | video | app_screen | none — ПЛАН: что решил шаг
+     * edit_plan (saveShots, после pickBackgroundSource). Шаг shot_background
+     * это поле НЕ переписывает никогда, даже если исполнение деградировало
+     * (потолок §7 исчерпан, ссылка на фон исчезла, отказ провайдера) —
+     * перезапись была бы необратимой: подняли потолок генеративного видео —
+     * а кадр больше не "просит" видео, потому что забыл, что просил. Что
+     * реально снято — см. backgroundActual.
      */
     background: string
+    /**
+     * library | image | video | none — ФАКТ: что реально произвёл шаг
+     * shot_background после потолка §7 и отказов исполнения. null — шаг ещё
+     * не исполнялся для этого кадра (только план). Отдельное поле от
+     * background (ruling ре-ревью Task 4, сомнение Б): без него факт
+     * восстановим только парсингом VideoAsset.prompt, а таблица кадров в UI и
+     * перегенерация одного кадра показывали бы оператору план вместо факта.
+     * В ключ кэша шага НЕ входит — иначе чтение этого поля через сортированный
+     * отпечаток кадров дало бы петлю (шаг сам меняет то, от чего считает свой
+     * кэш).
+     */
+    backgroundActual: string | null
     backgroundClipId: string | null
     /**
      * Скрин приложения как фон: id AppReferenceImage. Отдельным полем, а не
@@ -1928,6 +1991,7 @@ export interface VideoShotFieldRefs {
   readonly sceneOrder: Prisma.FieldRef<"VideoShot", 'Int'>
   readonly foreground: Prisma.FieldRef<"VideoShot", 'String'>
   readonly background: Prisma.FieldRef<"VideoShot", 'String'>
+  readonly backgroundActual: Prisma.FieldRef<"VideoShot", 'String'>
   readonly backgroundClipId: Prisma.FieldRef<"VideoShot", 'String'>
   readonly appReferenceId: Prisma.FieldRef<"VideoShot", 'String'>
   readonly idea: Prisma.FieldRef<"VideoShot", 'String'>

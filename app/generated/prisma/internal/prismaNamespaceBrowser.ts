@@ -1850,6 +1850,7 @@ export const VideoShotScalarFieldEnum = {
   sceneOrder: 'sceneOrder',
   foreground: 'foreground',
   background: 'background',
+  backgroundActual: 'backgroundActual',
   backgroundClipId: 'backgroundClipId',
   appReferenceId: 'appReferenceId',
   idea: 'idea',
