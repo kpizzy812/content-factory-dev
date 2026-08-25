@@ -964,7 +964,7 @@ export interface ClipFitFfmpegArgs {
  * побитово, иначе на стыке клипов вернутся застывшие кадры, ради которых
  * normalizeClip и существует.
  */
-function concatSafeVideoOutputOptions(): string[] {
+export function concatSafeVideoOutputOptions(): string[] {
   return [
     "-c:v", "libx264",
     "-preset", "veryfast",
@@ -1041,15 +1041,27 @@ async function runClipFitFfmpeg(inputPath: string, outputPath: string, args: Cli
   })
 }
 
-/** Обрезает НОРМАЛИЗОВАННЫЙ клип до точной длины (см. `buildClipTrimArgs`). */
-async function trimFittedClip(inputPath: string, outputPath: string, targetDurationSec: number): Promise<void> {
+/**
+ * Обрезает НОРМАЛИЗОВАННЫЙ клип до точной длины (см. `buildClipTrimArgs`).
+ *
+ * Экспортирована (Task 5, «Сборка по кадрам»): кадровая композиция приводит
+ * клип lip-sync к длине его СЦЕНЫ в треке тем же приёмом, что и подгон под
+ * трек здесь — она не самостоятельный маршрут, а ещё один потребитель этой
+ * функции.
+ */
+export async function trimFittedClip(inputPath: string, outputPath: string, targetDurationSec: number): Promise<void> {
   const audioPresent = await hasAudioStream(inputPath)
   const args = buildClipTrimArgs(targetDurationSec, audioPresent)
   await runClipFitFfmpeg(inputPath, outputPath, args, `Не удалось обрезать клип ${inputPath} до ${targetDurationSec.toFixed(2)}s`)
 }
 
-/** Удерживает последний кадр НОРМАЛИЗОВАННОГО клипа (см. `buildClipHoldLastFrameArgs`). */
-async function holdLastFrameFittedClip(inputPath: string, outputPath: string, extraSec: number): Promise<void> {
+/**
+ * Удерживает последний кадр НОРМАЛИЗОВАННОГО клипа (см. `buildClipHoldLastFrameArgs`).
+ *
+ * Экспортирована по той же причине, что и `trimFittedClip` — потребитель
+ * Task 5.
+ */
+export async function holdLastFrameFittedClip(inputPath: string, outputPath: string, extraSec: number): Promise<void> {
   const audioPresent = await hasAudioStream(inputPath)
   const args = buildClipHoldLastFrameArgs(extraSec, audioPresent)
   await runClipFitFfmpeg(inputPath, outputPath, args, `Не удалось удержать последний кадр клипа ${inputPath} на ${extraSec.toFixed(2)}s`)

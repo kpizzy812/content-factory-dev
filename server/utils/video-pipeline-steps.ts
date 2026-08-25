@@ -12,6 +12,7 @@ import {
   planStillSceneDuration,
   VOICE_LEAD_IN_SEC,
   VOICE_TAIL_SEC,
+  TIMELINE_FPS,
 } from "~~/shared/types/video-runtime"
 import type { SceneImagePrompts } from "./video-helpers"
 import { type DeviceType, buildDeviceNegativesForScene } from "~~/shared/utils/video-prompt-helpers"
@@ -28,7 +29,7 @@ import {
 import { getAccountStyleContext, formatAccountStyleForPrompt } from "./account-style-context"
 import { getAppScenarioContext, formatAppContextForPrompt } from "./app-context"
 import { synthesizeSpeech, buildVoiceoverTrack, type TtsSynthesisOptions, type TtsSynthesisResult } from "./tts"
-import { adjustAudioTempo, trimAudio, probeSceneClipDurations, probeMediaDuration, extendVideoClip, planClipExtension } from "./render"
+import { adjustAudioTempo, trimAudio, probeSceneClipDurations, probeMediaDuration, extendVideoClip, planClipExtension, trimFittedClip, holdLastFrameFittedClip } from "./render"
 import { mergeScriptLines } from "./voiceover/script-merge"
 import { buildTrackRequest, type TrackPause } from "./voiceover/track-builder"
 import { insertVoiceoverPauses } from "./voiceover/insert-pauses"
@@ -55,7 +56,7 @@ import { planShotBackgroundExecution, type PlannedShotRow, type ShotBackgroundAc
 import { planShotBackgroundPrompts, type ShotPromptInput, type ShotPromptRequest, type ShotPromptResult } from "./agents/shot-background-prompt-agent"
 import { materializeBackgroundClip, materializeAppReference, type ShotMediaDeps, type BackgroundClipRef, type AppReferenceRef } from "./edit-plan/shot-media-store"
 import { calculateAnthropicCost } from "./ai-pricing"
-import type { ResolvedEditProfile } from "./edit-plan/profile"
+import { resolveEditProfile, type ResolvedEditProfile } from "./edit-plan/profile"
 import type { PlannedShotWithCost } from "./edit-plan/types"
 import { estimateMediaCost, findMediaSpec } from "./media-provider/registry"
 import { REPLICATE_KLING_16_DURATIONS, replicateVideoBilling } from "./media-provider/model-specs"
@@ -68,6 +69,11 @@ import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
 import { planAlignedClipTargets, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
+import { planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
+import { renderShotComposition } from "./video-tools/shot-compose-runner"
+import { readPreviousSceneRecords } from "./presenter/lip-sync-progress"
+import { markLipSynced } from "./lip-sync-runner"
+import { snapSecToFrame } from "./voiceover/segment-cut"
 import { planRemotionOverlays } from "./remotion/overlay-plan"
 import { renderRemotionOverlays } from "./remotion/render"
 import {
@@ -3695,6 +3701,243 @@ export async function runMusicGeneration(
 
 // ─── Шаг 5: Сборка видео ───────────────────────────────────────
 
+// ─── Кадровая композиция (Task 5 плана «Сборка по кадрам», §6.3/§8) ────────
+//
+// Живёт внутри шага "assembly" целиком (решение контроллера, а не моё —
+// см. progress.md: платных вызовов нет, отдельный ключ шага дал бы лишние
+// точки регистрации ради бесплатной операции). Действует ТОЛЬКО когда у
+// ролика есть строки `VideoShot` — они появляются исключительно на кадровом
+// маршруте («монтаж от звука», шаг `edit_plan`); на старом маршруте таких
+// строк нет никогда, и весь блок ниже не исполняется вовсе.
+//
+// Конкатенация готовых файлов кадров в единый ролик — задача следующей
+// задачи плана (Task 6, «Сборка по кадрам, субтитры по абсолютному
+// времени»). Здесь только материализация ОДНОГО файла на кадр и запись его
+// пути в `VideoShot.assetPath` — интерфейсная точка, которую Task 6
+// потребляет (см. таблицу конфликтов плана, пара «4 → 6»).
+
+/** Вид фона по факту на диске — а не по `VideoShot.background` (план мог сказать
+ * одно, деградация исполнения дала другое, и после деградации `video → image`
+ * поле плана продолжает врать — см. Task 4). `VideoAsset.contentType`
+ * шаг `shot_background` сегодня не заполняет ни для одного действия
+ * (грепом подтверждено: `assetData` в `runShotBackgrounds` этого поля не
+ * содержит) — поэтому решающим остаётся расширение файла, который реально
+ * лежит на диске; `contentType` проверяется первым на случай, если шаг
+ * когда-нибудь начнёт его писать. */
+function shotBackgroundIsStill(asset: { contentType: string | null, filePath: string }): boolean {
+  if (asset.contentType) {
+    if (asset.contentType.startsWith("video/")) return false
+    if (asset.contentType.startsWith("image/")) return true
+  }
+  return !/\.(mp4|mov|webm)$/i.test(asset.filePath)
+}
+
+/**
+ * Приводит клип lip-sync каждой сцены к длине этой сцены В ТРЕКЕ (§8):
+ * длину исходника задаёт окно записи/библиотечный клип, а не кусок трека, и
+ * её нигде в проекте не измеряют, кроме как здесь. Возвращает карту
+ * `sceneOrder → путь`, из которой берётся `ShotSources.presenterPath`.
+ *
+ * Возвращаемый путь для ПРИВЕДЁННОГО (обрезанного/удержанного) клипа
+ * заново брендируется `markLipSynced` — это не блуждающий каст: источник
+ * уже был `LipSyncedClipPath` (гарантия §6.3), а обрезка/удержание кадра
+ * не трогают ни лицо, ни порядок shot→lip-sync→PiP, на котором держится
+ * сам бренд. Единственный МИНТ бренда с нуля остаётся в lip-sync-runner.ts.
+ */
+async function fitPresenterClipsToScenes(
+  videoId: number,
+  step: { id: number },
+  alignedScenes: readonly AlignedScene[],
+): Promise<Map<number, NonNullable<ShotSources["presenterPath"]>>> {
+  const lipSyncStep = await ensureStep(videoId, "lip_sync_generation", STEP_ORDER.indexOf("lip_sync_generation"))
+  const sceneRecords = readPreviousSceneRecords(lipSyncStep.outputSnapshot)
+  const alignedSceneByOrder = new Map(alignedScenes.map(s => [s.order, s]))
+  const assetsDir = getAssetsDir(videoId)
+
+  const presenterPathBySceneOrder = new Map<number, NonNullable<ShotSources["presenterPath"]>>()
+
+  for (const record of sceneRecords.values()) {
+    if (!record.outputPath) continue
+
+    const measuredSec = await probeMediaDuration(record.outputPath)
+    if (measuredSec === null) {
+      await appendStepLog(step.id, `Кадровый монтаж: клип сцены ${record.sceneOrder} не измеряется — ведущий этой сцены недоступен`)
+      continue
+    }
+
+    const alignedScene = alignedSceneByOrder.get(record.sceneOrder)
+    if (!alignedScene) {
+      // Запись lip-sync без границ в ТЕКУЩЕМ выравнивании (рассинхрон
+      // снапшотов) — используем клип как есть, приводить не к чему.
+      presenterPathBySceneOrder.set(record.sceneOrder, record.outputPath)
+      continue
+    }
+
+    const targetSec = snapSecToFrame(Math.max(0, alignedScene.endSec - alignedScene.startSec), TIMELINE_FPS)
+    const diffSec = measuredSec - targetSec
+    if (targetSec <= 0 || Math.abs(diffSec) <= 1 / TIMELINE_FPS) {
+      presenterPathBySceneOrder.set(record.sceneOrder, record.outputPath)
+      continue
+    }
+
+    const fittedPath = join(assetsDir, `scene_${record.sceneOrder}_lipsync_fit.mp4`)
+    if (diffSec > 0) {
+      await trimFittedClip(record.outputPath, fittedPath, targetSec)
+      await appendStepLog(
+        step.id,
+        `Кадровый монтаж: клип сцены ${record.sceneOrder} обрезан до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
+      )
+    } else {
+      await holdLastFrameFittedClip(record.outputPath, fittedPath, targetSec - measuredSec)
+      await appendStepLog(
+        step.id,
+        `Кадровый монтаж: клип сцены ${record.sceneOrder} удлинён удержанием кадра до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
+      )
+    }
+    presenterPathBySceneOrder.set(record.sceneOrder, markLipSynced(fittedPath))
+  }
+
+  return presenterPathBySceneOrder
+}
+
+/**
+ * Собирает по одному готовому файлу на каждый кадр (`VideoShot`) ролика:
+ * фон, ведущий или их PiP-наложение. Возвращает `null`, если у ролика нет
+ * ни одной строки `VideoShot` — старый маршрут не задет вовсе.
+ */
+async function composeVideoShots(
+  videoId: number,
+  step: { id: number },
+  alignedScenes: readonly AlignedScene[],
+  profile: ResolvedEditProfile,
+  format: "portrait" | "landscape",
+): Promise<{ composedCount: number, degradedCount: number } | null> {
+  const shotsRaw = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+  if (shotsRaw.length === 0) return null
+
+  await appendStepLog(step.id, `Кадровый монтаж: собираю ${shotsRaw.length} кадров (фон + ведущий + PiP)`)
+
+  const backgroundAssetsRaw = await prisma.videoAsset.findMany({
+    where: { videoId, type: "shot_background" as never },
+    select: { order: true, filePath: true, contentType: true },
+  })
+  // Ассета нет ИЛИ файла нет на диске — фона у кадра нет: кадр уходит в
+  // `mergeUnrenderableShots`, а не падает с ошибкой чтения файла на рендере.
+  const backgroundByShotOrder = new Map<number, { filePath: string, contentType: string | null }>()
+  for (const asset of backgroundAssetsRaw) {
+    if (!asset.filePath) continue
+    if (!(await defaultShotFileExists(asset.filePath))) continue
+    backgroundByShotOrder.set(asset.order, { filePath: asset.filePath, contentType: asset.contentType })
+  }
+
+  const presenterPathBySceneOrder = await fitPresenterClipsToScenes(videoId, step, alignedScenes)
+
+  const shotHasSource = (shot: (typeof shotsRaw)[number]): boolean => {
+    const hasBackground = backgroundByShotOrder.has(shot.order)
+    const hasPresenter = shot.sceneOrder !== null && presenterPathBySceneOrder.has(shot.sceneOrder)
+    return hasBackground || hasPresenter
+  }
+
+  const { shots: effectiveShots, mergedOrders } = mergeUnrenderableShots(shotsRaw, shotHasSource)
+  const shotById = new Map(shotsRaw.map(s => [s.order, s]))
+
+  if (mergedOrders.length > 0) {
+    await appendStepLog(
+      step.id,
+      `Кадровый монтаж: кадры без источника (${mergedOrders.join(", ")}) слиты с соседями — таймлайн не рвётся`,
+    )
+    for (const order of mergedOrders) {
+      const donor = shotById.get(order)
+      if (!donor) continue
+      await prisma.videoShot.update({
+        where: { id: donor.id },
+        data: {
+          status: "degraded",
+          degradeReason: "нет ни фона, ни ведущего — интервал поглощён соседним кадром",
+          assetPath: null,
+        },
+      })
+    }
+  }
+
+  if (effectiveShots.length === 0) {
+    throw new Error(
+      `Кадровый монтаж ролика ${videoId}: ни у одного кадра нет ни фона, ни ведущего — под трек нечего показывать (§10)`,
+    )
+  }
+
+  const canvas = format === "landscape" ? { w: 1920, h: 1080 } : { w: 1080, h: 1920 }
+  const assetsDir = getAssetsDir(videoId)
+  let composedCount = 0
+  let degradedCount = 0
+
+  for (const shot of effectiveShots) {
+    const original = shotById.get(shot.order)!
+    const bgAsset = backgroundByShotOrder.get(shot.order) ?? null
+    const presenterPath = shot.sceneOrder !== null ? presenterPathBySceneOrder.get(shot.sceneOrder) ?? null : null
+    const alignedScene = shot.sceneOrder !== null
+      ? alignedScenes.find(s => s.order === shot.sceneOrder)
+      : undefined
+
+    const sources: ShotSources = {
+      presenterPath,
+      // Смещение подотрезка внутри сцены считается от начала СЦЕНЫ в треке —
+      // это `alignedScene.startSec`, а не плановый `VideoShot.startSec`
+      // самого первого кадра сцены (они совпадают в штатном случае, но
+      // выравнивание — источник истины по треку).
+      sceneStartSec: alignedScene?.startSec ?? shot.startSec,
+      backgroundPath: bgAsset?.filePath ?? null,
+      backgroundIsStill: bgAsset ? shotBackgroundIsStill(bgAsset) : true,
+    }
+
+    const composition = planShotComposition({
+      shot: { order: shot.order, startSec: shot.startSec, endSec: shot.endSec, pipEnabled: shot.pipEnabled, foreground: shot.foreground },
+      sources,
+      profile: { pipPosition: profile.pipPosition, pipSize: profile.pipSize, pipEnabled: profile.pipEnabled },
+      canvasWidth: canvas.w,
+      canvasHeight: canvas.h,
+      fps: TIMELINE_FPS,
+    })
+
+    if (!composition) {
+      // mergeUnrenderableShots уже отфильтровал такие кадры выше — сюда
+      // попасть не должен, но рассинхрон источников между проходами не
+      // исключён полностью, и молчаливая потеря кадра хуже явной деградации.
+      await prisma.videoShot.update({
+        where: { id: original.id },
+        data: { status: "degraded", degradeReason: "источники кадра пропали между планированием и композицией", assetPath: null },
+      })
+      degradedCount += 1
+      continue
+    }
+
+    const outputPath = join(assetsDir, `shot_${shot.order}_composed.mp4`)
+    try {
+      await renderShotComposition({ composition, outputPath, format })
+      await prisma.videoShot.update({
+        where: { id: original.id },
+        data: { assetPath: outputPath, status: "completed", degradeReason: null },
+      })
+      composedCount += 1
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await prisma.videoShot.update({
+        where: { id: original.id },
+        data: { status: "degraded", degradeReason: `композиция не удалась: ${message.slice(0, 300)}`, assetPath: null },
+      })
+      await appendStepLog(step.id, `Кадровый монтаж: кадр ${shot.order} не собран — ${message.slice(0, 200)}`)
+      degradedCount += 1
+    }
+  }
+
+  if (composedCount === 0) {
+    throw new Error(`Кадровый монтаж ролика ${videoId}: ни один кадр не собрался — под трек нечего показывать (§10)`)
+  }
+
+  await appendStepLog(step.id, `Кадровый монтаж: собрано ${composedCount} кадров, деградировало ${degradedCount}`)
+  return { composedCount, degradedCount }
+}
+
 export async function runAssembly(
   videoId: number,
   clipPaths: string[],
@@ -3738,6 +3981,19 @@ export async function runAssembly(
      * НЕЧЕМ, если неизвестно, до какой секунды тянуть последний кадр.
      */
     voiceoverDurationSec?: number
+    /**
+     * Кадровый монтаж (Task 5/6 плана «Сборка по кадрам») спланирован для
+     * этого ролика — у него есть строки `VideoShot`. Явный флаг, а НЕ
+     * самостоятельный запрос `runAssembly` к БД: функцию напрямую дёргают
+     * несколько чистых DB-free тестов (`tests/unit/fixes/assembly-*.spec.ts`
+     * и другие), которые мокают только `video-pipeline-db.ts` и глобалы
+     * рендера, но не `prisma` — необусловленный поход в БД внутри `runAssembly`
+     * уводил бы их в реальное сетевое соединение и валил бы чистую сьюту.
+     * Значение проставляет вызывающий (`video-pipeline.ts`, Task 6) по факту
+     * состоявшегося `runVideoEditPlan`/`saveShots`; не передан — блок ниже не
+     * исполняется вовсе, старый маршрут не задет ни на бит.
+     */
+    shotRouteActive?: boolean
   },
 ): Promise<{ filePath: string; duration: number }> {
   const step = await ensureStep(videoId, "assembly", 5)
@@ -4041,6 +4297,38 @@ export async function runAssembly(
           + "длиннее собственной озвучки; сборка остановлена до рендера, готовым ролик не помечается",
         )
       }
+    }
+
+    // ── Кадровая композиция (Task 5, §6.3/§8) ──────────────────────────────
+    //
+    // Собирает по одному готовому файлу на каждый VideoShot — фон, ведущий
+    // или их PiP. Действует ТОЛЬКО когда вызывающий явно подтвердил кадровый
+    // маршрут (`extras.shotRouteActive`) — НЕ по самостоятельному запросу к
+    // БД: `runAssembly` вызывают напрямую несколько чистых DB-free тестов, не
+    // мокающих `prisma`, и необусловленный `prisma.videoShot.count(...)` увёл
+    // бы их в реальное сетевое соединение (см. докстринг поля). Конкатенация
+    // готовых файлов кадров в ролик — задача следующей задачи плана (Task 6);
+    // здесь только материализация каждого кадра и запись его пути в
+    // VideoShot.assetPath.
+    if (extras?.shotRouteActive) {
+      const videoForProfile = await prisma.video.findUnique({
+        where: { id: videoId },
+        select: { editProfileId: true, editOverrides: true, editProfile: true, applicationId: true },
+      })
+      const appDefaultEditProfile = videoForProfile && !videoForProfile.editProfile && videoForProfile.applicationId
+        ? await prisma.editProfile.findFirst({ where: { appId: videoForProfile.applicationId, isDefault: true } })
+        : null
+      const resolvedShotProfile = resolveEditProfile(
+        (videoForProfile?.editProfile ?? appDefaultEditProfile) as unknown as Partial<ResolvedEditProfile> | null,
+        videoForProfile?.editOverrides,
+      )
+      await composeVideoShots(
+        videoId,
+        step,
+        extras?.alignedScenes ?? [],
+        resolvedShotProfile,
+        format === "landscape" ? "landscape" : "portrait",
+      )
     }
 
     // Keyword pre-pass — только для пресетов с needsKeywordDetection=true. При выключенных
