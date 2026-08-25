@@ -122,6 +122,92 @@ export interface ShotAssemblyPlan {
   subtitleSource: "shots" | "clips" | "legacy"
 }
 
+/** Допуск покрытия таймлайна — один кадр 30fps-сетки, не численная погрешность суммирования. */
+const SHOT_COVERAGE_TOLERANCE_SEC = 1 / TIMELINE_FPS
+
+/**
+ * Проверяет, что отсортированные по `order` кадры покрывают трек ЦЕЛИКОМ и
+ * встык, без разрывов (фикс-раунд 1, Critical 1).
+ *
+ * `composeVideoShots` кладёт в `shots` только успешно собранные кадры —
+ * деградировавший (битый источник, упавший ffmpeg) выпадает из списка
+ * ВМЕСТЕ со своим интервалом. `mergeUnrenderableShots` закрывает только
+ * кадры БЕЗ источников (решается на этапе планирования); кадр, у которого
+ * источник был, а рендер упал, этим слиянием не покрыт — дыра долетает
+ * досюда. Без этой проверки `amix duration=first` в `assembleVideo` тихо
+ * обрежет микс по видео-дорожке короче трека: несколько секунд речи
+ * пропадут из готового ролика, а он получит статус «готов» — прямое
+ * нарушение §10 («под непрерывную речь показывать нечего» относится и к
+ * ЧАСТИЧНОЙ потере, не только к полной).
+ *
+ * Проверяются три вещи: первый кадр начинается в нуле, последний кадр
+ * заканчивается на `trackDurationSec`, каждая пара соседних кадров
+ * стыкуется без зазора. Не сошлось — тот же класс отказа, что у пустого
+ * списка: честный throw, а не молчаливая короткая склейка.
+ */
+function assertShotsCoverTrack(
+  orderedShots: ReadonlyArray<{ order: number, startSec: number, endSec: number, path: string }>,
+  trackDurationSec: number,
+): void {
+  const first = orderedShots[0]!
+  if (Math.abs(first.startSec - 0) > SHOT_COVERAGE_TOLERANCE_SEC) {
+    throw new Error(
+      `Кадровый монтаж: кадры не покрывают начало трека — первый кадр (order ${first.order}) `
+      + `начинается на ${first.startSec.toFixed(3)}с, а не на 0с. Деградировавший кадр выпал из `
+      + "таймлайна вместе со своим интервалом — сборка остановлена, готовым ролик не помечается (§10).",
+    )
+  }
+
+  for (let i = 1; i < orderedShots.length; i += 1) {
+    const prev = orderedShots[i - 1]!
+    const cur = orderedShots[i]!
+    if (Math.abs(cur.startSec - prev.endSec) > SHOT_COVERAGE_TOLERANCE_SEC) {
+      throw new Error(
+        `Кадровый монтаж: разрыв в таймлайне между кадром order ${prev.order} (до ${prev.endSec.toFixed(3)}с) `
+        + `и кадром order ${cur.order} (с ${cur.startSec.toFixed(3)}с) — деградировавший кадр выпал из `
+        + "таймлайна вместе со своим интервалом. Сборка остановлена, готовым ролик не помечается (§10).",
+      )
+    }
+  }
+
+  const last = orderedShots[orderedShots.length - 1]!
+  if (Math.abs(last.endSec - trackDurationSec) > SHOT_COVERAGE_TOLERANCE_SEC) {
+    throw new Error(
+      `Кадровый монтаж: кадры не покрывают конец трека — последний кадр (order ${last.order}) `
+      + `заканчивается на ${last.endSec.toFixed(3)}с, а трек длится ${trackDurationSec.toFixed(3)}с. `
+      + "Деградировавший кадр выпал из таймлайна вместе со своим интервалом — часть речи осталась бы "
+      + "без картинки. Сборка остановлена, готовым ролик не помечается (§10).",
+    )
+  }
+}
+
+/**
+ * Строка ffmpeg-фильтра дорожки клипов/кадров в аудио-миксе (§6.4).
+ *
+ * Извлечена в чистую функцию (фикс-раунд 1, Important 3, ревью): без неё
+ * «дорожки кадров в ноль» проверялась только на уровне `ShotAssemblyPlan`
+ * (`clipLaneVolume`), а сам ffmpeg-граф оставался непроверенным — литерал
+ * `volume=1.000` вместо `${shotPlan.clipLaneVolume}` проходил всю чистую
+ * сьюту (2819 тестов) И живой DB-прогон незамеченным. Теперь строка графа —
+ * прямой выход этой функции, и подмена внутри нее ловится юнит-тестом
+ * дословно по тексту фильтра.
+ */
+export function buildClipLaneAudioFilter(opts: {
+  hasVoiceover: boolean
+  clipLaneVolume: number
+  voiceoverIntervals?: ReadonlyArray<{ startSec: number, endSec: number }>
+}): string {
+  if (!opts.hasVoiceover) return `[0:a]volume=1.000[va]`
+
+  const duckWindows = (opts.voiceoverIntervals ?? [])
+    .filter(i => Number.isFinite(i.startSec) && Number.isFinite(i.endSec) && i.endSec > i.startSec)
+    .map(i => `between(t,${i.startSec.toFixed(2)},${i.endSec.toFixed(2)})`)
+
+  return duckWindows.length > 0
+    ? `[0:a]volume=${opts.clipLaneVolume.toFixed(3)}:enable='${duckWindows.join('+')}'[va]`
+    : `[0:a]volume=${opts.clipLaneVolume.toFixed(3)}[va]`
+}
+
 /**
  * Чистые РЕШЕНИЯ кадровой сборки (Task 6, §5/§8) — без ffmpeg и файловой
  * системы, поэтому проверяются юнит-тестом напрямую. `assembleVideo` вызывает
@@ -162,6 +248,7 @@ export function planShotAssembly(options: {
       )
     }
     const orderedShots = [...shotTimeline.shots].sort((a, b) => a.order - b.order)
+    assertShotsCoverTrack(orderedShots, shotTimeline.trackDurationSec)
     return {
       usesClipTrackAlignment: false,
       concatPaths: orderedShots.map(shot => shot.path),
@@ -1519,17 +1606,15 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
       const mixLabels: string[] = []
 
       // Clip-native audio lane. При закадровом голосе приглушаем — но точечно,
-      // если известно, на каких отрезках он звучит.
-      if (hasVoiceover) {
-        const duckWindows = (voiceoverIntervals ?? [])
-          .filter(i => Number.isFinite(i.startSec) && Number.isFinite(i.endSec) && i.endSec > i.startSec)
-          .map(i => `between(t,${i.startSec.toFixed(2)},${i.endSec.toFixed(2)})`)
-        audioFilters.push(duckWindows.length > 0
-          ? `[0:a]volume=${shotPlan.clipLaneVolume.toFixed(3)}:enable='${duckWindows.join('+')}'[va]`
-          : `[0:a]volume=${shotPlan.clipLaneVolume.toFixed(3)}[va]`)
-      } else {
-        audioFilters.push(`[0:a]volume=1.000[va]`)
-      }
+      // если известно, на каких отрезках он звучит. Строка фильтра — из
+      // `buildClipLaneAudioFilter` (§6.4, Important 3 фикс-раунда 1): решение
+      // и его исполнение в ffmpeg-графе не могут разойтись, а сама строка
+      // проверяется юнит-тестом дословно.
+      audioFilters.push(buildClipLaneAudioFilter({
+        hasVoiceover,
+        clipLaneVolume: shotPlan.clipLaneVolume,
+        voiceoverIntervals,
+      }))
       mixLabels.push('[va]')
 
       // Music lane (с ducking если есть voiceover)

@@ -12,6 +12,17 @@
  * не нужно вовсе: перестановка сцен на входе ничего не меняет в выходе,
  * потому что мы нигде не читаем ИНДЕКС сцены во входном массиве, только её
  * собственные абсолютные границы.
+ *
+ * Текст и раскладка каждой сцены приходят СТРОГО ПОЗИЦИОННО (`scenesByPosition`),
+ * а НЕ картой по `order` (фикс-раунд 1, Critical 2, ревью). `AlignedScene.order`
+ * может дублироваться — задокументированная реальность проекта
+ * (`transcription/align.ts`, WARN в `lip-sync-runner.ts`) — и карта по `order`
+ * положила бы текст одной сцены на речь другой: обе одноимённые сцены достали
+ * бы из карты один и тот же (последний записанный) текст. Решение, откуда
+ * взять `scenesByPosition[i]` для сцены с дублирующимся `order`, принимает
+ * ВЫЗЫВАЮЩИЙ (`video-pipeline-steps.ts`, `buildScenesByPositionForShotTimeline`) —
+ * этот модуль про дубли ничего не знает и знать не должен: позиция уже
+ * однозначна по построению массива.
  */
 
 import { chunkSceneSpeech } from "../subtitles/phrase-chunker"
@@ -22,8 +33,13 @@ import type { SubtitlePlacement } from "~~/shared/types/story"
 
 export interface TrackSubtitleInput {
   alignedScenes: readonly AlignedScene[]
-  /** Текст и раскладка сцены сценария по её order. */
-  scenesByOrder: ReadonlyMap<number, { text: string; placement?: SubtitlePlacement }>
+  /**
+   * Текст и раскладка сцены, СТРОГО ПОЗИЦИОННО: `scenesByPosition[i]`
+   * относится к `alignedScenes[i]` (тот же индекс во входном массиве, а не
+   * `order` сцены). `undefined` на позиции — сцене нечего показывать (нет
+   * текста или сцена не сопоставилась с планом монтажа).
+   */
+  scenesByPosition: ReadonlyArray<{ text: string; placement?: SubtitlePlacement } | undefined>
   maxChars?: number
 }
 
@@ -35,16 +51,20 @@ const DEFAULT_PLACEMENT: SubtitlePlacement = { position: "bottom", alignment: "c
  *
  * Сцены сортируются по `startSec` — вход не обязан идти в порядке трека (см.
  * тест «позиционного сопоставления нет вовсе»), а сегменты на выходе обязаны
- * идти по возрастанию времени. Сцена без текста сценария (либо отсутствующая
- * в `scenesByOrder` вовсе) субтитра не получает и хвост остальных сцен не
+ * идти по возрастанию времени. Сортируются ИНДЕКСЫ, а не сами объекты сцен —
+ * иначе позиционная пара `alignedScenes[i] ↔ scenesByPosition[i]` потерялась
+ * бы при перестановке. Сцена без текста сценария (либо без записи в
+ * `scenesByPosition` вовсе) субтитра не получает и хвост остальных сцен не
  * сдвигает — у каждой сцены свои границы, независимые от соседей.
  */
 export function buildTrackSubtitleSegments(input: TrackSubtitleInput): AssSegmentInput[] {
   const segments: AssSegmentInput[] = []
-  const sortedScenes = [...input.alignedScenes].sort((a, b) => a.startSec - b.startSec)
+  const indices = input.alignedScenes.map((_, i) => i)
+  indices.sort((a, b) => input.alignedScenes[a]!.startSec - input.alignedScenes[b]!.startSec)
 
-  for (const scene of sortedScenes) {
-    const source = input.scenesByOrder.get(scene.order)
+  for (const i of indices) {
+    const scene = input.alignedScenes[i]!
+    const source = input.scenesByPosition[i]
     const text = source?.text?.trim() ?? ""
     if (!source || text.length === 0) continue
 

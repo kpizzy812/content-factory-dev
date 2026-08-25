@@ -3818,9 +3818,26 @@ async function fitPresenterClipsToScenes(
     // повторный ffmpeg (trim/hold) не нужен. Без этой проверки КАЖДЫЙ повторный
     // вызов composeVideoShots заново перекодировал бы presenter-исходник,
     // хотя сам кадр уже не пересобирается (проверено ниже).
+    //
+    // Существования файла НЕДОСТАТОЧНО (Important 1, фикс-раунд 1, ревью):
+    // `scene_N_lipsync_fit.mp4` не регистрируется как `VideoAsset` и ничей
+    // каскад сброса его не сносит, а имя файла не несёт цель. Перепланировка
+    // (правка сценария, `rerunVideoStep` до `edit_plan`) даёт новый трек и
+    // новые границы сцен — старый `_fit.mp4` остаётся на диске и молча
+    // подставился бы под НОВУЮ (другую) цель. Сверяем измеренную длительность
+    // САМОГО файла с текущим `targetSec`: не сошлось — файл устарел,
+    // перегенерируем ниже, как будто его не было.
     if (await defaultShotFileExists(fittedPath)) {
-      presenterPathBySceneOrder.set(record.sceneOrder, markLipSynced(fittedPath))
-      continue
+      const fittedMeasuredSec = await probeMediaDuration(fittedPath)
+      if (fittedMeasuredSec !== null && Math.abs(fittedMeasuredSec - targetSec) <= 1 / TIMELINE_FPS) {
+        presenterPathBySceneOrder.set(record.sceneOrder, markLipSynced(fittedPath))
+        continue
+      }
+      await appendStepLog(
+        step.id,
+        `Кадровый монтаж: клип сцены ${record.sceneOrder} устарел — цель ${targetSec.toFixed(3)}с, `
+        + `файл ${fittedMeasuredSec === null ? "не измеряется" : `${fittedMeasuredSec.toFixed(3)}с`} — перегенерирую`,
+      )
     }
 
     if (diffSec > 0) {
@@ -4028,6 +4045,69 @@ export async function composeVideoShots(
   // цикла.
   shots.sort((a, b) => a.order - b.order)
   return { composedCount, degradedCount, shots }
+}
+
+/** Сцена сценария, у которой нужен только текст под субтитр и его раскладка. */
+interface ShotTimelineTextScene {
+  order: number
+  spokenLine?: string | null
+  voiceoverLine?: string | null
+  subtitleCopy?: string | null
+  subtitlePlacement?: SubtitlePlacement
+}
+
+/** Произносимый текст сцены — реплика в кадре либо закадровая строка, пересказ как последний резерв. */
+function shotTimelineTextOf(scene: ShotTimelineTextScene | undefined): { text: string, placement?: SubtitlePlacement } | undefined {
+  if (!scene) return undefined
+  const text = (scene.spokenLine?.trim() || scene.voiceoverLine?.trim() || scene.subtitleCopy || '').trim()
+  return text.length > 0 ? { text, placement: scene.subtitlePlacement } : undefined
+}
+
+/**
+ * Сопоставляет тексты сцен сценария с `AlignedScene` кадрового маршрута
+ * СТРОГО ПОЗИЦИОННО, а не по `order` (фикс-раунд 1, Critical 2, ревью).
+ *
+ * `AlignedScene.order` может дублироваться — задокументированная реальность
+ * проекта (`transcription/align.ts`: «order может дублироваться — известная
+ * реальность проекта»), и карта «текст по order» положила бы текст одной
+ * сцены на речь другой: обе одноимённые сцены получили бы из карты один и
+ * тот же (последний записанный) текст.
+ *
+ * Решение — тот же приём, каким это уже закрыто на старом маршруте
+ * (дуп-order-бриф, `alignedScenesMatchPlanPositions` в `runAssembly`):
+ *  1. Позиционное тождество `alignedScenes[i] ↔ planScenes[i]` ПОДТВЕРЖДЕНО
+ *     (длины совпадают, `order` совпадает поэлементно) — сопоставляем по
+ *     ПОЗИЦИИ. Дубль `order` не мешает: индекс уже однозначен.
+ *  2. Тождество НЕ подтверждено, но `order` среди `alignedScenes` НЕ
+ *     повторяется — сопоставление по `order` безопасно (неоднозначности нет
+ *     по построению), берём его.
+ *  3. Тождество не подтверждено И `order` повторяется — сопоставить текст с
+ *     ПРАВИЛЬНОЙ сценой нечем ни одним из двух способов. Показ субтитра на
+ *     чужой речи хуже отказа (§10): бросаем явно, тем же приёмом, что
+ *     ворота старого маршрута на дубле `order` (`planAlignedClipTargets`:
+ *     «две сцены выравнивания указывают на один и тот же клип»).
+ */
+function buildScenesByPositionForShotTimeline(
+  alignedScenes: readonly AlignedScene[],
+  planScenes: readonly ShotTimelineTextScene[],
+): ReadonlyArray<{ text: string, placement?: SubtitlePlacement } | undefined> {
+  if (alignedScenesMatchPlanPositions(alignedScenes, planScenes)) {
+    return alignedScenes.map((_, i) => shotTimelineTextOf(planScenes[i]))
+  }
+
+  const orderCounts = new Map<number, number>()
+  for (const scene of alignedScenes) orderCounts.set(scene.order, (orderCounts.get(scene.order) ?? 0) + 1)
+  const hasDuplicateOrder = [...orderCounts.values()].some(count => count > 1)
+  if (hasDuplicateOrder) {
+    throw new Error(
+      "Кадровые субтитры: у сцен выравнивания повторяется order, а позиционное тождество с планом "
+      + "монтажа не подтверждено — сопоставить текст с правильной сценой нельзя. Показ субтитра на "
+      + "чужой речи хуже отказа: сборка остановлена, готовым ролик не помечается (§10).",
+    )
+  }
+
+  const byOrder = new Map(planScenes.map(s => [s.order, s] as const))
+  return alignedScenes.map(scene => shotTimelineTextOf(byOrder.get(scene.order)))
 }
 
 export async function runAssembly(
@@ -4475,26 +4555,39 @@ export async function runAssembly(
       // composeResult === null — у ролика нет ни одной строки VideoShot,
       // несмотря на выставленный флаг (в проде недостижимо: `shotRouteActive`
       // проставляется ТОЛЬКО по факту состоявшегося `runVideoEditPlan`,
-      // video-pipeline.ts). shotTimeline остаётся undefined, и сборка ниже
-      // идёт прежним, клиповым путём — тем же кодом, что и старый маршрут.
-      if (composeResult) {
+      // video-pipeline.ts). Раньше здесь был «запасной» откат на клиповый
+      // путь — Сомнение 2 фикс-раунда 1 (ревью) указало, что откат НЕ
+      // безопаснее старого маршрута, а опаснее: `clipTrackAlignment` и
+      // преflight-ворота подгона длины остаются выключены гейтом
+      // `!extras?.shotRouteActive` (они гасятся ПО ФЛАГУ, а не по факту
+      // `composeResult`), и ролик с `alignedScenes` (audio-first!) собрался
+      // бы из клипов БЕЗ подгона длины под трек и получил статус «готов» —
+      // ровно то, ради предотвращения чего эти ворота писались. Честный
+      // отказ дешевле тихого неверного ролика (§10).
+      if (!composeResult) {
+        throw new Error(
+          `Кадровый монтаж ролика ${videoId}: маршрут подтверждён (shotRouteActive), но у ролика нет `
+          + "ни одной строки VideoShot — собирать нечего. Сборка остановлена, готовым ролик не помечается (§10)",
+        )
+      }
+      {
         // Субтитры кадрового маршрута — от АБСОЛЮТНОГО времени трека
         // (`buildTrackSubtitleSegments`), а не от позиции клипа в склейке:
         // `AlignedScene`/`VideoShot` живут в одном пространстве координат
-        // (Task 6, главное упрощение задачи — см. shot-subtitles.ts).
-        const scenesByOrder = new Map<number, { text: string, placement?: SubtitlePlacement }>()
-        if (isStoryDriven) {
-          for (const scene of videoPlan.scenes) {
-            const text = (scene.spokenLine?.trim() || scene.voiceoverLine?.trim() || scene.subtitleCopy || '').trim()
-            if (text.length === 0) continue
-            scenesByOrder.set(scene.order, { text, placement: scene.subtitlePlacement })
-          }
-        }
+        // (Task 6, главное упрощение задачи — см. shot-subtitles.ts). Текст
+        // сопоставляется с `alignedScenes` СТРОГО ПОЗИЦИОННО, а не по `order`
+        // (Critical 2, фикс-раунд 1) — `buildScenesByPositionForShotTimeline`
+        // бросит явно, если `order` дублируется и позиционное тождество с
+        // планом не подтверждено (см. её докстринг).
+        const shotTrackAlignedScenes = extras?.alignedScenes ?? []
+        const scenesByPosition = isStoryDriven
+          ? buildScenesByPositionForShotTimeline(shotTrackAlignedScenes, videoPlan.scenes)
+          : []
         const presetMetaForChunks = getPresetByKey(extras?.subtitlePreset)
         const subtitleSegments = subtitlesEnabled
           ? buildTrackSubtitleSegments({
-            alignedScenes: extras?.alignedScenes ?? [],
-            scenesByOrder,
+            alignedScenes: shotTrackAlignedScenes,
+            scenesByPosition,
             maxChars: maxCharsForWidth(
               format === 'portrait' ? 1080 : 1920,
               format === 'portrait' ? presetMetaForChunks.fontSizePortrait : presetMetaForChunks.fontSizeLandscape,
@@ -4694,6 +4787,15 @@ export async function runAssembly(
       } else if (overlayPlan.overlays.length > 0) {
         await appendStepLog(step.id, `Инфографика пропущена: ${overlayOutcome.reason}`)
       }
+    } else {
+      // Сомнение 3 фикс-раунда 1 (ревью): раньше блок пропускался МОЛЧА —
+      // оператор видел ролик без плашек и не имел способа узнать почему.
+      // Потеря функциональности, которую находят на демо, а не в логе.
+      await appendStepLog(
+        step.id,
+        "Инфографика на кадровом маршруте не строится: план плашек адресуется позицией клипа в "
+        + "склейке, которой на этом маршруте не существует (адаптация — отдельная задача)",
+      )
     }
 
     await updateStep(step.id, {
