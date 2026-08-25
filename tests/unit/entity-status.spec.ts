@@ -7,10 +7,12 @@ import {
 import { TREND_STATUS_TO_ENTITY, trendStatus } from "../../app/components/trend/TrendStatusMap"
 import {
   VIDEO_STATUS_TO_ENTITY,
+  VIDEO_STEP_IS_CHEAP,
   VIDEO_STEP_TO_ENTITY,
   videoStatus,
   videoStepStatus,
 } from "../../app/components/video/VideoStatusMap"
+import { STEP_ORDER, type StepKey } from "../../server/utils/video-pipeline-db"
 
 /**
  * Единая семантика статусов — контракт на всё приложение. На неё завязаны
@@ -106,6 +108,54 @@ describe("доменные мапперы", () => {
 
   it("пропущенный шаг не выглядит успешным", () => {
     expect(videoStepStatus("skipped")).toBe("cancelled")
+  })
+
+  /**
+   * Вторая половина ruling S8-1 (первую — `mapStepKeyToService` по всем ключам
+   * `STEP_ORDER` — закрывает `tests/unit/balance-cost-attribution.spec.ts`).
+   *
+   * `VIDEO_STEP_IS_CHEAP` решает, покажется ли оператору инлайн-кнопка
+   * перезапуска ПРЯМО В СТРОКЕ (`VideoStepsPanel.vue:44`) или шаг уйдёт в меню
+   * с ценой. До этого теста поле не проверял НИ ОДИН тест: подмена
+   * `shot_background: false → true` оставляла всю сьюту зелёной, а оператор
+   * получал кнопку перезапуска самого дорогого шага маршрута ($0.03–1.00 за
+   * прогон) без модалки с ценой — в один клик.
+   *
+   * `Record<StepKey, boolean>` с умыслом, тем же приёмом, что и таблица
+   * `mapStepKeyToService`: добавят новый ключ в `StepKey`, а ожидание сюда не
+   * допишут — TypeScript откажется собирать файл.
+   */
+  describe("таблица: VIDEO_STEP_IS_CHEAP размечает КАЖДЫЙ ключ STEP_ORDER (ruling S8-1)", () => {
+    /** true — только локальное/копеечное; всё, что дёргает платные медиа-модели, обязано быть false. */
+    const EXPECTATIONS: Record<StepKey, boolean> = {
+      prompt_generation: false,
+      image_generation: false,
+      clip_generation: false,
+      voiceover_generation: false,
+      transcription: true,
+      edit_plan: true,
+      // Самый денежный шаг маршрута «монтаж от звука»: картинки на кадр плюс
+      // генеративное видео (§7). В строку он попасть не имеет права.
+      shot_background: false,
+      music_generation: false,
+      lip_sync_generation: false,
+      assembly: true,
+    }
+
+    it.each(STEP_ORDER)("%s размечен и совпадает с таблицей", (stepKey) => {
+      expect(VIDEO_STEP_IS_CHEAP[stepKey], stepKey).toBe(EXPECTATIONS[stepKey])
+    })
+
+    it("в карте нет ключей сверх STEP_ORDER — мёртвая разметка не решает судьбу кнопки", () => {
+      expect(Object.keys(VIDEO_STEP_IS_CHEAP).sort()).toEqual([...STEP_ORDER].sort())
+    })
+
+    it("платные медиа-шаги перезапускаются только через меню с ценой", () => {
+      const paidMediaSteps: StepKey[] = ["image_generation", "clip_generation", "lip_sync_generation", "shot_background"]
+      for (const stepKey of paidMediaSteps) {
+        expect(VIDEO_STEP_IS_CHEAP[stepKey], stepKey).toBe(false)
+      }
+    })
   })
 
   it("неизвестное значение не притворяется готовым", () => {
