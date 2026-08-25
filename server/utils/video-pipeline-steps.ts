@@ -6,7 +6,7 @@
  */
 
 import { dirname, join } from "node:path"
-import type { StoryPlan, SubtitleStyleProfile } from "~~/shared/types/story"
+import type { StoryPlan, SubtitlePlacement, SubtitleStyleProfile } from "~~/shared/types/story"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import {
   planStillSceneDuration,
@@ -71,6 +71,9 @@ import { planAlignedClipTargets, shouldReconcileVoiceover } from "./video-pipeli
 import { renderStillClip } from "./video-tools/still-clip-runner"
 import { planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
 import { renderShotComposition } from "./video-tools/shot-compose-runner"
+import { buildTrackSubtitleSegments } from "./edit-plan/shot-subtitles"
+import { maxCharsForWidth } from "./subtitles/phrase-chunker"
+import type { AssembleOptions } from "./render"
 import { readPreviousSceneRecords } from "./presenter/lip-sync-progress"
 import { markLipSynced } from "./lip-sync-runner"
 import { snapSecToFrame } from "./voiceover/segment-cut"
@@ -3809,6 +3812,17 @@ async function fitPresenterClipsToScenes(
     }
 
     const fittedPath = join(assetsDir, `scene_${record.sceneOrder}_lipsync_fit.mp4`)
+
+    // Идемпотентность (Ruling S8-7, тот же приём, что и у composeVideoShots
+    // ниже): прошлый проход уже привёл клип к длине сцены — файл на месте,
+    // повторный ffmpeg (trim/hold) не нужен. Без этой проверки КАЖДЫЙ повторный
+    // вызов composeVideoShots заново перекодировал бы presenter-исходник,
+    // хотя сам кадр уже не пересобирается (проверено ниже).
+    if (await defaultShotFileExists(fittedPath)) {
+      presenterPathBySceneOrder.set(record.sceneOrder, markLipSynced(fittedPath))
+      continue
+    }
+
     if (diffSec > 0) {
       await trimFittedClip(record.outputPath, fittedPath, targetSec)
       await appendStepLog(
@@ -3828,18 +3842,39 @@ async function fitPresenterClipsToScenes(
   return presenterPathBySceneOrder
 }
 
+/** Один готовый кадр монтажа — вход кадрового таймлайна сборки (Task 6). */
+export interface ComposedShot {
+  order: number
+  startSec: number
+  endSec: number
+  path: string
+}
+
 /**
  * Собирает по одному готовому файлу на каждый кадр (`VideoShot`) ролика:
  * фон, ведущий или их PiP-наложение. Возвращает `null`, если у ролика нет
  * ни одной строки `VideoShot` — старый маршрут не задет вовсе.
+ *
+ * Экспортирована (Task 6, Ruling S8-7): оркестрация — чтение `VideoShot`/
+ * `VideoAsset`/снапшота lip-sync, запись `assetPath` — до этой задачи не была
+ * покрыта ни одним автотестом; целевой интеграционный тест зовёт функцию
+ * напрямую на реальной БД и реальном ffmpeg (см. `tests/integration/`).
+ *
+ * Идемпотентна: повторный вызов на кадре, который уже собран прошлым проходом
+ * (`assetPath` указывает на файл с ожидаемым для текущего запуска путём,
+ * `status: "completed"`, файл реально существует на диске), НЕ пересобирает
+ * его заново — только считает в `composedCount` и возвращает как есть. Без
+ * этого каждый повторный вызов `runAssembly` (а он не кэшируется — «Сборка
+ * бесплатна» в `video-pipeline.ts`) заново прогонял бы ffmpeg по каждому
+ * кадру, включая тяжёлую ветку PiP (до 180с таймаута на кадр).
  */
-async function composeVideoShots(
+export async function composeVideoShots(
   videoId: number,
   step: { id: number },
   alignedScenes: readonly AlignedScene[],
   profile: ResolvedEditProfile,
   format: "portrait" | "landscape",
-): Promise<{ composedCount: number, degradedCount: number } | null> {
+): Promise<{ composedCount: number, degradedCount: number, shots: ComposedShot[] } | null> {
   const shotsRaw = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
   if (shotsRaw.length === 0) return null
 
@@ -3898,9 +3933,30 @@ async function composeVideoShots(
   const assetsDir = getAssetsDir(videoId)
   let composedCount = 0
   let degradedCount = 0
+  let reusedCount = 0
+  const shots: ComposedShot[] = []
 
   for (const shot of effectiveShots) {
     const original = shotById.get(shot.order)!
+    const outputPath = join(assetsDir, `shot_${shot.order}_composed.mp4`)
+
+    // Идемпотентность (Ruling S8-7): кадр уже собран прошлым проходом на
+    // ТОТ ЖЕ путь, запись подтверждает успех, и файл реально на диске — ffmpeg
+    // на готовом кадре не перезапускаем. `runAssembly`/сборка кэша шага не
+    // имеет («Сборка бесплатна» — video-pipeline.ts), значит без этой ветки
+    // каждый повторный прогон заново гонял бы ffmpeg по каждому кадру,
+    // включая тяжёлую ветку PiP (до 180с таймаута на кадр).
+    if (
+      original.assetPath === outputPath
+      && original.status === "completed"
+      && await defaultShotFileExists(outputPath)
+    ) {
+      composedCount += 1
+      reusedCount += 1
+      shots.push({ order: shot.order, startSec: shot.startSec, endSec: shot.endSec, path: outputPath })
+      continue
+    }
+
     const bgAsset = backgroundByShotOrder.get(shot.order) ?? null
     const presenterPath = shot.sceneOrder !== null ? presenterPathBySceneOrder.get(shot.sceneOrder) ?? null : null
     const alignedScene = shot.sceneOrder !== null
@@ -3939,7 +3995,6 @@ async function composeVideoShots(
       continue
     }
 
-    const outputPath = join(assetsDir, `shot_${shot.order}_composed.mp4`)
     try {
       await renderShotComposition({ composition, outputPath, format })
       await prisma.videoShot.update({
@@ -3947,6 +4002,7 @@ async function composeVideoShots(
         data: { assetPath: outputPath, status: "completed", degradeReason: null },
       })
       composedCount += 1
+      shots.push({ order: shot.order, startSec: shot.startSec, endSec: shot.endSec, path: outputPath })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       await prisma.videoShot.update({
@@ -3962,8 +4018,16 @@ async function composeVideoShots(
     throw new Error(`Кадровый монтаж ролика ${videoId}: ни один кадр не собрался — под трек нечего показывать (§10)`)
   }
 
-  await appendStepLog(step.id, `Кадровый монтаж: собрано ${composedCount} кадров, деградировало ${degradedCount}`)
-  return { composedCount, degradedCount }
+  await appendStepLog(
+    step.id,
+    `Кадровый монтаж: собрано ${composedCount} кадров (из них переиспользовано ${reusedCount}), деградировало ${degradedCount}`,
+  )
+  // По order — тот же порядок, что и `effectiveShots`/`shotsRaw` (запрошены
+  // orderBy order asc, слияние порядок не меняет), но сортируем явно: карта
+  // истины для конкат-листа — этот массив, а не побочный эффект стабильности
+  // цикла.
+  shots.sort((a, b) => a.order - b.order)
+  return { composedCount, degradedCount, shots }
 }
 
 export async function runAssembly(
@@ -4056,6 +4120,14 @@ export async function runAssembly(
     // Позиция сцены в videoPlan.scenes этому порядку не равна: при ответе модели
     // [1,2,4,3] субтитр сцены 3 лёг бы на клип сцены 4. Позиционная раскладка
     // остаётся только фолбэком, когда порядок нарезки неизвестен.
+    //
+    // Считается ВСЕГДА, даже на кадровом маршруте (`extras.shotRouteActive`):
+    // это чистое вычисление без похода в сеть, и оно остаётся ЗАПАСНЫМ путём
+    // на случай, если `composeVideoShots` не соберёт кадровый таймлайн (флаг
+    // выставлен, а `VideoShot` в БД не оказалось — защитный, а не боевой
+    // случай). Реальный кадровый маршрут игнорирует эти переменные: финальный
+    // вызов `assembleVideo` ниже отдаёт им ход только когда `shotTimeline`
+    // не построен (см. докстринг у `shotTimeline`).
     const clipIndexByOrder = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
       allowPositionalFallback: false,
     })
@@ -4095,6 +4167,15 @@ export async function runAssembly(
   // клипа в СКЛЕЙКЕ», её и передаём. На старом маршруте extras.alignedScenes
   // нет вовсе, clipTrackAlignment остаётся undefined, и render.ts подгон не
   // исполняет — поведение прежнее.
+  //
+  // На КАДРОВОМ маршруте (`extras.shotRouteActive`) это пространство индексов
+  // (позиция клипа в склейке) тоже не существует, а подгонять нечего вовсе:
+  // кадры по построению уже покрывают трек ровно (Task 6, §8). Блок ниже
+  // ЦЕЛИКОМ пропускается — не только его результат не уходит в assembleVideo,
+  // но и сам подсчёт не запускается: `clipTrackAlignment` и `shotTimeline`
+  // заданные ОДНОВРЕМЕННО — ошибка вызывающего (`planShotAssembly` бросит
+  // явно), а платный keyword pre-pass и преflight-проверки ниже по этому же
+  // "клиповому" пути на кадровом маршруте просто не нужны.
   let clipTrackAlignment: {
     alignedScenes: readonly AlignedScene[]
     positionByOrder: ReadonlyMap<number, number>
@@ -4102,7 +4183,7 @@ export async function runAssembly(
   } | undefined
   /** Порядок нарезки неизвестен, позиции взяты из плана — сказать это вслух в логе шага. */
   let fitPositionalOrderWarning: string | null = null
-  if (isStoryDriven && extras?.alignedScenes?.length && typeof extras.voiceoverDurationSec === 'number' && extras.voiceoverDurationSec > 0) {
+  if (!extras?.shotRouteActive && isStoryDriven && extras?.alignedScenes?.length && typeof extras.voiceoverDurationSec === 'number' && extras.voiceoverDurationSec > 0) {
     // Позиционный фолбэк здесь РАЗРЕШЁН, в отличие от lip-sync и субтитров,
     // которым он отдал бы реплику на чужой клип при перестановке сцен моделью.
     // Порядок нарезки неизвестен ровно в одном случае: ролик снят целиком
@@ -4222,6 +4303,13 @@ export async function runAssembly(
   // хук и призыв на экране. Дублирования с per-scene субтитрами тут быть не может —
   // ветка работает ровно тогда, когда их ноль. В обоих случаях (откатились или откатываться
   // не на что) пишем WARN в лог шага, чтобы источник надписей был виден без гадания.
+  //
+  // На кадровом маршруте (`extras.shotRouteActive`, `shotTimeline` реально
+  // построен) ни `storySubsMissing`, ни `legacyTexts` не идут в
+  // `assembleVideo` НАПРЯМУЮ — финальный вызов ниже отдаёт им ход только
+  // когда `shotTimeline` не построен (запасной путь, см. докстринг там же).
+  // Здесь эти переменные по-прежнему считаются от `hasSceneSubs` (клиповая
+  // раскладка) — это тот же самый запасной путь, а не боевой вывод.
   const storySubsMissing = subtitlesEnabled && !!isStoryDriven && !hasSceneSubs
   const hasLegacyTexts = (hookText ?? '').trim().length > 0 || (ctaText ?? '').trim().length > 0
   const legacyFallbackUsed = storySubsMissing && hasLegacyTexts
@@ -4268,6 +4356,8 @@ export async function runAssembly(
   await updateVideoStatus(videoId, "assembling", { currentStep: "assembly" })
 
   let keywordHints: Array<{ order: number; keywords: Array<{ word: string; weight: number }> }> | undefined
+  /** Кадровый таймлайн (Task 6) — заполняется только в кадровой ветке ниже. */
+  let shotTimeline: AssembleOptions["shotTimeline"]
 
   try {
     // ── Ворота маршрута «монтаж от звука»: подгон длины решается ДО денег ─────
@@ -4281,8 +4371,11 @@ export async function runAssembly(
     // только в памяти процесса.
     //
     // Данных для подгона не собралось вовсе — считать нечего, ролик уехал бы в
-    // хранилище длиннее собственной озвучки со статусом «готов».
-    if (extras?.alignedScenes?.length && !clipTrackAlignment) {
+    // хранилище длиннее собственной озвучки со статусом «готов». На кадровом
+    // маршруте (`extras.shotRouteActive`) `alignedScenes` заданы, а
+    // `clipTrackAlignment` НАМЕРЕННО не строится (см. блок выше) — это не
+    // отказ, а нормальное устройство маршрута, поэтому ворота его не задевают.
+    if (!extras?.shotRouteActive && extras?.alignedScenes?.length && !clipTrackAlignment) {
       throw new Error(
         "Подгон длины клипов под звуковой трек невозможен: "
         + (isStoryDriven ? "измеренная длина единого трека не доехала до сборки" : "ролик собран не по сценарному плану")
@@ -4327,22 +4420,43 @@ export async function runAssembly(
       }
     }
 
-    // ── Кадровая композиция (Task 5, §6.3/§8) ──────────────────────────────
+    // ── Кадровая композиция и таймлайн (Task 5/6, §6.3/§8) ──────────────────
     //
     // Собирает по одному готовому файлу на каждый VideoShot — фон, ведущий
-    // или их PiP. Действует ТОЛЬКО когда вызывающий явно подтвердил кадровый
-    // маршрут (`extras.shotRouteActive`) — НЕ по самостоятельному запросу к
-    // БД: `runAssembly` вызывают напрямую несколько чистых DB-free тестов, не
-    // мокающих `prisma`, и необусловленный `prisma.videoShot.count(...)` увёл
-    // бы их в реальное сетевое соединение (см. докстринг поля). Конкатенация
-    // готовых файлов кадров в ролик — задача следующей задачи плана (Task 6);
-    // здесь только материализация каждого кадра и запись его пути в
-    // VideoShot.assetPath.
+    // или их PiP (Task 5), затем строит кадровый таймлайн сборки (Task 6):
+    // конкат готовых файлов кадров в порядке `order` + субтитры по
+    // абсолютному времени трека (`buildTrackSubtitleSegments`). Действует
+    // ТОЛЬКО когда вызывающий явно подтвердил кадровый маршрут
+    // (`extras.shotRouteActive`) — НЕ по самостоятельному запросу к БД:
+    // `runAssembly` вызывают напрямую несколько чистых DB-free тестов, не
+    // мокающих `prisma`, и необусловленный `prisma.video.findUnique(...)`
+    // увёл бы их в реальное сетевое соединение (см. докстринг поля).
     if (extras?.shotRouteActive) {
       const videoForProfile = await prisma.video.findUnique({
         where: { id: videoId },
-        select: { editProfileId: true, editOverrides: true, editProfile: true, applicationId: true },
+        select: {
+          editProfileId: true, editOverrides: true, editProfile: true, applicationId: true,
+          voiceoverReconciliation: true,
+        },
       })
+
+      // §8 требует выключить voiceoverReconciliation ЯВНО, а не полагаться на
+      // то, что единственный вызывающий `extendVideoClip` (посценный шаг
+      // озвучки) на этом маршруте просто не исполняется (устройство ветки в
+      // `video-pipeline.ts`, а не правило, которое переживёт рефакторинг
+      // оркестратора). Кадр уже нарезан по речи — мирить нечего, а подмена
+      // клипов `*_ext.mp4` (политика `extend_scene`) разошлась бы с уже
+      // точным таймлайном кадров.
+      const reconciliationPolicy = videoForProfile?.voiceoverReconciliation ?? null
+      if (reconciliationPolicy) {
+        await appendStepLog(
+          step.id,
+          `Кадровый монтаж: политика voiceoverReconciliation="${reconciliationPolicy}" на этом маршруте не `
+          + "применяется — кадр уже нарезан по речи, мирить нечего, а подмена клипов *_ext.mp4 разошлась бы "
+          + "с таймлайном кадров",
+        )
+      }
+
       const appDefaultEditProfile = videoForProfile && !videoForProfile.editProfile && videoForProfile.applicationId
         ? await prisma.editProfile.findFirst({ where: { appId: videoForProfile.applicationId, isDefault: true } })
         : null
@@ -4350,18 +4464,68 @@ export async function runAssembly(
         (videoForProfile?.editProfile ?? appDefaultEditProfile) as unknown as Partial<ResolvedEditProfile> | null,
         videoForProfile?.editOverrides,
       )
-      await composeVideoShots(
+      const composeResult = await composeVideoShots(
         videoId,
         step,
         extras?.alignedScenes ?? [],
         resolvedShotProfile,
         format === "landscape" ? "landscape" : "portrait",
       )
+
+      // composeResult === null — у ролика нет ни одной строки VideoShot,
+      // несмотря на выставленный флаг (в проде недостижимо: `shotRouteActive`
+      // проставляется ТОЛЬКО по факту состоявшегося `runVideoEditPlan`,
+      // video-pipeline.ts). shotTimeline остаётся undefined, и сборка ниже
+      // идёт прежним, клиповым путём — тем же кодом, что и старый маршрут.
+      if (composeResult) {
+        // Субтитры кадрового маршрута — от АБСОЛЮТНОГО времени трека
+        // (`buildTrackSubtitleSegments`), а не от позиции клипа в склейке:
+        // `AlignedScene`/`VideoShot` живут в одном пространстве координат
+        // (Task 6, главное упрощение задачи — см. shot-subtitles.ts).
+        const scenesByOrder = new Map<number, { text: string, placement?: SubtitlePlacement }>()
+        if (isStoryDriven) {
+          for (const scene of videoPlan.scenes) {
+            const text = (scene.spokenLine?.trim() || scene.voiceoverLine?.trim() || scene.subtitleCopy || '').trim()
+            if (text.length === 0) continue
+            scenesByOrder.set(scene.order, { text, placement: scene.subtitlePlacement })
+          }
+        }
+        const presetMetaForChunks = getPresetByKey(extras?.subtitlePreset)
+        const subtitleSegments = subtitlesEnabled
+          ? buildTrackSubtitleSegments({
+            alignedScenes: extras?.alignedScenes ?? [],
+            scenesByOrder,
+            maxChars: maxCharsForWidth(
+              format === 'portrait' ? 1080 : 1920,
+              format === 'portrait' ? presetMetaForChunks.fontSizePortrait : presetMetaForChunks.fontSizeLandscape,
+              format === 'portrait' ? 60 : 100,
+            ),
+          })
+          : []
+
+        shotTimeline = {
+          shots: composeResult.shots,
+          // Верхняя граница таймлайна — измеренная длина трека (тот же вход,
+          // что уже несёт `extras.voiceoverDurationSec`). Кадры по построению
+          // покрывают трек ровно, поэтому конец последнего кадра — тот же
+          // фолбэк, если длина трека почему-то не доехала.
+          trackDurationSec: extras?.voiceoverDurationSec ?? composeResult.shots[composeResult.shots.length - 1]!.endSec,
+          subtitleSegments: subtitleSegments.length > 0 ? subtitleSegments : undefined,
+        }
+        await appendStepLog(
+          step.id,
+          `Кадровый монтаж: таймлайн собран из ${composeResult.shots.length} кадров, субтитров: ${subtitleSegments.length}`,
+        )
+      }
     }
 
     // Keyword pre-pass — только для пресетов с needsKeywordDetection=true. При выключенных
     // paid-apis или ошибке агента — graceful degrade (фолбэк на эвристику внутри ass-builder).
-    if (subtitlesEnabled && hasSceneSubs && extras?.subtitlePreset) {
+    // `!shotTimeline` — на кадровом маршруте, когда таймлайн реально построен,
+    // `keywordHints` некуда положить (`buildTrackSubtitleSegments` их не
+    // принимает вовсе, финальный вызов ниже отдаёт `sceneSubtitles` только
+    // запасному пути) — платить за AI-анализ, чей результат выбросят, незачем.
+    if (subtitlesEnabled && hasSceneSubs && extras?.subtitlePreset && !shotTimeline) {
       const presetMeta = getPresetByKey(extras.subtitlePreset)
       if (presetMeta.needsKeywordDetection) {
         try {
@@ -4391,14 +4555,22 @@ export async function runAssembly(
     // (см. legacyTexts выше). В обычном story-driven за текст на экране отвечают
     // per-scene субтитры; hookText/ctaText там дублировали бы их поверх всего ролика
     // (и всплывали в ASS-ветке, где legacy-сегменты идут на всю длину).
+    //
+    // `shotTimeline` реально построен (кадровый маршрут состоялся) — клиповые
+    // sceneSubtitles/legacy-тексты ему не передаются вовсе: субтитры несёт
+    // сам `shotTimeline.subtitleSegments`, а topText/bottomText на этом
+    // маршруте — чужое понятие (Task 6, §5). `hasSceneSubs`/`legacyTexts`
+    // остаются ЗАПАСНЫМ путём — только когда `extras.shotRouteActive` был
+    // выставлен, а сам таймлайн не собрался (защитный, не боевой случай, см.
+    // докстринг поля `shotRouteActive`).
     const result = await assembleVideo({
       clips: assemblyClips,
-      topText: legacyTexts ? hookText : "",
-      bottomText: legacyTexts ? ctaText : "",
+      topText: shotTimeline ? "" : (legacyTexts ? hookText : ""),
+      bottomText: shotTimeline ? "" : (legacyTexts ? ctaText : ""),
       musicPath,
       format: format as "portrait" | "landscape",
       outputPath,
-      sceneSubtitles: hasSceneSubs ? sceneSubtitles : undefined,
+      sceneSubtitles: shotTimeline ? undefined : (hasSceneSubs ? sceneSubtitles : undefined),
       subtitleStyle: subtitlesEnabled ? subtitleStyle : undefined,
       subtitlePreset: extras?.subtitlePreset,
       keywordHints,
@@ -4408,6 +4580,7 @@ export async function runAssembly(
       clipVolumeWithVoiceover: extras?.clipVolumeWithVoiceover,
       voiceoverIntervals: extras?.voiceoverIntervals,
       clipTrackAlignment,
+      shotTimeline,
     })
 
     // RULING 3 (ревью Task 10): подгон длины клипов под трек обязан быть
@@ -4466,53 +4639,61 @@ export async function runAssembly(
     // собран и годен к публикации, а Remotion тянет headless Chrome и может
     // быть не установлен вовсе.
     //
-    // Сцены отдаём В ПОРЯДКЕ СКЛЕЙКИ и с ФАКТИЧЕСКИМИ длительностями: плашка
-    // стоит по абсолютному времени от начала ролика, а план у ролика 24 обещал
-    // девять сцен по десять секунд при фактических 82.7. Композиция получалась
-    // на 90 секунд — семь секунд немого хвоста, а плашки вставали на чужие сцены.
-    const assemblyClipDurations = assemblyClips.length > 0
-      ? await probeSceneClipDurations(assemblyClips)
-      : []
-    type PlanScene = NonNullable<StoryDrivenVideoPlan["scenes"]>[number]
-    const planSceneBySlot = new Map<number, PlanScene>()
-    if (isStoryDriven && videoPlan) {
-      const slotByOrder = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
-        allowPositionalFallback: false,
+    // На кадровом маршруте (`shotTimeline` задан) пропускается целиком: план
+    // плашек строится по ПОЗИЦИИ КЛИПА В СКЛЕЙКЕ (`compacted.positionBySceneIndex`,
+    // `assemblyClips`) — том самом пространстве индексов, которого на этом
+    // маршруте не существует (см. блоки выше). Плашка легла бы на чужую сцену
+    // так же, как легли бы старые субтитры — это уже отдельная задача плана,
+    // не покрытая брифом Task 6.
+    if (!shotTimeline) {
+      // Сцены отдаём В ПОРЯДКЕ СКЛЕЙКИ и с ФАКТИЧЕСКИМИ длительностями: плашка
+      // стоит по абсолютному времени от начала ролика, а план у ролика 24 обещал
+      // девять сцен по десять секунд при фактических 82.7. Композиция получалась
+      // на 90 секунд — семь секунд немого хвоста, а плашки вставали на чужие сцены.
+      const assemblyClipDurations = assemblyClips.length > 0
+        ? await probeSceneClipDurations(assemblyClips)
+        : []
+      type PlanScene = NonNullable<StoryDrivenVideoPlan["scenes"]>[number]
+      const planSceneBySlot = new Map<number, PlanScene>()
+      if (isStoryDriven && videoPlan) {
+        const slotByOrder = buildSceneClipIndexMap(videoPlan.scenes, extras?.clipSceneOrders, {
+          allowPositionalFallback: false,
+        })
+        videoPlan.scenes.forEach((scene, idx) => {
+          const slot = slotByOrder.size > 0 ? slotByOrder.get(scene.order) : idx
+          if (slot === undefined) return
+          const position = compacted.positionBySceneIndex.get(slot)
+          if (position !== undefined) planSceneBySlot.set(position, scene)
+        })
+      }
+      const overlayPlan = planRemotionOverlays({
+        scenes: assemblyClips.map((_, position) => {
+          const scene = planSceneBySlot.get(position)
+          return {
+            order: scene?.order ?? position + 1,
+            durationSec: assemblyClipDurations[position] ?? 0,
+            spokenLine: scene?.spokenLine ?? null,
+            subtitleCopy: scene?.subtitleCopy ?? null,
+          }
+        }),
       })
-      videoPlan.scenes.forEach((scene, idx) => {
-        const slot = slotByOrder.size > 0 ? slotByOrder.get(scene.order) : idx
-        if (slot === undefined) return
-        const position = compacted.positionBySceneIndex.get(slot)
-        if (position !== undefined) planSceneBySlot.set(position, scene)
-      })
-    }
-    const overlayPlan = planRemotionOverlays({
-      scenes: assemblyClips.map((_, position) => {
-        const scene = planSceneBySlot.get(position)
-        return {
-          order: scene?.order ?? position + 1,
-          durationSec: assemblyClipDurations[position] ?? 0,
-          spokenLine: scene?.spokenLine ?? null,
-          subtitleCopy: scene?.subtitleCopy ?? null,
-        }
-      }),
-    })
-    const overlaid = join(getVideosDir(), `${videoId}_overlays.mp4`)
-    const overlayOutcome = await renderRemotionOverlays({
-      inputPath: result.filePath,
-      outputPath: overlaid,
-      plan: overlayPlan,
-      format: format === "portrait" ? "portrait" : "landscape",
-    }).catch((error: unknown) => ({
-      status: "skipped" as const,
-      reason: error instanceof Error ? error.message : String(error),
-    }))
+      const overlaid = join(getVideosDir(), `${videoId}_overlays.mp4`)
+      const overlayOutcome = await renderRemotionOverlays({
+        inputPath: result.filePath,
+        outputPath: overlaid,
+        plan: overlayPlan,
+        format: format === "portrait" ? "portrait" : "landscape",
+      }).catch((error: unknown) => ({
+        status: "skipped" as const,
+        reason: error instanceof Error ? error.message : String(error),
+      }))
 
-    if (overlayOutcome.status === "rendered") {
-      result.filePath = overlayOutcome.outputPath
-      await appendStepLog(step.id, `Инфографика наложена: ${overlayPlan.overlays.length} плашек`)
-    } else if (overlayPlan.overlays.length > 0) {
-      await appendStepLog(step.id, `Инфографика пропущена: ${overlayOutcome.reason}`)
+      if (overlayOutcome.status === "rendered") {
+        result.filePath = overlayOutcome.outputPath
+        await appendStepLog(step.id, `Инфографика наложена: ${overlayPlan.overlays.length} плашек`)
+      } else if (overlayPlan.overlays.length > 0) {
+        await appendStepLog(step.id, `Инфографика пропущена: ${overlayOutcome.reason}`)
+      }
     }
 
     await updateStep(step.id, {

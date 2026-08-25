@@ -31,8 +31,9 @@ import { planAlignedClipTargets, planTrackClipFit } from "./video-pipeline-run-p
 import type { AlignedScene } from "./transcription/align"
 import { wordsForChunk } from "./subtitles/aligned-words"
 import { alignedScenesByClipPosition } from "./subtitles/aligned-scene-position"
+import type { AssSegmentInput } from "./subtitles/ass-builder/dialogue"
 
-interface AssembleOptions {
+export interface AssembleOptions {
   clips: string[]
   /** Текст-вопрос/идея — отображается СВЕРХУ экрана (hook) */
   topText: string
@@ -79,6 +80,27 @@ interface AssembleOptions {
     /** Измеренная длительность единого трека — верхняя граница последнего бакета. */
     trackDurationSec: number
   }
+  /**
+   * Кадровый таймлайн (маршрут «монтаж от звука», Task 6, §8). Задан — склейка
+   * идёт по кадрам (`VideoShot`, уже скомпонованным Task 5), а не по клипам
+   * сцен: `clips` игнорируется, `fitClipsToTrack` не вызывается вовсе — кадры
+   * по построению покрывают трек ровно, подгонять нечего, а лишний проход
+   * тронул бы уже точные границы. Задан ОДНОВРЕМЕННО с `clipTrackAlignment` —
+   * ошибка вызывающего (`planShotAssembly` бросит явно): две разные шкалы
+   * времени в одной сборке дают ролик, разъехавшийся со звуком.
+   */
+  shotTimeline?: {
+    shots: ReadonlyArray<{ order: number; startSec: number; endSec: number; path: string }>
+    /** Измеренная длительность единого трека — для лога/диагностики сборки. */
+    trackDurationSec: number
+    /**
+     * Готовые ASS-сегменты субтитров (`buildTrackSubtitleSegments`, окна уже
+     * посчитаны и нарезаны). `buildAssSegments`/`buildSubtitleTimeline` на
+     * этом маршруте не вызываются — своя позиционная арифметика клипов им не
+     * нужна: `AlignedScene.startSec/endSec` уже абсолютные секунды трека.
+     */
+    subtitleSegments?: AssSegmentInput[]
+  }
 }
 
 interface AssembleResult {
@@ -86,6 +108,74 @@ interface AssembleResult {
   duration: number
   /** Итог подгона длины клипов под трек — есть, только если он затевался (`clipTrackAlignment` задан). */
   durationFit?: ClipDurationFitSummary
+}
+
+/** Решения кадровой сборки — что и в каком порядке конкатенировать, откуда брать субтитры. */
+export interface ShotAssemblyPlan {
+  /** true — `clipTrackAlignment` реально используется (подгон клипов сцен под трек). */
+  usesClipTrackAlignment: boolean
+  /** Пути под конкат, уже в порядке рендера. */
+  concatPaths: string[]
+  /** Громкость дорожки клипов/кадров в аудио-миксе — передана как есть, не решается здесь. */
+  clipLaneVolume: number
+  /** Источник субтитров: кадровый трек, позиции клипов сцен (story-driven) или легаси hook/cta. */
+  subtitleSource: "shots" | "clips" | "legacy"
+}
+
+/**
+ * Чистые РЕШЕНИЯ кадровой сборки (Task 6, §5/§8) — без ffmpeg и файловой
+ * системы, поэтому проверяются юнит-тестом напрямую. `assembleVideo` вызывает
+ * эту функцию и исполняет её решение; повторять логику параллельной копией
+ * внутри `assembleVideo` запрещено — так решение и его исполнение никогда не
+ * разойдутся.
+ *
+ * Задан `shotTimeline` — склейка идёт по кадрам, отсортированным по `order`
+ * (порядок на входе значения не имеет: кадры приходят из БД, а не из
+ * склейки), `clips` полностью игнорируется. Задан `shotTimeline` ОДНОВРЕМЕННО
+ * с `clipTrackAlignment` — это ошибка вызывающего: две разные шкалы времени
+ * в одной сборке дают ролик, разъехавшийся со звуком. Пустой список кадров —
+ * тоже ошибка: под непрерывную речь трека показывать нечего, молчаливая
+ * пустая склейка была бы хуже явного отказа (§10).
+ */
+export function planShotAssembly(options: {
+  clips: readonly string[]
+  clipVolumeWithVoiceover: number
+  shotTimeline?: AssembleOptions["shotTimeline"]
+  clipTrackAlignment?: AssembleOptions["clipTrackAlignment"]
+  /** Есть ли per-scene субтитры позиционного (клипового) маршрута — только для классификации `subtitleSource`. */
+  hasSceneSubtitles?: boolean
+}): ShotAssemblyPlan {
+  const { shotTimeline, clipTrackAlignment } = options
+
+  if (shotTimeline && clipTrackAlignment) {
+    throw new Error(
+      "Кадровый монтаж: shotTimeline и clipTrackAlignment заданы одновременно — это ошибка вызывающего. "
+      + "Две разные шкалы времени в одной сборке дают ролик, разъехавшийся со звуком.",
+    )
+  }
+
+  if (shotTimeline) {
+    if (shotTimeline.shots.length === 0) {
+      throw new Error(
+        "Кадровый монтаж: список кадров пуст — под непрерывную речь трека показывать нечего. "
+        + "Сборка остановлена, готовым ролик не помечается (§10).",
+      )
+    }
+    const orderedShots = [...shotTimeline.shots].sort((a, b) => a.order - b.order)
+    return {
+      usesClipTrackAlignment: false,
+      concatPaths: orderedShots.map(shot => shot.path),
+      clipLaneVolume: options.clipVolumeWithVoiceover,
+      subtitleSource: "shots",
+    }
+  }
+
+  return {
+    usesClipTrackAlignment: !!clipTrackAlignment,
+    concatPaths: [...options.clips],
+    clipLaneVolume: options.clipVolumeWithVoiceover,
+    subtitleSource: options.hasSceneSubtitles ? "clips" : "legacy",
+  }
 }
 
 /** Маппинг SubtitleStyleProfile → параметры drawtext FFmpeg */
@@ -1196,22 +1286,39 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
     clipVolumeWithVoiceover = 0.3,
     voiceoverIntervals,
     clipTrackAlignment,
+    shotTimeline,
   } = options
 
   await ensureDir(dirname(outputPath))
 
-  // Pre-normalize клипов: единый кодек/fps/timebase/audio спасают concat demuxer от
-  // "застывших кадров" на стыке клипов с разными параметрами. Кэшируется по mtime.
-  let normalizedClips = await normalizeClipsForConcat(clips, format)
+  // Единственный источник решений «что и в каком порядке конкатенировать» —
+  // planShotAssembly (Task 6). На старом маршруте (shotTimeline не задан) её
+  // решение побайтово совпадает с прежним поведением: concatPaths === clips,
+  // usesClipTrackAlignment === !!clipTrackAlignment.
+  const shotPlan = planShotAssembly({
+    clips,
+    clipVolumeWithVoiceover,
+    shotTimeline,
+    clipTrackAlignment,
+    hasSceneSubtitles: !!(sceneSubtitles && sceneSubtitles.length > 0),
+  })
+
+  // Pre-normalize клипов/кадров: единый кодек/fps/timebase/audio спасают concat
+  // demuxer от "застывших кадров" на стыке. Кэшируется по mtime. На кадровом
+  // маршруте нормализуются уже готовые файлы кадров — повторный вызов на уже
+  // нормализованном пути бесплатен (`isNormalizedClipPath` его узнаёт).
+  let normalizedClips = await normalizeClipsForConcat(shotPlan.concatPaths, format)
 
   // Подгон длины клипов под звуковой трек — маршрут «монтаж от звука» (Task 10).
   // ДО построения concat-листа: дальше по функции все потребители (сама
   // склейка, окна субтитров) обязаны видеть уже подогнанные файлы, а не
   // исходные — иначе субтитры посчитались бы по одной длине, а в ролик легла
   // бы другая. На старом маршруте `clipTrackAlignment` не передаётся, и это
-  // условие не исполняется — поведение прежнее, побайтово.
+  // условие не исполняется — поведение прежнее, побайтово. На кадровом
+  // маршруте (Task 6) `shotPlan.usesClipTrackAlignment` всегда false: кадры
+  // по построению покрывают трек ровно, подгонять нечего.
   let durationFitSummary: ClipDurationFitSummary | undefined
-  if (clipTrackAlignment) {
+  if (shotPlan.usesClipTrackAlignment && clipTrackAlignment) {
     const fitResult = await fitClipsToTrack(normalizedClips, clipTrackAlignment, {
       probeDuration: probeMediaDuration,
       trim: trimFittedClip,
@@ -1236,26 +1343,33 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
   // с preset='classic' (стандартный fast-path), чтобы видео всё равно собралось.
   const presetMeta = getPresetByKey(options.subtitlePreset)
   const wantAss = presetMeta.renderer === 'ass'
-  const hasAnySubtitles = (sceneSubtitles && sceneSubtitles.length > 0)
+  // Кадровый маршрут: сегменты уже посчитаны и нарезаны (`buildTrackSubtitleSegments`,
+  // окна — абсолютные секунды трека). buildAssSegments/buildSubtitleTimeline на этом
+  // маршруте не вызываются вовсе — их позиционная арифметика клипов здесь не нужна.
+  const shotSubtitleSegments = shotPlan.subtitleSource === "shots" ? shotTimeline?.subtitleSegments : undefined
+  const hasAnySubtitles = (shotSubtitleSegments && shotSubtitleSegments.length > 0)
+    || (sceneSubtitles && sceneSubtitles.length > 0)
     || !!(topText || bottomText)
 
   if (wantAss && hasAnySubtitles) {
-    const assSegments = await buildAssSegments({
-      clips: normalizedClips,
-      sceneSubtitles,
-      topText,
-      bottomText,
-      keywordHints: options.keywordHints,
-      maxChars: maxCharsForWidth(
-        format === 'portrait' ? 1080 : 1920,
-        format === 'portrait' ? presetMeta.fontSizePortrait : presetMeta.fontSizeLandscape,
-        format === 'portrait' ? 60 : 100,
-      ),
-      // Реальные тайминги слов — только на маршруте «монтаж от звука»
-      // (clipTrackAlignment задан). Старый маршрут этот аргумент не передаёт,
-      // и buildAssSegments отрабатывает как раньше.
-      clipTrackAlignment,
-    })
+    const assSegments = shotSubtitleSegments && shotSubtitleSegments.length > 0
+      ? shotSubtitleSegments
+      : await buildAssSegments({
+        clips: normalizedClips,
+        sceneSubtitles,
+        topText,
+        bottomText,
+        keywordHints: options.keywordHints,
+        maxChars: maxCharsForWidth(
+          format === 'portrait' ? 1080 : 1920,
+          format === 'portrait' ? presetMeta.fontSizePortrait : presetMeta.fontSizeLandscape,
+          format === 'portrait' ? 60 : 100,
+        ),
+        // Реальные тайминги слов — только на маршруте «монтаж от звука»
+        // (clipTrackAlignment задан). Старый маршрут этот аргумент не передаёт,
+        // и buildAssSegments отрабатывает как раньше.
+        clipTrackAlignment,
+      })
     if (assSegments.length > 0) {
       // videoId используется только для имени директории — выдёргиваем из outputPath.
       // outputPath имеет формат `{getVideosDir()}/{videoId}.mp4`.
@@ -1274,7 +1388,22 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
   }
 
   // Если ASS-ветка не сработала ИЛИ preset.renderer === 'drawtext' → собираем drawtext.
-  if (subtitleFilters.length === 0 && sceneSubtitles && sceneSubtitles.length > 0) {
+  if (subtitleFilters.length === 0 && shotSubtitleSegments && shotSubtitleSegments.length > 0) {
+    // Кадровый маршрут: сегменты уже посчитаны и нарезаны (buildTrackSubtitleSegments) —
+    // повторный проход через chunkSceneSpeech/buildSubtitleTimeline не нужен и был бы
+    // неверен: они считают окна по длительностям клипов в СКЛЕЙКЕ, а на этом маршруте
+    // такого пространства индексов не существует.
+    for (const seg of shotSubtitleSegments) {
+      const position = seg.placement?.position || 'bottom'
+      const style = resolveSubtitleStyle(format, subtitleStyle, position, subtitlePreset)
+      const role = position === 'top' ? 'top' : position === 'center' ? 'scene' : 'bottom'
+      subtitleFilters.push(...buildDrawtextFilters(seg.text, style, format, role, {
+        casing,
+        enableStart: seg.startSec,
+        enableEnd: seg.endSec,
+      }))
+    }
+  } else if (subtitleFilters.length === 0 && sceneSubtitles && sceneSubtitles.length > 0) {
     // Story-driven mode: окно каждого субтитра берём у КЛИПА ЕГО СЦЕНЫ (sceneIndex),
     // а не по позиции в массиве субтитров — иначе сцена без текста уводила весь хвост.
     const clipDurations = await probeClipDurations(normalizedClips)
@@ -1396,8 +1525,8 @@ export async function assembleVideo(options: AssembleOptions): Promise<AssembleR
           .filter(i => Number.isFinite(i.startSec) && Number.isFinite(i.endSec) && i.endSec > i.startSec)
           .map(i => `between(t,${i.startSec.toFixed(2)},${i.endSec.toFixed(2)})`)
         audioFilters.push(duckWindows.length > 0
-          ? `[0:a]volume=${clipVolumeWithVoiceover.toFixed(3)}:enable='${duckWindows.join('+')}'[va]`
-          : `[0:a]volume=${clipVolumeWithVoiceover.toFixed(3)}[va]`)
+          ? `[0:a]volume=${shotPlan.clipLaneVolume.toFixed(3)}:enable='${duckWindows.join('+')}'[va]`
+          : `[0:a]volume=${shotPlan.clipLaneVolume.toFixed(3)}[va]`)
       } else {
         audioFilters.push(`[0:a]volume=1.000[va]`)
       }

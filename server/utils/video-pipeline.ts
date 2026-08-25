@@ -1246,16 +1246,22 @@ export async function runVideoPipeline(
         subtitleStyleOverride,
         clipSceneOrders,
         voiceoverIntervals: voiceoverIntervals.length > 0 ? voiceoverIntervals : undefined,
-        // Границы слов из транскрипции. Сегодня сборка только фиксирует их в
-        // логе шага, субтитры по ним рисует следующая задача плана — но данные
-        // обязаны доезжать сюда уже сейчас, иначе доказать сквозной проход
-        // маршрута нечем.
+        // Границы слов из транскрипции. На кадровом маршруте (`shotRouteActive`
+        // ниже) по ним считаются окна субтитров (`buildTrackSubtitleSegments`);
+        // на старом маршруте — только подгон длины клипов под трек.
         alignedScenes: alignedScenes.length > 0 ? alignedScenes : undefined,
         // Верхняя граница подгона длины последнего клипа под трек (Task 10) —
         // только когда трек СОСТОЯЛСЯ: без него alignedScenes уже пуст (см.
         // выше), и подгон не запустится независимо от этого значения, но факт
         // важнее совпадения — маршрут без трека такой границы не считает.
         voiceoverDurationSec: audioFirstTrackCompleted ? voiceoverResult.mixedDurationSec : undefined,
+        // Кадровый монтаж (Task 5/6, «Сборка по кадрам») спланирован для этого
+        // ролика — у него есть строки `VideoShot`, записанные состоявшимся
+        // `runVideoEditPlan` (блок 2c/2d выше). Ролик без EDIT_PIPELINE или с
+        // флагом, но без синтезированного трека (`audioFirst === null`), сюда
+        // не доходит вовсе — `editPlan` остаётся `null`, и `runAssembly` идёт
+        // прежним, клиповым путём побайтово (см. task-6-report.md).
+        shotRouteActive: editPlan !== null,
       },
     )
     const assemblyStep = await prisma.videoGenerationStep.findFirst({ where: { videoId, stepKey: "assembly" as never } })
