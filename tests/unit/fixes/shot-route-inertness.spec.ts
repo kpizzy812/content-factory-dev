@@ -14,12 +14,14 @@
  *     тест `TypeError`, а не тихо продолжил работать неверно.
  *  B. `shotRouteActive: false` явно — тот же результат, что и без поля
  *     вовсе (сравнение опций `assembleVideo` побайтово, `toEqual`).
- *  C. `shotRouteActive: true`, но `VideoShot` в БД нет (ролик с флагом, но
- *     без состоявшегося трека — `video-pipeline.ts` в этом случае
- *     `shotRouteActive` не проставляет, но `runAssembly` обязан остаться
- *     безопасным и в этом защитном случае) — `composeVideoShots` возвращает
- *     `null`, `shotTimeline` не строится, опции `assembleVideo` совпадают с
- *     сценарием A/B побайтово.
+ *  C. `shotRouteActive: true`, но `VideoShot` в БД нет (в проде недостижимо:
+ *     `video-pipeline.ts` проставляет флаг ТОЛЬКО по факту состоявшегося
+ *     `runVideoEditPlan`) — `composeVideoShots` возвращает `null`, и
+ *     `runAssembly` отказывается ЧЕСТНО (Сомнение 2, фикс-раунд 1, ревью), а
+ *     не откатывается на клиповый путь: откат оставлял бы преflight-ворота
+ *     подгона длины выключенными (они гасятся по флагу, а не по факту
+ *     `composeResult`), и ролик собрался бы без подгона под трек со статусом
+ *     «готов».
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -32,7 +34,6 @@ const h = vi.hoisted(() => ({
   logs: [] as string[],
   updates: [] as Record<string, unknown>[],
   assembleCalls: [] as Array<Record<string, unknown>>,
-  extendVideoClipCalls: 0,
   videoShotRows: [] as Array<Record<string, unknown>>,
   videoRow: null as Record<string, unknown> | null,
 }))
@@ -52,7 +53,6 @@ vi.mock("../../../server/utils/render", () => ({
   probeClipDurations: async (paths: string[]) => paths.map(() => 5),
   adjustAudioTempo: async () => ({ outputPath: "x", durationSec: 1 }),
   trimAudio: async () => ({ outputPath: "x", durationSec: 1 }),
-  extendVideoClip: async () => { h.extendVideoClipCalls += 1; return { outputPath: "x", durationSec: 1 } },
   planClipExtension: () => ({ allowed: false, neededSec: 0, limitSec: 0 }),
 }))
 
@@ -127,7 +127,6 @@ beforeEach(() => {
   h.logs.length = 0
   h.updates.length = 0
   h.assembleCalls.length = 0
-  h.extendVideoClipCalls = 0
   h.videoShotRows = []
   h.videoRow = null
 })
@@ -167,42 +166,57 @@ describe("Task 6: инертность старого маршрута — до�
     expect(withFalseFlagCall).toEqual(withoutFlagCall)
   })
 
-  it("C. shotRouteActive: true, но VideoShot в БД нет — сборка отказывается от кадрового таймлайна и идёт прежним путём", async () => {
-    const stepsWithout = await loadSteps(false)
-    await stepsWithout.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
-      clipSceneOrders: [1, 2, 3],
-    })
-    const baseline = h.assembleCalls[0]
-
-    h.assembleCalls.length = 0
-    h.logs.length = 0
-    h.updates.length = 0
+  // Сомнение 2 фикс-раунда 1 (ревью): раньше этот сценарий тихо откатывался на
+  // клиповый путь — но откат был НЕ безопаснее старого маршрута, а опаснее
+  // (см. докстринг у throw в runAssembly): `clipTrackAlignment`/преflight-ворота
+  // подгона длины остаются выключены гейтом `!extras?.shotRouteActive`
+  // независимо от того, собрались кадры или нет, и ролик с `alignedScenes`
+  // (audio-first) уехал бы в хранилище БЕЗ подгона длины под трек со статусом
+  // «готов». Честный отказ — правильное поведение (§10).
+  it("C. shotRouteActive: true, но VideoShot в БД нет — сборка отказывается ЧЕСТНО, а не откатывается тихо", async () => {
     h.videoShotRows = [] // ролик БЕЗ единого кадра, несмотря на выставленный флаг
     h.videoRow = { editProfileId: null, editOverrides: null, editProfile: null, applicationId: null, voiceoverReconciliation: null }
 
-    const stepsWithFlag = await loadSteps(true)
-    const result = await stepsWithFlag.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
-      clipSceneOrders: [1, 2, 3],
-      shotRouteActive: true,
-    })
+    const steps = await loadSteps(true)
+    await expect(
+      steps.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
+        clipSceneOrders: [1, 2, 3],
+        shotRouteActive: true,
+      }),
+    ).rejects.toThrow(/нет ни одной строки VideoShot/)
 
-    expect(result.filePath).toBe("final.mp4")
-    expect(h.assembleCalls[0]).toEqual(baseline)
+    // Готовым ролик не помечается — до assembleVideo сборка не доходит вовсе.
+    expect(h.assembleCalls).toHaveLength(0)
+    expect(h.updates.some(u => u.status === "completed")).toBe(false)
   })
 
-  it("§8 — voiceoverReconciliation выключается ЯВНО на кадровом маршруте: лог называет причину, extendVideoClip не зовётся", async () => {
-    h.videoShotRows = [] // компоновать нечего — но лог о политике обязан появиться ДО этого решения
+  // Important 5 (ревью фикс-раунда 1): здесь проверяется ТОЛЬКО строка лога —
+  // это честно и достаточно на уровне runAssembly, потому что extendVideoClip
+  // вызывается ЕДИНСТВЕННЫМ местом кодовой базы, `runVoiceoverGeneration`, куда
+  // runAssembly не ходит НИ НА КАКОМ маршруте: ассерт «extendVideoClip не
+  // вызван» здесь был бы вакуумным (не может упасть в принципе, см. отчёт
+  // фикс-раунда 1). Реальная проверка «политика extend_scene не оставляет
+  // *_ext.mp4 на кадровом маршруте» — DB-тест на уровне ЦЕЛОГО пайплайна,
+  // `tests/integration/audio-first-pipeline.spec.ts` (там она действительно
+  // могла бы сработать, если бы устройство ветки сломалось).
+  it("§8 — voiceoverReconciliation выключается ЯВНО на кадровом маршруте: лог называет причину", async () => {
+    // Кадров нет (см. Сомнение 2 — сборка честно откажется), но лог о
+    // политике пишется РАНЬШЕ этого отказа (сразу после чтения конфига
+    // ролика, до вызова composeVideoShots) — порядок важен: оператор обязан
+    // увидеть причину даже на ролике, которому нечего было собирать.
+    h.videoShotRows = []
     h.videoRow = { editProfileId: null, editOverrides: null, editProfile: null, applicationId: null, voiceoverReconciliation: "extend_scene" }
 
     const steps = await loadSteps(true)
-    await steps.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
-      clipSceneOrders: [1, 2, 3],
-      shotRouteActive: true,
-    })
+    await expect(
+      steps.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
+        clipSceneOrders: [1, 2, 3],
+        shotRouteActive: true,
+      }),
+    ).rejects.toThrow()
 
     expect(h.logs.some(l => l.includes("voiceoverReconciliation") && l.includes("extend_scene") && l.includes("не")))
       .toBe(true)
-    expect(h.extendVideoClipCalls).toBe(0)
   })
 
   it("нейтральная политика (не задана) — лог о voiceoverReconciliation не появляется", async () => {
@@ -210,10 +224,12 @@ describe("Task 6: инертность старого маршрута — до�
     h.videoRow = { editProfileId: null, editOverrides: null, editProfile: null, applicationId: null, voiceoverReconciliation: null }
 
     const steps = await loadSteps(true)
-    await steps.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
-      clipSceneOrders: [1, 2, 3],
-      shotRouteActive: true,
-    })
+    await expect(
+      steps.runAssembly(41, CLIPS, null, true, "Хук", "CTA", "portrait", plan(), {
+        clipSceneOrders: [1, 2, 3],
+        shotRouteActive: true,
+      }),
+    ).rejects.toThrow()
 
     expect(h.logs.some(l => l.includes("voiceoverReconciliation"))).toBe(false)
   })

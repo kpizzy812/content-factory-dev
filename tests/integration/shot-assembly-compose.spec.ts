@@ -39,6 +39,7 @@ import { ensureDir, getAssetsDir, probeMediaDuration } from "~~/server/utils/ren
 ;(globalThis as Record<string, unknown>).getAssetsDir = () => workDir
 
 import { composeVideoShots } from "~~/server/utils/video-pipeline-steps"
+import { planShotAssembly } from "~~/server/utils/render"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 
@@ -290,5 +291,83 @@ describe("composeVideoShots: оркестрация на реальной БД �
     // Донор слияния и битый кадр остаются в прежнем (деградированном) состоянии.
     expect(byOrderSecond.get(2)!.status).toBe("degraded")
     expect(byOrderSecond.get(5)!.status).toBe("degraded")
+
+    // ══════════════════ Фикс-раунд 1, Critical 1 (ревью) ══════════════════
+    // Битый кадр order 5 выпал из `shots` ВМЕСТЕ со своим интервалом [9,11):
+    // четыре собранных кадра покрывают только [0,9) при треке в 11с. Это
+    // РЕАЛЬНАЯ демонстрация дыры, а не синтетика — тот же вход, которым
+    // ревьюер показал недостающую защиту. planShotAssembly (единственная
+    // точка решений сборки, вызываемая `assembleVideo` безусловно) обязана
+    // отказаться собирать ролик с такой дырой, а не молча склеить 9 секунд
+    // картинки под 11-секундный трек.
+    expect(second!.shots.map(s => [s.order, s.startSec, s.endSec])).toEqual([
+      [0, 0, 2], [1, 2, 5], [3, 5, 7], [4, 7, 9],
+    ])
+    expect(() => planShotAssembly({
+      shotTimeline: { shots: second!.shots, trackDurationSec: 11 },
+      clipVolumeWithVoiceover: 0,
+      clips: [],
+    })).toThrow(/не покрывают/)
   }, 180_000)
+
+  // Important 1 (ревью фикс-раунда 1): `_fit.mp4` не регистрируется как
+  // `VideoAsset`, ничей каскад сброса его не сносит, а старая идемпотентность
+  // решала по ФАКТУ СУЩЕСТВОВАНИЯ файла — не сверяя его длительность с
+  // текущей целью. Перепланировка (новый трек → другие границы сцены) должна
+  // перегенерировать файл, а не молча подставить старый, обрезанный под
+  // прежнюю (уже неактуальную) длину.
+  it("устаревший scene_N_lipsync_fit.mp4 перегенерируется, если цель сменилась (Important 1)", async () => {
+    const { videoId } = await createFixture()
+
+    const presenterSourcePath = join(workDir, "presenter_scene1_raw.mp4")
+    await renderTestClip(presenterSourcePath, 6.0, 900) // с запасом на обе цели ниже (2с и 5с)
+
+    await prisma.videoShot.create({
+      data: {
+        videoId, order: 0, startSec: 0, endSec: 2, sceneOrder: 1,
+        foreground: "presenter", pipEnabled: false, background: "none",
+      },
+    })
+    await prisma.videoGenerationStep.create({
+      data: {
+        videoId, stepKey: "lip_sync_generation" as never, stepIndex: 5, status: "completed" as never,
+        outputSnapshot: {
+          scenes: [{
+            sceneOrder: 1, sceneIndex: 0, sourcePath: presenterSourcePath,
+            outputPath: presenterSourcePath, audioPath: null, spokenLineHash: null,
+            reuseKey: null, durationSec: 6.0, skipped: null,
+          }],
+        },
+      },
+    })
+    const assemblyStep = await prisma.videoGenerationStep.create({
+      data: { videoId, stepKey: "assembly" as never, stepIndex: 6, status: "running" as never },
+    })
+    const profile = { ...DEFAULT_EDIT_PROFILE, pipEnabled: false }
+    const fittedPath = join(workDir, "scene_1_lipsync_fit.mp4")
+
+    // Первый проход: цель 2с.
+    const shortTarget: AlignedScene[] = [{ order: 1, startSec: 0, endSec: 2, words: [] }]
+    const first = await composeVideoShots(videoId, { id: assemblyStep.id }, shortTarget, profile, "portrait")
+    expect(first).not.toBeNull()
+    expect(first!.composedCount).toBe(1)
+    const firstFitSec = await probeMediaDuration(fittedPath)
+    expect(firstFitSec).not.toBeNull()
+    expect(Math.abs(firstFitSec! - 2.0)).toBeLessThan(0.15)
+
+    // Перепланировка: та же сцена, но НОВАЯ цель — 5с (трек пересинтезирован,
+    // границы сцены другие). `_fit.mp4` прошлого прохода лежит на диске.
+    await prisma.videoShot.updateMany({ where: { videoId, order: 0 }, data: { endSec: 5, status: "planned", assetPath: null } })
+    const newTarget: AlignedScene[] = [{ order: 1, startSec: 0, endSec: 5, words: [] }]
+    const second = await composeVideoShots(videoId, { id: assemblyStep.id }, newTarget, profile, "portrait")
+    expect(second).not.toBeNull()
+    expect(second!.composedCount).toBe(1)
+
+    const secondFitSec = await probeMediaDuration(fittedPath)
+    expect(secondFitSec).not.toBeNull()
+    // Устаревшая идемпотентность (только по существованию файла) вернула бы
+    // здесь ~2.0с — старый файл, подставленный под новую цель.
+    expect(Math.abs(secondFitSec! - 5.0)).toBeLessThan(0.15)
+    expect(secondFitSec!).toBeGreaterThan(3.0) // разведено с прежней целью (2с) с явным запасом
+  }, 60_000)
 })

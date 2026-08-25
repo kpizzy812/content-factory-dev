@@ -399,6 +399,13 @@ async function createVideoFixture(workDir: string): Promise<Fixture> {
       // интегрированную по умолчанию (Replicate kling-lip-sync).
       lipSyncEnabled: true,
       lipSyncCharacterId: characterId,
+      // Important 5 (ревью фикс-раунда 1): политика реконсиляции озвучки —
+      // САМАЯ последствия несущая из трёх (единственная, что зовёт
+      // extendVideoClip/создаёт *_ext.mp4). На кадровом маршруте она обязана
+      // не исполняться вовсе (§8), а не просто совпасть со значением по
+      // умолчанию БД — задаём явно, чтобы утверждение ниже проверяло именно
+      // ЭТУ политику, а не молчаливое совпадение с дефолтом схемы.
+      voiceoverReconciliation: "extend_scene",
     },
   })
 
@@ -635,6 +642,12 @@ describe("маршрут «монтаж от звука» собирает ро�
     expect(assemblyLog.some(line => line.startsWith("Подгон длины клипов под трек:"))).toBe(false)
     expect(assemblyLog.some(line => /^Кадровый монтаж: таймлайн собран из \d+ кадров/.test(line))).toBe(true)
 
+    // Сомнение 3 фикс-раунда 1 (ревью): Remotion-оверлеи на кадровом маршруте
+    // пропускаются целиком (адресуются позицией клипа, которой на этом
+    // маршруте не существует) — потеря обязана быть ВИДНА в логе шага, а не
+    // молчаливой.
+    expect(assemblyLog.some(line => line.startsWith("Инфографика на кадровом маршруте не строится"))).toBe(true)
+
     // ── 6. Несущая механика: кусок трека → lip-sync клип → склейка ──
     const lipSyncStep = await prisma.videoGenerationStep.findFirst({
       where: { videoId, stepKey: "lip_sync_generation" as never },
@@ -722,6 +735,19 @@ describe("маршрут «монтаж от звука» собирает ро�
       .toHaveLength(SPOKEN_LINES.length)
     expect(assetFiles.filter(name => /^scene_\d+_spoken_/.test(name))).toEqual([])
     expect(assetFiles.filter(name => name.includes(".tmp-"))).toEqual([])
+
+    // Important 5 (ревью фикс-раунда 1): прежний ассерт `extendVideoClipCalls === 0`
+    // в `shot-route-inertness.spec.ts` был вакуумен — `extendVideoClip` вызывается
+    // ЕДИНСТВЕННЫМ местом кодовой базы, `runVoiceoverGeneration`, куда `runAssembly`
+    // не ходит ни на каком маршруте, так что ассерт не мог упасть в принципе.
+    // Наблюдаемый признак ЗДЕСЬ — прямое следствие политики `extend_scene` (задана
+    // явно в фикстуре выше): единственный файловый след её исполнения — `*_ext.mp4`
+    // (см. `persistExtendedClipAsset`/`isLipSyncOutputPath` в `presenter/scene-clip-mapping.ts`).
+    // Ролик прошёл ПОЛНЫЙ реальный пайплайн (включая voiceover_generation — он
+    // просто не вызывался на этом маршруте, см. шаги 1 выше), поэтому отсутствие
+    // `*_ext.mp4` в assetsDir — не вакуумная проверка недостижимого кода, а
+    // наблюдение за РЕАЛЬНЫМ побочным эффектом (или его отсутствием) целого прогона.
+    expect(assetFiles.filter(name => /_ext\.mp4$/.test(name))).toEqual([])
 
     // Lip-sync оплачен ровно один раз — по строке ledger на попытку.
     const lipSyncCosts = await prisma.aiAuditLog.findMany({
