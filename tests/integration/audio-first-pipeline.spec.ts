@@ -621,11 +621,19 @@ describe("маршрут «монтаж от звука» собирает ро�
     expect(trackDurationSec!).toBeGreaterThan(0)
     expect(Math.abs(finalDurationSec! - trackDurationSec!)).toBeLessThan(0.5)
 
-    // Совпадение длин — не совпадение случайное: подгон под трек обязан быть
-    // ПРИМЕНЁН. Без этой проверки тест прошёл бы и на ролике, у которого клипы
-    // случайно суммировались в длину трека.
+    // Совпадение длин — не совпадение случайное. У этого ролика есть план
+    // монтажа (`editPlan !== null`: `audioFirst !== null && alignedScenes.length > 0`,
+    // ровно условие блока 2c/2d в video-pipeline.ts) — Task 6 включает для
+    // него КАДРОВЫЙ маршрут (`shotRouteActive`), и сборка идёт по кадрам, а не
+    // по клипам сцен: `fitClipsToTrack`/«Подгон длины клипов под трек» на этом
+    // маршруте не вызываются вовсе (Task 6, §8 — кадры по построению уже
+    // покрывают трек ровно, подгонять нечего). Вместо старой строки лога —
+    // подтверждение, что сборку СОБРАЛИ ИМЕННО КАДРЫ: без этой проверки тест
+    // прошёл бы и на ролике, у которого клипы случайно суммировались в длину
+    // трека.
     const assemblyLog = await stepLog(videoId, "assembly")
-    expect(assemblyLog.some(line => line.startsWith("Подгон длины клипов под трек:"))).toBe(true)
+    expect(assemblyLog.some(line => line.startsWith("Подгон длины клипов под трек:"))).toBe(false)
+    expect(assemblyLog.some(line => /^Кадровый монтаж: таймлайн собран из \d+ кадров/.test(line))).toBe(true)
 
     // ── 6. Несущая механика: кусок трека → lip-sync клип → склейка ──
     const lipSyncStep = await prisma.videoGenerationStep.findFirst({
