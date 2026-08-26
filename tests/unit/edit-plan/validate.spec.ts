@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
 import { validateShotPlan } from "~~/server/utils/edit-plan/validate"
+import { planLipSyncParts } from "~~/server/utils/presenter/lip-sync-parts"
 import type { PlannedShot } from "~~/server/utils/edit-plan/types"
 
 const WORDS = [
@@ -411,7 +412,38 @@ function scene9Context(shots: PlannedShot[], overrides: Record<string, unknown> 
 }
 
 describe("потолок lip-sync на СЦЕНУ, а не только на кадр", () => {
-  it("ловит сцену, где ведущий не помещается в клип: семь коротких кадров, а сцена 11.36с", () => {
+  /** Та же сцена, но БЕЗ пословных границ: дробить реплику нечем (§5.3). */
+  const SCENE9_NO_WORDS = { ...SCENE9, words: [] }
+
+  it("сцену, которую ДРОБИТЬ УДАЛОСЬ, агрегат не обвиняет — части покрывают реплику целиком", () => {
+    // Правка 26.08.2026: lip-sync больше не режет из трека один префикс
+    // [начало сцены, +потолок], а дробит длинную реплику и платит за каждую
+    // часть отдельно (spec §5.3). Кадры, нарезанные ПО ЧАСТЯМ (ровно так их
+    // отдаёт `buildShotGrid`), живой материал получают все до одного.
+    const parts = planLipSyncParts({
+      scene: SCENE9,
+      maxDurationSec: 10,
+      fps: 30,
+      brollAllowed: false,
+    }).parts
+    // Вход обязан оставаться тем, ради чего написан: реплика реально разбита.
+    expect(parts.length).toBeGreaterThan(1)
+
+    const shots = parts.map((part, index) => ({
+      ...scene9Shots(() => "presenter")[0]!,
+      order: index,
+      startSec: part.startSec,
+      endSec: part.endSec,
+    })) as PlannedShot[]
+
+    expect(validateShotPlan(scene9Context(shots)).map(v => v.code)).not.toContain("presenter_scene_too_long")
+  })
+
+  it("кадр, переехавший границу частей, обвиняется — живого материала на всю его длину нет", () => {
+    // Кадры по 1.62с нарезаны БЕЗ оглядки на точки дробления, и один из них
+    // приходится ровно на стык двух частей: первая часть до него не достаёт,
+    // вторая начинается позже его начала. Композиция такой кадр уведёт на фон
+    // (`presenterLiveSec`), и план обязан сказать об этом заранее.
     const violations = validateShotPlan(scene9Context(scene9Shots(() => "presenter")))
     const codes = violations.map(v => v.code)
 
@@ -421,10 +453,25 @@ describe("потолок lip-sync на СЦЕНУ, а не только на к�
     expect(violations.find(v => v.code === "presenter_scene_too_long")!.message).toContain("9")
   })
 
-  it("тот же план с последним кадром-перебивкой нарушения не даёт", () => {
-    // Кадр 6 (89.29-90.93) — единственный, которому клип ведущей физически не
-    // покрывает время: 89.29 + 1.64 уже за 89.57 = 79.57 + 10.
-    const violations = validateShotPlan(scene9Context(scene9Shots(index => (index === 6 ? "none" : "presenter"))))
+  it("сцену БЕЗ пословных границ дробить нечем — хвост обвиняется, как и до дробления", () => {
+    // Единственный случай, ради которого код нарушения и сохранён: без слов
+    // §5.3 резать не по чему (по таймеру дробить прямо запрещено), часть одна
+    // и её окно обрывается на потолке. Кадр 6 (89.29-90.93) — единственный,
+    // которому клип ведущей физически не покрывает время: 89.29 + 1.64 уже за
+    // 89.57 = 79.57 + 10.
+    const codes = validateShotPlan(scene9Context(scene9Shots(() => "presenter"), {
+      alignedScenes: [SCENE9_NO_WORDS],
+    })).map(v => v.code)
+
+    expect(codes).toContain("presenter_scene_too_long")
+    expect(codes).not.toContain("presenter_too_long")
+  })
+
+  it("тот же план БЕЗ слов и с последним кадром-перебивкой нарушения не даёт", () => {
+    const violations = validateShotPlan(scene9Context(
+      scene9Shots(index => (index === 6 ? "none" : "presenter")),
+      { alignedScenes: [SCENE9_NO_WORDS] },
+    ))
     expect(violations.map(v => v.code)).not.toContain("presenter_scene_too_long")
   })
 

@@ -132,6 +132,38 @@ export function isKnownSkipReason(value: unknown): value is LipSyncSkipReason {
   return typeof value === "string" && KNOWN_SKIP_REASONS.has(value)
 }
 
+/**
+ * Одна ЧАСТЬ реплики сцены: свой кусок трека, свой платный вызов, свой файл.
+ *
+ * Появилась вместе с дроблением длинной реплики (spec §5.3): реплика длиннее
+ * потолка lip-sync модели не помещается в один вызов, и до дробления её хвост
+ * оставался без синхронизации вовсе. Сцена короче потолка частей не имеет —
+ * поле `parts` у её записи отсутствует, и снапшот выглядит ровно так же, как
+ * до правки.
+ */
+export interface LipSyncScenePart {
+  /** 0-based номер части внутри сцены. Часть 0 — начало реплики. */
+  index: number
+  /** Начало части В ТРЕКЕ: по нему кадр считает своё смещение внутри клипа. */
+  startSec: number
+  /** Конец части В ТРЕКЕ. */
+  endSec: number
+  /** Готовый lip-synced файл части. null — часть не синхронизирована (см. skipped). */
+  outputPath: LipSyncedClipPath | null
+  /** Кусок трека, который ушёл в модель под эту часть. */
+  audioPath: string | null
+  /**
+   * Ключ переиспользования ЧАСТИ (не сцены): в него входит отпечаток именно
+   * её интервала в треке. Ключ на сцену сделал бы дробление неидемпотентным —
+   * повторный прогон переоплачивал бы уже готовые части.
+   */
+  reuseKey: string | null
+  /** Измеренная длительность источника этой части. */
+  durationSec: number
+  /** Почему часть НЕ синхронизирована. Отсутствует/null у обычной части. */
+  skipped?: LipSyncSkipReason | null
+}
+
 /** Результат по одной сцене — кладём в outputSnapshot ради переиспользования при рестарте. */
 export interface LipSyncSceneRecord {
   /** order сцены из storyPlan (1-based) — только для логов и трассировки. */
@@ -171,6 +203,21 @@ export interface LipSyncSceneRecord {
    * записи. Синхронизированной такая сцена не считается — только «обработанной».
    */
   skipped?: LipSyncSkipReason | null
+  /**
+   * Части длинной реплики по возрастанию времени (spec §5.3, дробление).
+   *
+   * Отсутствует у сцены, которая уместилась в один вызов, — и у КАЖДОЙ записи
+   * снапшота прошлых версий. Отсутствие означает ровно одно: клип сцены
+   * (`outputPath`) покрывает её от `alignedScene.startSec`, как и было до
+   * дробления. Читатели обязаны трактовать `undefined` именно так, а не как
+   * «частей нет вовсе».
+   *
+   * Поля выше (`outputPath`, `audioPath`, `durationSec`) у разбитой сцены
+   * описывают ПЕРВУЮ часть с результатом: старые потребители (сборка прежнего
+   * маршрута, `resolveSceneSourcePath`) продолжают видеть один файл на сцену и
+   * работают как раньше.
+   */
+  parts?: LipSyncScenePart[]
 }
 
 /** Запись-отказ: файла нет, есть причина. */
@@ -181,8 +228,17 @@ export function isSkippedSceneRecord(record: LipSyncSceneRecord): boolean {
 /**
  * Закрывает ли запись сцену для ранней идемпотентности.
  * Обычная запись — да; запись-отказ — только с детерминированной причиной.
+ *
+ * У разбитой на части сцены (spec §5.3) закрытыми обязаны быть ВСЕ части.
+ * Иначе сцена, у которой первая часть синхронизирована, а вторая упала по
+ * среде (провайдер отбил вызов), выглядела бы «готовой»: completed-шаг отдал
+ * бы кэш целиком, и вторая половина реплики навсегда и молча осталась бы без
+ * губ — ровно тот дефект, ради которого дробление и делалось.
  */
 export function isSceneRecordCovering(record: LipSyncSceneRecord): boolean {
+  if (record.parts && record.parts.length > 0) {
+    return record.parts.every(part => !part.skipped || DETERMINISTIC_SKIP_REASONS.has(part.skipped))
+  }
   if (!record.skipped) return true
   return DETERMINISTIC_SKIP_REASONS.has(record.skipped)
 }
@@ -208,9 +264,12 @@ export function readPreviousSceneRecords(snapshot: unknown): Map<number, LipSync
       ? record.outputPath as LipSyncedClipPath
       : null
     const skipped = isKnownSkipReason(record.skipped) ? record.skipped : null
+    const parts = readSceneParts(record.parts)
     // Годятся два вида записей: готовый файл либо явный отказ с известной причиной.
     // Всё остальное — мусор, из которого нельзя понять, обработана сцена или нет.
-    if (!outputPath && !skipped) continue
+    // Разбитая сцена (§5.3) годится и тогда, когда её первая часть упала, а
+    // вторая состоялась: сам список частей и есть описание обработки.
+    if (!outputPath && !skipped && !parts) continue
     map.set(record.sceneIndex, {
       sceneOrder: typeof record.sceneOrder === "number" ? record.sceneOrder : record.sceneIndex + 1,
       sceneIndex: record.sceneIndex,
@@ -223,9 +282,51 @@ export function readPreviousSceneRecords(snapshot: unknown): Map<number, LipSync
       // не ошибка, а честное «переиспользовать нельзя, происхождение неизвестно».
       reuseKey: typeof record.reuseKey === "string" ? record.reuseKey : null,
       durationSec: typeof record.durationSec === "number" ? record.durationSec : 0,
+      // Обратная совместимость ровно тем же приёмом, что и у reuseKey выше:
+      // снапшот прошлых версий поля не знает, и `undefined` здесь означает
+      // «сцена не дробилась», а не «частей нет» (см. докстринг поля).
+      ...(parts ? { parts } : {}),
     })
   }
   return map
+}
+
+/**
+ * Разбор списка частей из снапшота. `undefined` — поля не было (снапшот
+ * прошлых версий либо сцена, уместившаяся в один вызов): это НЕ ошибка, а
+ * прежняя форма записи.
+ *
+ * Мусорная часть (без номера или без границ) отбрасывается целиком: из неё
+ * нельзя понять ни какой кусок трека она покрывает, ни оплачена ли она.
+ * Пустой после чистки список тоже даёт `undefined` — сцена читается как
+ * неразбитая, и её переработают честно, а не подставят непонятно что.
+ */
+function readSceneParts(raw: unknown): LipSyncScenePart[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const parts: LipSyncScenePart[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue
+    const part = item as Partial<LipSyncScenePart>
+    if (typeof part.index !== "number") continue
+    if (typeof part.startSec !== "number" || typeof part.endSec !== "number") continue
+    if (!Number.isFinite(part.startSec) || !Number.isFinite(part.endSec)) continue
+    const outputPath = typeof part.outputPath === "string"
+      ? part.outputPath as LipSyncedClipPath
+      : null
+    parts.push({
+      index: part.index,
+      startSec: part.startSec,
+      endSec: part.endSec,
+      outputPath,
+      audioPath: typeof part.audioPath === "string" ? part.audioPath : null,
+      reuseKey: typeof part.reuseKey === "string" ? part.reuseKey : null,
+      durationSec: typeof part.durationSec === "number" ? part.durationSec : 0,
+      skipped: isKnownSkipReason(part.skipped) ? part.skipped : null,
+    })
+  }
+  if (parts.length === 0) return undefined
+  parts.sort((a, b) => a.index - b.index)
+  return parts
 }
 
 /**

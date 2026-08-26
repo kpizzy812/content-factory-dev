@@ -29,6 +29,7 @@
  */
 
 import { trackEndFrame } from "../voiceover/segment-cut"
+import { partCoverageEndSec, planLipSyncParts, shotCoveredByParts } from "../presenter/lip-sync-parts"
 import type { AlignedScene } from "../transcription/align"
 import type { ResolvedEditProfile } from "./profile"
 import type { ShotPlan } from "./types"
@@ -201,21 +202,34 @@ export interface PresenterSceneOverflow<T extends PresenterWindowShot> {
  * причине, что `timelineEndSec`/`splitsWord`: расхождение между «что обвиняем»
  * и «что чиним» уже однажды породило Critical 2 этой ветки.
  *
- * Окно берётся ОТ НАЧАЛА СЦЕНЫ, потому что именно так его режет
- * `planSegmentCut` (`voiceover/segment-cut.ts`): при сцене длиннее потолка
- * `endSec = floorToFrame(startSec + maxDurationSec)`. Клип, приведённый затем к
- * длине сцены (`fitPresenterClipsToScenes`), за этой границей содержит только
- * удержанный последний кадр.
+ * Окно считается ПО ЧАСТЯМ реплики (`planLipSyncParts`, spec §5.3): lip-sync
+ * больше не режет из трека один префикс `[начало сцены, +потолок]`, а дробит
+ * длинную реплику и платит за каждую часть отдельно. Каждая часть покрыта от
+ * своего начала на её длину, зажатую потолком модели ровно так же, как её
+ * зажмёт `planSegmentCut` при вырезке.
+ *
+ * Отсюда следствие, ради которого код нарушения и сохранён: у сцены, которую
+ * ДРОБИТЬ УДАЛОСЬ, окно покрывает реплику целиком и нарушения не возникает
+ * вовсе. Оно остаётся защитой для случая «дробление невозможно» — сцена без
+ * пословных границ (`splitLongPresenterLine` на ней возвращает пустой список,
+ * см. `planLipSyncParts`): там часть по-прежнему одна, длиннее потолка, и
+ * кадры за её окном обязаны стать перебивкой, иначе покажут застывшее лицо.
  *
  * Сцены нет в выравнивании — окна нет: это ровно та ветка, где
  * `fitPresenterClipsToScenes` использует клип как есть, приводить его не к
  * чему. Потолок не положительное конечное число — считать окно нечем.
+ *
+ * `brollAllowed` обязан совпадать с тем, что получили `buildShotGrid` и
+ * lip-sync того же ролика (`profile.brollRatio > 0`): перебивка сдвигает точки
+ * реза, и на разных значениях обвинение считалось бы по одному разбиению, а
+ * исполнение шло бы по другому.
  */
 export function findPresenterSceneOverflows<T extends PresenterWindowShot>(
   shots: readonly T[],
   alignedScenes: readonly AlignedScene[],
   lipSyncMaxDurationSec: number,
   fps: number,
+  brollAllowed = true,
 ): PresenterSceneOverflow<T>[] {
   if (!Number.isFinite(lipSyncMaxDurationSec) || lipSyncMaxDurationSec <= 0) return []
 
@@ -244,12 +258,18 @@ export function findPresenterSceneOverflows<T extends PresenterWindowShot>(
   for (const [sceneOrder, list] of byScene) {
     const scene = sceneByOrder.get(sceneOrder)!
     list.sort((a, b) => a.startSec - b.startSec)
-    const coverageEndSec = Math.min(scene.endSec, scene.startSec + lipSyncMaxDurationSec)
+    const parts = planLipSyncParts({ scene, maxDurationSec: lipSyncMaxDurationSec, fps, brollAllowed }).parts
     // `slice(1)` — первый кадр сцены неприкосновенен, см. докстринг кода
     // нарушения: у него живой материал есть, а его собственная длина — забота
     // `presenter_too_long`.
-    const offending = list.slice(1).filter(shot => shot.endSec > coverageEndSec + eps)
+    const offending = list.slice(1)
+      .filter(shot => !shotCoveredByParts(parts, shot.startSec, shot.endSec, lipSyncMaxDurationSec, eps))
     if (offending.length === 0) continue
+    // Конец покрытия для сообщения — самый дальний, до которого клипы сцены
+    // вообще достают.
+    const coverageEndSec = parts.length > 0
+      ? Math.max(...parts.map(part => partCoverageEndSec(part, lipSyncMaxDurationSec)))
+      : scene.startSec
     const presenterSec = list.reduce((sum, shot) => sum + Math.max(0, shot.endSec - shot.startSec), 0)
     overflows.push({ sceneOrder, coverageEndSec, presenterSec, offending })
   }
@@ -397,7 +417,13 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
 
   // Потолок lip-sync на СЦЕНУ. Проверка отдельная от цикла по кадрам: она про
   // агрегат, а не про кадр, и её нельзя посчитать, не увидев всю сцену целиком.
-  for (const overflow of findPresenterSceneOverflows(shots, input.alignedScenes, input.lipSyncMaxDurationSec, input.fps)) {
+  for (const overflow of findPresenterSceneOverflows(
+    shots,
+    input.alignedScenes,
+    input.lipSyncMaxDurationSec,
+    input.fps,
+    input.profile.brollRatio > 0,
+  )) {
     const orders = overflow.offending.map(shot => shot.order).join(", ")
     violations.push({
       code: "presenter_scene_too_long",

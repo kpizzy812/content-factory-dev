@@ -282,16 +282,14 @@ describe("шаг плана монтажа", () => {
     await expect(runEditPlanStep(unfixable, dependencies)).rejects.toThrow(/план монтажа/i)
   })
 
-  it("сцену длиннее потолка модели ведущий занимает только там, куда достаёт его клип", async () => {
-    // Правка 26.08.2026 (дефект «липсинк застыл в конце», ролик 30). Прежняя
-    // редакция этого теста требовала «не меньше двух presenter-кадров» —
-    // дробление реплики по §5.3 действительно даёт две части. Но lip-sync
-    // производится НА СЦЕНУ одним вызовом, и `planSegmentCut` режет из трека
-    // кусок [начало сцены, +потолок]: второй части живого материала не
-    // достаётся вовсе, и на экране она была замороженным лицом под живую речь.
-    // Утверждение переписано на то, что действительно обязано держаться:
-    // ведущий остаётся там, куда достаёт клип, остальное — перебивка, а
-    // покрытие трека не рвётся.
+  it("сцена длиннее потолка модели дробится, и ведущий покрывает её ЦЕЛИКОМ", async () => {
+    // Правка 26.08.2026 (дефект «липсинк застыл в конце», ролик 30) и её
+    // продолжение того же дня. Первая редакция ограничивала ведущего первыми
+    // 10 секундами сцены: lip-sync резал из трека кусок
+    // [начало сцены, +потолок], и хвосту живого материала не доставалось.
+    // Теперь реплика дробится по §5.3, каждая часть уходит в модель своим
+    // (платным) вызовом, и ведущий остаётся на всей сцене — включая хвост,
+    // которым на боевом ролике 30 был призыв к действию.
     const long = [{ order: 1, startSec: 0, endSec: 14, words: [
       { text: "а", startSec: 0, endSec: 6, matched: true },
       { text: "б", startSec: 7, endSec: 14, matched: true },
@@ -312,15 +310,17 @@ describe("шаг плана монтажа", () => {
     )
 
     const presenters = result.shots.filter(s => s.foreground === "presenter")
-    expect(presenters.length).toBeGreaterThanOrEqual(1)
-    // Ни один кадр ведущего не заходит за конец клипа сцены (0 + 10).
-    for (const shot of presenters) expect(shot.endSec).toBeLessThanOrEqual(10 + 1e-6)
-    // Суммарное время ведущего в сцене — то, о чём говорит потолок модели.
+    // Дробление реально произошло: одним кадром сцену не покрыть — потолок 10с.
+    expect(presenters.length).toBeGreaterThanOrEqual(2)
+    // Каждый кадр ведущего сам по себе укладывается в потолок модели.
+    for (const shot of presenters) {
+      expect(shot.endSec - shot.startSec).toBeLessThanOrEqual(INPUT.lipSyncMaxDurationSec + 1e-6)
+    }
+    // И вместе они покрывают сцену целиком, без непокрытого хвоста.
     const presenterSec = presenters.reduce((sum, s) => sum + (s.endSec - s.startSec), 0)
-    expect(presenterSec).toBeLessThanOrEqual(10 + 1e-6)
-    // Хвост сцены не потерян: он покрыт перебивкой, а не выброшен.
-    expect(result.shots.some(s => s.foreground !== "presenter" && s.endSec > 10)).toBe(true)
+    expect(presenterSec).toBeCloseTo(14, 2)
     expect(result.shots.at(-1)!.endSec).toBeCloseTo(14, 6)
+    expect(result.shots.at(-1)!.foreground).toBe("presenter")
   })
 
   it("дробление длинной реплики §5.3 живёт в сетке — перебивка между частями не привязана к реплике", async () => {
@@ -784,18 +784,23 @@ describe("шаг плана монтажа: форсированный веду�
   // ВЕСЬ хвост сцены — включая ту его часть, куда клип lip-sync физически не
   // достаёт. Ровно тот же класс, что и Important 1 финального ревью, только
   // третьим условием.
+  //
+  // Слов у сцены НЕТ намеренно (правка 26.08.2026, дробление §5.3): реплику с
+  // пословными границами lip-sync теперь дробит и покрывает целиком, и хвост
+  // ведущему отдаётся ЗАКОННО. Единственный оставшийся случай, где клип
+  // физически не достаёт до хвоста, — сцена, которую дробить нечем: резать по
+  // таймеру спека запрещает прямо, значит часть одна и её окно обрывается на
+  // потолке модели.
   const LONG_SCENE_INPUT: EditPlanStepInput = {
     ...INPUT,
     profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 3 },
     presenterSceneOrders: [],
     trackDurationSec: 14,
-    alignedScenes: [{ order: 1, startSec: 0, endSec: 14, words: Array.from({ length: 14 }, (_, index) => ({
-      text: `слово${index}`, startSec: index, endSec: index + 0.8, matched: true,
-    })) }],
+    alignedScenes: [{ order: 1, startSec: 0, endSec: 14, words: [] }],
     imageGenerationAllowed: false,
   }
 
-  it("хвост сцены длиннее потолка lip-sync ведущему не отдаётся — клип туда не достаёт", async () => {
+  it("хвост сцены длиннее потолка lip-sync ведущему не отдаётся, когда дробить реплику нечем", async () => {
     const result = await runEditPlanStep(LONG_SCENE_INPUT, deps())
 
     // Вход обязан оставаться тем, ради чего написан: сцена длиннее потолка,

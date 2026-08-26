@@ -45,6 +45,13 @@ export interface AvatarClipRequest {
   stepId: number
   unitKey: string
   sceneOrder: number
+  /**
+   * Номер части длинной реплики (spec §5.3). 0/не задан — сцена не дробилась,
+   * ключ хранилища остаётся прежним. Части одной сцены обязаны писаться в
+   * РАЗНЫЕ объекты: общий ключ означал бы, что вторая часть затирает первую
+   * уже после того, как обе оплачены.
+   */
+  partIndex?: number
   /** Локальный файл готовой речи сцены. Он же диктует длину клипа. */
   audioPath: string
   /** Длина аудио в секундах — по ней считаются деньги и таймлайн. */
@@ -224,8 +231,11 @@ export function findSimilarAvatarClip(
  * сцены делает шаг генерации, а этот файл — результат аватарной ветки, и общий
  * ключ означал бы, что в смешанном ролике один перезаписывает другой.
  */
-export function avatarSourceStorageKey(videoId: number, sceneIndex: number): string {
-  return StorageKeys.videoLipSyncClip(videoId, `avatar_scene_${sceneIndex}.mp4`)
+export function avatarSourceStorageKey(videoId: number, sceneIndex: number, partIndex = 0): string {
+  // Суффикс появляется только со второй части — у неразбитой сцены ключ
+  // обязан остаться прежним, иначе уже залитые аватарные кадры «потеряются».
+  const basename = partIndex > 0 ? `avatar_scene_${sceneIndex}_part${partIndex}.mp4` : `avatar_scene_${sceneIndex}.mp4`
+  return StorageKeys.videoLipSyncClip(videoId, basename)
 }
 
 /** Есть ли у персонажа портрет, которым вообще можно снять аватарную сцену. */
@@ -311,7 +321,7 @@ export async function generateAvatarSourceClip(
     outputPath: request.outputPath,
     usage: { outputSeconds: request.durationSec, resolution: request.resolution },
     persist: {
-      storageKey: avatarSourceStorageKey(request.videoId, request.sceneOrder),
+      storageKey: avatarSourceStorageKey(request.videoId, request.sceneOrder, request.partIndex ?? 0),
       contentType: "video/mp4",
     },
   })

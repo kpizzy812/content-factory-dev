@@ -98,12 +98,20 @@ import {
   type SegmentCut,
 } from "./voiceover/segment-cut"
 import type { AlignedScene } from "./transcription/align"
+// Чистое планирование частей длинной реплики (spec §5.3). Модуль тянет только
+// `edit-plan/split-line.ts` и `voiceover/segment-cut.ts` — ни presenter/ffmpeg-adapter,
+// ни video-tools/ffmpeg в его графе нет даже транзитивно, инвариант
+// статической недостижимости из этого файла сохранён (см. докстринг
+// динамического импорта cutRecordingWindow выше).
+import { planLipSyncParts, type LipSyncPartPlan } from "./presenter/lip-sync-parts"
 import {
   areAllScenesCovered,
   areAllScenesReusable,
+  isSceneRecordCovering,
   mergeSceneRecords,
   readPreviousSceneRecords,
   type LipSyncSceneRecord,
+  type LipSyncScenePart,
   type LipSyncSkipReason,
 } from "./presenter/lip-sync-progress"
 import { TIMELINE_FPS, type StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
@@ -214,6 +222,17 @@ export interface LipSyncAudioFirstInput {
   scenes: readonly AlignedScene[]
   /** Частота кадров сборки; не передана — 30 кадров. */
   fps?: number
+  /**
+   * Разрешена ли перебивка между частями длинной реплики (spec §5.3 п.2) —
+   * `profile.brollRatio > 0` монтажного профиля ролика.
+   *
+   * Обязано совпадать с тем, что получил `buildShotGrid` того же ролика:
+   * перебивка сдвигает точки реза, и на разных значениях план монтажа и
+   * реальная нарезка разошлись бы в границах частей — кадр ждал бы живого
+   * материала там, где его нет. Не передано — `true`, значение профиля по
+   * умолчанию (`brollRatio` 0.4).
+   */
+  brollAllowed?: boolean
 }
 
 export interface LipSyncStepInput {
@@ -404,10 +423,71 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
   }
 
   /**
+   * Модель lip-sync и её диапазон длительности разрешаются ЗДЕСЬ, до ранней
+   * ветки идемпотентности: потолок модели теперь участвует в самом ключе
+   * сцены — по нему считается дробление длинной реплики (spec §5.3), а число
+   * частей меняет и границы кусков, и их отпечатки. Считай мы потолок ниже,
+   * ранняя ветка сравнивала бы ключ, собранный по другому разбиению, и
+   * ПЕРЕОПЛАЧИВАЛА бы готовый ролик на каждом прогоне.
+   *
+   * Резолв здесь чистый (чтение реестра моделей); гейт «интегрированной модели
+   * нет — шаг skipped» остался на прежнем месте ниже, вместе со своим
+   * побочным эффектом. Порядок «сначала кэш, потом отказ по модели» этим не
+   * задет.
+   */
+  const preferredId = videoConfig.lipSyncModelId
+  const preferredModel = preferredId ? getModel(preferredId) : null
+  const model = preferredModel?.integrated
+    && preferredModel.provider.toLowerCase().includes("replicate")
+    ? preferredModel
+    : getDefaultLipSyncModel()
+  const { minDurationSec, maxDurationSec } = resolveModelDurationRange(model?.id ?? "")
+
+  /** Разрешена ли перебивка между частями — то же значение, что у плана монтажа. */
+  const partsBrollAllowed = audioFirst?.brollAllowed ?? true
+
+  /**
+   * Части реплики сцены под потолок модели (spec §5.3). null — прежний
+   * посценный маршрут либо сцены нет в выравнивании.
+   *
+   * Один источник и для ключа переиспользования, и для самой нарезки ниже:
+   * ключ, посчитанный по другому разбиению, описывал бы не те куски, которые
+   * реально вырезаны и оплачены.
+   */
+  const lipSyncPartsFor = (scene: (typeof sceneUnits)[number]): LipSyncPartPlan[] | null => {
+    if (!audioFirst) return null
+    const aligned = alignedSceneFor(scene)
+    if (!aligned) return null
+    return planLipSyncParts({
+      scene: aligned,
+      maxDurationSec,
+      fps: timelineFps,
+      brollAllowed: partsBrollAllowed,
+      trackDurationSec: audioFirst.trackDurationSec,
+    }).parts
+  }
+
+  /** Отпечаток интервала ОДНОЙ части в треке — основа ключа этой части. */
+  const partSegmentIdentity = (sceneOrder: number, part: LipSyncPartPlan): string =>
+    segmentIdentity({
+      videoId,
+      sceneOrder,
+      startSec: part.startSec,
+      endSec: part.endSec,
+      trackFingerprint: audioFirst!.trackFingerprint,
+    })
+
+  /**
    * Отпечаток куска трека для КЛЮЧА СЦЕНЫ — по границам выравнивания, притянутым
    * к кадру и обрезанным концом трека, но БЕЗ зажатия в диапазон модели: модель
    * уже учтена в ключе своим id, а границы нужны здесь, в ранней ветке
-   * идемпотентности, где модель ещё не разрешена.
+   * идемпотентности.
+   *
+   * Реплика, разбитая на части, даёт ключ ПО ВСЕМ частям сразу: ранняя ветка
+   * обязана отличать «сцена сделана целиком» от «сделана только первая
+   * половина». Одна часть (сцена уместилась в потолок либо дробить нечем)
+   * возвращает ровно тот же отпечаток, что и до дробления, — старые снапшоты
+   * читаются как раньше и не переоплачиваются.
    *
    * Притяжка к кадру и обрезка по треку обязательны: без них дрожание
    * выравнивания в единицы миллисекунд (или за концом трека) при том же треке
@@ -427,21 +507,16 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
    */
   const trackSegmentKeyFor = (scene: (typeof sceneUnits)[number]): string | null => {
     if (!audioFirst) return null
-    const aligned = alignedSceneFor(scene)
+    const parts = lipSyncPartsFor(scene)
     // Выравнивание сцены не знает: отказ у неё будет свой, и ключ ему нужен
     // МАРШРУТ-СПЕЦИФИЧНЫЙ. Верни здесь null — ключ совпал бы с ключом посценного
     // маршрута, и прогон без audioFirst (флаг выключили, транскрипция не доехала)
     // принял бы запись-отказ за свою: шаг отдал бы кэш, а сцена осталась бы без
     // lip-sync молча и навсегда.
-    if (!aligned) return "audio-first:no-alignment"
-    const trackEnd = trackEndFrame(audioFirst.trackDurationSec, timelineFps)
-    return segmentIdentity({
-      videoId,
-      sceneOrder: scene.order,
-      startSec: Math.min(Math.max(0, snapSecToFrame(aligned.startSec, timelineFps)), trackEnd),
-      endSec: Math.min(snapSecToFrame(aligned.endSec, timelineFps), trackEnd),
-      trackFingerprint: audioFirst.trackFingerprint,
-    })
+    if (!parts) return "audio-first:no-alignment"
+    const keys = parts.map(part => partSegmentIdentity(scene.order, part))
+    if (keys.length === 1) return keys[0]!
+    return createHash("sha1").update(keys.join(" ")).digest("hex")
   }
 
   /**
@@ -517,13 +592,8 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     }
   }
 
-  // Resolve lip-sync model
-  const preferredId = videoConfig.lipSyncModelId
-  const preferredModel = preferredId ? getModel(preferredId) : null
-  const model = preferredModel?.integrated
-    && preferredModel.provider.toLowerCase().includes("replicate")
-    ? preferredModel
-    : getDefaultLipSyncModel()
+  // Гейт модели: сам резолв поднят выше (см. там докстринг — потолок нужен
+  // ключу сцены), здесь остался только отказ со своим побочным эффектом.
   if (!model || model.task !== "lip_sync") {
     await updateStep(step.id, {
       status: "skipped",
@@ -534,20 +604,22 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     return { status: "skipped", clipPaths, syncedSceneCount: 0, resyncedSceneCount: 0, totalCostUsd: 0, modelId: null }
   }
 
-  const { minDurationSec, maxDurationSec } = resolveModelDurationRange(model.id)
-
   /**
-   * План куска трека под сцену: границы (кадр → длина трека → диапазон модели) и
-   * его отпечаток. Отпечаток уходит в имя файла, поэтому считается уже по ЗАЖАТЫМ
-   * границам: смена lip-sync модели меняет их, и кусок старой длины не подставится
-   * под новую модель.
+   * План куска трека под ЧАСТЬ реплики: границы (кадр → длина трека → диапазон
+   * модели) и его отпечаток. Отпечаток уходит в имя файла, поэтому считается уже
+   * по ЗАЖАТЫМ границам: смена lip-sync модели меняет их, и кусок старой длины не
+   * подставится под новую модель.
+   *
+   * Сцена, уместившаяся в потолок, имеет ровно одну часть с границами самой
+   * сцены — и получает побайтово тот же кусок, что и до дробления.
    */
   const planTrackSegment = (
-    aligned: AlignedScene,
+    sceneOrder: number,
+    part: LipSyncPartPlan,
     track: LipSyncAudioFirstInput,
   ): { cut: SegmentCut, identity: string } => {
     const cut = planSegmentCut({
-      scene: aligned,
+      scene: { order: sceneOrder, startSec: part.startSec, endSec: part.endSec },
       trackDurationSec: track.trackDurationSec,
       fps: timelineFps,
       model: { minDurationSec, maxDurationSec },
@@ -556,7 +628,7 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       cut,
       identity: segmentIdentity({
         videoId,
-        sceneOrder: aligned.order,
+        sceneOrder,
         startSec: cut.startSec,
         endSec: cut.endSec,
         // Добивка тишиной — часть ФАЙЛА: без неё модели с разным минимумом дали бы
@@ -675,6 +747,60 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
     })
   }
 
+  /**
+   * Готова ли сцена из снапшота ЦЕЛИКОМ — можно ли пропустить её без единого
+   * обращения к провайдеру.
+   *
+   * У неразбитой реплики это прежняя проверка «файл записан и лежит на диске».
+   * У разбитой (spec §5.3) закрытыми обязаны быть ВСЕ части: иначе сцена, чья
+   * вторая половина упала по среде, молча осталась бы с половиной губ, а
+   * повторный прогон отдал бы её как готовую.
+   */
+  const sceneRecordReusable = async (record: LipSyncSceneRecord): Promise<boolean> => {
+    if (record.parts && record.parts.length > 0) {
+      if (!isSceneRecordCovering(record)) return false
+      const rendered = record.parts.filter(part => part.outputPath)
+      if (rendered.length === 0) return false
+      for (const part of rendered) {
+        if (!(await fileExists(part.outputPath!))) return false
+      }
+      return true
+    }
+    return !!record.outputPath && await fileExists(record.outputPath)
+  }
+
+  /**
+   * Готовая ЧАСТЬ прошлого прогона под тот же ключ.
+   *
+   * Запись старого формата (одна на сцену, без списка частей) узнаётся здесь
+   * же: у неразбитой реплики ключ её единственной части совпадает с ключом
+   * сцены побайтово, поэтому старый снапшот продолжает переиспользоваться без
+   * повторной оплаты — ровно как до дробления.
+   */
+  const findPreviousPart = (
+    record: LipSyncSceneRecord | undefined,
+    partIndex: number,
+    expectedKey: string,
+  ): LipSyncScenePart | null => {
+    if (!record) return null
+    if (record.parts && record.parts.length > 0) {
+      const part = record.parts.find(candidate => candidate.index === partIndex)
+      return part && part.reuseKey === expectedKey ? part : null
+    }
+    if (partIndex !== 0) return null
+    if (!record.reuseKey || record.reuseKey !== expectedKey) return null
+    return {
+      index: 0,
+      startSec: 0,
+      endSec: 0,
+      outputPath: record.outputPath,
+      audioPath: record.audioPath,
+      reuseKey: record.reuseKey,
+      durationSec: record.durationSec,
+      skipped: record.skipped ?? null,
+    }
+  }
+
   let ledgerFlushed = false
   /**
    * Одна строка ledger на (видео × шаг × сервис × попытку) — cost-ledger дедуплицирует
@@ -741,7 +867,11 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
       const spokenLine = scene.spokenLine!.trim()
       const spokenLineHash = hashSpokenLine(spokenLine)
       const sourceAnchor = sourceAnchorFor(sceneIndex, resolvedSource.path)
-      const reuseKey = await reuseKeyFor(spokenLine, sourceAnchor, trackSegmentKeyFor(scene))
+      // Ключ ВСЕЙ сцены: по нему решается «сцена сделана целиком» — и в ранней
+      // ветке идемпотентности, и в быстром переиспользовании ниже. У разбитой
+      // реплики он собран из ключей всех частей (см. trackSegmentKeyFor), у
+      // неразбитой совпадает с ключом её единственной части побайтово.
+      const sceneReuseKey = await reuseKeyFor(spokenLine, sourceAnchor, trackSegmentKeyFor(scene))
 
       // Маршрут «монтаж от звука»: сцене нужен её кусок общего трека, а границы
       // куска даёт выравнивание. Сцены в выравнивании нет — синтезировать речь
@@ -763,23 +893,32 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           sceneIndex,
           reason: "track_segment_missing",
           sourcePath: resolvedSource.path,
-          reuseKey,
+          reuseKey: sceneReuseKey,
           spokenLineHash,
         })
         continue
       }
-      const segmentPlan = audioFirst && alignedScene ? planTrackSegment(alignedScene, audioFirst) : null
 
       // Переиспользование готового результата сцены: совпал ВЕСЬ отпечаток (текст,
-      // исходник, персонаж, параметры синтеза) и файл на месте — повторно платить
+      // исходник, персонаж, параметры синтеза) и файлы на месте — повторно платить
       // за TTS и lip-sync незачем. Записи старого формата (reuseKey=null) не
       // переиспользуются: неизвестно, из чего они собраны.
-      if (previous?.reuseKey && previous.reuseKey === reuseKey && previous.outputPath && await fileExists(previous.outputPath)) {
-        updatedClipPaths[sceneIndex] = previous.outputPath
+      //
+      // У разбитой реплики «на месте» означает КАЖДУЮ часть: сцена, где первая
+      // часть готова, а вторая упала по среде, обязана попасть в цикл ниже и
+      // доделать хвост, а не отдать половину реплики как готовую (см.
+      // isSceneRecordCovering).
+      if (previous?.reuseKey && previous.reuseKey === sceneReuseKey && await sceneRecordReusable(previous)) {
+        if (previous.outputPath) updatedClipPaths[sceneIndex] = previous.outputPath
         sceneRecords.push({ ...previous, sceneOrder: scene.order, sceneIndex })
         syncedSceneCount++
         reusedSceneCount++
-        await appendStepLog(step.id, `${sceneTag}: переиспользую готовый lip-sync ${basename(previous.outputPath)} — повторной оплаты нет`)
+        await appendStepLog(
+          step.id,
+          `${sceneTag}: переиспользую готовый lip-sync ${basename(previous.outputPath ?? "—")}`
+          + (previous.parts && previous.parts.length > 1 ? ` и ещё ${previous.parts.length - 1} част(ей) реплики` : "")
+          + " — повторной оплаты нет",
+        )
         continue
       }
       if (previous?.outputPath && !previous.reuseKey) {
@@ -789,624 +928,620 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
         )
       }
 
-      const plannedDurationSec = scene.durationSec || 5
-
-      // Синтез речи как функция, а не как место в потоке: маршруту ведущей
-      // длина речи нужна ДО подбора фрагмента, всем остальным — после проверок
-      // источника. Повторный вызов ничего не делает и ничего не стоит.
-      // Цель подбора фрагмента: по умолчанию план, для ведущей — измеренная речь.
-      let presenterTargetSec = plannedDurationSec
-      let speechReady = false
-      // Звук сцены лежит в той же папке ассетов на обоих маршрутах, а различает их
-      // отпечаток в имени: кусок трека — интервал и сам трек, посценный синтез —
-      // текст и параметры голоса. Новый трек даёт новое имя, и старый кусок не
-      // подставится под свежий звук.
-      //
-      // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
-      // снапшота шага, который жёсткий рестарт воркера записать не успевает. Файл на
-      // месте — значит эта же фраза ТЕМ ЖЕ голосом уже синтезирована и оплачена.
-      // Только хэша текста было мало: смена голоса/модели/языка/темпа давала другой
-      // звук, а файл считался подходящим. На маршруте трека этот хэш не считается
-      // вовсе — синтеза там нет.
-      const audioPath = segmentPlan
-        ? join(assetsDir, `scene_${sceneIndex}_track_${segmentPlan.identity.slice(0, 12)}.mp3`)
-        : join(assetsDir, `scene_${sceneIndex}_spoken_${hashSpeechIdentity({
-          spokenLine,
-          voiceoverModelId: videoConfig.voiceoverModelId,
-          voiceoverVoiceId: videoConfig.voiceoverVoiceId,
-          voiceoverLanguage: videoConfig.voiceoverLanguage,
-          voiceoverPacing: videoConfig.voiceoverPacing,
-        }).slice(0, 12)}.mp3`)
       /**
-       * Файл речи, который реально уедет в модель. Совпадает с синтезированным,
-       * пока реплика влезает в исходник; длинную укладываем ускорением (см. ниже),
-       * и тогда сюда встаёт ускоренная копия. Сам `audioPath` не трогаем — по нему
-       * работает переиспользование синтеза между прогонами.
+       * Части реплики (spec §5.3). Прежний посценный маршрут частей не знает —
+       * там ровно один проход с `part = null`, и весь код ниже видит ту же
+       * картину, что и до дробления.
        */
-      let speechPath = audioPath
-      let ttsCost = 0
-      /** Длительность вырезанного куска трека — измеренная, а не плановая. */
-      let trackSegmentSec: number | null = null
-      const ensureSpeech = async (): Promise<boolean> => {
-        if (speechReady) return true
-        if (await fileExists(audioPath)) {
-          await appendStepLog(step.id, `${sceneTag}: переиспользую синтезированную реплику ${basename(audioPath)}`)
-          speechReady = true
-          return true
-        }
-        try {
-          const tts = await synthesizeSpeech({
-            text: spokenLine,
-            outputPath: audioPath,
-            modelId: videoConfig.voiceoverModelId,
-            voiceId: videoConfig.voiceoverVoiceId,
-            language: videoConfig.voiceoverLanguage,
-            pacing: videoConfig.voiceoverPacing,
-            videoId,
-          })
-          ttsCost = tts.costUsd
-          speechReady = true
-          return true
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "TTS failed"
-          await appendStepLog(step.id, `${sceneTag}: TTS ошибка (${msg}) — оставляю оригинальный клип`)
-          recordSkippedScene({
-            sceneOrder: scene.order,
-            sceneIndex,
-            reason: "tts_failed",
-            sourcePath: resolvedSource.path,
-            reuseKey,
-            spokenLineHash,
-          })
-          return false
-        }
+      const partPlans: Array<LipSyncPartPlan | null> = (audioFirst && alignedScene
+        ? lipSyncPartsFor(scene)
+        : null) ?? [null]
+      if (partPlans.length > 1) {
+        await appendStepLog(
+          step.id,
+          `${sceneTag}: реплика ${(alignedScene!.endSec - alignedScene!.startSec).toFixed(2)}с длиннее потолка модели `
+          + `${maxDurationSec}с — дроблю на ${partPlans.length} част(и) и синхронизирую каждую отдельно `
+          + `(${partPlans.map(part => `${part!.startSec.toFixed(2)}-${part!.endSec.toFixed(2)}`).join(", ")}); `
+          + "это второй платный вызов, но иначе хвост реплики остался бы без губ",
+        )
+      }
+
+      /** Результаты по частям этой сцены — из них собирается запись сцены. */
+      const partRecords: LipSyncScenePart[] = []
+      /** Сцена уже посчитана синхронизированной: счётчик растёт на СЦЕНУ, не на часть. */
+      let sceneCounted = false
+      /** В этом прогоне за сцену реально заплатили хотя бы одну часть. */
+      let scenePaidThisRun = false
+      /** Хотя бы одна часть поднята из снапшота без оплаты. */
+      let sceneReusedPart = false
+      /** Ассет клипа сцены создаётся ровно один раз, а не на каждую часть. */
+      let clipAssetCreated = false
+      /** Исходник первой дошедшей до провайдера части — он же исходник сцены. */
+      let renderedSourcePath: string | null = null
+
+      /** Счётчик синхронизированных СЦЕН: растёт на первой части с результатом. */
+      const countSceneOutput = (): void => {
+        if (sceneCounted) return
+        sceneCounted = true
+        syncedSceneCount++
       }
 
       /**
-       * Звук сцены на маршруте «монтаж от звука»: кусок уже оплаченного трека.
-       * Платного вызова здесь нет вовсе — ttsCost остаётся нулём.
+       * Запись сцены из накопленных частей.
+       *
+       * Верхние поля (`outputPath`, `audioPath`, `durationSec`) описывают ПЕРВУЮ
+       * часть с результатом: старые потребители снапшота видят один файл на
+       * сцену и работают как раньше. Список `parts` пишется ТОЛЬКО у реально
+       * разбитой реплики — снапшот неразбитой сцены остаётся прежней формы
+       * побайтово.
        */
-      const ensureTrackSegment = async (): Promise<boolean> => {
-        if (speechReady) return true
-        const { cut } = segmentPlan!
-        // Пустой интервал (выравнивание отдало нулевую сцену) — это тишина.
-        // Отдать её в lip-sync значит оплатить съёмку молчащих губ. Причина
-        // детерминированная: пока выравнивание то же, ответ будет тот же.
-        if (!(cut.durationSec > 0)) {
-          await appendStepLog(
-            step.id,
-            `${sceneTag}: интервал сцены в треке пуст (${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с) — вырезать нечего, оставляю оригинальный клип`,
-          )
-          recordSkippedScene({
-            sceneOrder: scene.order,
-            sceneIndex,
-            reason: "track_segment_empty",
-            sourcePath: resolvedSource.path,
-            reuseKey,
-            spokenLineHash,
-          })
-          return false
+      const commitSceneRecord = (): void => {
+        const rendered = partRecords.find(record => record.outputPath)
+        const primary = rendered ?? partRecords[0]
+        const record: LipSyncSceneRecord = {
+          sceneOrder: scene.order,
+          sceneIndex,
+          sourcePath: renderedSourcePath ?? (resolvedSource.path ?? ""),
+          outputPath: rendered?.outputPath ?? null,
+          audioPath: primary?.audioPath ?? null,
+          spokenLineHash,
+          reuseKey: sceneReuseKey,
+          durationSec: primary?.durationSec ?? 0,
+          ...(rendered ? {} : { skipped: primary?.skipped ?? null }),
+          ...(partPlans.length > 1 ? { parts: [...partRecords].sort((a, b) => a.index - b.index) } : {}),
         }
-        // Молчать про подгонку нельзя: модель получит кусок не той длины, что дало
-        // выравнивание. Новости при этом РАЗНЫЕ, и текст у них разный.
-        if (cut.clampedToModel === "max") {
-          // Ускорять звук под потолок модели мы на этом маршруте не имеем права —
-          // под таймлайном лежит трек, и он эталон.
-          await appendStepLog(
-            step.id,
-            `${sceneTag}: WARN интервал сцены длиннее потолка модели ${maxDurationSec}с — `
-            + `беру ${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с (${cut.durationSec.toFixed(2)}с), `
-            + `хвост реплики в кадр не попадёт; звук остаётся эталоном`,
-          )
-        } else if (cut.clampedToModel === "min") {
-          await appendStepLog(
-            step.id,
-            `${sceneTag}: интервал сцены ${(cut.endSec - cut.startSec).toFixed(2)}с короче минимума модели ${minDurationSec}с — `
-            + `добиваю тишиной на ${cut.silencePadSec.toFixed(2)}с до ${cut.durationSec.toFixed(2)}с `
-            + `(сдвигать границы в соседнюю сцену нельзя: губы произносили бы чужие слова)`,
-          )
-        }
-        if (await fileExists(audioPath)) {
-          trackSegmentSec = (await probeMediaDuration(audioPath)) ?? cut.durationSec
-          await appendStepLog(step.id, `${sceneTag}: переиспользую вырезанный кусок трека ${basename(audioPath)}`)
-          speechReady = true
-          return true
-        }
-        try {
-          const segment = await cutTrackSegment({
-            trackPath: audioFirst!.trackPath,
-            outputPath: audioPath,
-            cut,
-            probeDuration: probeMediaDuration,
-          })
-          trackSegmentSec = segment.durationSec
-          speechReady = true
-          await appendStepLog(
-            step.id,
-            `${sceneTag}: вырезал ${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с общего трека `
-            + `(${segment.durationSec.toFixed(2)}с) — синтез не нужен и не оплачивается`,
-          )
-          return true
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "cut failed"
-          await appendStepLog(step.id, `${sceneTag}: не удалось вырезать кусок трека (${msg}) — оставляю оригинальный клип`)
-          recordSkippedScene({
-            sceneOrder: scene.order,
-            sceneIndex,
-            reason: "track_segment_failed",
-            sourcePath: resolvedSource.path,
-            reuseKey,
-            spokenLineHash,
-          })
-          return false
-        }
+        const existing = sceneRecords.findIndex(candidate => candidate.sceneIndex === sceneIndex)
+        if (existing >= 0) sceneRecords[existing] = record
+        else sceneRecords.push(record)
       }
 
-      /** Звук сцены: кусок общего трека на новом маршруте, посценный синтез на прежнем. */
-      const ensureSceneAudio = async (): Promise<boolean> =>
-        segmentPlan ? ensureTrackSegment() : ensureSpeech()
+      for (const part of partPlans) {
+        const partIndex = part?.index ?? 0
+        /**
+         * Ключ переиспользования ЧАСТИ. Именно он, а не ключ сцены: наивное
+         * дробление с ключом на сцену переоплачивало бы обе части при любом
+         * промахе по одной из них.
+         */
+        const reuseKey = part
+          ? await reuseKeyFor(spokenLine, sourceAnchor, partSegmentIdentity(scene.order, part))
+          : sceneReuseKey
+        const partTag = part && partPlans.length > 1 ? `${sceneTag} часть ${partIndex + 1}/${partPlans.length}` : sceneTag
+        const segmentPlan = audioFirst && part ? planTrackSegment(scene.order, part, audioFirst) : null
 
-      let sourceVideoPath: string | null = resolvedSource.path
-      let presenterSourcePath: string | null = null
-      /**
-       * Текущий presenterSourcePath — окно, вырезанное из записи-родителя, а не
-       * подобранный из библиотеки клип. Объявлен на уровне сцены (а не внутри
-       * `if (videoConfig.lipSyncCharacterId)`, где решается сам выбор). Нужен ниже,
-       * в WARN про кусок трека длиннее исходника: тот WARN маршрут не проверяет и
-       * не разбирает причину — без флага он винил бы во всех случаях библиотеку,
-       * даже когда исходник вырезан из настоящей записи (Minor A код-ревью).
-       */
-      let sourceFromRecordingWindow = false
-      /**
-       * Аватарный маршрут: сцену снимет `speech_to_video` уже ПОСЛЕ синтеза
-       * речи — модели нужен готовый звук, а не только портрет. Поэтому здесь
-       * только решение о маршруте, а сама съёмка ниже, за TTS.
-       */
-      let useAvatarRoute = false
-      if (videoConfig.lipSyncCharacterId) {
-        // Длина речи известна только после синтеза, и именно она — цель
-        // подбора. План сцены это намерение сценариста: реплика на 77 символов
-        // звучит 5.9 с, а сцена планируется на 9-10. Фрагмент под план оставлял
-        // немой хвост, где ведущая говорит без звука (ролик 21: 20 с из 50).
-        if (!(await ensureSceneAudio())) continue
-        if (segmentPlan) {
-          // Монтаж от звука: цель подбора — длина ВЫРЕЗАННОГО куска. Она уже
-          // зажата в диапазон модели планировщиком, ускорять и подгонять нечего.
-          presenterTargetSec = trackSegmentSec ?? segmentPlan.cut.durationSec
-          await appendStepLog(
-            step.id,
-            `${sceneTag}: ищу фрагмент ведущего под кусок трека ${presenterTargetSec.toFixed(2)}с`,
-          )
-        } else {
-          const speechDurationSec = await probeMediaDuration(audioPath)
-          // Реплика может звучать дольше, чем модель готова принять исходник
-          // (kling-lip-sync — 10 с). Фрагмента такой длины в библиотеке нет и быть
-          // не может, поэтому фрагмент ищем под УСКОРЕННУЮ речь: 11.55 с при 1.2x
-          // это 9.6 с, и фраза остаётся целой. Сам файл ускоряем ниже, когда
-          // известен фактический исходник.
-          const preFit = planSpeechFitToModel(speechDurationSec ?? 0, maxDurationSec)
-          const fittedSpeechSec = speechDurationSec === null
-            ? null
-            : speechDurationSec / preFit.speedFactor
-          presenterTargetSec = presenterTargetDuration(fittedSpeechSec, plannedDurationSec)
-          if (speechDurationSec === null) {
-            await appendStepLog(step.id, `${sceneTag}: длительность реплики не измеряется — ищу фрагмент по плану ${plannedDurationSec}с`)
-          } else if (preFit.speedFactor > 1) {
-            await appendStepLog(
-              step.id,
-              `${sceneTag}: реплика ${speechDurationSec.toFixed(2)}с длиннее потолка модели ${maxDurationSec}с — `
-              + `ищу фрагмент под ускоренную речь ${fittedSpeechSec!.toFixed(2)}с (${preFit.speedFactor.toFixed(2)}x)`
-              + (preFit.fits ? "" : `; даже ${MAX_SPEECH_SPEEDUP}x не хватает, часть фразы не поместится`),
-            )
+        /** Запись-отказ по ЧАСТИ — тот же смысл, что recordSkippedScene у сцены. */
+        const recordSkippedPart = (params: {
+          sceneOrder: number
+          sceneIndex: number
+          reason: LipSyncSkipReason
+          sourcePath?: string | null
+          reuseKey?: string | null
+          spokenLineHash?: string | null
+          durationSec?: number | null
+        }): void => {
+          partRecords.push({
+            index: partIndex,
+            startSec: part?.startSec ?? (alignedScene?.startSec ?? 0),
+            endSec: part?.endSec ?? (alignedScene?.endSec ?? 0),
+            outputPath: null,
+            audioPath: null,
+            reuseKey: params.reuseKey ?? null,
+            durationSec: params.durationSec ?? 0,
+            skipped: params.reason,
+          })
+        }
+
+        // Готовая часть из снапшота прошлого прогона: тот же ключ и файл на
+        // месте — второй раз не платим. Запись старого формата (одна на сцену,
+        // без списка частей) здесь тоже узнаётся: у неразбитой реплики ключ
+        // части совпадает с ключом сцены побайтово.
+        const previousPart = findPreviousPart(previous, partIndex, reuseKey)
+        if (previousPart?.outputPath && await fileExists(previousPart.outputPath)) {
+          // Интервал берём из ТЕКУЩЕГО плана, а не из снапшота: у записи старого
+          // формата его нет вовсе, а совпадение ключа уже доказало, что кусок
+          // трека тот же самый.
+          partRecords.push({
+            ...previousPart,
+            index: partIndex,
+            startSec: part?.startSec ?? previousPart.startSec,
+            endSec: part?.endSec ?? previousPart.endSec,
+          })
+          if (partIndex === 0 || !hasClipPath(updatedClipPaths[sceneIndex])) {
+            updatedClipPaths[sceneIndex] = previousPart.outputPath
           }
+          sceneReusedPart = true
+          countSceneOutput()
+          commitSceneRecord()
+          await appendStepLog(step.id, `${partTag}: переиспользую готовый lip-sync ${basename(previousPart.outputPath)} — повторной оплаты нет`)
+          continue
         }
 
-        // Переключатель маршрута стенда: сравнить липсинк по живой съёмке с
-        // аватаром можно только на одном сценарии, а по умолчанию живой
-        // фрагмент выигрывает всегда и аватарная ветка не запускается вовсе.
-        if (presenterRoutePrefersAvatar(process.env)) {
-          const hasPortrait = await characterHasAvatarPortrait(videoConfig.lipSyncCharacterId)
-            .catch(() => false)
-          useAvatarRoute = planPresenterSourceStrategy({
-            hasLibraryClip: true,
-            hasPortrait,
-            hasGeneratedClip: !!resolvedSource.path,
-            preferAvatar: true,
-          }) === "avatar"
-          await appendStepLog(step.id, useAvatarRoute
-            ? `${sceneTag}: PRESENTER_ROUTE=avatar — сцену снимает AI-аватар из портрета персонажа`
-            : `${sceneTag}: PRESENTER_ROUTE=avatar, но портрета у персонажа нет — иду прежним маршрутом`)
+        const plannedDurationSec = scene.durationSec || 5
+
+        // Синтез речи как функция, а не как место в потоке: маршруту ведущей
+        // длина речи нужна ДО подбора фрагмента, всем остальным — после проверок
+        // источника. Повторный вызов ничего не делает и ничего не стоит.
+        // Цель подбора фрагмента: по умолчанию план, для ведущей — измеренная речь.
+        let presenterTargetSec = plannedDurationSec
+        let speechReady = false
+        // Звук сцены лежит в той же папке ассетов на обоих маршрутах, а различает их
+        // отпечаток в имени: кусок трека — интервал и сам трек, посценный синтез —
+        // текст и параметры голоса. Новый трек даёт новое имя, и старый кусок не
+        // подставится под свежий звук.
+        //
+        // Отпечаток синтеза зашит в имя файла: тогда переиспользование не зависит от
+        // снапшота шага, который жёсткий рестарт воркера записать не успевает. Файл на
+        // месте — значит эта же фраза ТЕМ ЖЕ голосом уже синтезирована и оплачена.
+        // Только хэша текста было мало: смена голоса/модели/языка/темпа давала другой
+        // звук, а файл считался подходящим. На маршруте трека этот хэш не считается
+        // вовсе — синтеза там нет.
+        const audioPath = segmentPlan
+          ? join(assetsDir, `scene_${sceneIndex}_track_${segmentPlan.identity.slice(0, 12)}.mp3`)
+          : join(assetsDir, `scene_${sceneIndex}_spoken_${hashSpeechIdentity({
+            spokenLine,
+            voiceoverModelId: videoConfig.voiceoverModelId,
+            voiceoverVoiceId: videoConfig.voiceoverVoiceId,
+            voiceoverLanguage: videoConfig.voiceoverLanguage,
+            voiceoverPacing: videoConfig.voiceoverPacing,
+          }).slice(0, 12)}.mp3`)
+        /**
+         * Файл речи, который реально уедет в модель. Совпадает с синтезированным,
+         * пока реплика влезает в исходник; длинную укладываем ускорением (см. ниже),
+         * и тогда сюда встаёт ускоренная копия. Сам `audioPath` не трогаем — по нему
+         * работает переиспользование синтеза между прогонами.
+         */
+        let speechPath = audioPath
+        let ttsCost = 0
+        /** Длительность вырезанного куска трека — измеренная, а не плановая. */
+        let trackSegmentSec: number | null = null
+        const ensureSpeech = async (): Promise<boolean> => {
+          if (speechReady) return true
+          if (await fileExists(audioPath)) {
+            await appendStepLog(step.id, `${sceneTag}: переиспользую синтезированную реплику ${basename(audioPath)}`)
+            speechReady = true
+            return true
+          }
+          try {
+            const tts = await synthesizeSpeech({
+              text: spokenLine,
+              outputPath: audioPath,
+              modelId: videoConfig.voiceoverModelId,
+              voiceId: videoConfig.voiceoverVoiceId,
+              language: videoConfig.voiceoverLanguage,
+              pacing: videoConfig.voiceoverPacing,
+              videoId,
+            })
+            ttsCost = tts.costUsd
+            speechReady = true
+            return true
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "TTS failed"
+            await appendStepLog(step.id, `${sceneTag}: TTS ошибка (${msg}) — оставляю оригинальный клип`)
+            recordSkippedPart({
+              sceneOrder: scene.order,
+              sceneIndex,
+              reason: "tts_failed",
+              sourcePath: resolvedSource.path,
+              reuseKey,
+              spokenLineHash,
+            })
+            return false
+          }
         }
 
         /**
-         * Монтаж от звука: сначала пробуем вырезать окно из длинной записи ведущего.
-         *
-         * Готовый клип подбирается по длительности с допуском ±1 с (см.
-         * isSourceDurationCloseToScene ниже), и этой секунды хватает, чтобы
-         * ведущая договаривала в немой кадр или обрывалась на полуслове. Окно
-         * записи режется ровно под длину куска трека — картинка подгоняется под
-         * голос, а не наоборот (spec §6.2).
-         *
-         * Ставится РОВНО здесь, а не раньше: между вычислением presenterTargetSec
-         * и этой строкой лежит ветка PRESENTER_ROUTE=avatar (выше), которая может
-         * увести сцену на аватарный маршрут. Резервировать окно записи раньше
-         * значило бы занимать интервал под сцену, которая до нарезки может не
-         * дойти, — а освобождать резервирование здесь нечем (см. докстринг
-         * ReservedRecordingWindow в presenter-recording-selector.ts).
+         * Звук сцены на маршруте «монтаж от звука»: кусок уже оплаченного трека.
+         * Платного вызова здесь нет вовсе — ttsCost остаётся нулём.
          */
-        let recordingWindow: Awaited<ReturnType<typeof reserveRecordingWindow>> = null
-        if (segmentPlan && !useAvatarRoute) {
-          recordingWindow = await reserveRecordingWindow({
-            characterId: videoConfig.lipSyncCharacterId,
-            requiredSec: presenterTargetSec,
-            fps: timelineFps,
-            videoId,
-            sceneIndex,
-          }).catch(async (err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err)
-            await appendStepLog(step.id, `${sceneTag}: окно записи не зарезервировано (${msg}) — иду прежним подбором клипа`)
-            return null
-          })
+        const ensureTrackSegment = async (): Promise<boolean> => {
+          if (speechReady) return true
+          const { cut } = segmentPlan!
+          // Пустой интервал (выравнивание отдало нулевую сцену) — это тишина.
+          // Отдать её в lip-sync значит оплатить съёмку молчащих губ. Причина
+          // детерминированная: пока выравнивание то же, ответ будет тот же.
+          if (!(cut.durationSec > 0)) {
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: интервал сцены в треке пуст (${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с) — вырезать нечего, оставляю оригинальный клип`,
+            )
+            recordSkippedPart({
+              sceneOrder: scene.order,
+              sceneIndex,
+              reason: "track_segment_empty",
+              sourcePath: resolvedSource.path,
+              reuseKey,
+              spokenLineHash,
+            })
+            return false
+          }
+          // Молчать про подгонку нельзя: модель получит кусок не той длины, что дало
+          // выравнивание. Новости при этом РАЗНЫЕ, и текст у них разный.
+          if (cut.clampedToModel === "max") {
+            // Ускорять звук под потолок модели мы на этом маршруте не имеем права —
+            // под таймлайном лежит трек, и он эталон.
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: WARN интервал сцены длиннее потолка модели ${maxDurationSec}с — `
+              + `беру ${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с (${cut.durationSec.toFixed(2)}с), `
+              + `хвост реплики в кадр не попадёт; звук остаётся эталоном`,
+            )
+          } else if (cut.clampedToModel === "min") {
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: интервал сцены ${(cut.endSec - cut.startSec).toFixed(2)}с короче минимума модели ${minDurationSec}с — `
+              + `добиваю тишиной на ${cut.silencePadSec.toFixed(2)}с до ${cut.durationSec.toFixed(2)}с `
+              + `(сдвигать границы в соседнюю сцену нельзя: губы произносили бы чужие слова)`,
+            )
+          }
+          if (await fileExists(audioPath)) {
+            trackSegmentSec = (await probeMediaDuration(audioPath)) ?? cut.durationSec
+            await appendStepLog(step.id, `${sceneTag}: переиспользую вырезанный кусок трека ${basename(audioPath)}`)
+            speechReady = true
+            return true
+          }
+          try {
+            const segment = await cutTrackSegment({
+              trackPath: audioFirst!.trackPath,
+              outputPath: audioPath,
+              cut,
+              probeDuration: probeMediaDuration,
+            })
+            trackSegmentSec = segment.durationSec
+            speechReady = true
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: вырезал ${cut.startSec.toFixed(2)}-${cut.endSec.toFixed(2)}с общего трека `
+              + `(${segment.durationSec.toFixed(2)}с) — синтез не нужен и не оплачивается`,
+            )
+            return true
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "cut failed"
+            await appendStepLog(step.id, `${sceneTag}: не удалось вырезать кусок трека (${msg}) — оставляю оригинальный клип`)
+            recordSkippedPart({
+              sceneOrder: scene.order,
+              sceneIndex,
+              reason: "track_segment_failed",
+              sourcePath: resolvedSource.path,
+              reuseKey,
+              spokenLineHash,
+            })
+            return false
+          }
         }
 
-        if (recordingWindow) {
-          const localRecordingPath = join(assetsDir, `recording_${recordingWindow.recordingId}.mp4`)
-          const windowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}.mp4`)
-          // Регистрируем ОБА пути ДО закачки/реза, а не после успешного cutRecordingWindow:
-          // при крэше процесса между скачиванием и резом путь обязан быть в списке
-          // подчистки уже сейчас (Important 2 код-ревью) — иначе рабочая копия
-          // осядет на диске без хозяина, и ни один finally её не найдёт.
-          sourceCleanup.push(localRecordingPath, windowPath)
-          if (!(await fileExists(localRecordingPath))) {
-            // Скачивание — во ВРЕМЕННЫЙ файл с переименованием после успеха, а не
-            // прямо в целевой путь: storage.downloadToFile пишет потоком напрямую
-            // в localPath (gcs-driver.ts: pipeline(readStream, createWriteStream)),
-            // и обрыв закачки оставил бы огрызок под ИМЕНЕМ, СТАБИЛЬНЫМ по
-            // recordingId, — следующий прогон принял бы fileExists()===true за
-            // «уже скачано», резал бы `-ss` за пределами обрубка и терял бы окно
-            // на КАЖДОМ повторе молча (Important 2 код-ревью). Ровно тот же
-            // анти-паттерн, что уже починен для куска трека в cutTrackSegment
-            // этого же файла — voiceover/segment-cut.ts, temp+rename переиспользуем
-            // оттуда, третьей копии не пишем.
-            const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
-            try {
-              await getStorageDriver().downloadToFile(recordingWindow.storageKey, tempRecordingPath)
-              await renameWithRetry(tempRecordingPath, localRecordingPath)
-            } catch (err) {
-              await unlink(tempRecordingPath).catch(() => {})
-              throw err
+        /** Звук сцены: кусок общего трека на новом маршруте, посценный синтез на прежнем. */
+        const ensureSceneAudio = async (): Promise<boolean> =>
+          segmentPlan ? ensureTrackSegment() : ensureSpeech()
+
+        let sourceVideoPath: string | null = resolvedSource.path
+        let presenterSourcePath: string | null = null
+        /**
+         * Текущий presenterSourcePath — окно, вырезанное из записи-родителя, а не
+         * подобранный из библиотеки клип. Объявлен на уровне сцены (а не внутри
+         * `if (videoConfig.lipSyncCharacterId)`, где решается сам выбор). Нужен ниже,
+         * в WARN про кусок трека длиннее исходника: тот WARN маршрут не проверяет и
+         * не разбирает причину — без флага он винил бы во всех случаях библиотеку,
+         * даже когда исходник вырезан из настоящей записи (Minor A код-ревью).
+         */
+        let sourceFromRecordingWindow = false
+        /**
+         * Аватарный маршрут: сцену снимет `speech_to_video` уже ПОСЛЕ синтеза
+         * речи — модели нужен готовый звук, а не только портрет. Поэтому здесь
+         * только решение о маршруте, а сама съёмка ниже, за TTS.
+         */
+        let useAvatarRoute = false
+        if (videoConfig.lipSyncCharacterId) {
+          // Длина речи известна только после синтеза, и именно она — цель
+          // подбора. План сцены это намерение сценариста: реплика на 77 символов
+          // звучит 5.9 с, а сцена планируется на 9-10. Фрагмент под план оставлял
+          // немой хвост, где ведущая говорит без звука (ролик 21: 20 с из 50).
+          if (!(await ensureSceneAudio())) continue
+          if (segmentPlan) {
+            // Монтаж от звука: цель подбора — длина ВЫРЕЗАННОГО куска. Она уже
+            // зажата в диапазон модели планировщиком, ускорять и подгонять нечего.
+            presenterTargetSec = trackSegmentSec ?? segmentPlan.cut.durationSec
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: ищу фрагмент ведущего под кусок трека ${presenterTargetSec.toFixed(2)}с`,
+            )
+          } else {
+            const speechDurationSec = await probeMediaDuration(audioPath)
+            // Реплика может звучать дольше, чем модель готова принять исходник
+            // (kling-lip-sync — 10 с). Фрагмента такой длины в библиотеке нет и быть
+            // не может, поэтому фрагмент ищем под УСКОРЕННУЮ речь: 11.55 с при 1.2x
+            // это 9.6 с, и фраза остаётся целой. Сам файл ускоряем ниже, когда
+            // известен фактический исходник.
+            const preFit = planSpeechFitToModel(speechDurationSec ?? 0, maxDurationSec)
+            const fittedSpeechSec = speechDurationSec === null
+              ? null
+              : speechDurationSec / preFit.speedFactor
+            presenterTargetSec = presenterTargetDuration(fittedSpeechSec, plannedDurationSec)
+            if (speechDurationSec === null) {
+              await appendStepLog(step.id, `${sceneTag}: длительность реплики не измеряется — ищу фрагмент по плану ${plannedDurationSec}с`)
+            } else if (preFit.speedFactor > 1) {
+              await appendStepLog(
+                step.id,
+                `${sceneTag}: реплика ${speechDurationSec.toFixed(2)}с длиннее потолка модели ${maxDurationSec}с — `
+                + `ищу фрагмент под ускоренную речь ${fittedSpeechSec!.toFixed(2)}с (${preFit.speedFactor.toFixed(2)}x)`
+                + (preFit.fits ? "" : `; даже ${MAX_SPEECH_SPEEDUP}x не хватает, часть фразы не поместится`),
+              )
             }
           }
-          // Динамический импорт — см. докстринг у статических импортов вверху файла:
-          // presenter/ffmpeg-adapter.ts тянет video-tools/ffmpeg.ts с побочным
-          // эффектом на уровне модуля (ffmpeg.setFfmpegPath при заданном FFMPEG_PATH),
-          // и статический импорт исполнял бы его при каждой загрузке lip-sync-runner.ts,
-          // даже когда окно записи не запрашивается вовсе (Important 1 код-ревью).
-          const { cutRecordingWindow } = await import("./presenter/ffmpeg-adapter")
-          await cutRecordingWindow({
-            recordingPath: localRecordingPath,
-            startSec: recordingWindow.startSec,
-            durationSec: recordingWindow.durationSec,
-            outputPath: windowPath,
-          })
-          sourceVideoPath = windowPath
-          presenterSourcePath = windowPath
-          sourceFromRecordingWindow = true
-          await appendStepLog(
-            step.id,
-            `${sceneTag}: вырезал окно записи ${recordingWindow.startSec.toFixed(2)}-${recordingWindow.endSec.toFixed(2)}с `
-            + `(${recordingWindow.durationSec.toFixed(2)}с) под кусок трека`
-            + (recordingWindow.overlapSec > 0 ? `; пересечение с занятым участком ${recordingWindow.overlapSec.toFixed(2)}с` : "")
-            + (recordingWindow.reused ? "; нетронутых участков в записи не осталось, взят остывший" : "")
-            + (recordingWindow.idempotency === "existing" ? "; то же окно, что и в прошлом прогоне этой сцены" : "")
-            + (recordingWindow.idempotency === "replaced" ? "; прошлое окно этой сцены короче нужного — занял новое" : ""),
-          )
 
-          // Перцептивный контроль похожести (spec §6.2, задача 6b): первый кадр
-          // окна сравнивается с недавно использованными кадрами ЭТОГО персонажа —
-          // тот же смысл, что и на ingest (presenter/ingest-runner.ts), только
-          // здесь единица не готовый клип, а произвольное окно. Отказ проверки
-          // (ffmpeg не снял кадр, БД недоступна) не должен ронять оплаченную
-          // сцену — сцена идёт дальше с тем окном, что уже вырезано.
-          try {
-            const { guardRecordingWindowFrame } = await import("./presenter/recording-window-frame-guard")
-            const retryWindowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}_retry.mp4`)
-            // Тот же порядок, что и выше: путь в подчистке ДО операции, а не
-            // после успеха.
-            sourceCleanup.push(retryWindowPath)
-            // Дублирует скачивание из блока выше (temp+rename), а не переиспользует
-            // его напрямую: нужен здесь только на редком пути (перерезервирование
-            // выбрало ДРУГУЮ запись того же персонажа), и заводить общую функцию
-            // ради одного дополнительного вызова в самой опасной функции проекта
-            // не стоит цены лишней правки уже работающего блока.
-            const ensureRecordingDownloaded = async (recording: { recordingId: string, storageKey: string }): Promise<string> => {
-              const path = join(assetsDir, `recording_${recording.recordingId}.mp4`)
-              sourceCleanup.push(path)
-              if (await fileExists(path)) return path
-              const tempPath = buildTempSegmentPath(path)
-              try {
-                await getStorageDriver().downloadToFile(recording.storageKey, tempPath)
-                await renameWithRetry(tempPath, path)
-              } catch (err) {
-                await unlink(tempPath).catch(() => {})
-                throw err
-              }
-              return path
-            }
+          // Переключатель маршрута стенда: сравнить липсинк по живой съёмке с
+          // аватаром можно только на одном сценарии, а по умолчанию живой
+          // фрагмент выигрывает всегда и аватарная ветка не запускается вовсе.
+          if (presenterRoutePrefersAvatar(process.env)) {
+            const hasPortrait = await characterHasAvatarPortrait(videoConfig.lipSyncCharacterId)
+              .catch(() => false)
+            useAvatarRoute = planPresenterSourceStrategy({
+              hasLibraryClip: true,
+              hasPortrait,
+              hasGeneratedClip: !!resolvedSource.path,
+              preferAvatar: true,
+            }) === "avatar"
+            await appendStepLog(step.id, useAvatarRoute
+              ? `${sceneTag}: PRESENTER_ROUTE=avatar — сцену снимает AI-аватар из портрета персонажа`
+              : `${sceneTag}: PRESENTER_ROUTE=avatar, но портрета у персонажа нет — иду прежним маршрутом`)
+          }
 
-            const guard = await guardRecordingWindowFrame({
+          /**
+           * Монтаж от звука: сначала пробуем вырезать окно из длинной записи ведущего.
+           *
+           * Готовый клип подбирается по длительности с допуском ±1 с (см.
+           * isSourceDurationCloseToScene ниже), и этой секунды хватает, чтобы
+           * ведущая договаривала в немой кадр или обрывалась на полуслове. Окно
+           * записи режется ровно под длину куска трека — картинка подгоняется под
+           * голос, а не наоборот (spec §6.2).
+           *
+           * Ставится РОВНО здесь, а не раньше: между вычислением presenterTargetSec
+           * и этой строкой лежит ветка PRESENTER_ROUTE=avatar (выше), которая может
+           * увести сцену на аватарный маршрут. Резервировать окно записи раньше
+           * значило бы занимать интервал под сцену, которая до нарезки может не
+           * дойти, — а освобождать резервирование здесь нечем (см. докстринг
+           * ReservedRecordingWindow в presenter-recording-selector.ts).
+           */
+          let recordingWindow: Awaited<ReturnType<typeof reserveRecordingWindow>> = null
+          if (segmentPlan && !useAvatarRoute) {
+            recordingWindow = await reserveRecordingWindow({
               characterId: videoConfig.lipSyncCharacterId,
-              videoId,
-              sceneIndex,
               requiredSec: presenterTargetSec,
               fps: timelineFps,
-              window: recordingWindow,
-              windowPath,
-              retryWindowPath,
+              videoId,
+              sceneIndex,
+            }).catch(async (err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err)
+              await appendStepLog(step.id, `${sceneTag}: окно записи не зарезервировано (${msg}) — иду прежним подбором клипа`)
+              return null
+            })
+          }
+
+          if (recordingWindow) {
+            const localRecordingPath = join(assetsDir, `recording_${recordingWindow.recordingId}.mp4`)
+            const windowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}.mp4`)
+            // Регистрируем ОБА пути ДО закачки/реза, а не после успешного cutRecordingWindow:
+            // при крэше процесса между скачиванием и резом путь обязан быть в списке
+            // подчистки уже сейчас (Important 2 код-ревью) — иначе рабочая копия
+            // осядет на диске без хозяина, и ни один finally её не найдёт.
+            sourceCleanup.push(localRecordingPath, windowPath)
+            if (!(await fileExists(localRecordingPath))) {
+              // Скачивание — во ВРЕМЕННЫЙ файл с переименованием после успеха, а не
+              // прямо в целевой путь: storage.downloadToFile пишет потоком напрямую
+              // в localPath (gcs-driver.ts: pipeline(readStream, createWriteStream)),
+              // и обрыв закачки оставил бы огрызок под ИМЕНЕМ, СТАБИЛЬНЫМ по
+              // recordingId, — следующий прогон принял бы fileExists()===true за
+              // «уже скачано», резал бы `-ss` за пределами обрубка и терял бы окно
+              // на КАЖДОМ повторе молча (Important 2 код-ревью). Ровно тот же
+              // анти-паттерн, что уже починен для куска трека в cutTrackSegment
+              // этого же файла — voiceover/segment-cut.ts, temp+rename переиспользуем
+              // оттуда, третьей копии не пишем.
+              const tempRecordingPath = buildTempSegmentPath(localRecordingPath)
+              try {
+                await getStorageDriver().downloadToFile(recordingWindow.storageKey, tempRecordingPath)
+                await renameWithRetry(tempRecordingPath, localRecordingPath)
+              } catch (err) {
+                await unlink(tempRecordingPath).catch(() => {})
+                throw err
+              }
+            }
+            // Динамический импорт — см. докстринг у статических импортов вверху файла:
+            // presenter/ffmpeg-adapter.ts тянет video-tools/ffmpeg.ts с побочным
+            // эффектом на уровне модуля (ffmpeg.setFfmpegPath при заданном FFMPEG_PATH),
+            // и статический импорт исполнял бы его при каждой загрузке lip-sync-runner.ts,
+            // даже когда окно записи не запрашивается вовсе (Important 1 код-ревью).
+            const { cutRecordingWindow } = await import("./presenter/ffmpeg-adapter")
+            await cutRecordingWindow({
               recordingPath: localRecordingPath,
-              ensureRecordingDownloaded,
+              startSec: recordingWindow.startSec,
+              durationSec: recordingWindow.durationSec,
+              outputPath: windowPath,
+            })
+            sourceVideoPath = windowPath
+            presenterSourcePath = windowPath
+            sourceFromRecordingWindow = true
+            await appendStepLog(
+              step.id,
+              `${sceneTag}: вырезал окно записи ${recordingWindow.startSec.toFixed(2)}-${recordingWindow.endSec.toFixed(2)}с `
+              + `(${recordingWindow.durationSec.toFixed(2)}с) под кусок трека`
+              + (recordingWindow.overlapSec > 0 ? `; пересечение с занятым участком ${recordingWindow.overlapSec.toFixed(2)}с` : "")
+              + (recordingWindow.reused ? "; нетронутых участков в записи не осталось, взят остывший" : "")
+              + (recordingWindow.idempotency === "existing" ? "; то же окно, что и в прошлом прогоне этой сцены" : "")
+              + (recordingWindow.idempotency === "replaced" ? "; прошлое окно этой сцены короче нужного — занял новое" : ""),
+            )
+
+            // Перцептивный контроль похожести (spec §6.2, задача 6b): первый кадр
+            // окна сравнивается с недавно использованными кадрами ЭТОГО персонажа —
+            // тот же смысл, что и на ingest (presenter/ingest-runner.ts), только
+            // здесь единица не готовый клип, а произвольное окно. Отказ проверки
+            // (ffmpeg не снял кадр, БД недоступна) не должен ронять оплаченную
+            // сцену — сцена идёт дальше с тем окном, что уже вырезано.
+            try {
+              const { guardRecordingWindowFrame } = await import("./presenter/recording-window-frame-guard")
+              const retryWindowPath = join(assetsDir, `presenter_window_${sceneIndex}_${recordingWindow.usageId}_retry.mp4`)
+              // Тот же порядок, что и выше: путь в подчистке ДО операции, а не
+              // после успеха.
+              sourceCleanup.push(retryWindowPath)
+              // Дублирует скачивание из блока выше (temp+rename), а не переиспользует
+              // его напрямую: нужен здесь только на редком пути (перерезервирование
+              // выбрало ДРУГУЮ запись того же персонажа), и заводить общую функцию
+              // ради одного дополнительного вызова в самой опасной функции проекта
+              // не стоит цены лишней правки уже работающего блока.
+              const ensureRecordingDownloaded = async (recording: { recordingId: string, storageKey: string }): Promise<string> => {
+                const path = join(assetsDir, `recording_${recording.recordingId}.mp4`)
+                sourceCleanup.push(path)
+                if (await fileExists(path)) return path
+                const tempPath = buildTempSegmentPath(path)
+                try {
+                  await getStorageDriver().downloadToFile(recording.storageKey, tempPath)
+                  await renameWithRetry(tempPath, path)
+                } catch (err) {
+                  await unlink(tempPath).catch(() => {})
+                  throw err
+                }
+                return path
+              }
+
+              const guard = await guardRecordingWindowFrame({
+                characterId: videoConfig.lipSyncCharacterId,
+                videoId,
+                sceneIndex,
+                requiredSec: presenterTargetSec,
+                fps: timelineFps,
+                window: recordingWindow,
+                windowPath,
+                retryWindowPath,
+                recordingPath: localRecordingPath,
+                ensureRecordingDownloaded,
+              })
+
+              if (guard.reReserved) {
+                recordingWindow = guard.window
+                sourceVideoPath = guard.windowPath
+                presenterSourcePath = guard.windowPath
+                await appendStepLog(
+                  step.id,
+                  `${sceneTag}: первый кадр окна похож на недавний кадр персонажа — перерезервировал `
+                  + `${guard.window.startSec.toFixed(2)}-${guard.window.endSec.toFixed(2)}с`,
+                )
+              }
+              if (guard.stillSimilar) {
+                await appendStepLog(
+                  step.id,
+                  `${sceneTag}: WARN кадр окна записи похож на недавний кадр персонажа — ролику не хватает материала, оставляю как есть`,
+                )
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err)
+              await appendStepLog(step.id, `${sceneTag}: перцептивная проверка окна не выполнена (${msg}) — использую окно как есть`)
+            }
+          }
+
+          // Готовый клип подбирается, только если окно записи не зарезервировано
+          // (записи-родителя нет — фолбэк по §10 спеки) и маршрут не аватарный.
+          const sourceClip = (useAvatarRoute || recordingWindow) ? null : await reservePresenterSourceClip({
+            characterId: videoConfig.lipSyncCharacterId,
+            durationSec: presenterTargetSec,
+            minDurationSec,
+            maxDurationSec,
+          })
+          if (sourceClip) {
+            const sourceExt = extname(sourceClip.name || sourceClip.fileUrl).toLowerCase()
+            const safeExt = [".mp4", ".mov", ".webm"].includes(sourceExt) ? sourceExt : ".mp4"
+            const localSourcePath = join(assetsDir, `presenter_${sceneIndex}_${sourceClip.id}${safeExt}`)
+            if (sourceClip.storageKey) {
+              await getStorageDriver().downloadToFile(sourceClip.storageKey, localSourcePath)
+            } else {
+              await downloadFile(sourceClip.fileUrl, localSourcePath)
+            }
+            sourceVideoPath = localSourcePath
+            presenterSourcePath = localSourcePath
+            sourceCleanup.push(localSourcePath)
+            await appendStepLog(step.id, `${sceneTag}: presenter source ${sourceClip.id} (${sourceClip.durationSec}s)`)
+          } else if (!useAvatarRoute && !recordingWindow) {
+            // Библиотека не дала фрагмента. Порядок дальнейшего выбора — в
+            // planPresenterSourceStrategy: портрет есть — сцену снимет аватар,
+            // портрета нет — остаётся прежний путь, сгенерированный клип.
+            const hasPortrait = await characterHasAvatarPortrait(videoConfig.lipSyncCharacterId)
+              .catch(() => false)
+            const strategy = planPresenterSourceStrategy({
+              hasLibraryClip: false,
+              hasPortrait,
+              hasGeneratedClip: !!resolvedSource.path,
             })
 
-            if (guard.reReserved) {
-              recordingWindow = guard.window
-              sourceVideoPath = guard.windowPath
-              presenterSourcePath = guard.windowPath
+            if (strategy === "avatar") {
+              useAvatarRoute = true
               await appendStepLog(
                 step.id,
-                `${sceneTag}: первый кадр окна похож на недавний кадр персонажа — перерезервировал `
-                + `${guard.window.startSec.toFixed(2)}-${guard.window.endSec.toFixed(2)}с`,
+                `${sceneTag}: библиотека ведущего пуста — сцену снимет AI-аватар из портрета персонажа`,
               )
+            } else {
+              await appendStepLog(step.id, `${sceneTag}: нет активного исходника ведущего под речь ${presenterTargetSec.toFixed(2)}с (диапазон модели ${minDurationSec}-${maxDurationSec}с), беру сгенерированный клип`)
             }
-            if (guard.stillSimilar) {
-              await appendStepLog(
-                step.id,
-                `${sceneTag}: WARN кадр окна записи похож на недавний кадр персонажа — ролику не хватает материала, оставляю как есть`,
-              )
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            await appendStepLog(step.id, `${sceneTag}: перцептивная проверка окна не выполнена (${msg}) — использую окно как есть`)
           }
         }
 
-        // Готовый клип подбирается, только если окно записи не зарезервировано
-        // (записи-родителя нет — фолбэк по §10 спеки) и маршрут не аватарный.
-        const sourceClip = (useAvatarRoute || recordingWindow) ? null : await reservePresenterSourceClip({
-          characterId: videoConfig.lipSyncCharacterId,
-          durationSec: presenterTargetSec,
-          minDurationSec,
-          maxDurationSec,
-        })
-        if (sourceClip) {
-          const sourceExt = extname(sourceClip.name || sourceClip.fileUrl).toLowerCase()
-          const safeExt = [".mp4", ".mov", ".webm"].includes(sourceExt) ? sourceExt : ".mp4"
-          const localSourcePath = join(assetsDir, `presenter_${sceneIndex}_${sourceClip.id}${safeExt}`)
-          if (sourceClip.storageKey) {
-            await getStorageDriver().downloadToFile(sourceClip.storageKey, localSourcePath)
-          } else {
-            await downloadFile(sourceClip.fileUrl, localSourcePath)
-          }
-          sourceVideoPath = localSourcePath
-          presenterSourcePath = localSourcePath
-          sourceCleanup.push(localSourcePath)
-          await appendStepLog(step.id, `${sceneTag}: presenter source ${sourceClip.id} (${sourceClip.durationSec}s)`)
-        } else if (!useAvatarRoute && !recordingWindow) {
-          // Библиотека не дала фрагмента. Порядок дальнейшего выбора — в
-          // planPresenterSourceStrategy: портрет есть — сцену снимет аватар,
-          // портрета нет — остаётся прежний путь, сгенерированный клип.
-          const hasPortrait = await characterHasAvatarPortrait(videoConfig.lipSyncCharacterId)
-            .catch(() => false)
-          const strategy = planPresenterSourceStrategy({
-            hasLibraryClip: false,
-            hasPortrait,
-            hasGeneratedClip: !!resolvedSource.path,
-          })
-
-          if (strategy === "avatar") {
-            useAvatarRoute = true
-            await appendStepLog(
-              step.id,
-              `${sceneTag}: библиотека ведущего пуста — сцену снимет AI-аватар из портрета персонажа`,
-            )
-          } else {
-            await appendStepLog(step.id, `${sceneTag}: нет активного исходника ведущего под речь ${presenterTargetSec.toFixed(2)}с (диапазон модели ${minDurationSec}-${maxDurationSec}с), беру сгенерированный клип`)
-          }
+        // Ролик ведущей: сгенерированного клипа под сцену нет и не будет. Без
+        // фрагмента ведущей в ролике осталась бы дыра — честнее уронить шаг, чем
+        // молча собрать видео без сцены.
+        if (!sourceVideoPath && !useAvatarRoute) {
+          throw new Error(
+            `${sceneTag}: нет ни фрагмента ведущего, ни портрета, ни сгенерированного клипа — собирать нечего`,
+          )
         }
-      }
 
-      // Ролик ведущей: сгенерированного клипа под сцену нет и не будет. Без
-      // фрагмента ведущей в ролике осталась бы дыра — честнее уронить шаг, чем
-      // молча собрать видео без сцены.
-      if (!sourceVideoPath && !useAvatarRoute) {
-        throw new Error(
-          `${sceneTag}: нет ни фрагмента ведущего, ни портрета, ни сгенерированного клипа — собирать нечего`,
-        )
-      }
-
-      // Реальная длительность файла, а не плановая: модель работает с тем, что ей отдали,
-      // и по ней же считается стоимость. Плановая длительность здесь врёт при любом
-      // подставленном исходнике ведущего и при клипе, удлинённом под voiceover.
-      // Замер строгий (probeMediaDuration): неизмеримый файл даёт null, а не «5 секунд».
-      //
-      // У аватарной сцены исходного видео нет вовсе: длину задаёт синтезированная
-      // речь, и она измеряется ниже, после TTS.
-      let measuredDurationSec = useAvatarRoute ? null : await probeMediaDuration(sourceVideoPath!)
-
-      // Подменённый исходник ведущего диктует длину сцены в сборке, поэтому его
-      // расхождение с планом проверяем отдельно: диапазон модели такое не ловит —
-      // 2.5-секундный клип для сцены на 9 с формально «в 2-10 с», а по факту минус
-      // 6.5 с хронометража. Метаданные в БД могут врать, поэтому сверяем измеренное.
-      // Неизмеримый исходник ведущего тоже отбрасываем — доверять ему нечем.
-      // Откатываться есть куда только там, где сгенерированный клип существует:
-      // у ролика ведущей запасного исходника нет вовсе, и подменять его нечем.
-      if (presenterSourcePath && resolvedSource.path && (measuredDurationSec === null || !isSourceDurationCloseToScene(measuredDurationSec, presenterTargetSec))) {
-        await appendStepLog(
-          step.id,
-          measuredDurationSec === null
-            ? `${sceneTag}: длительность исходника ведущего не измеряется (нет файла или ffprobe) — возвращаюсь на сгенерированный клип`
-            : `${sceneTag}: исходник ведущего ${measuredDurationSec.toFixed(2)}с расходится с длиной речи ${presenterTargetSec.toFixed(2)}с — возвращаюсь на сгенерированный клип`,
-        )
-        sourceVideoPath = resolvedSource.path
-        presenterSourcePath = null
-        sourceFromRecordingWindow = false
-        measuredDurationSec = await probeMediaDuration(sourceVideoPath)
-      }
-
-      if (measuredDurationSec === null && !useAvatarRoute) {
-        // Раньше здесь молча подставлялась плановая длительность (а до неё —
-        // дефолтные 5 с из probeClipDurations): битый или отсутствующий файл уезжал
-        // в модель с выдуманной длиной, и проверка диапазона ничего не проверяла.
+        // Реальная длительность файла, а не плановая: модель работает с тем, что ей отдали,
+        // и по ней же считается стоимость. Плановая длительность здесь врёт при любом
+        // подставленном исходнике ведущего и при клипе, удлинённом под voiceover.
+        // Замер строгий (probeMediaDuration): неизмеримый файл даёт null, а не «5 секунд».
         //
-        // probeMediaDuration отдаёт null на ЛЮБОЙ неудаче ffprobe, а неудачи бывают
-        // двух разных природ. Нет файла — это свойство материала: сколько ни
-        // перезапускай, ответ тот же, и такую сцену честно закрываем, иначе шаг
-        // теряет кэш и каждый прогон заново гоняет probe и TTS по остальным сценам.
-        // Файл на месте, а замер не состоялся — это среда (ffprobe не запустился,
-        // spawn EAGAIN/EMFILE под нагрузкой, свежескачанный mp4 держит антивирус):
-        // такой отказ кэш НЕ открывает, иначе один неудачный прогон навсегда и молча
-        // лишал бы ролик lip-sync по этой сцене.
-        const sourceExists = await fileExists(sourceVideoPath!)
-        await appendStepLog(
-          step.id,
-          sourceExists
-            ? `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath!)} — файл на месте, значит подвела среда (ffprobe недоступен, файл занят, битые метаданные); оставляю оригинальный клип, следующий прогон попробует снова`
-            : `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath!)} — файла нет на диске, измерять нечего; оставляю оригинальный клип`,
-        )
-        recordSkippedScene({
-          sceneOrder: scene.order,
-          sceneIndex,
-          reason: sourceExists ? "source_unmeasurable" : "source_missing",
-          sourcePath: resolvedSource.path,
-          reuseKey,
-          spokenLineHash,
-        })
-        continue
-      }
+        // У аватарной сцены исходного видео нет вовсе: длину задаёт синтезированная
+        // речь, и она измеряется ниже, после TTS.
+        let measuredDurationSec = useAvatarRoute ? null : await probeMediaDuration(sourceVideoPath!)
 
-      // Диапазон длительности — требование модели lip-sync к ИСХОДНОМУ видео.
-      // У аватарной сцены исходного видео нет: длину задаёт речь, а потолок
-      // проверяет спека speech_to_video при сборке payload.
-      if (!useAvatarRoute && !isDurationWithinModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)) {
-        await appendStepLog(
-          step.id,
-          `${sceneTag}: реальная длительность источника ${measuredDurationSec!.toFixed(2)}с вне диапазона модели ${minDurationSec}-${maxDurationSec}с (допуск ±${MODEL_DURATION_TOLERANCE_SEC}с) — оставляю оригинальный клип`,
-        )
-        recordSkippedScene({
-          sceneOrder: scene.order,
-          sceneIndex,
-          reason: "duration_out_of_range",
-          sourcePath: resolvedSource.path,
-          reuseKey,
-          spokenLineHash,
-          durationSec: measuredDurationSec,
-        })
-        continue
-      }
-
-      // В провайдер уходит длительность, зажатая в диапазон модели: измеренные 10.03 с
-      // мы приняли по допуску, но runLipSync валидирует строго и уронил бы вызов.
-      // Расхождение с измеренным здесь всегда в пределах допуска, на стоимость не влияет.
-      const providerDurationSec = useAvatarRoute
-        ? 0
-        : clampDurationToModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)
-
-      // Речь синтезируется ровно один раз за сцену — где бы её ни попросили
-      // первой. Маршруту ведущей она нужна РАНЬШЕ подбора фрагмента (длина
-      // речи и есть цель подбора), остальным — как прежде, после проверок
-      // источника, чтобы не платить за синтез сцены, которую всё равно
-      // пропустим.
-      if (!(await ensureSceneAudio())) continue
-
-      // Кусок трека длиннее картинки, в которую его вкладывают: lip-sync отдаст
-      // ролик длиной ИСХОДНИКА и хвост речи срежет. Ускорить кусок мы не имеем
-      // права (см. ниже), но и молчать нельзя — на прежнем маршруте об этом
-      // говорила ветка ускорения, и без этой строки сигнал пропал бы совсем.
-      //
-      // Допуск в один кадр (WARN-гейт из финального ревью): buildPresenterCutArgs
-      // (presenter/ffmpeg-adapter.ts) пишет startSec/durationSec через
-      // toFixed(2) — квантует окно по сотым, а само окно посчитано на
-      // кадровой сетке 1/timelineFps (обычно 1/30 ≈ 0.033с). Расхождение
-      // вырезанного окна с заказанным до кадра — штатное округление, а не
-      // сигнал реальной проблемы; без допуска гейт срабатывал бы регулярно и
-      // врал про причину.
-      const cutFrameToleranceSec = Number.isFinite(timelineFps) && timelineFps > 0 ? 1 / timelineFps : 0
-      if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec + cutFrameToleranceSec) {
-        // Этот гейт маршрут не проверяет — он смотрит только на цифры. Обычно
-        // условие штатно не выполняется на окне из записи: оно режется под
-        // presenterTargetSec, который сам берётся из ИЗМЕРЕННОГО куска трека
-        // (см. trackSegmentSec выше). Но окно (§8, planRecordingWindow) на самом
-        // хвосте записи может оказаться короче заказанного на долю кадра, а
-        // presenterTargetSec — это mp3 после перекодировки, который своим
-        // хвостом штатно расходится с теоретическим cut.durationSec
-        // (voiceover/segment-cut.ts: «перекодировка даёт свой хвост») — гейт
-        // может сработать и при настоящей записи-родителе. Текст обязан
-        // называть причину, которая правда произошла, а не всегда одну и ту же
-        // (Minor A код-ревью): sourceFromRecordingWindow — единственный факт,
-        // видный отсюда, дальше это уже не «библиотека или запись», а
-        // сантиметры на стыке кадра/перекодировки.
-        await appendStepLog(
-          step.id,
-          `${sceneTag}: WARN кусок трека ${segmentPlan.cut.durationSec.toFixed(2)}с длиннее исходника `
-          + `${providerDurationSec.toFixed(2)}с — модель срежет речь по длине картинки; `
-          + (sourceFromRecordingWindow
-            ? "исходник вырезан из записи-родителя, расхождение — на стыке кадра/перекодировки звука"
-            : "фрагмент подобран из библиотеки, записи-родителя нет"),
-        )
-      }
-
-      /**
-       * Речь длиннее исходника: lip-sync отдаёт ролик длиной ИСХОДНИКА, и всё,
-       * что не поместилось, просто пропадает — фраза обрывается на середине.
-       * Укладываем ускорением до 1.2x, как это делает шаг озвучки с закадровой
-       * репликой. Аватарной сцены это не касается: там длину задаёт сама речь.
-       *
-       * Кусок общего трека не ускоряется НИКОГДА: под таймлайном лежит трек, и
-       * ускоренная копия разошлась бы с ним по звуку. Длину диктует звук, а
-       * подгонка картинки под него — нарезка исходника ведущего (план 2); кусок
-       * длиннее потолка модели уже зажат планировщиком, и об этом сказано в лог.
-       */
-      if (!useAvatarRoute && !segmentPlan) {
-        const speechSec = await probeMediaDuration(audioPath)
-        const fit = planSpeechFitToModel(speechSec ?? 0, providerDurationSec)
-        if (fit.speedFactor > 1) {
-          try {
-            const fittedPath = audioPath.replace(/\.mp3$/i, "_fit.mp3")
-            const fitted = await adjustAudioTempo(audioPath, fittedPath, fit.speedFactor)
-            speechPath = fitted.outputPath
-            await appendStepLog(
-              step.id,
-              `${sceneTag}: реплика ${speechSec!.toFixed(2)}с не влезает в исходник ${providerDurationSec.toFixed(2)}с — `
-              + `ускоряю в ${fit.speedFactor.toFixed(2)}x до ${fitted.durationSec.toFixed(2)}с`
-              + (fit.fits ? "" : `; предел ${MAX_SPEECH_SPEEDUP}x, хвост фразы модель всё же срежет`),
-            )
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            await appendStepLog(
-              step.id,
-              `${sceneTag}: ускорить реплику не удалось (${msg.slice(0, 160)}) — модель срежет её по длине исходника`,
-            )
-          }
+        // Подменённый исходник ведущего диктует длину сцены в сборке, поэтому его
+        // расхождение с планом проверяем отдельно: диапазон модели такое не ловит —
+        // 2.5-секундный клип для сцены на 9 с формально «в 2-10 с», а по факту минус
+        // 6.5 с хронометража. Метаданные в БД могут врать, поэтому сверяем измеренное.
+        // Неизмеримый исходник ведущего тоже отбрасываем — доверять ему нечем.
+        // Откатываться есть куда только там, где сгенерированный клип существует:
+        // у ролика ведущей запасного исходника нет вовсе, и подменять его нечем.
+        if (presenterSourcePath && resolvedSource.path && (measuredDurationSec === null || !isSourceDurationCloseToScene(measuredDurationSec, presenterTargetSec))) {
+          await appendStepLog(
+            step.id,
+            measuredDurationSec === null
+              ? `${sceneTag}: длительность исходника ведущего не измеряется (нет файла или ffprobe) — возвращаюсь на сгенерированный клип`
+              : `${sceneTag}: исходник ведущего ${measuredDurationSec.toFixed(2)}с расходится с длиной речи ${presenterTargetSec.toFixed(2)}с — возвращаюсь на сгенерированный клип`,
+          )
+          sourceVideoPath = resolvedSource.path
+          presenterSourcePath = null
+          sourceFromRecordingWindow = false
+          measuredDurationSec = await probeMediaDuration(sourceVideoPath)
         }
-      }
 
-      // 2. Картинка сцены. Живую съёмку синхронизирует lip-sync, аватарную
-      // сцену целиком снимает speech_to_video — там речь уже в кадре и в
-      // звуковой дорожке, и второй платный шаг не нужен.
-      const renderedPath = join(assetsDir, `scene_${sceneIndex}_lipsync.mp4`)
-      let renderCostUsd: number
-      let renderProvider: string
-      let renderModelId: string
-
-      if (useAvatarRoute) {
-        // Длину сцены задаёт синтезированная речь: по ней считаются и деньги,
-        // и таймлайн сборки.
-        const audioDurationSec = await probeMediaDuration(audioPath)
-        if (audioDurationSec === null) {
-          await appendStepLog(step.id, `${sceneTag}: длительность синтезированной реплики не измеряется — сцену аватаром не снимаю`)
-          recordSkippedScene({
+        if (measuredDurationSec === null && !useAvatarRoute) {
+          // Раньше здесь молча подставлялась плановая длительность (а до неё —
+          // дефолтные 5 с из probeClipDurations): битый или отсутствующий файл уезжал
+          // в модель с выдуманной длиной, и проверка диапазона ничего не проверяла.
+          //
+          // probeMediaDuration отдаёт null на ЛЮБОЙ неудаче ffprobe, а неудачи бывают
+          // двух разных природ. Нет файла — это свойство материала: сколько ни
+          // перезапускай, ответ тот же, и такую сцену честно закрываем, иначе шаг
+          // теряет кэш и каждый прогон заново гоняет probe и TTS по остальным сценам.
+          // Файл на месте, а замер не состоялся — это среда (ffprobe не запустился,
+          // spawn EAGAIN/EMFILE под нагрузкой, свежескачанный mp4 держит антивирус):
+          // такой отказ кэш НЕ открывает, иначе один неудачный прогон навсегда и молча
+          // лишал бы ролик lip-sync по этой сцене.
+          const sourceExists = await fileExists(sourceVideoPath!)
+          await appendStepLog(
+            step.id,
+            sourceExists
+              ? `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath!)} — файл на месте, значит подвела среда (ffprobe недоступен, файл занят, битые метаданные); оставляю оригинальный клип, следующий прогон попробует снова`
+              : `${sceneTag}: не удалось измерить длительность источника ${basename(sourceVideoPath!)} — файла нет на диске, измерять нечего; оставляю оригинальный клип`,
+          )
+          recordSkippedPart({
             sceneOrder: scene.order,
             sceneIndex,
-            reason: "source_unmeasurable",
+            reason: sourceExists ? "source_unmeasurable" : "source_missing",
             sourcePath: resolvedSource.path,
             reuseKey,
             spokenLineHash,
@@ -1414,85 +1549,18 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           continue
         }
 
-        const avatar = await generateAvatarSourceClip({
-          characterId: videoConfig.lipSyncCharacterId!,
-          videoId,
-          stepId: step.id,
-          unitKey: `avatar_scene_${sceneIndex}`,
-          // Индекс сцены, а не scene.order: клипы и ассеты ролика адресуются
-          // индексом, а order из плана AI умеет повторяться — на дубле две
-          // сцены делили бы один объект в хранилище.
-          sceneOrder: sceneIndex,
-          audioPath,
-          durationSec: audioDurationSec,
-          resolution: videoConfig.format === "landscape" ? "1080p" : "1080p",
-          outputPath: renderedPath,
-          workDir: assetsDir,
-          usedPortraitIds: [...usedAvatarPortraitIds],
-        }).catch(async (err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err)
-          await appendStepLog(step.id, `${sceneTag}: аватарная сцена не снята (${msg})`)
-          return null
-        })
-
-        if (!avatar) {
-          recordSkippedScene({
+        // Диапазон длительности — требование модели lip-sync к ИСХОДНОМУ видео.
+        // У аватарной сцены исходного видео нет: длину задаёт речь, а потолок
+        // проверяет спека speech_to_video при сборке payload.
+        if (!useAvatarRoute && !isDurationWithinModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)) {
+          await appendStepLog(
+            step.id,
+            `${sceneTag}: реальная длительность источника ${measuredDurationSec!.toFixed(2)}с вне диапазона модели ${minDurationSec}-${maxDurationSec}с (допуск ±${MODEL_DURATION_TOLERANCE_SEC}с) — оставляю оригинальный клип`,
+          )
+          recordSkippedPart({
             sceneOrder: scene.order,
             sceneIndex,
-            reason: "lip_sync_failed",
-            sourcePath: resolvedSource.path,
-            reuseKey,
-            spokenLineHash,
-            durationSec: audioDurationSec,
-          })
-          continue
-        }
-
-        measuredDurationSec = avatar.effectiveDurationSec
-        renderCostUsd = avatar.costUsd
-        renderProvider = avatar.provider
-        renderModelId = avatar.modelId
-        usedAvatarPortraitIds.add(avatar.portraitId)
-        await appendStepLog(
-          step.id,
-          `${sceneTag}: AI-аватар из портрета ${avatar.portraitId} (${avatar.effectiveDurationSec.toFixed(2)}с, ${avatar.modelId}, $${avatar.costUsd.toFixed(3)}) — lip-sync не нужен, речь уже в кадре`,
-        )
-
-        // Контроль похожести внутри ролика: гейт уникальности сравнивает
-        // готовый ролик с прошлыми публикациями и не видит, что все его сцены
-        // показывают один кадр. Это предупреждение, а не блокировка —
-        // оплаченный клип выбрасывать нельзя, решение принимает гейт.
-        if (avatar.frameHash) {
-          const twin = findSimilarAvatarClip(avatar.frameHash, avatarFrameHashes)
-          if (twin) {
-            await appendStepLog(
-              step.id,
-              `${sceneTag}: WARN кадр аватара повторяет сцену ${twin.sceneIndex} (расстояние ${twin.distance} бит) — ролику не хватает портретов персонажа`,
-            )
-          }
-          avatarFrameHashes.push({ sceneIndex, hash: avatar.frameHash })
-        }
-      } else {
-        // Replicate по умолчанию; fal.ai доступен только как явно включённый fallback.
-        let lipSyncResult: Awaited<ReturnType<typeof runLipSync>>
-        try {
-          lipSyncResult = await runLipSync({
-            videoId,
-            videoAssetId: clipAsset?.id ?? null,
-            sceneOrder: scene.order,
-            sourceVideoPath: sourceVideoPath!,
-            audioPath: speechPath,
-            outputPath: renderedPath,
-            durationSec: providerDurationSec,
-            modelId: model.id,
-          })
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "lip-sync failed"
-          await appendStepLog(step.id, `${sceneTag}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
-          recordSkippedScene({
-            sceneOrder: scene.order,
-            sceneIndex,
-            reason: "lip_sync_failed",
+            reason: "duration_out_of_range",
             sourcePath: resolvedSource.path,
             reuseKey,
             spokenLineHash,
@@ -1500,84 +1568,329 @@ export async function runLipSyncStep(input: LipSyncStepInput): Promise<LipSyncSt
           })
           continue
         }
-        renderCostUsd = lipSyncResult.costUsd
-        renderProvider = lipSyncResult.provider
-        renderModelId = model.id
-      }
 
-      // Оплачено — фиксируем ДО заливки в storage: uploadLocalAsset умеет упасть,
-      // и без записи прогресса следующий заход оплатил бы эту сцену второй раз.
-      const service = renderProvider === "replicate" ? "replicate" : "fal.ai"
-      costByService.set(service, (costByService.get(service) ?? 0) + renderCostUsd + ttsCost)
-      totalCostUsd += renderCostUsd + ttsCost
-      syncedSceneCount++
-      resyncedSceneCount++
+        // В провайдер уходит длительность, зажатая в диапазон модели: измеренные 10.03 с
+        // мы приняли по допуску, но runLipSync валидирует строго и уронил бы вызов.
+        // Расхождение с измеренным здесь всегда в пределах допуска, на стоимость не влияет.
+        const providerDurationSec = useAvatarRoute
+          ? 0
+          : clampDurationToModelRange(measuredDurationSec!, minDurationSec, maxDurationSec)
 
-      // Оба маршрута (реальный lip-sync и аватарная генерация) доходят сюда только
-      // после того, как файл на renderedPath уже содержит финальный кадр с речью,
-      // синхронизированной с губами, — ЦЕЛЫМ кадром, до кропа/маски/наложения
-      // (spec §6.3). Это единственная точка шага, где факт синхронизации уже
-      // подтверждён, поэтому метка ставится именно здесь и ровно один раз.
-      const lipSyncedPath = markLipSynced(renderedPath)
+        // Речь синтезируется ровно один раз за сцену — где бы её ни попросили
+        // первой. Маршруту ведущей она нужна РАНЬШЕ подбора фрагмента (длина
+        // речи и есть цель подбора), остальным — как прежде, после проверок
+        // источника, чтобы не платить за синтез сцены, которую всё равно
+        // пропустим.
+        if (!(await ensureSceneAudio())) continue
 
-      // Подстановка строго по индексу сцены: сравнение строк ломалось, как только
-      // в БД оказывался путь прошлого прогона (findIndex возвращал -1).
-      updatedClipPaths[sceneIndex] = lipSyncedPath
-      sceneRecords.push({
-        sceneOrder: scene.order,
-        sceneIndex,
+        // Кусок трека длиннее картинки, в которую его вкладывают: lip-sync отдаст
+        // ролик длиной ИСХОДНИКА и хвост речи срежет. Ускорить кусок мы не имеем
+        // права (см. ниже), но и молчать нельзя — на прежнем маршруте об этом
+        // говорила ветка ускорения, и без этой строки сигнал пропал бы совсем.
+        //
+        // Допуск в один кадр (WARN-гейт из финального ревью): buildPresenterCutArgs
+        // (presenter/ffmpeg-adapter.ts) пишет startSec/durationSec через
+        // toFixed(2) — квантует окно по сотым, а само окно посчитано на
+        // кадровой сетке 1/timelineFps (обычно 1/30 ≈ 0.033с). Расхождение
+        // вырезанного окна с заказанным до кадра — штатное округление, а не
+        // сигнал реальной проблемы; без допуска гейт срабатывал бы регулярно и
+        // врал про причину.
+        const cutFrameToleranceSec = Number.isFinite(timelineFps) && timelineFps > 0 ? 1 / timelineFps : 0
+        if (segmentPlan && !useAvatarRoute && segmentPlan.cut.durationSec > providerDurationSec + cutFrameToleranceSec) {
+          // Этот гейт маршрут не проверяет — он смотрит только на цифры. Обычно
+          // условие штатно не выполняется на окне из записи: оно режется под
+          // presenterTargetSec, который сам берётся из ИЗМЕРЕННОГО куска трека
+          // (см. trackSegmentSec выше). Но окно (§8, planRecordingWindow) на самом
+          // хвосте записи может оказаться короче заказанного на долю кадра, а
+          // presenterTargetSec — это mp3 после перекодировки, который своим
+          // хвостом штатно расходится с теоретическим cut.durationSec
+          // (voiceover/segment-cut.ts: «перекодировка даёт свой хвост») — гейт
+          // может сработать и при настоящей записи-родителе. Текст обязан
+          // называть причину, которая правда произошла, а не всегда одну и ту же
+          // (Minor A код-ревью): sourceFromRecordingWindow — единственный факт,
+          // видный отсюда, дальше это уже не «библиотека или запись», а
+          // сантиметры на стыке кадра/перекодировки.
+          await appendStepLog(
+            step.id,
+            `${sceneTag}: WARN кусок трека ${segmentPlan.cut.durationSec.toFixed(2)}с длиннее исходника `
+            + `${providerDurationSec.toFixed(2)}с — модель срежет речь по длине картинки; `
+            + (sourceFromRecordingWindow
+              ? "исходник вырезан из записи-родителя, расхождение — на стыке кадра/перекодировки звука"
+              : "фрагмент подобран из библиотеки, записи-родителя нет"),
+          )
+        }
+
+        /**
+         * Речь длиннее исходника: lip-sync отдаёт ролик длиной ИСХОДНИКА, и всё,
+         * что не поместилось, просто пропадает — фраза обрывается на середине.
+         * Укладываем ускорением до 1.2x, как это делает шаг озвучки с закадровой
+         * репликой. Аватарной сцены это не касается: там длину задаёт сама речь.
+         *
+         * Кусок общего трека не ускоряется НИКОГДА: под таймлайном лежит трек, и
+         * ускоренная копия разошлась бы с ним по звуку. Длину диктует звук, а
+         * подгонка картинки под него — нарезка исходника ведущего (план 2); кусок
+         * длиннее потолка модели уже зажат планировщиком, и об этом сказано в лог.
+         */
+        if (!useAvatarRoute && !segmentPlan) {
+          const speechSec = await probeMediaDuration(audioPath)
+          const fit = planSpeechFitToModel(speechSec ?? 0, providerDurationSec)
+          if (fit.speedFactor > 1) {
+            try {
+              const fittedPath = audioPath.replace(/\.mp3$/i, "_fit.mp3")
+              const fitted = await adjustAudioTempo(audioPath, fittedPath, fit.speedFactor)
+              speechPath = fitted.outputPath
+              await appendStepLog(
+                step.id,
+                `${sceneTag}: реплика ${speechSec!.toFixed(2)}с не влезает в исходник ${providerDurationSec.toFixed(2)}с — `
+                + `ускоряю в ${fit.speedFactor.toFixed(2)}x до ${fitted.durationSec.toFixed(2)}с`
+                + (fit.fits ? "" : `; предел ${MAX_SPEECH_SPEEDUP}x, хвост фразы модель всё же срежет`),
+              )
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err)
+              await appendStepLog(
+                step.id,
+                `${sceneTag}: ускорить реплику не удалось (${msg.slice(0, 160)}) — модель срежет её по длине исходника`,
+              )
+            }
+          }
+        }
+
+        // 2. Картинка сцены. Живую съёмку синхронизирует lip-sync, аватарную
+        // сцену целиком снимает speech_to_video — там речь уже в кадре и в
+        // звуковой дорожке, и второй платный шаг не нужен.
+        //
+        // Имя первой части — прежнее, `scene_N_lipsync.mp4`: неразбитая реплика
+        // обязана давать тот же файл, что и до дробления (иначе первый же прогон
+        // переоплатил бы весь готовый ролик). Части со второй получают суффикс
+        // ПЕРЕД `_lipsync`, чтобы `isLipSyncOutputPath` продолжал их узнавать и
+        // не отдал синхронизированный файл обратно в источник.
+        const renderedPath = join(
+          assetsDir,
+          partIndex === 0 ? `scene_${sceneIndex}_lipsync.mp4` : `scene_${sceneIndex}_part${partIndex}_lipsync.mp4`,
+        )
+        let renderCostUsd: number
+        let renderProvider: string
+        let renderModelId: string
+
+        if (useAvatarRoute) {
+          // Длину сцены задаёт синтезированная речь: по ней считаются и деньги,
+          // и таймлайн сборки.
+          const audioDurationSec = await probeMediaDuration(audioPath)
+          if (audioDurationSec === null) {
+            await appendStepLog(step.id, `${sceneTag}: длительность синтезированной реплики не измеряется — сцену аватаром не снимаю`)
+            recordSkippedPart({
+              sceneOrder: scene.order,
+              sceneIndex,
+              reason: "source_unmeasurable",
+              sourcePath: resolvedSource.path,
+              reuseKey,
+              spokenLineHash,
+            })
+            continue
+          }
+
+          const avatar = await generateAvatarSourceClip({
+            characterId: videoConfig.lipSyncCharacterId!,
+            videoId,
+            stepId: step.id,
+            unitKey: partIndex === 0 ? `avatar_scene_${sceneIndex}` : `avatar_scene_${sceneIndex}_part${partIndex}`,
+            // Индекс сцены, а не scene.order: клипы и ассеты ролика адресуются
+            // индексом, а order из плана AI умеет повторяться — на дубле две
+            // сцены делили бы один объект в хранилище.
+            sceneOrder: sceneIndex,
+            // Части одной реплики (spec §5.3) пишутся в РАЗНЫЕ объекты хранилища:
+            // общий ключ означал бы, что вторая часть затирает первую после того,
+            // как обе оплачены.
+            partIndex,
+            audioPath,
+            durationSec: audioDurationSec,
+            resolution: videoConfig.format === "landscape" ? "1080p" : "1080p",
+            outputPath: renderedPath,
+            workDir: assetsDir,
+            usedPortraitIds: [...usedAvatarPortraitIds],
+          }).catch(async (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err)
+            await appendStepLog(step.id, `${sceneTag}: аватарная сцена не снята (${msg})`)
+            return null
+          })
+
+          if (!avatar) {
+            recordSkippedPart({
+              sceneOrder: scene.order,
+              sceneIndex,
+              reason: "lip_sync_failed",
+              sourcePath: resolvedSource.path,
+              reuseKey,
+              spokenLineHash,
+              durationSec: audioDurationSec,
+            })
+            continue
+          }
+
+          measuredDurationSec = avatar.effectiveDurationSec
+          renderCostUsd = avatar.costUsd
+          renderProvider = avatar.provider
+          renderModelId = avatar.modelId
+          usedAvatarPortraitIds.add(avatar.portraitId)
+          await appendStepLog(
+            step.id,
+            `${sceneTag}: AI-аватар из портрета ${avatar.portraitId} (${avatar.effectiveDurationSec.toFixed(2)}с, ${avatar.modelId}, $${avatar.costUsd.toFixed(3)}) — lip-sync не нужен, речь уже в кадре`,
+          )
+
+          // Контроль похожести внутри ролика: гейт уникальности сравнивает
+          // готовый ролик с прошлыми публикациями и не видит, что все его сцены
+          // показывают один кадр. Это предупреждение, а не блокировка —
+          // оплаченный клип выбрасывать нельзя, решение принимает гейт.
+          if (avatar.frameHash) {
+            const twin = findSimilarAvatarClip(avatar.frameHash, avatarFrameHashes)
+            if (twin) {
+              await appendStepLog(
+                step.id,
+                `${sceneTag}: WARN кадр аватара повторяет сцену ${twin.sceneIndex} (расстояние ${twin.distance} бит) — ролику не хватает портретов персонажа`,
+              )
+            }
+            avatarFrameHashes.push({ sceneIndex, hash: avatar.frameHash })
+          }
+        } else {
+          // Replicate по умолчанию; fal.ai доступен только как явно включённый fallback.
+          let lipSyncResult: Awaited<ReturnType<typeof runLipSync>>
+          try {
+            lipSyncResult = await runLipSync({
+              videoId,
+              videoAssetId: clipAsset?.id ?? null,
+              sceneOrder: scene.order,
+              sourceVideoPath: sourceVideoPath!,
+              audioPath: speechPath,
+              outputPath: renderedPath,
+              durationSec: providerDurationSec,
+              modelId: model.id,
+            })
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "lip-sync failed"
+            await appendStepLog(step.id, `${sceneTag}: lip-sync ошибка (${msg}) — оставляю оригинальный клип`)
+            recordSkippedPart({
+              sceneOrder: scene.order,
+              sceneIndex,
+              reason: "lip_sync_failed",
+              sourcePath: resolvedSource.path,
+              reuseKey,
+              spokenLineHash,
+              durationSec: measuredDurationSec,
+            })
+            continue
+          }
+          renderCostUsd = lipSyncResult.costUsd
+          renderProvider = lipSyncResult.provider
+          renderModelId = model.id
+        }
+
+        // Оплачено — фиксируем ДО заливки в storage: uploadLocalAsset умеет упасть,
+        // и без записи прогресса следующий заход оплатил бы эту сцену второй раз.
+        const service = renderProvider === "replicate" ? "replicate" : "fal.ai"
+        costByService.set(service, (costByService.get(service) ?? 0) + renderCostUsd + ttsCost)
+        totalCostUsd += renderCostUsd + ttsCost
+        if (!scenePaidThisRun) {
+          scenePaidThisRun = true
+          resyncedSceneCount++
+        }
+
+        // Оба маршрута (реальный lip-sync и аватарная генерация) доходят сюда только
+        // после того, как файл на renderedPath уже содержит финальный кадр с речью,
+        // синхронизированной с губами, — ЦЕЛЫМ кадром, до кропа/маски/наложения
+        // (spec §6.3). Это единственная точка шага, где факт синхронизации уже
+        // подтверждён, поэтому метка ставится именно здесь и ровно один раз.
+        const lipSyncedPath = markLipSynced(renderedPath)
+
+        // Подстановка строго по индексу сцены: сравнение строк ломалось, как только
+        // в БД оказывался путь прошлого прогона (findIndex возвращал -1). У разбитой
+        // реплики в этот список идёт ПЕРВАЯ часть: прежний маршрут сборки знает по
+        // одному клипу на сцену, а кадровый берёт части из снапшота (см. parts).
+        if (partIndex === 0 || !hasClipPath(updatedClipPaths[sceneIndex])) {
+          updatedClipPaths[sceneIndex] = lipSyncedPath
+        }
         // Исходник ведущей (и аватарной сцены) в снапшот НЕ пишем: фрагмент
         // резервируется заново на каждом прогоне и удаляется в finally. Его путь
         // сделал бы отпечаток сцены нестабильным — следующий заход не узнал бы
         // уже готовую сцену и оплатил бы её второй раз. Пустая строка — ровно то,
         // что увидит resolveSceneSourcePath, и якорь останется синтетическим.
-        sourcePath: (presenterSourcePath || useAvatarRoute) ? "" : (sourceVideoPath ?? renderedPath),
-        outputPath: lipSyncedPath,
-        // Тот файл, который реально ушёл в модель: у длинной реплики это её
-        // ускоренная копия.
-        audioPath: speechPath,
-        spokenLineHash,
-        reuseKey,
-        // К этой точке длительность известна в обоих маршрутах: у съёмки её
-        // дал ffprobe и проверил диапазон, у аватара — длина синтезированной речи.
-        durationSec: measuredDurationSec!,
-      })
-      await persistProgress()
-
-      // Заливаем lip-synced клип в storage. filePath у VideoAsset(type=clip) НЕ трогаем:
-      // ассет обязан продолжать указывать на оригинал, иначе повторный заход (и
-      // idempotency-ветка runClipGeneration) подсунет уже синхронизированный файл
-      // как источник — синхронизация ляжет поверх синхронизации.
-      const renderStorage = await uploadLocalAsset(
-        renderedPath,
-        StorageKeys.videoLipSyncClip(videoId, basename(renderedPath)),
-        "video/mp4",
-      )
-
-      // Сцена ведущей: клипа в БД под неё нет — clip_generation его не делал.
-      // Создаём здесь, и filePath указывает на lip-sync результат: оригинала,
-      // который надо было бы защищать от повторной синхронизации, не существует,
-      // а `isLipSyncOutputPath` не даст взять этот файл источником на следующем
-      // прогоне. Без записи в БД сцена невидима для сборки и переиспользования.
-      if (!clipAsset) {
-        await prisma.videoAsset.create({
-          data: {
-            videoId,
-            type: "clip" as never,
-            prompt: spokenLine.slice(0, 500),
-            filePath: renderedPath,
-            fileUrl: storageKeyToLegacyUrl(renderStorage.storageKey),
-            order: sceneIndex,
-            duration: measuredDurationSec,
-            ...renderStorage,
-          },
+        if (renderedSourcePath === null) {
+          renderedSourcePath = (presenterSourcePath || useAvatarRoute) ? "" : (sourceVideoPath ?? renderedPath)
+        }
+        partRecords.push({
+          index: partIndex,
+          startSec: part?.startSec ?? (alignedScene?.startSec ?? 0),
+          endSec: part?.endSec ?? (alignedScene?.endSec ?? 0),
+          outputPath: lipSyncedPath,
+          // Тот файл, который реально ушёл в модель: у длинной реплики это её
+          // ускоренная копия.
+          audioPath: speechPath,
+          reuseKey,
+          // К этой точке длительность известна в обоих маршрутах: у съёмки её
+          // дал ffprobe и проверил диапазон, у аватара — длина синтезированной речи.
+          durationSec: measuredDurationSec!,
         })
-      }
+        countSceneOutput()
+        // Запись сцены обновляется ПОСЛЕ КАЖДОЙ оплаченной части, а не в конце
+        // сцены: обрыв между частями обязан оставить оплаченную часть в снапшоте,
+        // иначе следующий заход оплатит её второй раз — тот самый класс дефекта,
+        // ради которого прогресс и персистится после каждой сцены.
+        commitSceneRecord()
+        await persistProgress()
 
-      await appendStepLog(
-        step.id,
-        `${sceneTag}: ${renderProvider} ${useAvatarRoute ? "аватарная сцена" : "lip-sync"} готова за ${measuredDurationSec!.toFixed(2)}s (${renderModelId} $${renderCostUsd.toFixed(3)} + tts $${ttsCost.toFixed(3)}), storage ${renderStorage.storageKey}`,
-      )
+        // Заливаем lip-synced клип в storage. filePath у VideoAsset(type=clip) НЕ трогаем:
+        // ассет обязан продолжать указывать на оригинал, иначе повторный заход (и
+        // idempotency-ветка runClipGeneration) подсунет уже синхронизированный файл
+        // как источник — синхронизация ляжет поверх синхронизации.
+        const renderStorage = await uploadLocalAsset(
+          renderedPath,
+          StorageKeys.videoLipSyncClip(videoId, basename(renderedPath)),
+          "video/mp4",
+        )
+
+        // Сцена ведущей: клипа в БД под неё нет — clip_generation его не делал.
+        // Создаём здесь, и filePath указывает на lip-sync результат: оригинала,
+        // который надо было бы защищать от повторной синхронизации, не существует,
+        // а `isLipSyncOutputPath` не даст взять этот файл источником на следующем
+        // прогоне. Без записи в БД сцена невидима для сборки и переиспользования.
+        //
+        // РОВНО ОДИН ассет на сцену, а не на часть: `order` у VideoAsset(type=clip)
+        // это индекс сцены, и вторая часть создала бы вторую строку с тем же
+        // order — сборка увидела бы призрачный лишний клип.
+        if (!clipAsset && !clipAssetCreated) {
+          clipAssetCreated = true
+          await prisma.videoAsset.create({
+            data: {
+              videoId,
+              type: "clip" as never,
+              prompt: spokenLine.slice(0, 500),
+              filePath: renderedPath,
+              fileUrl: storageKeyToLegacyUrl(renderStorage.storageKey),
+              order: sceneIndex,
+              duration: measuredDurationSec,
+              ...renderStorage,
+            },
+          })
+        }
+
+        await appendStepLog(
+          step.id,
+          `${partTag}: ${renderProvider} ${useAvatarRoute ? "аватарная сцена" : "lip-sync"} готова за ${measuredDurationSec!.toFixed(2)}s (${renderModelId} $${renderCostUsd.toFixed(3)} + tts $${ttsCost.toFixed(3)}), storage ${renderStorage.storageKey}`,
+        )
+      } // конец цикла по частям реплики
+
+      // Запись сцены пишется даже когда ни одна часть не дошла до провайдера:
+      // без неё ранняя идемпотентность не выполнялась бы никогда (см.
+      // recordSkippedScene) — сцена просто отсутствовала бы в снапшоте.
+      commitSceneRecord()
+      if (sceneReusedPart && !scenePaidThisRun) reusedSceneCount++
+      if (partRecords.some(record => record.skipped) && partRecords.some(record => record.outputPath)) {
+        await appendStepLog(
+          step.id,
+          `${sceneTag}: WARN синхронизированы не все части реплики `
+          + `(${partRecords.filter(r => r.outputPath).length} из ${partRecords.length}) — `
+          + "показываю то, что вышло; несошедшиеся части получат новую попытку на следующем прогоне",
+        )
+      }
     }
   } catch (error) {
     // Обрыв в середине шага: то, что уже оплачено, обязано остаться в снапшоте и в

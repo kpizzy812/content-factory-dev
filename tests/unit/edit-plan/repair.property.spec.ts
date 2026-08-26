@@ -85,6 +85,7 @@ import { describe, expect, it } from "vitest"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
 import { absoluteMinShotSec, repairShotPlan } from "~~/server/utils/edit-plan/repair"
 import { halfFrameSec, validateShotPlan } from "~~/server/utils/edit-plan/validate"
+import { partCoverageEndSec, planLipSyncParts, shotCoveredByParts } from "~~/server/utils/presenter/lip-sync-parts"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 import type { ShotPlanContext } from "~~/server/utils/edit-plan/validate"
 import type { PlannedShot, ShotBackground } from "~~/server/utils/edit-plan/types"
@@ -810,32 +811,48 @@ function checkPresenterSceneProperties({ shots, context, label }: Scenario): voi
     expect(repaired.some(s => s.foreground === "presenter"), `${label}: ведущий исчез из ролика целиком`).toBe(true)
   }
 
-  // 7. Суммарное время ведущего в сцене не превышает потолок модели —
-  //    формулировка владельца. Исключение ровно одно и названное: сцена, чей
-  //    ПЕРВЫЙ кадр ведущего сам длиннее потолка (это `presenter_too_long` и
-  //    дробление реплики §5.3, у него свой владелец).
+  // 7. Каждый кадр ведущего стоит там, где у клипа его сцены ЕСТЬ живой
+  //    материал.
+  //
+  //    Формулировка изменилась вместе с дроблением длинной реплики (spec §5.3,
+  //    правка 26.08.2026). Раньше здесь проверялась СУММА времени ведущего в
+  //    сцене против потолка модели: lip-sync резал из трека один префикс
+  //    `[начало сцены, +потолок]`, и всё, что за ним, показывало застывшее
+  //    лицо. Теперь реплика длиннее потолка дробится, каждая часть оплачивается
+  //    своим вызовом, и сумма по сцене ЗАКОННО больше потолка — проверять её
+  //    значило бы требовать обратно тот самый обрезанный хвост.
+  //
+  //    Инвариант, который остался и который действительно важен: кадр ведущего
+  //    целиком помещается в окно ОДНОЙ из частей. Исключение ровно одно и
+  //    названное: ПЕРВЫЙ кадр ведущего сцены (его ремонт не трогает никогда —
+  //    его собственная длина это `presenter_too_long`, у него свой владелец).
   if (Number.isFinite(context.lipSyncMaxDurationSec) && context.lipSyncMaxDurationSec > 0) {
     // Допуск — РОВНО тот же, с которым сама валидация сравнивает границу с
     // концом окна (`halfFrameSec`): кадр, заходящий за окно меньше чем на
-    // полкадра, нарушением не считается, поэтому и сумма вправе превысить
-    // потолок на ту же величину. Замер на этом домене: 3 сценария из 400
-    // (сиды 68, 103, 214), перебор 5-6 мс при потолке 3-5 с. Ставить здесь
-    // 1e-6 значило бы требовать от суммы строгости, которой нет у самой
-    // проверки, и тест краснел бы на шуме округления.
+    // полкадра, нарушением не считается.
     const capTolerance = halfFrameSec(context.fps) + 1e-6
-    const presenterSecByScene = new Map<number, number>()
-    const headTooLong = new Set<number>()
+    const sceneByOrder = new Map(context.alignedScenes.map(scene => [scene.order, scene]))
+    const heads = headPresenterByScene(repaired)
     for (const shot of repaired) {
       if (shot.foreground !== "presenter" || shot.sceneOrder === null) continue
-      presenterSecByScene.set(shot.sceneOrder, (presenterSecByScene.get(shot.sceneOrder) ?? 0) + (shot.endSec - shot.startSec))
-    }
-    for (const [sceneOrder, head] of headPresenterByScene(repaired)) {
-      if (head.endSec - head.startSec > context.lipSyncMaxDurationSec + capTolerance) headTooLong.add(sceneOrder)
-    }
-    for (const [sceneOrder, presenterSec] of presenterSecByScene) {
-      if (headTooLong.has(sceneOrder)) continue
-      expect(presenterSec, `${label}: сцена ${sceneOrder} отдала ведущему ${presenterSec.toFixed(2)}с при потолке ${context.lipSyncMaxDurationSec}с`)
-        .toBeLessThanOrEqual(context.lipSyncMaxDurationSec + capTolerance)
+      if (heads.get(shot.sceneOrder) === shot) continue
+      const scene = sceneByOrder.get(shot.sceneOrder)
+      if (!scene) continue
+      const windows = planLipSyncParts({
+        scene,
+        maxDurationSec: context.lipSyncMaxDurationSec,
+        fps: context.fps,
+        brollAllowed: context.profile.brollRatio > 0,
+      }).parts
+      // Каждая часть сама укладывается в потолок — кроме сцены, которую
+      // дробить нечем (нет пословных границ): там часть одна, её окно
+      // обрывается на потолке, и кадры за ним ремонт обязан был увести в
+      // перебивку — что и проверяет условие ниже.
+      const fits = shotCoveredByParts(windows, shot.startSec, shot.endSec, context.lipSyncMaxDurationSec, capTolerance)
+      expect(fits, `${label}: кадр ${shot.order} (${shot.startSec.toFixed(2)}-${shot.endSec.toFixed(2)}) `
+        + `сцены ${shot.sceneOrder} не попал ни в одну часть реплики `
+        + `[${windows.map(p => `${p.startSec.toFixed(2)}-${partCoverageEndSec(p, context.lipSyncMaxDurationSec).toFixed(2)}`).join(", ")}]`)
+        .toBe(true)
     }
   }
 }

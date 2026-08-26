@@ -792,6 +792,10 @@ function foldPresenterShotsOutsideLipSyncWindow(
     context.alignedScenes,
     context.lipSyncMaxDurationSec,
     context.fps,
+    // Тот же признак, что у сетки кадров и у lip-sync (`brollRatio > 0`):
+    // перебивка сдвигает точки дробления реплики, и на разных значениях
+    // ремонт чинил бы план по чужому разбиению.
+    context.profile.brollRatio > 0,
   )
   if (overflows.length === 0) return
 

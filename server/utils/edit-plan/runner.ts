@@ -41,6 +41,7 @@ import { buildShotGrid } from "./grid"
 import { repairShotPlan } from "./repair"
 import { halfFrameSec, validateShotPlan } from "./validate"
 import { pickBackgroundSource } from "./background-source"
+import { planLipSyncParts, shotCoveredByParts } from "../presenter/lip-sync-parts"
 import type { ShotPlanContext, ShotPlanViolation } from "./validate"
 import type { PlannedShot, PlannedShotWithCost, ShotBackground, ShotForeground, ShotPlan } from "./types"
 import type { ResolvedEditProfile } from "./profile"
@@ -532,13 +533,22 @@ export async function runEditPlanStep(
     const known = sceneByOrderForWindow.get(scene.order)
     if (!known || scene.startSec < known.startSec) sceneByOrderForWindow.set(scene.order, scene)
   }
-  const shotFitsLipSyncWindow = (shot: { sceneOrder: number | null, endSec: number }): boolean => {
+  const shotFitsLipSyncWindow = (shot: { sceneOrder: number | null, startSec: number, endSec: number }): boolean => {
     if (!Number.isFinite(input.lipSyncMaxDurationSec) || input.lipSyncMaxDurationSec <= 0) return true
     if (shot.sceneOrder === null) return true
     const scene = sceneByOrderForWindow.get(shot.sceneOrder)
     if (!scene) return true
-    const coverageEndSec = Math.min(scene.endSec, scene.startSec + input.lipSyncMaxDurationSec)
-    return shot.endSec <= coverageEndSec + halfFrameSec(input.fps)
+    // Окно — по ЧАСТЯМ реплики (spec §5.3): lip-sync дробит длинную реплику и
+    // платит за каждую часть отдельно, значит живой материал есть в каждой из
+    // них, а не только в первых 10 секундах сцены. Тот же вызов и те же
+    // параметры, что у `findPresenterSceneOverflows` и у самого lip-sync.
+    const parts = planLipSyncParts({
+      scene,
+      maxDurationSec: input.lipSyncMaxDurationSec,
+      fps: input.fps,
+      brollAllowed: input.profile.brollRatio > 0,
+    }).parts
+    return shotCoveredByParts(parts, shot.startSec, shot.endSec, input.lipSyncMaxDurationSec, halfFrameSec(input.fps))
   }
 
   const finalShots: PlannedShotWithCost[] = []

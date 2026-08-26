@@ -1122,18 +1122,45 @@ function scene9Plan(): PlannedShot[] {
 /** Половина кадра сетки 30 fps — весь допуск, который притяжка к кадру может добавить. */
 const HALF_FRAME = 1 / 60
 
-function scene9Context(shots: PlannedShot[]) {
+/**
+ * Та же сцена, но БЕЗ пословных границ. Дробить реплику §5.3 нечем (резать по
+ * таймеру спека запрещает прямо), часть остаётся одна, её окно обрывается на
+ * потолке модели — единственный случай, где ремонт агрегата ещё нужен после
+ * правки 26.08.2026 (дробление длинной реплики).
+ */
+const SCENE9_NO_WORDS = { ...SCENE9, words: [] }
+
+function scene9Context(shots: PlannedShot[], scene: typeof SCENE9 = SCENE9) {
   return context(shots, {
     trackDurationSec: 90.93,
-    alignedScenes: [SCENE9],
+    alignedScenes: [scene],
     profile: { ...DEFAULT_EDIT_PROFILE, brollRatio: 0, shotChangeSec: 1.6 },
     lipSyncMaxDurationSec: 10,
   })
 }
 
 describe("ремонт агрегата сцены: ведущий только там, куда достаёт его клип", () => {
-  it("сцена 9 ролика 30 чинится сама — хвост уходит в перебивку, покрытие цело", () => {
+  it("сцена 9 ролика 30 БОЛЬШЕ НЕ ЧИНИТСЯ — реплика дробится, и ведущий остаётся на всей сцене", () => {
+    // Регрессия на сам смысл правки 26.08.2026. Раньше lip-sync резал из трека
+    // префикс [начало сцены, +потолок], хвост сцены 9 (11.36с при потолке 10с)
+    // показывал застывшее лицо, и ремонт вынужденно уводил его в перебивку —
+    // то есть призыв к действию оставался без ведущей. Теперь реплика дробится
+    // на части, каждая оплачивается своим вызовом, и уводить нечего.
     const { before, remaining, plan, changes } = repairShotPlan(scene9Context(scene9Plan()))
+
+    expect(before.map(v => v.code)).not.toContain("presenter_scene_too_long")
+    expect(remaining.map(v => v.code)).not.toContain("presenter_scene_too_long")
+    expect(changes.some(c => /перевед[её]н из ведущего в перебивку/.test(c.message))).toBe(false)
+
+    // Ведущий остался на КАЖДОМ кадре сцены, включая последний.
+    const sceneShots = plan.shots.filter(s => s.sceneOrder === 9)
+    expect(sceneShots.length).toBe(SCENE9_BOUNDS.length - 1)
+    for (const shot of sceneShots) expect(shot.foreground).toBe("presenter")
+    expect(plan.shots.at(-1)!.foreground).toBe("presenter")
+  })
+
+  it("сцена БЕЗ пословных границ чинится как раньше — хвост уходит в перебивку, покрытие цело", () => {
+    const { before, remaining, plan, changes } = repairShotPlan(scene9Context(scene9Plan(), SCENE9_NO_WORDS))
 
     expect(before.map(v => v.code)).toContain("presenter_scene_too_long")
     expect(remaining.map(v => v.code)).not.toContain("presenter_scene_too_long")
@@ -1158,7 +1185,7 @@ describe("ремонт агрегата сцены: ведущий только 
   })
 
   it("переведённый кадр получает рисуемый фон, теряет привязку к реплике и PiP", () => {
-    const { plan } = repairShotPlan(scene9Context(scene9Plan()))
+    const { plan } = repairShotPlan(scene9Context(scene9Plan(), SCENE9_NO_WORDS))
     const folded = plan.shots.filter(s => s.foreground !== "presenter")
 
     expect(folded.length).toBeGreaterThan(0)
@@ -1189,8 +1216,8 @@ describe("ремонт агрегата сцены: ведущий только 
   })
 
   it("повторный ремонт своего же результата ничего не меняет — неподвижная точка", () => {
-    const first = repairShotPlan(scene9Context(scene9Plan()))
-    const second = repairShotPlan(scene9Context(first.plan.shots.map(s => ({ ...s }))))
+    const first = repairShotPlan(scene9Context(scene9Plan(), SCENE9_NO_WORDS))
+    const second = repairShotPlan(scene9Context(first.plan.shots.map(s => ({ ...s })), SCENE9_NO_WORDS))
     expect(second.plan.shots).toEqual(first.plan.shots)
     expect(second.changes.filter(c => /в перебивку/.test(c.message))).toEqual([])
   })

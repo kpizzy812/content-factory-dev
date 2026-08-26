@@ -819,6 +819,13 @@ export async function runVideoPipeline(
       // у самого lip-sync (см. докстринг функции).
       const { maxDurationSec: lipSyncMaxDurationSec } = resolveModelDurationRange(video.lipSyncModelId ?? "")
 
+      // Дробление длинной реплики (spec §5.3) считают ТРИ места: сетка кадров
+      // (`buildShotGrid` ниже), валидация/ремонт плана и сам lip-sync. Признак
+      // «перебивка между частями разрешена» сдвигает точки реза, поэтому он
+      // обязан быть ОДНИМ значением на все три: план ждал бы живого материала
+      // там, где нарезка его не сделала.
+      audioFirst = { ...audioFirst, brollAllowed: resolvedEditProfile.brollRatio > 0 }
+
       editPlan = await runVideoEditPlan({
         videoId,
         trackFingerprint: audioFirst.trackFingerprint,

@@ -5,7 +5,7 @@
  * Each function runs one stage of the video generation pipeline.
  */
 
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import type { StoryPlan, SubtitlePlacement, SubtitleStyleProfile } from "~~/shared/types/story"
 import type { StoryDrivenVideoPlan } from "~~/shared/types/video-runtime"
 import {
@@ -4010,45 +4010,126 @@ async function fitPresenterClipsToScenes(
   videoId: number,
   step: { id: number },
   alignedScenes: readonly AlignedScene[],
-): Promise<Map<number, FittedPresenterClip>> {
+): Promise<Map<number, FittedPresenterClip[]>> {
   const lipSyncStep = await ensureStep(videoId, "lip_sync_generation", STEP_ORDER.indexOf("lip_sync_generation"))
   const sceneRecords = readPreviousSceneRecords(lipSyncStep.outputSnapshot)
   const alignedSceneByOrder = new Map(alignedScenes.map(s => [s.order, s]))
   const assetsDir = getAssetsDir(videoId)
 
-  const presenterPathBySceneOrder = new Map<number, FittedPresenterClip>()
+  const presenterPathBySceneOrder = new Map<number, FittedPresenterClip[]>()
+  const addClip = (sceneOrder: number, clip: FittedPresenterClip): void => {
+    const list = presenterPathBySceneOrder.get(sceneOrder)
+    if (list) list.push(clip)
+    else presenterPathBySceneOrder.set(sceneOrder, [clip])
+  }
 
   for (const record of sceneRecords.values()) {
-    if (!record.outputPath) continue
-
-    const measuredSec = await probeMediaDuration(record.outputPath)
-    if (measuredSec === null) {
-      await appendStepLog(step.id, `Кадровый монтаж: клип сцены ${record.sceneOrder} не измеряется — ведущий этой сцены недоступен`)
-      continue
-    }
-
     const alignedScene = alignedSceneByOrder.get(record.sceneOrder)
-    if (!alignedScene) {
-      // Запись lip-sync без границ в ТЕКУЩЕМ выравнивании (рассинхрон
-      // снапшотов) — используем клип как есть, приводить не к чему.
-      // Границ сцены нет — приводить не к чему, а значит и удержанному хвосту
-      // взяться неоткуда: живого материала ровно столько, сколько в файле.
-      presenterPathBySceneOrder.set(record.sceneOrder, { path: record.outputPath, liveSec: measuredSec })
-      continue
-    }
 
-    const targetSec = snapSecToFrame(Math.max(0, alignedScene.endSec - alignedScene.startSec), TIMELINE_FPS)
-    const diffSec = measuredSec - targetSec
-    // Живое — это то, что реально снято: обрезка ничего не добавляет, а
-    // удержание последнего кадра добавляет замороженный хвост, который в
-    // ЖИВОЕ не входит (правка 26.08.2026, дефект «липсинк застыл в конце»).
-    const liveSec = Math.min(measuredSec, targetSec)
-    if (targetSec <= 0 || Math.abs(diffSec) <= 1 / TIMELINE_FPS) {
-      presenterPathBySceneOrder.set(record.sceneOrder, { path: record.outputPath, liveSec })
-      continue
-    }
+    /**
+     * Куски реплики, каждый со своим интервалом В ТРЕКЕ (spec §5.3).
+     *
+     * Реплика, уместившаяся в один вызов, даёт ровно один кусок с границами
+     * СЦЕНЫ — то есть в точности прежний вход этой функции. Разбитая реплика
+     * даёт по куску на часть, и каждый приводится к длине СВОЕЙ части: общая
+     * подгонка «по сцене» растянула бы первую часть на всю сцену и увела
+     * вторую в никуда.
+     */
+    const pieces = record.parts && record.parts.length > 0
+      ? record.parts
+        .filter(part => part.outputPath)
+        .map(part => ({ outputPath: part.outputPath!, startSec: part.startSec, endSec: part.endSec }))
+      : record.outputPath
+        ? [{
+            outputPath: record.outputPath,
+            startSec: alignedScene?.startSec ?? null,
+            endSec: alignedScene?.endSec ?? null,
+          }]
+        : []
 
-    const fittedPath = join(assetsDir, `scene_${record.sceneOrder}_lipsync_fit.mp4`)
+    for (const piece of pieces) {
+      const measuredSec = await probeMediaDuration(piece.outputPath)
+      if (measuredSec === null) {
+        await appendStepLog(step.id, `Кадровый монтаж: клип сцены ${record.sceneOrder} не измеряется — ведущий этой сцены недоступен`)
+        continue
+      }
+
+      if (piece.startSec === null || piece.endSec === null) {
+        // Запись lip-sync без границ в ТЕКУЩЕМ выравнивании (рассинхрон
+        // снапшотов) — используем клип как есть, приводить не к чему.
+        // Границ сцены нет — приводить не к чему, а значит и удержанному хвосту
+        // взяться неоткуда: живого материала ровно столько, сколько в файле.
+        addClip(record.sceneOrder, { path: piece.outputPath, liveSec: measuredSec, startSec: null, endSec: null })
+        continue
+      }
+
+      const targetSec = snapSecToFrame(Math.max(0, piece.endSec - piece.startSec), TIMELINE_FPS)
+      const diffSec = measuredSec - targetSec
+      // Живое — это то, что реально снято: обрезка ничего не добавляет, а
+      // удержание последнего кадра добавляет замороженный хвост, который в
+      // ЖИВОЕ не входит (правка 26.08.2026, дефект «липсинк застыл в конце»).
+      const liveSec = Math.min(measuredSec, targetSec)
+      if (targetSec <= 0 || Math.abs(diffSec) <= 1 / TIMELINE_FPS) {
+        addClip(record.sceneOrder, { path: piece.outputPath, liveSec, startSec: piece.startSec, endSec: piece.endSec })
+        continue
+      }
+
+      // Имя файла берётся от ИСХОДНОГО клипа части, а не от номера сцены:
+      // у разбитой реплики частей несколько, и общее имя `scene_N_lipsync_fit`
+      // означало бы, что вторая часть затирает приведённую первую.
+      const fittedPath = fittedClipPathFor(assetsDir, record.sceneOrder, piece.outputPath)
+      await fitOnePresenterPiece({
+        step,
+        sceneOrder: record.sceneOrder,
+        sourcePath: piece.outputPath,
+        fittedPath,
+        measuredSec,
+        targetSec,
+        diffSec,
+      })
+      addClip(record.sceneOrder, {
+        path: markLipSynced(fittedPath),
+        liveSec,
+        startSec: piece.startSec,
+        endSec: piece.endSec,
+      })
+    }
+  }
+
+  for (const list of presenterPathBySceneOrder.values()) {
+    // Части идут по времени: `pickPresenterPartForShot` полагается на порядок
+    // только как на детерминизм при равном перекрытии, но сам список — это
+    // ещё и то, что читает человек в логе.
+    list.sort((a, b) => (a.startSec ?? 0) - (b.startSec ?? 0))
+  }
+
+  return presenterPathBySceneOrder
+}
+
+/**
+ * Путь приведённого клипа. У неразбитой реплики — прежнее имя
+ * `scene_N_lipsync_fit.mp4` (файлы прошлых прогонов продолжают
+ * переиспользоваться), у частей со второй — имя от самого клипа части.
+ */
+function fittedClipPathFor(assetsDir: string, sceneOrder: number, sourcePath: string): string {
+  const source = basename(sourcePath)
+  const partMatch = /_part(\d+)_lipsync\.mp4$/i.exec(source)
+  return partMatch
+    ? join(assetsDir, `scene_${sceneOrder}_part${partMatch[1]}_lipsync_fit.mp4`)
+    : join(assetsDir, `scene_${sceneOrder}_lipsync_fit.mp4`)
+}
+
+/** Приведение ОДНОГО куска реплики к длине его интервала в треке. */
+async function fitOnePresenterPiece(input: {
+  step: { id: number }
+  sceneOrder: number
+  sourcePath: string
+  fittedPath: string
+  measuredSec: number
+  targetSec: number
+  diffSec: number
+}): Promise<void> {
+  const { step, sourcePath, fittedPath, measuredSec, targetSec, diffSec } = input
 
     // Идемпотентность (Ruling S8-7, тот же приём, что и у composeVideoShots
     // ниже): прошлый проход уже привёл клип к длине сцены — файл на месте,
@@ -4064,36 +4145,29 @@ async function fitPresenterClipsToScenes(
     // подставился бы под НОВУЮ (другую) цель. Сверяем измеренную длительность
     // САМОГО файла с текущим `targetSec`: не сошлось — файл устарел,
     // перегенерируем ниже, как будто его не было.
-    if (await defaultShotFileExists(fittedPath)) {
-      const fittedMeasuredSec = await probeMediaDuration(fittedPath)
-      if (fittedMeasuredSec !== null && Math.abs(fittedMeasuredSec - targetSec) <= 1 / TIMELINE_FPS) {
-        presenterPathBySceneOrder.set(record.sceneOrder, { path: markLipSynced(fittedPath), liveSec })
-        continue
-      }
-      await appendStepLog(
-        step.id,
-        `Кадровый монтаж: клип сцены ${record.sceneOrder} устарел — цель ${targetSec.toFixed(3)}с, `
-        + `файл ${fittedMeasuredSec === null ? "не измеряется" : `${fittedMeasuredSec.toFixed(3)}с`} — перегенерирую`,
-      )
-    }
-
-    if (diffSec > 0) {
-      await trimFittedClip(record.outputPath, fittedPath, targetSec)
-      await appendStepLog(
-        step.id,
-        `Кадровый монтаж: клип сцены ${record.sceneOrder} обрезан до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
-      )
-    } else {
-      await holdLastFrameFittedClip(record.outputPath, fittedPath, targetSec - measuredSec)
-      await appendStepLog(
-        step.id,
-        `Кадровый монтаж: клип сцены ${record.sceneOrder} удлинён удержанием кадра до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
-      )
-    }
-    presenterPathBySceneOrder.set(record.sceneOrder, { path: markLipSynced(fittedPath), liveSec })
+  if (await defaultShotFileExists(fittedPath)) {
+    const fittedMeasuredSec = await probeMediaDuration(fittedPath)
+    if (fittedMeasuredSec !== null && Math.abs(fittedMeasuredSec - targetSec) <= 1 / TIMELINE_FPS) return
+    await appendStepLog(
+      step.id,
+      `Кадровый монтаж: клип сцены ${input.sceneOrder} устарел — цель ${targetSec.toFixed(3)}с, `
+      + `файл ${fittedMeasuredSec === null ? "не измеряется" : `${fittedMeasuredSec.toFixed(3)}с`} — перегенерирую`,
+    )
   }
 
-  return presenterPathBySceneOrder
+  if (diffSec > 0) {
+    await trimFittedClip(sourcePath, fittedPath, targetSec)
+    await appendStepLog(
+      step.id,
+      `Кадровый монтаж: клип сцены ${input.sceneOrder} обрезан до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
+    )
+  } else {
+    await holdLastFrameFittedClip(sourcePath, fittedPath, targetSec - measuredSec)
+    await appendStepLog(
+      step.id,
+      `Кадровый монтаж: клип сцены ${input.sceneOrder} удлинён удержанием кадра до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
+    )
+  }
 }
 
 /**
@@ -4109,11 +4183,58 @@ async function fitPresenterClipsToScenes(
  */
 const SHOT_MEASURED_TOLERANCE_SEC = 2 / TIMELINE_FPS
 
-/** Клип сцены, приведённый к её длине в треке, и сколько в нём ЖИВОГО материала. */
-interface FittedPresenterClip {
+/**
+ * Клип ОДНОЙ части реплики, приведённый к длине её интервала в треке, и
+ * сколько в нём ЖИВОГО материала.
+ *
+ * До дробления длинной реплики (spec §5.3) часть у сцены была ровно одна и
+ * совпадала со сценой — тогда `startSec`/`endSec` это границы самой сцены.
+ */
+export interface FittedPresenterClip {
   path: NonNullable<ShotSources["presenterPath"]>
-  /** Секунды от начала сцены, где клип ещё не удержанный последний кадр. */
+  /** Секунды от `startSec`, где клип ещё не удержанный последний кадр. */
   liveSec: number
+  /** Начало части В ТРЕКЕ. null — границ в текущем выравнивании нет. */
+  startSec: number | null
+  /** Конец части В ТРЕКЕ. null — то же. */
+  endSec: number | null
+}
+
+/**
+ * Часть реплики, из которой берётся картинка этого кадра.
+ *
+ * Кадр — подотрезок клипа ЧАСТИ, а не сцены: у разбитой реплики каждая часть
+ * снята своим вызовом lip-sync и начинается со своей секунды трека. Выбираем
+ * часть с наибольшим ПЕРЕКРЫТИЕМ с интервалом кадра — кадр, случайно
+ * переехавший границу частей (репланировка сдвинула его на соседний
+ * межсловный интервал), получает ту часть, где его больше, а не ту, где он
+ * начался.
+ *
+ * Одна часть (неразбитая реплика) отдаётся всегда и без выбора — ровно как до
+ * дробления, включая случай без границ в выравнивании.
+ */
+export function pickPresenterPartForShot(
+  parts: readonly FittedPresenterClip[] | null | undefined,
+  shotStartSec: number,
+  shotEndSec: number,
+): FittedPresenterClip | null {
+  if (!parts || parts.length === 0) return null
+  if (parts.length === 1) return parts[0]!
+
+  let best: FittedPresenterClip | null = null
+  let bestOverlap = Number.NEGATIVE_INFINITY
+  for (const part of parts) {
+    if (part.startSec === null || part.endSec === null) continue
+    const overlap = Math.min(shotEndSec, part.endSec) - Math.max(shotStartSec, part.startSec)
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap
+      best = part
+    }
+  }
+  // Перекрытия нет ни с одной частью (кадр вне реплики целиком) — отдаём
+  // первую: без неё кадр остался бы вовсе без ведущего, а
+  // `presenterLiveSec` в композиции всё равно уведёт его на фон.
+  return best ?? parts[0]!
 }
 
 /** Один готовый кадр монтажа — вход кадрового таймлайна сборки (Task 6). */
@@ -4171,7 +4292,8 @@ export async function composeVideoShots(
 
   const shotHasSource = (shot: (typeof shotsRaw)[number]): boolean => {
     const hasBackground = backgroundByShotOrder.has(shot.order)
-    const hasPresenter = shot.sceneOrder !== null && presenterPathBySceneOrder.has(shot.sceneOrder)
+    const hasPresenter = shot.sceneOrder !== null
+      && (presenterPathBySceneOrder.get(shot.sceneOrder)?.length ?? 0) > 0
     return hasBackground || hasPresenter
   }
 
@@ -4243,7 +4365,11 @@ export async function composeVideoShots(
     }
 
     const bgAsset = backgroundByShotOrder.get(shot.order) ?? null
-    const presenterClip = shot.sceneOrder !== null ? presenterPathBySceneOrder.get(shot.sceneOrder) ?? null : null
+    // Из какой ЧАСТИ реплики берётся картинка (spec §5.3): у неразбитой сцены
+    // часть одна и выбора нет — поведение прежнее до бита.
+    const presenterClip = shot.sceneOrder !== null
+      ? pickPresenterPartForShot(presenterPathBySceneOrder.get(shot.sceneOrder), shot.startSec, shot.endSec)
+      : null
     const alignedScene = shot.sceneOrder !== null
       ? alignedScenes.find(s => s.order === shot.sceneOrder)
       : undefined
@@ -4260,11 +4386,12 @@ export async function composeVideoShots(
     const sources: ShotSources = {
       presenterPath: presenterClip?.path ?? null,
       presenterLiveSec: presenterClip?.liveSec ?? null,
-      // Смещение подотрезка внутри сцены считается от начала СЦЕНЫ в треке —
-      // это `alignedScene.startSec`, а не плановый `VideoShot.startSec`
-      // самого первого кадра сцены (они совпадают в штатном случае, но
-      // выравнивание — источник истины по треку).
-      sceneStartSec: alignedScene?.startSec ?? shot.startSec,
+      // Смещение подотрезка считается от начала ЧАСТИ реплики в треке: у
+      // неразбитой сцены это и есть `alignedScene.startSec` (плановый
+      // `VideoShot.startSec` первого кадра сцены совпадает с ним в штатном
+      // случае, но выравнивание — источник истины по треку), а у разбитой
+      // каждая часть снята своим вызовом и начинается со своей секунды.
+      sceneStartSec: presenterClip?.startSec ?? alignedScene?.startSec ?? shot.startSec,
       backgroundPath: effectiveBg?.filePath ?? null,
       backgroundIsStill: effectiveBg ? shotBackgroundIsStill(effectiveBg) : true,
     }
