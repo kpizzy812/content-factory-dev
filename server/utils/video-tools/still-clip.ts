@@ -21,9 +21,23 @@ export interface StillClipRequest {
   imagePath: string
   outputPath: string
   durationSec: number
-  /** Индекс сцены: выбирает план движения, чтобы соседние перебивки различались. */
+  /**
+   * Индекс, выбирающий план движения. На старом маршруте это индекс сцены, на
+   * кадровом — номер ГРУППЫ кадров с одним фоном (`planShotVariationSlices`),
+   * чтобы соседние перебивки различались, а куски одной группы — нет.
+   */
   sceneIndex: number
   format: "portrait" | "landscape"
+  /**
+   * Смещение этого куска внутри общей траектории группы. Не задано — кусок
+   * первый (и это единственное поведение старого маршрута).
+   */
+  variationOffsetSec?: number
+  /**
+   * Полная длина траектории группы. Не задана — траектория равна длине самого
+   * клипа, то есть прежнее поведение «панорама целиком за один кадр».
+   */
+  variationSpanSec?: number
 }
 
 /** Минимальная длина перебивки: кадр короче секунды читается как артефакт склейки. */
@@ -41,10 +55,16 @@ export function buildStillClipArgs(request: StillClipRequest): string[] {
   // движение: иначе панорама поедет по полям, а не по картинке.
   const fit = `scale=${target.w}:${target.h}:force_original_aspect_ratio=decrease`
     + `,pad=${target.w}:${target.h}:-1:-1:color=black`
+  // Траектория группы не может быть КОРОЧЕ самого клипа: иначе окно доедет до
+  // края запаса раньше конца кадра и последние кадры замрут.
+  const span = Number.isFinite(request.variationSpanSec) && (request.variationSpanSec ?? 0) > 0
+    ? Math.max(request.variationSpanSec!, duration)
+    : duration
   const motion = buildShotVariationFilter(
     pickShotVariationPlan(request.sceneIndex),
     target,
-    duration,
+    span,
+    request.variationOffsetSec ?? 0,
   )
 
   return [

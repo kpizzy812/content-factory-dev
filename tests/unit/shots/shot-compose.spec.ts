@@ -100,11 +100,29 @@ describe("композиция кадра", () => {
     expect(Number(y)).toBeGreaterThanOrEqual(0)
   })
 
-  it("движение неподвижного фона различается у соседних кадров", () => {
+  it("без явной группы кадр остаётся сам себе траекторией — соседи различаются", () => {
     const a = planShotComposition({ shot: shot({ order: 3, foreground: "none" }), sources: sources({ presenterPath: null }), profile: PROFILE, ...CANVAS })
     const b = planShotComposition({ shot: shot({ order: 4, foreground: "none" }), sources: sources({ presenterPath: null }), profile: PROFILE, ...CANVAS })
-    expect((a as { variationIndex: number }).variationIndex)
-      .not.toBe((b as { variationIndex: number }).variationIndex)
+    expect((a as { variation: { index: number } }).variation.index)
+      .not.toBe((b as { variation: { index: number } }).variation.index)
+    expect((a as { variation: { offsetSec: number } }).variation.offsetSec).toBe(0)
+    expect((a as { variation: { spanSec: number } }).variation.spanSec)
+      .toBeCloseTo((a as { durationSec: number }).durationSec, 6)
+  })
+
+  it("группа фона доезжает до композиции — и в полноэкранный фон, и в PiP", () => {
+    // Кусок группы обязан донести своё смещение и длину группы до ffmpeg:
+    // без этого движение перезапускается на каждом кадре (дефект ролика 30).
+    const variation = { index: 2, offsetSec: 1.8, spanSec: 5.4 }
+    const full = planShotComposition({
+      shot: shot({ foreground: "none" }), sources: sources({ presenterPath: null }),
+      profile: PROFILE, variation, ...CANVAS,
+    })
+    expect((full as { variation: typeof variation }).variation).toEqual(variation)
+
+    const pip = planShotComposition({ shot: shot(), sources: sources(), profile: PROFILE, variation, ...CANVAS })
+    expect(pip!.kind).toBe("pip")
+    expect((pip as { variation: typeof variation }).variation).toEqual(variation)
   })
 
   it("границы кадра притянуты к сетке кадров — иначе конкат уводит таймлайн", () => {

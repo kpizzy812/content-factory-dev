@@ -70,6 +70,7 @@ import { runMediaTask } from "./media-provider/run-media-task"
 import { planAlignedClipTargets, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
 import { planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
+import { planShotVariationSlices, shotBackgroundIdentity } from "./video-tools/shot-variation"
 import { renderShotComposition } from "./video-tools/shot-compose-runner"
 import { buildTrackSubtitleSegments } from "./edit-plan/shot-subtitles"
 import { maxCharsForWidth } from "./subtitles/phrase-chunker"
@@ -4025,6 +4026,17 @@ export async function composeVideoShots(
     )
   }
 
+  // Группы кадров с ОДНИМ фоном: одна картинка — одно непрерывное движение,
+  // нарезанное на куски (`shot-variation.ts`, дефект картинки ролика 30).
+  // Считается по ЭФФЕКТИВНЫМ кадрам (после слияния нерисуемых) и до цикла
+  // сборки: группа — свойство всего плана, отдельный кадр её не видит.
+  const variationSlices = planShotVariationSlices(effectiveShots.map(shot => ({
+    order: shot.order,
+    startSec: shot.startSec,
+    endSec: shot.endSec,
+    backgroundKey: shotBackgroundIdentity(shot),
+  })))
+
   const canvas = format === "landscape" ? { w: 1920, h: 1080 } : { w: 1080, h: 1920 }
   const assetsDir = getAssetsDir(videoId)
   let composedCount = 0
@@ -4077,6 +4089,7 @@ export async function composeVideoShots(
       canvasWidth: canvas.w,
       canvasHeight: canvas.h,
       fps: TIMELINE_FPS,
+      variation: variationSlices.get(shot.order),
     })
 
     if (!composition) {

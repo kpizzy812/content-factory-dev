@@ -28,6 +28,7 @@ import { mkdir, rename, unlink } from "node:fs/promises"
 import { dirname } from "node:path"
 
 import type { ShotComposition } from "./shot-compose"
+import type { ShotVariationSlice } from "./shot-variation"
 import { renderShotSubClip } from "./shot-cut-runner"
 import { renderStillClip } from "./still-clip-runner"
 import { concatSafeVideoOutputOptions, holdLastFrameFittedClip, probeMediaDuration } from "../render"
@@ -90,7 +91,7 @@ async function renderBackgroundFull(input: {
   backgroundPath: string
   backgroundIsStill: boolean
   durationSec: number
-  variationIndex: number
+  variation: ShotVariationSlice
   outputPath: string
   format: "portrait" | "landscape"
 }): Promise<void> {
@@ -99,7 +100,11 @@ async function renderBackgroundFull(input: {
       imagePath: input.backgroundPath,
       outputPath: input.outputPath,
       durationSec: input.durationSec,
-      sceneIndex: input.variationIndex,
+      // Номер ГРУППЫ и кусок её траектории, а не номер кадра: одна картинка,
+      // разрезанная на пять кадров, обязана ехать одним движением.
+      sceneIndex: input.variation.index,
+      variationOffsetSec: input.variation.offsetSec,
+      variationSpanSec: input.variation.spanSec,
       format: input.format,
     })
     return
@@ -199,7 +204,7 @@ async function renderPip(
       backgroundPath: composition.backgroundPath,
       backgroundIsStill: composition.backgroundIsStill,
       durationSec: composition.durationSec,
-      variationIndex: composition.variationIndex,
+      variation: composition.variation,
       outputPath: bgTemp,
       format,
     })
@@ -258,7 +263,7 @@ export async function renderShotComposition(request: ShotComposeRequest): Promis
         backgroundPath: composition.backgroundPath,
         backgroundIsStill: composition.backgroundIsStill,
         durationSec: composition.durationSec,
-        variationIndex: composition.variationIndex,
+        variation: composition.variation,
         outputPath: request.outputPath,
         format: request.format,
       })

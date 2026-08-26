@@ -23,6 +23,7 @@
 import type { ResolvedEditProfile } from "../edit-plan/profile"
 import { buildPipOverlayFilter, type LipSyncedClipPath } from "./pip-compose"
 import { snapSecToFrame } from "../voiceover/segment-cut"
+import type { ShotVariationSlice } from "./shot-variation"
 
 export interface ShotSources {
   /** Клип сцены, УЖЕ приведённый к длине сцены в треке. null — ведущего нет. */
@@ -37,7 +38,7 @@ export interface ShotSources {
 
 export type ShotComposition =
   | { kind: "presenter_full", presenterPath: LipSyncedClipPath, offsetSec: number, durationSec: number }
-  | { kind: "background_full", backgroundPath: string, backgroundIsStill: boolean, durationSec: number, variationIndex: number }
+  | { kind: "background_full", backgroundPath: string, backgroundIsStill: boolean, durationSec: number, variation: ShotVariationSlice }
   | {
     kind: "pip"
     backgroundPath: string
@@ -45,7 +46,7 @@ export type ShotComposition =
     presenterPath: LipSyncedClipPath
     presenterOffsetSec: number
     durationSec: number
-    variationIndex: number
+    variation: ShotVariationSlice
     pipFilters: string[]
   }
 
@@ -66,6 +67,12 @@ export function planShotComposition(input: {
   canvasWidth: number
   canvasHeight: number
   fps: number
+  /**
+   * Кусок общей траектории движения фона (`planShotVariationSlices`). Не задан
+   * — кадр сам себе группа: план движения по его номеру, отсчёт с нуля, то
+   * есть в точности прежнее поведение.
+   */
+  variation?: ShotVariationSlice
 }): ShotComposition | null {
   const { shot, sources, profile, canvasWidth, canvasHeight, fps } = input
 
@@ -83,10 +90,12 @@ export function planShotComposition(input: {
   // `-ss` в минус.
   const offsetSec = snapSecToFrame(Math.max(0, shot.startSec - sources.sceneStartSec), fps)
   const durationSec = snapSecToFrame(shot.endSec, fps) - snapSecToFrame(shot.startSec, fps)
-  // pickShotVariationPlan индексирует по НОМЕРУ КАДРА, а не сцены: на
-  // sceneOrder все кадры одной сцены получили бы одинаковую панораму — ровно
-  // то, ради избавления от чего затевался кадровый монтаж.
-  const variationIndex = shot.order
+  // Движение выбирается на ГРУППУ кадров с одним фоном, а не на кадр
+  // (`shot-variation.ts`, правка 26.08.2026): одна и та же картинка не имеет
+  // права получать новый план движения каждые 1.8 секунды. Группы считает
+  // вызывающий — он один видит весь план целиком; здесь дефолт на случай,
+  // когда группировать нечего.
+  const variation = input.variation ?? { index: shot.order, offsetSec: 0, spanSec: durationSec }
 
   const pipRequested = hasPresenter && hasBackground && shot.pipEnabled && profile.pipEnabled
 
@@ -108,7 +117,7 @@ export function planShotComposition(input: {
       presenterPath: sources.presenterPath!,
       presenterOffsetSec: offsetSec,
       durationSec,
-      variationIndex,
+      variation,
       pipFilters,
     }
   }
@@ -129,7 +138,7 @@ export function planShotComposition(input: {
     backgroundPath: sources.backgroundPath!,
     backgroundIsStill: sources.backgroundIsStill,
     durationSec,
-    variationIndex,
+    variation,
   }
 }
 

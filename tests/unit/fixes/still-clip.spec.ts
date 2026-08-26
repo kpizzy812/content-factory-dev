@@ -62,4 +62,25 @@ describe("buildStillClipArgs", () => {
     const args = argsOf()
     expect(args[args.length - 1]).toBe(BASE.outputPath)
   })
+
+  it("без полей группы аргументы те же, что и раньше — старый маршрут не задет", () => {
+    expect(argsOf({ variationOffsetSec: 0, variationSpanSec: undefined })).toEqual(argsOf())
+  })
+
+  it("кусок группы двигается по ОБЩЕЙ траектории: своя длина у -t, длина группы у движения", () => {
+    // Кадр 1.8с внутри группы 5.4с: клип по-прежнему длится 1.8с, но окно
+    // кропа проходит свою треть общей панорамы, а не всю панораму заново.
+    const args = argsOf({ durationSec: 1.8, variationOffsetSec: 1.8, variationSpanSec: 5.4 })
+    const line = args.join(" ")
+    const durationIndex = args.indexOf("-t")
+    expect(args[durationIndex + 1]).toBe("1.8")
+    expect(line).toContain("(t+1.8)")
+    expect(line).toContain("/5.4")
+    expect(line).not.toContain("/1.8:")
+  })
+
+  it("длина группы меньше длины кадра не сжимает движение сильнее самого кадра", () => {
+    const line = argsOf({ durationSec: 4, variationSpanSec: 1 }).join(" ")
+    expect(line).toContain("/4")
+  })
 })
