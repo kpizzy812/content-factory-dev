@@ -116,6 +116,20 @@ describe("transcription: тариф подтверждён страницей м
     // включается явной переменной MEDIA_MODEL_TRANSCRIPTION, а не этим фиксом.
     expect(whisper.integrated).toBe(false)
   })
+
+  it("vaibhavs10/incredibly-fast-whisper — hardware_second на L40S, p50price страницы $0.0040", () => {
+    // Страница модели (27.08.2026): hardware "L40S", price "$0.000975 per
+    // second", p50price "$0.0040" — все три поля взяты из встроенного JSON
+    // страницы (_extras), не только из округлённой прозы "approximately
+    // $0.0040 to run... or 250 runs per $1". Заведена вместо whisperx: та
+    // модель живёт на дефицитном Nvidia A100 (80GB) и на стенде трижды не
+    // дождалась железа (26-27.08.2026).
+    const fastWhisper = spec("replicate:incredibly-fast-whisper")
+    expect(fastWhisper.billing.unit).toBe("hardware_second")
+    expect(estimateMediaCost(fastWhisper, {})).toBeCloseTo(0.0040, 4)
+    expect(fastWhisper.billingConfirmed).toBe(true)
+    expect(fastWhisper.integrated).toBe(false)
+  })
 })
 
 describe("TTS: для русского токен равен символу", () => {

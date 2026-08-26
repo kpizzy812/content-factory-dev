@@ -2243,6 +2243,210 @@ const REPLICATE_WHISPERX: TranscriptionModelSpec = Object.freeze<TranscriptionMo
 })
 
 /**
+ * ISO-код нашего продукта → полное английское имя языка в enum схемы
+ * `vaibhavs10/incredibly-fast-whisper`. Ключи ЗАДАЮТ продуктовый набор
+ * поддерживаемых языков (те же ru/en, что у REPLICATE_WHISPER/REPLICATE_WHISPERX
+ * выше) — `mapInput` ниже читает язык ИСКЛЮЧИТЕЛЬНО через эту карту, так что
+ * набору неоткуда разойтись с проверкой (в отличие от старых двух спек, где
+ * список языков и валидация — два отдельных места).
+ */
+const INCREDIBLY_FAST_WHISPER_LANGUAGE_NAMES: Readonly<Record<string, string>> = Object.freeze({
+  ru: "russian",
+  en: "english",
+})
+
+/**
+ * `vaibhavs10/incredibly-fast-whisper` на Replicate — замена `victor-upmeet/whisperx`
+ * для маршрута «монтаж от звука».
+ *
+ * ПРИЧИНА ЗАМЕНЫ (боевой стенд, 26-27.08.2026): WhisperX живёт на Nvidia A100
+ * (80GB) — дефицитном SKU. Транскрипция отработала один раз ($0.0182, тариф
+ * сошёлся), а следующие ТРИ прогона подряд не дождались ответа — сперва за
+ * 300с (прежний потолок), потом дважды за 900с (потолок, поднятый именно из-за
+ * этого инцидента — см. `transcription-whisperx-sync-json.spec.ts` соседнего
+ * фикса и докстринг `REPLICATE_WHISPERX` выше). Кода транскрипции между
+ * удачным прогоном и тремя отказами никто не трогал: разброс объясняется
+ * доступностью самого SKU, а не нашим дефектом. При цели 300 роликов в сутки
+ * ждать дефицитный GPU на каждом ролике — риск, который нельзя принять молча.
+ * `incredibly-fast-whisper` — тот же `openai/whisper-large-v3` под капотом
+ * (`transformers.pipeline`, `use_flash_attention_2`), но на Nvidia L40S — SKU
+ * с явно заявленной у Replicate ёмкостью на несколько инстансов
+ * (`gpu-l40s-2x/4x/8x` на `replicate.com/pricing`), в отличие от A100 (80GB).
+ *
+ * Все факты ниже сверены НАПРЯМУЮ 27.08.2026, тем же публичным способом, что и
+ * у `openai/whisper`/`victor-upmeet/whisperx` (без токена, без единого
+ * платного вызова):
+ *
+ *  - ВЕРСИЯ: `https://replicate.com/api/models/vaibhavs10/incredibly-fast-whisper/versions`
+ *    отдал 4 версии; ПОСЛЕДНЯЯ (и единственная с `created_at` 2024-02-16,
+ *    остальные три — от 2023-11-13 и 2024-01-31) — `3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c`.
+ *    Хеш, продиктованный задачей на этот фикс, совпал с прямой проверкой —
+ *    подтверждён, а не принят на веру;
+ *  - СХЕМА ВХОДА: `_extras.dereferenced_openapi_schema` той же версии,
+ *    `components.schemas.Input`. Обязателен только `audio` (`type: string,
+ *    format: uri`). `task` — enum `transcribe`/`translate`, default
+ *    `transcribe`. `language` — enum ИЗ ПОЛНЫХ АНГЛИЙСКИХ НАЗВАНИЙ ЯЗЫКОВ
+ *    (`"None"`, `"afrikaans"`, …, `"russian"`, …, `"yoruba"` — почти сотня
+ *    значений), default `"None"` (автоопределение). **ЛОВУШКА**: это НЕ
+ *    ISO-коды — `"ru"` отсутствует в enum вовсе и был бы отвергнут валидацией
+ *    Cog до единого платного вызова (422). `timestamp` — enum `chunk`/`word`,
+ *    default `chunk`: без явного `"word"` пословных границ не будет вовсе (то
+ *    же по духу, что `align_output: false` по умолчанию у WhisperX). Плюс
+ *    необязательные `batch_size` (default 24), `diarise_audio` (default
+ *    false), `hf_token` — не отправляем, дефолты нас устраивают;
+ *  - СХЕМА ВЫХОДА: `components.schemas.Output` — буквально `{"title":
+ *    "Output"}`, Cog не раскрывает форму вовсе (та же картина, что у
+ *    WhisperX). Форма снята из ИСХОДНОГО КОДА, не угадана — три независимых
+ *    источника сходятся (полная цепочка и код фикстуры — в докстринге теста
+ *    `tests/unit/transcription/normalize.spec.ts`, "читает реальную форму
+ *    vaibhavs10/incredibly-fast-whisper"):
+ *      1. Cog-обёртка `chenxwh/insanely-fast-whisper/predict.py` зовёт
+ *         `self.pipe(audio, ..., return_timestamps="word" if timestamp ==
+ *         "word" else True)` и без диаризации возвращает `outputs` как есть —
+ *         то, что вернул HF-пайплайн, без переупаковки;
+ *      2. `transformers/pipelines/automatic_speech_recognition.py`: для
+ *         Whisper (`type == "seq2seq_whisper"`) — `text, optional =
+ *         self.tokenizer._decode_asr(...)`, затем `return {"text": text,
+ *         **optional, **extra}`;
+ *      3. `transformers/models/whisper/tokenization_whisper.py::_decode_asr`
+ *         → `_collate_word_timestamps` в word-режиме: каждое слово —
+ *         `{"text": word, "timestamp": (start, end)}` (кортеж → JSON-массив),
+ *         и `if return_timestamps == "word": optional = {"chunks":
+ *         [слово для слова из всех сегментов]}` — то есть `chunks` ПЛОСКИЙ
+ *         список слов, а НЕ сегменты со вложенными словами (в отличие от
+ *         WhisperX). Итог: `{ text: string, chunks: [{ text, timestamp:
+ *         [start, end] }] }` — форма, которую `normalizeTranscriptPayload`
+ *         уже читает веткой `chunks`+`timestamp`-массив (`server/utils/transcription/normalize.ts`),
+ *         разбор менять не потребовалось;
+ *  - ЦЕНА/ЖЕЛЕЗО: страница модели `https://replicate.com/vaibhavs10/incredibly-fast-whisper`,
+ *    дословно — «This model costs approximately $0.0040 to run on Replicate,
+ *    or 250 runs per $1», «This model runs on Nvidia L40S GPU hardware»,
+ *    «Predictions typically complete within 5 seconds». Встроенный в страницу
+ *    JSON (`_extras`) даёт то же ТОЧНЕЕ: `"hardware": "L40S", "price":
+ *    "$0.000975 per second", "p50price": "$0.0040"` — именно из этих двух
+ *    полей Replicate сам строит фразу «approximately $0.0040». Ставка L40S
+ *    сверена НЕЗАВИСИМО на `replicate.com/pricing`: строка `gpu-l40s` (не
+ *    `gpu-l40s-2x/4x/8x` — у них другая, кратная ставка) даёт то же
+ *    `$0.000975/sec`;
+ *  - **estimatedSeconds ниже — НЕ буквальные «5 секунд» из прозы страницы.**
+ *    `0.000975 × 5 = $0.004875` — на 22% ВЫШЕ заявленной цены, то есть прямое
+ *    чтение прозы дало бы систематически завышенный биллинг. «Typically
+ *    complete within N seconds» — это, по всей видимости, округлённый потолок
+ *    отображения (возможно, старшая перцентиль), а НЕ p50-время, на котором
+ *    Replicate считает саму цену. Число ниже — обратный счёт из `p50price`
+ *    страницы: `0.0040 / 0.000975 ≈ 4.10` с, округлено до одного знака. Это не
+ *    догадка: оба входных числа (`price`, `p50price`) сняты напрямую с той же
+ *    страницы, тем же способом, что и у сестринских спек. Разошлось с прозой —
+ *    предпочтён более точный источник, а не более привычный;
+ *  - ЭТО ВАЖНЕЕ, ЧЕМ У WHISPER/WHISPERX: ветка `sync_json` раннера
+ *    (`runReplicateJsonModel`, `server/utils/replicate/json-model.ts`)
+ *    возвращает ТОЛЬКО `prediction.output`, без `prediction.metrics` — то
+ *    есть `metrics.predict_time` НИКУДА не долетает, и вызывающий код
+ *    (`server/utils/transcription/media-task.ts`) для transcription передаёт
+ *    только `usage: { audioSeconds }`, никогда `hardwareSeconds`.
+ *    `estimateMediaCost` для `hardware_second` берёт `usage.hardwareSeconds ??
+ *    billing.estimatedSeconds` — а раз факта не бывает НИКОГДА, `estimatedSeconds`
+ *    здесь не черновая оценка «на будущее», а ФАКТИЧЕСКАЯ цена каждого
+ *    реального прогона в `AiAuditLog`/`Video.totalCostActual`. Точность этого
+ *    поля — это точность денег, а не смёты;
+ *  - COMMUNITY vs OFFICIAL: встроенный JSON страницы несёт `"is_official":
+ *    false` — как и у `openai/whisper`/`victor-upmeet/whisperx`, пометки
+ *    «Official model» нет, поэтому `providerVersion` обязателен (см. докстринг
+ *    `providerVersion` в `types.ts` и `runReplicateJsonModel`).
+ *
+ * `integrated: false` — включается на стенде явной переменной
+ * `MEDIA_MODEL_TRANSCRIPTION=replicate:incredibly-fast-whisper` (§4.1 спеки),
+ * тем же путём, что и REPLICATE_WHISPERX.
+ *
+ * `timeoutMs` — 15 минут, вровень с `REPLICATE_WHISPERX`/`KLING_LIP_SYNC`/
+ * `FAL_SYNC_LIPSYNC`, а НЕ прежние 5 минут `REPLICATE_WHISPER`. Причина замены
+ * модели — дефицитность КОНКРЕТНОГО SKU (A100 80GB), а не холодный старт как
+ * класс: L40S — тоже Replicate-модель с автомасштабированием в ноль между
+ * вызовами, и тот же риск «секунды работы, разогрев может занять минуты»
+ * актуален для любого community-контура на Replicate независимо от того,
+ * насколько ходовое у него железо. Понижать потолок обратно до 5 минут для
+ * модели, заведённой РОВНО ради устойчивости к холодному старту/очереди
+ * провайдера, было бы отменой смысла всего фикса.
+ *
+ * Языки: `mapInput` принимает НАШ продуктовый ISO-код (`ru`/`en`, тот же набор,
+ * что у сестринских спек) и переводит его в полное имя через
+ * `INCREDIBLY_FAST_WHISPER_LANGUAGE_NAMES` выше. Язык за пределами этого
+ * набора — ЧЕСТНЫЙ ОТКАЗ (`throw`), а не молчаливая подстановка `"None"`
+ * (автоопределение модели): у нас язык сцены известен из сценария заранее
+ * (spec §4.1 — `language?: string`, подсказка), значит незнакомый код здесь —
+ * всегда баг вызывающего кода (сценарий на незаявленном языке продукта), а не
+ * легитимный случай «мы не знаем язык». Прятать баг за автоопределением значит
+ * получить транскрипт на угаданном языке с тихо неверными границами вместо
+ * понятной ошибки до оплаты — тот же выбор, что уже сделан у
+ * REPLICATE_WHISPER/REPLICATE_WHISPERX (оба тоже бросают, а не пропускают
+ * язык дальше).
+ */
+const REPLICATE_INCREDIBLY_FAST_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
+  registryKey: "replicate:incredibly-fast-whisper",
+  id: "vaibhavs10/incredibly-fast-whisper",
+  // Единственная версия с created_at 2024-02-16 из 4 версий — при этом самая
+  // свежая (следующая по времени — 2024-01-31). Сверено 27.08.2026 напрямую с
+  // публичного эндпоинта versions (см. докстринг выше).
+  providerVersion: "3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
+  provider: "replicate",
+  capability: "transcription",
+  execution: "sync_json",
+  // Nvidia L40S: $0.000975/с (replicate.com/pricing, sku gpu-l40s). estimatedSeconds —
+  // обратный счёт из p50price страницы модели ($0.0040 / $0.000975 ≈ 4.10 с),
+  // а не буквальные "typically complete within 5 seconds" прозы — см.
+  // докстринг спеки выше про 22%-ное расхождение и про то, что для этой
+  // способности estimatedSeconds есть ФАКТИЧЕСКАЯ цена, а не черновая оценка.
+  billing: { unit: "hardware_second", usdPerSecond: 0.000975, estimatedSeconds: 4.1 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    // Ключи INCREDIBLY_FAST_WHISPER_LANGUAGE_NAMES — единственный источник
+    // продуктового набора языков, отсюда и здесь: разойтись им неоткуда.
+    languages: Object.freeze(Object.keys(INCREDIBLY_FAST_WHISPER_LANGUAGE_NAMES)),
+    maxDurationSec: 600,
+    audioExtensions: Object.freeze(["mp3", "wav", "m4a"]),
+  }),
+  timeoutMs: 15 * 60_000,
+  mapInput(input) {
+    const audioUrl = requireText(input.audioUrl, "audioUrl")
+    const isoLanguage = (input.language || "ru").slice(0, 2).toLowerCase()
+    const language = INCREDIBLY_FAST_WHISPER_LANGUAGE_NAMES[isoLanguage]
+    if (!language) {
+      throw new Error(`Модель ${this.id} не размечает язык "${isoLanguage}"`)
+    }
+    return {
+      payload: {
+        audio: audioUrl,
+        language,
+        // Без этого поля выход — chunks на уровне СЕГМЕНТОВ (default "chunk"),
+        // без пословных границ вовсе. Именно ради "word" модель и выбрана.
+        timestamp: "word",
+      },
+    }
+  },
+  // Выход способности — JSON, а не ссылка на файл: скачивать нечего, разбирает
+  // его `normalizeTranscriptPayload`.
+  extractOutput: () => ({ urls: [] }),
+  dataProcessor: null,
+  integrated: false,
+  tier: "budget",
+  name: "Incredibly Fast Whisper",
+  vendorLabel: "Replicate / vaibhavs10",
+  strengths: Object.freeze([
+    "Тот же openai/whisper-large-v3, что и у Whisper/WhisperX, но на Nvidia L40S — не на дефицитном A100 (80GB)",
+    "Пословные тайминги (timestamp: word) — подтверждено исходным кодом обёртки и transformers, не только схемой",
+    "Дешевле WhisperX: ~$0.0040 против ~$0.018 за прогон (p50price страницы модели)",
+    "Русский распознаёт без отдельной настройки (тот же large-v3, что и у Whisper/WhisperX)",
+  ]),
+  tradeoffs: Object.freeze([
+    "Community-модель: адресуется хешем версии (providerVersion), а не именем",
+    "integrated=false до включения на стенде переменной MEDIA_MODEL_TRANSCRIPTION",
+    "language — enum ПОЛНЫХ ИМЁН языков ('russian', не 'ru'); ISO-код был бы отвергнут схемой до оплаты",
+    "OpenAPI-схема не раскрывает форму chunks — она сверена исходным кодом Cog-обёртки и transformers, а не самим API-ответом",
+  ]),
+  avgGenerationTime: "~4-5 сек (p50 страницы модели; прозе \"within 5 seconds\" соответствует верхняя граница)",
+})
+
+/**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
  *
@@ -2284,4 +2488,5 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   BYTEDANCE_FLUX_PULID,
   REPLICATE_WHISPER,
   REPLICATE_WHISPERX,
+  REPLICATE_INCREDIBLY_FAST_WHISPER,
 ])

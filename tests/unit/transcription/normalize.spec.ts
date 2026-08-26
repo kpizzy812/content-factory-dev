@@ -127,4 +127,48 @@ describe("нормализация ответа модели транскрип�
 
     expect(result.words.map(w => w.text)).toEqual(["первый", "третий"])
   })
+
+  /**
+   * Реальная форма ответа `vaibhavs10/incredibly-fast-whisper` при
+   * `timestamp: "word"`.
+   *
+   * Форма НЕ угадана — снята из трёх независимых исходников, все три сходятся:
+   *  1. Cog-обёртка `chenxwh/insanely-fast-whisper/predict.py`: вызывает
+   *     `self.pipe(..., return_timestamps="word" if timestamp == "word" else True)`
+   *     и при отсутствии диаризации возвращает `outputs` — то, что вернул
+   *     HF-пайплайн, — БЕЗ ПЕРЕОБОРАЧИВАНИЯ;
+   *  2. `transformers/pipelines/automatic_speech_recognition.py` (модели типа
+   *     `seq2seq_whisper`, т.е. Whisper): `text, optional = self.tokenizer._decode_asr(...)`,
+   *     затем `return {"text": text, **optional, **extra}`;
+   *  3. `transformers/models/whisper/tokenization_whisper.py::_decode_asr` →
+   *     `_collate_word_timestamps` (word-режим): каждое слово —
+   *     `{"text": word, "timestamp": (start, end)}` (кортеж, JSON отдаёт
+   *     массив), затем `if return_timestamps == "word": new_chunks = [];
+   *     for chunk in chunks: new_chunks.extend(chunk["words"]); optional =
+   *     {"chunks": new_chunks}` — то есть `chunks` ПЛОСКИЙ список слов, а не
+   *     сегментов со вложенными словами (в отличие от whisperx выше).
+   *
+   * Совпадает с уже существующей веткой `chunks`+`timestamp` этого модуля —
+   * отдельный тест нужен, чтобы зафиксировать провенанс формы ИМЕННО этой
+   * модели, а не полагаться на совпадение с чужой фикстурой.
+   */
+  it("читает реальную форму vaibhavs10/incredibly-fast-whisper (timestamp: word) — снято из predict.py и transformers", () => {
+    const result = normalizeTranscriptPayload({
+      text: " привет мир как дела",
+      chunks: [
+        { text: " привет", timestamp: [0, 0.42] },
+        { text: " мир", timestamp: [0.42, 0.9] },
+        { text: " как", timestamp: [1.1, 1.3] },
+        { text: " дела", timestamp: [1.3, 1.8] },
+      ],
+    })
+
+    expect(result.words).toEqual([
+      { text: "привет", startSec: 0, endSec: 0.42 },
+      { text: "мир", startSec: 0.42, endSec: 0.9 },
+      { text: "как", startSec: 1.1, endSec: 1.3 },
+      { text: "дела", startSec: 1.3, endSec: 1.8 },
+    ])
+    expect(result.text).toBe("привет мир как дела")
+  })
 })

@@ -456,6 +456,13 @@ describe("контракт реестра", () => {
       // вовсе (см. докстринг REPLICATE_WHISPER в model-specs.ts), у WhisperX
       // это align_output. integrated тоже остаётся false — тот же §4.1.
       "victor-upmeet/whisperx",
+      // incredibly-fast-whisper подтверждён 27.08.2026: «approximately
+      // $0.0040 to run on Replicate» — hardware_second на Nvidia L40S (не на
+      // A100 80GB). Заменяет WhisperX: тот трижды подряд не дождался
+      // дефицитного A100 на боевом стенде 26-27.08.2026 (см. докстринг
+      // REPLICATE_INCREDIBLY_FAST_WHISPER в model-specs.ts). integrated тоже
+      // остаётся false — тот же §4.1.
+      "vaibhavs10/incredibly-fast-whisper",
     ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue
