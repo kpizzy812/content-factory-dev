@@ -10,6 +10,16 @@
  * читается вызывающим: `readReplicateConfig()` требует переменные вебхука,
  * которых синхронному вызову не нужно, — на стенде без них шаг падал бы ещё до
  * обращения к модели.
+ *
+ * ДВА РЕЖИМА СОЗДАНИЯ ЗАДАЧИ (canary 26.08.2026, whisper-version-report.md):
+ *  - `version` не задан — прежний путь ОФИЦИАЛЬНЫХ моделей Replicate,
+ *    `POST /v1/models/{modelId}/predictions`, `id` сам разрешает последнюю
+ *    версию. Байт-в-байт как было: `minimax/speech-02-turbo` и
+ *    `kwaivgi/kling-*` на этом пути работают на стенде, ломать нельзя.
+ *  - `version` задан — путь COMMUNITY-моделей, `POST /v1/predictions` с телом
+ *    `{ version, input }`. `openai/whisper` — community-модель без пометки
+ *    «Official model»: эндпоинт официальных моделей отвечает ей 404, именно
+ *    так и упал маршрут «монтаж от звука» на стенде.
  */
 
 import type { ReplicateConfig } from "./config"
@@ -26,6 +36,11 @@ export async function runReplicateJsonModel(
   payload: Record<string, unknown>,
   config: ReplicateConfig,
   timeoutMs: number,
+  /**
+   * Хеш версии community-модели (`MediaModelSpecBase.providerVersion`).
+   * Не задан или пустая строка — прежний путь официальных моделей.
+   */
+  version?: string,
   deps: ReplicateJsonModelDeps = {},
 ): Promise<unknown> {
   if (config.mockMode) {
@@ -49,14 +64,23 @@ export async function runReplicateJsonModel(
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)))
   const deadline = Date.now() + timeoutMs
 
-  const created = await doFetch("https://api.replicate.com/v1/models/" + modelId + "/predictions", {
+  // Пустая строка — как отсутствие: спека не должна расщеплять маршрут
+  // случайно заданной "", это не валидный хеш версии.
+  const url = version
+    ? "https://api.replicate.com/v1/predictions"
+    : "https://api.replicate.com/v1/models/" + modelId + "/predictions"
+  const body: Record<string, unknown> = version
+    ? { version, input: payload }
+    : { input: payload }
+
+  const created = await doFetch(url, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
       "Prefer": "wait",
     },
-    body: JSON.stringify({ input: payload }),
+    body: JSON.stringify(body),
   })
   if (!created.ok) {
     throw new Error(`Транскрипция: Replicate ответил ${created.status} при создании задачи`)

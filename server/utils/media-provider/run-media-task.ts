@@ -210,6 +210,8 @@ export interface RunMediaTaskDependencies {
     modelId: string,
     payload: Record<string, unknown>,
     timeoutMs: number,
+    /** `spec.providerVersion` — обязателен для community-моделей Replicate. */
+    version?: string,
   ) => Promise<unknown>
   readTextFile?: (path: string) => Promise<string>
 }
@@ -469,7 +471,10 @@ async function runSyncJsonTask<C extends MediaCapability>(
   }
 
   const runJson = dependencies.runJsonModel ?? defaultRunJsonModel
-  const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs)
+  // Community-модели Replicate (openai/whisper) не отвечают на эндпоинте
+  // официальных моделей — версия из спеки обязана дойти до провайдера
+  // (canary 26.08.2026, whisper-version-report.md).
+  const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs, spec.providerVersion)
 
   const write = dependencies.writeBytes ?? defaultWriteBytes
   await write(request.outputPath, Buffer.from(JSON.stringify(raw), "utf8"))
@@ -498,10 +503,11 @@ async function defaultRunJsonModel(
   modelId: string,
   payload: Record<string, unknown>,
   timeoutMs: number,
+  version?: string,
 ): Promise<unknown> {
   const { readReplicateConfig } = await import("../replicate/config")
   const { runReplicateJsonModel } = await import("../replicate/json-model")
-  return runReplicateJsonModel(modelId, payload, readReplicateConfig(), timeoutMs)
+  return runReplicateJsonModel(modelId, payload, readReplicateConfig(), timeoutMs, version)
 }
 
 // ─── Ветка async_prediction (Replicate): обобщённый runLipSync ────

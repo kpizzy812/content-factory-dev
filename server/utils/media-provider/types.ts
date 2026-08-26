@@ -328,6 +328,25 @@ export interface MediaModelSpecBase<
   registryKey: string
   /** Идентификатор У ПРОВАЙДЕРА: "fal-ai/flux/dev" | "<owner>/<model>". */
   id: string
+  /**
+   * Хеш версии модели у Replicate — обязателен для COMMUNITY-моделей.
+   *
+   * У официальных моделей Replicate (`Official model` на странице модели) есть
+   * эндпоинт `POST /v1/models/{owner}/{name}/predictions`, который сам находит
+   * последнюю версию — одного `id` достаточно, `version` не нужен. У
+   * community-моделей (например, `openai/whisper`) этого эндпоинта нет: он
+   * отвечает 404 (canary 26.08.2026 — `whisper-version-report.md`), а задачу
+   * создаёт `POST /v1/predictions` с телом `{ version, input }`.
+   *
+   * Не задано — `runReplicateJsonModel` идёт прежним путём официальных моделей
+   * побайтово без изменений; `minimax/speech-02-turbo` и `kwaivgi/kling-*`
+   * этого поля не имеют и трогать их нельзя.
+   *
+   * Пиннинг версии — не только обход 404, но и детерминизм: тот же довод, что
+   * у `EditProfile.llmModelId` в спеке монтажа — поведение модели не должно
+   * меняться под ногами между прогонами вслед за «последней версией» автора.
+   */
+  providerVersion?: string
   /** ЯВНОЕ поле, не подстрока и не префикс id. */
   provider: MediaProviderName
   capability: C

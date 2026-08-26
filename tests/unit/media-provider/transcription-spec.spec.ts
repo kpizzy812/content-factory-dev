@@ -18,6 +18,15 @@ describe("способность transcription", () => {
     expect(spec.integrated).toBe(false)
   })
 
+  it("несёт хеш версии Replicate — модель community, а не официальная (canary 26.08.2026: 404 на эндпоинте официальных моделей)", () => {
+    const spec = listMediaSpecs("transcription")[0]!
+
+    // Хеш подтверждён `https://replicate.com/api/models/openai/whisper/versions`
+    // 26.08.2026 — это ПОСЛЕДНЯЯ из 13 версий модели (created_at 2024-11-26).
+    // whisper-version-report.md фиксирует полную сверку.
+    expect(spec.providerVersion).toBe("8099696689d249cf8b122d833c36ac3f75505c666a395ca40ef26f68e7d3d16e")
+  })
+
   it("маршрут отказывает внятно, пока нет ни одной integrated модели", () => {
     expect(() => resolveMediaRoute("transcription", null, {}))
       .toThrow(/No integrated media model registered for transcription/)

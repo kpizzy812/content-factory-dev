@@ -1999,16 +1999,46 @@ const FISH_S21_PRO: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>
  * и при заданной модели реестр проверку `integrated` не делает, так путь
  * остаётся обратимым.
  *
- * НЕ подтверждено (остаётся до боевого включения): имена полей входа —
- * `audio`, `language`, `word_timestamps` — по-прежнему взяты из публичной
- * документации обёртки Replicate, а не из схемы API, снятой реальным вызовом
- * (как это сделано для моделей speech_to_video выше, через
- * `https://replicate.com/api/models/<owner>/<name>/versions`). Сверить схему
- * входа нужно ДО боевого включения маршрута.
+ * `openai/whisper` — COMMUNITY-модель, не официальная (страница модели без
+ * пометки «Official model»). Канарейка 26.08.2026 упала на этом факте:
+ * раннер бил по эндпоинту официальных моделей
+ * (`POST /v1/models/openai/whisper/predictions`), а он для community отвечает
+ * 404 — путь есть только у официальных моделей вроде
+ * `minimax/speech-02-turbo`. Community-модель адресуется через
+ * `POST /v1/predictions` с телом `{ version, input }`, поэтому `providerVersion`
+ * ниже обязателен для этой спеки (см. `runReplicateJsonModel`).
+ *
+ * `providerVersion` подтверждён 26.08.2026 через
+ * `https://replicate.com/api/models/openai/whisper/versions` (публичный,
+ * без токена, тот же способ, каким сняты схемы speech_to_video выше): это
+ * ПОСЛЕДНЯЯ из 13 версий модели, `created_at` 2024-11-26. Хеш, изначально
+ * предложенный в задаче на этот фикс, оказался РЕАЛЬНЫМ, но УСТАРЕВШИМ —
+ * версия от 2024-07-01, на три релиза раньше текущей; используется хеш из
+ * прямой проверки, а не из задачи. Пиннинг версии — не только обход 404, но и
+ * детерминизм: тот же довод, что у `EditProfile.llmModelId` в спеке монтажа —
+ * поведение модели не должно меняться под ногами вслед за новым релизом.
+ *
+ * НЕ подтверждено (остаётся до боевого включения, риск НЕ снят этим фиксом):
+ * имена полей входа — `audio`, `language`, `word_timestamps` — по-прежнему
+ * взяты из публичной документации обёртки Replicate, а не из схемы API. Более
+ * того: снятая тем же запросом схема ПОСЛЕДНЕЙ версии (`8099696689d2…`) поля
+ * `word_timestamps` не содержит вовсе — вход это `audio`, `language`,
+ * `patience`, `translate`, `temperature`, `transcription` (enum "plain text" /
+ * "srt" / "vtt"), `initial_prompt` и ещё шесть параметров сэмплирования; выход
+ * — `segments`, `transcription`, `detected_language`, а не `chunks`. Это ещё
+ * не проверено вызовом (мог измениться на выполнении, не только на схеме), но
+ * прежде чем платить за первый боевой прогон, схему входа/выхода нужно
+ * сверить реальным вызовом, а не только этим комментарием — иначе 404 может
+ * смениться падением на разборе ответа.
  */
 const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
   registryKey: "replicate:whisper",
   id: "openai/whisper",
+  // Последняя версия модели на Replicate (created_at 2024-11-26 из 13 версий,
+  // сверено 26.08.2026 — см. докстринг выше). Community-модель без неё
+  // недоступна: `runReplicateJsonModel` без `providerVersion` бьёт по пути
+  // официальных моделей и получает 404.
+  providerVersion: "8099696689d249cf8b122d833c36ac3f75505c666a395ca40ef26f68e7d3d16e",
   provider: "replicate",
   capability: "transcription",
   execution: "sync_json",
@@ -2048,7 +2078,8 @@ const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionMod
     "Русский распознаёт без отдельной настройки",
   ]),
   tradeoffs: Object.freeze([
-    "Схема входа снята с документации, а не с API",
+    "Схема входа снята с документации, а не с API — поле word_timestamps в схеме версии не найдено",
+    "Community-модель: адресуется хешем версии (providerVersion), а не именем",
     "integrated=false до включения на стенде переменной MEDIA_MODEL_TRANSCRIPTION",
   ]),
   avgGenerationTime: "~10-30 сек на ролик",

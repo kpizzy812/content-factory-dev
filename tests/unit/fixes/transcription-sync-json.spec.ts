@@ -50,10 +50,16 @@ describe("sync_json: транскрипция пишет структуру, а 
     })
 
     expect(runJsonModel).toHaveBeenCalledTimes(1)
-    const [modelId, payload, timeoutMs] = runJsonModel.mock.calls[0]!
+    const [modelId, payload, timeoutMs, version] = runJsonModel.mock.calls[0]!
     expect(modelId).toBe(spec.id)
     expect(payload).toMatchObject({ audio: input.audioUrl, language: "ru" })
     expect(timeoutMs).toBe(spec.timeoutMs)
+    // Whisper — community-модель: раннер обязан протянуть версию из спеки
+    // провайдеру, иначе `runReplicateJsonModel` бьёт по эндпоинту официальных
+    // моделей и получает 404 (canary 26.08.2026, whisper-version-report.md).
+    // Хеш захардкожен, а не взят из spec.providerVersion — иначе сравнение с
+    // самим собой прошло бы, даже если раннер вообще не читает поле спеки.
+    expect(version).toBe("8099696689d249cf8b122d833c36ac3f75505c666a395ca40ef26f68e7d3d16e")
 
     expect(writes).toEqual([{ path: "/tmp/transcript.json", content: JSON.stringify(raw) }])
     expect(result.source).toBe("generated")
