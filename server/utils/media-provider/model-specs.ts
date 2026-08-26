@@ -2018,18 +2018,26 @@ const FISH_S21_PRO: TextToSpeechModelSpec = Object.freeze<TextToSpeechModelSpec>
  * детерминизм: тот же довод, что у `EditProfile.llmModelId` в спеке монтажа —
  * поведение модели не должно меняться под ногами вслед за новым релизом.
  *
- * НЕ подтверждено (остаётся до боевого включения, риск НЕ снят этим фиксом):
- * имена полей входа — `audio`, `language`, `word_timestamps` — по-прежнему
- * взяты из публичной документации обёртки Replicate, а не из схемы API. Более
- * того: снятая тем же запросом схема ПОСЛЕДНЕЙ версии (`8099696689d2…`) поля
- * `word_timestamps` не содержит вовсе — вход это `audio`, `language`,
+ * ОКОНЧАТЕЛЬНО ПОДТВЕРЖДЕНО 26.08.2026 (canary «монтаж от звука», см.
+ * `.superpowers/sdd/2026-08-24-shot-assembly/whisper-version-report.md` и
+ * `whisperx-report.md` рядом): схема входа ПОСЛЕДНЕЙ версии (`8099696689d2…`)
+ * поля `word_timestamps` НЕ СОДЕРЖИТ вовсе — вход это `audio`, `language`,
  * `patience`, `translate`, `temperature`, `transcription` (enum "plain text" /
  * "srt" / "vtt"), `initial_prompt` и ещё шесть параметров сэмплирования; выход
- * — `segments`, `transcription`, `detected_language`, а не `chunks`. Это ещё
- * не проверено вызовом (мог измениться на выполнении, не только на схеме), но
- * прежде чем платить за первый боевой прогон, схему входа/выхода нужно
- * сверить реальным вызовом, а не только этим комментарием — иначе 404 может
- * смениться падением на разборе ответа.
+ * — `segments`, `transcription`, `detected_language`, а не `chunks`, и поля
+ * пословных таймингов в выходе тоже нет. Это не «пока не проверено» — это
+ * СНЯТЫЙ ФАКТ модели: `openai/whisper` на Replicate пословных таймингов не
+ * отдаёт НИКАК, ни при каком входе. Маршрут «монтаж от звука» требует их
+ * обязательно (spec §4.1) — эта модель для него НЕПРИГОДНА.
+ *
+ * Спека остаётся в реестре намеренно: знание о непригодности добыто дорого
+ * (упавшим платным canary-прогоном), терять его нельзя — удаление спеки
+ * стёрло бы и докстринг с этим фактом, и защиту от повторного изобретения той
+ * же ошибки. Замена для маршрута — `REPLICATE_WHISPERX` ниже
+ * (`replicate:whisperx`, модель `victor-upmeet/whisperx`): у неё
+ * `align_output` дословно из схемы описан как «Aligns whisper output to get
+ * accurate word-level timestamps», и это подтверждено не только схемой, но и
+ * исходным кодом обёртки (см. докстринг `REPLICATE_WHISPERX`).
  */
 const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
   registryKey: "replicate:whisper",
@@ -2074,15 +2082,140 @@ const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionMod
   name: "Whisper",
   vendorLabel: "Replicate / OpenAI",
   strengths: Object.freeze([
-    "Границы слов, а не только текст",
-    "Русский распознаёт без отдельной настройки",
+    "Текст распознаёт корректно, включая русский без отдельной настройки",
   ]),
   tradeoffs: Object.freeze([
-    "Схема входа снята с документации, а не с API — поле word_timestamps в схеме версии не найдено",
+    "НЕПРИГОДНА для маршрута «монтаж от звука»: пословных таймингов не отдаёт вовсе — используйте replicate:whisperx",
+    "Схема ПОСЛЕДНЕЙ версии подтверждена: поля word_timestamps нет ни на входе, ни на выходе (`segments`/`transcription`, а не `chunks`)",
     "Community-модель: адресуется хешем версии (providerVersion), а не именем",
     "integrated=false до включения на стенде переменной MEDIA_MODEL_TRANSCRIPTION",
   ]),
   avgGenerationTime: "~10-30 сек на ролик",
+})
+
+/**
+ * WhisperX на Replicate — модель с ПОДТВЕРЖДЁННЫМИ пословными таймингами.
+ *
+ * Заведена вместо `openai/whisper`: та модель (докстринг выше) вообще не
+ * отдаёт границ слов, и маршрут «монтаж от звука» без них не собирает ни
+ * одной сцены ведущего (canary 26.08.2026, риск §4.1/§10 спеки
+ * 2026-08-16-audio-first-editing-design). У WhisperX это штатная
+ * возможность: булево поле `align_output` дословно из схемы описано как
+ * «Aligns whisper output to get accurate word-level timestamps».
+ *
+ * Все факты ниже сверены НАПРЯМУЮ 26.08.2026, тем же публичным способом, что
+ * и у `openai/whisper` (без токена, без платных вызовов):
+ *
+ *  - ВЕРСИЯ: `https://replicate.com/api/models/victor-upmeet/whisperx/versions`
+ *    отдал 25 версий; ПОСЛЕДНЯЯ — `655845d6190ef70573c669245f245892cd039df4b880a1e3a65852c09252f5cc`,
+ *    `created_at` `2026-05-13T14:42:02Z` (следующая по свежести — от
+ *    2024-08-30, то есть это не случайный элемент списка, а настоящий разрыв
+ *    во времени между релизами);
+ *  - СХЕМА ВХОДА: `_extras.dereferenced_openapi_schema` той же версии,
+ *    `paths./predictions.post` → `requestBody...Input`. Обязателен только
+ *    `audio_file` (`type: string, format: uri`). Остальное — опции с
+ *    дефолтами: `language` (nullable-строка, без enum, "specify None to
+ *    perform language detection"), `task` (enum transcribe/translate,
+ *    default transcribe), `align_output` (boolean, default FALSE — то есть
+ *    её обязательно включать явно), `diarization` (boolean, default false,
+ *    требует `huggingface_access_token` — не задаём, диаризация не нужна),
+ *    `batch_size`, `temperature`, `vad_onset`, `vad_offset` и ещё несколько
+ *    полей — с безопасными дефолтами, не отправляем;
+ *  - СХЕМА ВЫХОДА: та же секция, `Output` → `{ segments: object (без
+ *    дальнейшей расшифровки — Cog не разворачивает вложенный объект в
+ *    OpenAPI), detected_language: string }`;
+ *  - ФОРМА `segments` ПРИ `align_output: true` — раз OpenAPI её не
+ *    раскрывает, взята из ИСХОДНОГО КОДА, а не угадана: репозиторий
+ *    `victor-upmeet/whisperx-replicate` (GitHub, публичный,
+ *    `raw.githubusercontent.com/victor-upmeet/whisperx-replicate/main/predict.py`)
+ *    возвращает `Output(segments=result["segments"], ...)`, где при
+ *    `align_output=True` `result = whisperx.align(audio, result["segments"], ..., return_char_alignments=False)` —
+ *    функция из библиотеки `m-bain/whisperX`
+ *    (`whisperx/alignment.py`, строка 424:
+ *    `return {"segments": aligned_segments, "word_segments": word_segments}`).
+ *    Каждый элемент `aligned_segments` — `{text, start, end, words: [...]}`
+ *    (`alignment.py:384-389`), а каждое слово — `{word, start?, end?, score?}`,
+ *    где `start`/`end` пропускаются, только если ВСЕ слова сегмента не
+ *    выровнялись (`alignment.py:360-367`; в этом случае сам сегмент придёт с
+ *    `words: []` — `alignment.py:221-244`). Это РОВНО форма, которую уже
+ *    читает `normalizeTranscriptPayload` (segments[].words[].word/.start/.end,
+ *    `server/utils/transcription/normalize.ts`) — адаптировать разбор не
+ *    потребовалось, форма зафиксирована фикстурой из исходного кода в
+ *    `tests/unit/transcription/normalize.spec.ts`;
+ *  - ЦЕНА: страница модели `https://replicate.com/victor-upmeet/whisperx`,
+ *    дословно — «This model costs approximately $0.018 to run on Replicate,
+ *    or 55 runs per $1». Железо — «Nvidia A100 (80GB) GPU hardware»,
+ *    «Predictions typically complete within 13 seconds». Тариф A100 на
+ *    Replicate — $0.0014/с: 0.0014 × 13 = $0.0182 ≈ «approximately $0.018» —
+ *    сходится;
+ *  - COMMUNITY vs OFFICIAL: JSON страницы модели несёт `"is_official": false`
+ *    — как и у `openai/whisper`, пометки «Official model» нет, поэтому
+ *    `providerVersion` обязателен (см. докстринг `providerVersion` в
+ *    `types.ts` и `runReplicateJsonModel`).
+ *
+ * `integrated: false` — включается на стенде явной переменной
+ * `MEDIA_MODEL_TRANSCRIPTION=replicate:whisperx` (§4.1 спеки), как и было
+ * задумано для транскрипции до подтверждения канарейкой на боевых деньгах.
+ */
+const REPLICATE_WHISPERX: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
+  registryKey: "replicate:whisperx",
+  id: "victor-upmeet/whisperx",
+  // Последняя версия на Replicate, created_at 2026-05-13T14:42:02Z из 25
+  // версий, сверено 26.08.2026 — см. докстринг выше. Community-модель без
+  // неё недоступна: `runReplicateJsonModel` без providerVersion бьёт по пути
+  // официальных моделей и получает 404 (та же ошибка, что уронила canary на
+  // openai/whisper).
+  providerVersion: "655845d6190ef70573c669245f245892cd039df4b880a1e3a65852c09252f5cc",
+  provider: "replicate",
+  capability: "transcription",
+  execution: "sync_json",
+  billing: { unit: "hardware_second", usdPerSecond: 0.0014, estimatedSeconds: 13 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    // Продуктовое ограничение (что реально нужно ролику), а не ограничение
+    // API: схема модели поле language вообще не валидирует списком (просто
+    // nullable-строка) — large-v3 под капотом понимает почти сотню языков.
+    languages: Object.freeze(["ru", "en"]),
+    maxDurationSec: 600,
+    audioExtensions: Object.freeze(["mp3", "wav", "m4a"]),
+  }),
+  timeoutMs: 5 * 60_000,
+  mapInput(input) {
+    const audioUrl = requireText(input.audioUrl, "audioUrl")
+    const language = (input.language || "ru").slice(0, 2).toLowerCase()
+    if (!this.constraints.languages.includes(language)) {
+      throw new Error(`Модель ${this.id} не размечает язык "${language}"`)
+    }
+    return {
+      payload: {
+        audio_file: audioUrl,
+        language,
+        // Без этого поля выход — сырые сегменты model.transcribe() БЕЗ
+        // ключа words вовсе (default false в схеме): именно то поле, ради
+        // которого модель заведена вместо openai/whisper.
+        align_output: true,
+      },
+    }
+  },
+  // Выход способности — JSON, а не ссылка на файл: скачивать нечего, разбирает
+  // его `normalizeTranscriptPayload`.
+  extractOutput: () => ({ urls: [] }),
+  dataProcessor: null,
+  integrated: false,
+  tier: "budget",
+  name: "WhisperX",
+  vendorLabel: "Replicate / victor-upmeet",
+  strengths: Object.freeze([
+    "align_output реально возвращает пословные тайминги — подтверждено исходным кодом обёртки, не только схемой",
+    "70x realtime на large-v3 — быстро и дёшево ($0.018 за прогон, ~13 сек)",
+    "Русский распознаёт без отдельной настройки (тот же large-v3, что и у Whisper)",
+  ]),
+  tradeoffs: Object.freeze([
+    "Community-модель: адресуется хешем версии (providerVersion), а не именем",
+    "integrated=false до включения на стенде переменной MEDIA_MODEL_TRANSCRIPTION",
+    "OpenAPI-схема не раскрывает форму segments — она сверена исходным кодом обёртки, а не самим API-ответом",
+  ]),
+  avgGenerationTime: "~13 сек (типичное время страницы модели)",
 })
 
 /**
@@ -2126,4 +2259,5 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   FLUX_KONTEXT_MAX,
   BYTEDANCE_FLUX_PULID,
   REPLICATE_WHISPER,
+  REPLICATE_WHISPERX,
 ])

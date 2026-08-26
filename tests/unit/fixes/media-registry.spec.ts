@@ -450,6 +450,12 @@ describe("контракт реестра", () => {
       // Replicate» — hardware_second на T4 (~22с), а не audio_second.
       // integrated остаётся false — это отдельный флаг (§4.1), не про цену.
       "openai/whisper",
+      // WhisperX подтверждён 26.08.2026: «approximately $0.018 to run on
+      // Replicate» — hardware_second на A100 80GB (~13с). Заменяет Whisper
+      // для маршрута «монтаж от звука»: у Whisper пословных таймингов нет
+      // вовсе (см. докстринг REPLICATE_WHISPER в model-specs.ts), у WhisperX
+      // это align_output. integrated тоже остаётся false — тот же §4.1.
+      "victor-upmeet/whisperx",
     ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue

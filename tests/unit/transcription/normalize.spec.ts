@@ -65,4 +65,66 @@ describe("нормализация ответа модели транскрип�
     expect(() => normalizeTranscriptPayload({ text: "есть текст, нет слов" }))
       .toThrow(/без границ слов/)
   })
+
+  /**
+   * Реальная форма ответа `victor-upmeet/whisperx` с `align_output: true`.
+   *
+   * Форма НЕ угадана: снята из исходного кода — `predict.py` репозитория
+   * `victor-upmeet/whisperx-replicate` возвращает
+   * `Output(segments=result["segments"], detected_language=detected_language)`,
+   * где при `align_output=True` `result = whisperx.align(...)` из
+   * `m-bain/whisperX` (`whisperx/alignment.py:424`):
+   * `return {"segments": aligned_segments, "word_segments": word_segments}`.
+   * Каждый элемент `aligned_segments` — `{text, start, end, words: [...]}}`
+   * (`alignment.py:384-389`), а каждое слово — `{word, start?, end?, score?}`
+   * (`alignment.py:360-367`): `start`/`end` добавляются условно, только если
+   * значение не NaN после интерполяции.
+   */
+  it("читает реальную форму victor-upmeet/whisperx (align_output: true) — снято из predict.py и whisperx/alignment.py", () => {
+    const result = normalizeTranscriptPayload({
+      segments: [
+        {
+          text: "привет мир",
+          start: 0,
+          end: 0.9,
+          words: [
+            { word: "привет", start: 0, end: 0.42, score: 0.9 },
+            { word: "мир", start: 0.42, end: 0.9, score: 0.87 },
+          ],
+        },
+        {
+          text: "как дела",
+          start: 1.1,
+          end: 1.8,
+          words: [
+            { word: "как", start: 1.1, end: 1.3, score: 0.95 },
+            { word: "дела", start: 1.3, end: 1.8, score: 0.91 },
+          ],
+        },
+      ],
+      detected_language: "ru",
+    })
+
+    expect(result.words).toEqual([
+      { text: "привет", startSec: 0, endSec: 0.42 },
+      { text: "мир", startSec: 0.42, endSec: 0.9 },
+      { text: "как", startSec: 1.1, endSec: 1.3 },
+      { text: "дела", startSec: 1.3, endSec: 1.8 },
+    ])
+    expect(result.text).toBe("привет мир как дела")
+  })
+
+  it("сегмент whisperx, который не удалось выровнять, отдаёт words: [] — слова сегмента просто отсутствуют в транскрипте", () => {
+    // alignment.py:236-244/294-297: при неудаче выравнивания сегмент
+    // возвращается со start/end/text, но words: [] (без per-word таймингов).
+    const result = normalizeTranscriptPayload({
+      segments: [
+        { text: "первый", start: 0, end: 0.5, words: [{ word: "первый", start: 0, end: 0.5 }] },
+        { text: "не выровнялось", start: 0.6, end: 1.2, words: [] },
+        { text: "третий", start: 1.3, end: 1.9, words: [{ word: "третий", start: 1.3, end: 1.9 }] },
+      ],
+    })
+
+    expect(result.words.map(w => w.text)).toEqual(["первый", "третий"])
+  })
 })
