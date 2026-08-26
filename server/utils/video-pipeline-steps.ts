@@ -2997,7 +2997,15 @@ export interface VideoShotBackgroundInput {
 
 export interface VideoShotBackgroundResult {
   status: "completed" | "degraded"
+  /** Сколько кадров реально сходили к провайдеру/материализовали фон в ЭТОМ прогоне. */
   renderedCount: number
+  /**
+   * Сколько кадров получили фон СВОЕЙ группы БЕСПЛАТНО в ЭТОМ прогоне —
+   * не своя генерация (см. `renderedCount`) и не переиспользование от
+   * прошлого прогона (см. `reusedCount`): группировка подряд идущих кадров с
+   * одним источником, правка 26.08.2026 (`background-reuse-report.md`).
+   */
+  groupLinkedCount: number
   reusedCount: number
   costUsd: number
   warnings: string[]
@@ -3098,8 +3106,19 @@ function shotBackgroundCacheKey(input: {
 interface ShotAssetInputs {
   idea: string | null
   sceneText: string | null
-  /** Округлена так же, как её видит агент промптов (`durationSec.toFixed(1)`). */
-  durationSec: number
+  /**
+   * Округлена так же, как её видит агент промптов (`durationSec.toFixed(1)`).
+   *
+   * `undefined` (не пишется в JSON вовсе — `JSON.stringify` роняет ключи со
+   * значением `undefined`) — ТОЛЬКО для `kind === "image"` (правка
+   * 26.08.2026, требование 2 отчёта `background-reuse-report.md`). Картинка
+   * статична: сколько она держится на экране, решает монтаж (still-клип при
+   * сборке), а не генерация — длительность КОНКРЕТНОГО кадра ничего не
+   * меняет в самой картинке. Для `kind === "video"` длительность остаётся:
+   * она реально определяет заказ у Kling (`billedSec`, §7) — это ДРУГОЙ вход,
+   * не декоративный.
+   */
+  durationSec: number | undefined
   visualStyle: string | null
   appName: string | null
   format: string
@@ -3107,6 +3126,28 @@ interface ShotAssetInputs {
   llmModelId: string | null
   /** Модель, которая рисует ИМЕННО этот кадр: картиночная либо видео. */
   mediaModelId: string
+}
+
+/**
+ * Результат обработки ЛИДЕРА группы фона — то, что последователи (`reuseFrom
+ * !== null`, `shot-background-runner.ts`) копируют себе вместо собственной
+ * генерации/материализации (правка 26.08.2026, дефект «фон меняется каждые
+ * 1.8 с» на группе кадров с одной идеей — см. `background-reuse-report.md`).
+ *
+ * `filePath`/`contentType` — `null` у `kind === "none"`: у лидера либо не
+ * было фона по решению планирования, либо исполнение отказало и лидер
+ * деградировал ДО того, как последователи успели на него посмотреть —
+ * последователи обязаны деградировать точно так же, а не пытаться
+ * произвести фон самостоятельно (одна попытка похода к провайдеру на
+ * группу, не пять).
+ */
+interface ShotBackgroundGroupOutcome {
+  action: ShotBackgroundAction
+  degradeReason: string | null
+  filePath: string | null
+  contentType: string | null
+  /** Совпадает с `VideoAsset.prompt` лидера — по нему последователь узнаёт себя же на повторном прогоне. */
+  fingerprint: string
 }
 
 /**
@@ -3260,7 +3301,7 @@ export async function runShotBackgrounds(
     const cached = readShotBackgroundSnapshot(step.outputSnapshot)
     if (cached && cached.cacheKey === cacheKey) {
       await appendStepLog(step.id, `Фоны кадров для этого плана уже готовы (${shotsRaw.length} кадров) — повторной оплаты нет`)
-      return { status: cached.status, renderedCount: 0, reusedCount: shotsRaw.length, costUsd: 0, warnings: cached.warnings }
+      return { status: cached.status, renderedCount: 0, groupLinkedCount: 0, reusedCount: shotsRaw.length, costUsd: 0, warnings: cached.warnings }
     }
   }
 
@@ -3380,7 +3421,19 @@ export async function runShotBackgrounds(
   let videoCostUsd = 0
   let renderedCount = 0
   let reusedCount = 0
+  // Кадры группы, получившие фон от ЛИДЕРА в ЭТОМ прогоне (не своя генерация,
+  // но и не переиспользование от ПРОШЛОГО прогона — см. reusedCount выше):
+  // третье, отдельное число, а не слияние с одним из первых двух, иначе
+  // "5 картинок дали 1 генерацию" и "5 картинок уже были готовы" стали бы
+  // неразличимы в логе и в отчёте (требование 4 брифа — честные цифры).
+  let groupLinkedCount = 0
   const executionWarnings: string[] = []
+  // Итог обработки ЛИДЕРА каждой группы фона (`shot-background-runner.ts`,
+  // `reuseFrom`) — последователи читают отсюда вместо похода к провайдеру.
+  // Лидер гарантированно обрабатывается РАНЬШЕ последователей: `plan.items`
+  // идёт в порядке `input.shots` (ascending order), а `reuseFrom` у любого
+  // кадра указывает на order МЕНЬШЕ своего (см. докстринг computeReuseFromByOrder).
+  const groupOutcomeByLeaderOrder = new Map<number, ShotBackgroundGroupOutcome>()
 
   // Цена вызова агента промптов считается ОДИН раз и переживает и happy-path,
   // и падение ниже — тем же приёмом, что `priceEditPlanModelCall` у edit_plan.
@@ -3446,14 +3499,88 @@ export async function runShotBackgrounds(
           await prisma.videoAsset.delete({ where: { id: stale.id } }).catch(() => {})
           backgroundChanged = true
         }
+      } else if (item.reuseFrom !== null) {
+        // Последователь группы фона (`shot-background-runner.ts`, `reuseFrom`):
+        // лидер группы (order меньше своего — `plan.items` идёт по
+        // возрастанию order) уже обработан ВЫШЕ по этому же циклу. Похода к
+        // провайдеру здесь нет вовсе — только копирование его исхода в СВОЮ
+        // строку `VideoAsset` (правка 26.08.2026, дефект «фон меняется каждые
+        // 1.8 с», см. `background-reuse-report.md`).
+        const leaderOutcome = groupOutcomeByLeaderOrder.get(item.reuseFrom)
+        if (!leaderOutcome) {
+          // Не должно случиться никогда: `reuseFrom` обязан указывать на order
+          // МЕНЬШЕ своего (докстринг `computeReuseFromByOrder`), а `plan.items`
+          // сохраняет порядок `input.shots` — защита от рассинхрона
+          // группировки, а не ожидаемый путь исполнения.
+          throw new Error(
+            `Фоны кадров ролика ${videoId}: кадр ${item.order} должен переиспользовать `
+            + `группу лидера ${item.reuseFrom}, но она ещё не обработана — нарушен порядок обхода`,
+          )
+        }
+
+        finalAction = leaderOutcome.action
+        finalDegradeReason = leaderOutcome.degradeReason
+        // Деньги уже списаны на лидере группы — требование 4 брифа: сумма
+        // VideoShot.costUsd по кадрам группы обязана сходиться с фактическим
+        // расходом ОДНОЙ генерации, а не платить за каждый кадр отдельно.
+        costForShot = 0
+
+        const existingAsset = await prisma.videoAsset.findFirst({
+          where: { videoId, type: "shot_background" as never, order: item.order },
+        })
+
+        if (leaderOutcome.action.kind === "none") {
+          // Лидер деградировал до "none" (провайдер отказал ДО того, как
+          // последователи успели на него посмотреть, либо план изначально не
+          // дал фона никому в группе) — у группы нет фона, последователь
+          // стирает возможный старый ассет и НЕ пытается произвести фон
+          // самостоятельно: одна попытка похода к провайдеру на ГРУППУ, а не
+          // на каждый кадр.
+          if (existingAsset) {
+            await prisma.videoAsset.delete({ where: { id: existingAsset.id } }).catch(() => {})
+            backgroundChanged = true
+          }
+        } else {
+          const alreadyLinked = !!existingAsset
+            && existingAsset.filePath === leaderOutcome.filePath
+            && existingAsset.prompt === leaderOutcome.fingerprint
+          if (alreadyLinked) {
+            // Тот же файл лидера уже записан прошлым прогоном — идемпотентность
+            // ровно как у самого лидера: деньги не тронуты, ffmpeg по кадру
+            // повторно не гоняется (Ruling S8-7 держится и для последователей).
+            reusedCount += 1
+          } else {
+            groupLinkedCount += 1
+            backgroundChanged = true
+            const assetData = {
+              filePath: leaderOutcome.filePath,
+              prompt: leaderOutcome.fingerprint,
+              // Группируются только image/library/app_screen (докстринг
+              // `ShotBackgroundItem.reuseFrom`) — у всех троих `duration` в
+              // `VideoAsset` всегда null, ровно как у самого лидера.
+              duration: null,
+              contentType: leaderOutcome.contentType,
+            }
+            if (existingAsset) {
+              await prisma.videoAsset.update({ where: { id: existingAsset.id }, data: assetData })
+            } else {
+              await prisma.videoAsset.create({ data: { videoId, type: "shot_background" as never, order: item.order, ...assetData } })
+            }
+          }
+        }
       } else {
-        // Отпечаток — от ВХОДОВ решения, а не от текста промпта (Critical 1
-        // финального ревью): текст недетерминирован, входы — нет.
+        // Лидер группы фона (либо кадр вне группы — группа размера 1 идёт тем
+        // же кодом). Отпечаток — от ВХОДОВ решения, а не от текста промпта
+        // (Critical 1 финального ревью): текст недетерминирован, входы — нет.
         const assetInputs: ShotAssetInputs | null = item.action.kind === "image" || item.action.kind === "video"
           ? {
               idea: shot.idea,
               sceneText: sceneTextForShot(shot),
-              durationSec: Number((shot.endSec - shot.startSec).toFixed(1)),
+              // Картинка статична — длительность держит монтаж, а не
+              // генерация (требование 2 правки 26.08.2026): отпечаток
+              // картиночного фона от неё не зависит. Видео — наоборот,
+              // длительность реально определяет заказ у Kling.
+              durationSec: item.action.kind === "video" ? Number((shot.endSec - shot.startSec).toFixed(1)) : undefined,
               visualStyle: input.visualStyle,
               appName: input.appName,
               format: input.format,
@@ -3475,6 +3602,16 @@ export async function runShotBackgrounds(
           reusedCount += 1
           // costForShot остаётся undefined — VideoShot.costUsd не трогаем,
           // деньги за этот кадр уже отражены прошлым прогоном.
+          // Последователи группы (если есть) переиспользуют ИМЕННО этот файл
+          // прошлого прогона — записываем исход и на попадании в кэш, не
+          // только на свежей генерации ниже.
+          groupOutcomeByLeaderOrder.set(item.order, {
+            action: finalAction,
+            degradeReason: finalDegradeReason,
+            filePath: existingAsset!.filePath ?? outputPath,
+            contentType: existingAsset!.contentType,
+            fingerprint,
+          })
         } else {
           try {
             let localPath: string
@@ -3544,6 +3681,16 @@ export async function runShotBackgrounds(
             } else {
               await prisma.videoAsset.create({ data: { videoId, type: "shot_background" as never, order: item.order, ...assetData } })
             }
+            // Последователи группы (если есть) переиспользуют РОВНО этот
+            // свежесгенерированный файл — записываем исход ДО перехода к
+            // следующему item.
+            groupOutcomeByLeaderOrder.set(item.order, {
+              action: finalAction,
+              degradeReason: finalDegradeReason,
+              filePath: localPath,
+              contentType,
+              fingerprint,
+            })
           } catch (error) {
             // Деградация до none при отказе ИСПОЛНЕНИЯ (не путать с деградацией
             // ПЛАНИРОВАНИЯ выше — она уже отражена в item.degradeReason):
@@ -3560,6 +3707,16 @@ export async function runShotBackgrounds(
               await prisma.videoAsset.delete({ where: { id: existingAsset.id } }).catch(() => {})
               backgroundChanged = true
             }
+            // Отказ ЛИДЕРА — у группы нет фона: последователи (если есть)
+            // обязаны узнать об этом же отказе, а не пытаться сходить к
+            // провайдеру самостоятельно (см. ветку "reuseFrom" выше).
+            groupOutcomeByLeaderOrder.set(item.order, {
+              action: finalAction,
+              degradeReason: finalDegradeReason,
+              filePath: null,
+              contentType: null,
+              fingerprint,
+            })
           }
         }
       }
@@ -3635,11 +3792,12 @@ export async function runShotBackgrounds(
     }
     await appendStepLog(
       step.id,
-      `Фоны кадров готовы: ${renderedCount} нарисовано, ${reusedCount} переиспользовано, `
+      `Фоны кадров готовы: ${renderedCount} нарисовано, ${groupLinkedCount} получили фон группы бесплатно, `
+      + `${reusedCount} переиспользовано, `
       + `$${totalCostUsd.toFixed(4)} (картинки $${imageCostUsd.toFixed(4)}, видео $${videoCostUsd.toFixed(4)}, промпты $${promptCostUsd.toFixed(4)})`,
     )
 
-    return { status: overallStatus, renderedCount, reusedCount, costUsd: totalCostUsd, warnings }
+    return { status: overallStatus, renderedCount, groupLinkedCount, reusedCount, costUsd: totalCostUsd, warnings }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     // Частичное падение: то, что уже оплачено (картинки/видео до сбоя, и

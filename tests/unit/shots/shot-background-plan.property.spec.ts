@@ -152,10 +152,17 @@ describe("свойства планирования фонов кадров", ()
     expect(violations).toEqual([])
   })
 
-  it("Свойство 7: промпт просят ровно те кадры, которым назначена картинка или видео", () => {
+  it("Свойство 7: промпт просят ровно те кадры, которым назначена картинка или видео И которые сами лидеры своей группы фона", () => {
+    // Правка 26.08.2026 (группировка фонов): последователь группы
+    // (`reuseFrom !== null`) переиспользует файл лидера и своего промпта не
+    // просит — на этом генераторе idea уникальна по индексу (`идея ${i}`),
+    // так что image/video-группы здесь не возникают и `reuseFrom` для них
+    // всегда null; фильтр добавлен ради честности контракта, а не потому что
+    // этот генератор его реально упражняет (группировку library/app_screen
+    // проверяют целевые тесты `shot-background-runner.spec.ts`).
     const violations = collectViolations(SEEDS, (i) => {
       const needPrompt = PLANS[i]!.items
-        .filter(x => x.action.kind === "image" || x.action.kind === "video")
+        .filter(x => (x.action.kind === "image" || x.action.kind === "video") && x.reuseFrom === null)
         .map(x => x.order)
       const got = PLANS[i]!.promptOrders
       return JSON.stringify(got) === JSON.stringify(needPrompt) ? null : `seed=${i + 1}: promptOrders=${JSON.stringify(got)} != ${JSON.stringify(needPrompt)}`

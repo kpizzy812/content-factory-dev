@@ -1302,10 +1302,20 @@ describe("шаг shot_background: идемпотентность, деньги, 
     },
     { name: "imageModelId", second: { imageModelId: "fal:flux-schnell" }, redraws: true },
     {
-      name: "длительность кадра (вход промпта)",
+      // Правка 26.08.2026 (группировка фонов, требование 2 отчёта
+      // background-reuse-report.md): для КАРТИНОЧНОГО фона длительность
+      // кадра вышла из отпечатка — картинка статична, сколько она держится
+      // на экране решает монтаж (still-клип), а не генерация. До правки этот
+      // ряд ждал redraws:true (длительность шла в промпт как темп сцены) —
+      // намеренно ослаблено ВЛАДЕЛЬЦЕМ задачи, не по недосмотру: перерисовка
+      // впятеро дороже группы кадров ценой нюанса темпа в промпте была
+      // признана невыгодной. Симметричный ряд для ВИДЕО (где длительность
+      // реально определяет заказ у Kling и остаётся в отпечатке) — тест
+      // "генеративное видео: смена длительности перерисовывает кадр" ниже.
+      name: "длительность кадра картинки — БОЛЬШЕ не вход отпечатка",
       second: { trackFingerprint: "fp-2" },
       patchShot: { endSec: 5 },
-      redraws: true,
+      redraws: false,
     },
     {
       name: "sceneText (реплика под кадром)",
@@ -1348,5 +1358,216 @@ describe("шаг shot_background: идемпотентность, деньги, 
     const shot = await prisma.videoShot.findFirst({ where: { videoId, order: 0 } })
     expect(shot!.background).toBe("video")
     expect(shot!.backgroundActual).toBe("image")
+  })
+
+  it("генеративное видео: смена длительности кадра ПЕРЕРИСОВЫВАЕТ — длительность остаётся в отпечатке (требование 2 не задевает video)", async () => {
+    const shot = await makeShot({ order: 0, startSec: 0, endSec: 6, background: "video", idea: "полёт дрона" })
+    const profile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 5 }
+
+    const deps1 = happyDeps()
+    await runShotBackgrounds(baseShotInput({ profile }), deps1)
+    expect(deps1.generateVideo).toHaveBeenCalledTimes(1)
+
+    // Длительность меняется (6с -> 9с), idea та же. trackFingerprint форсирует
+    // промах ОБЩЕГО ключа шага, чтобы дойти до отпечатка НА кадр.
+    await prisma.videoShot.update({ where: { id: shot.id }, data: { endSec: 9 } })
+    const deps2 = happyDeps()
+    const result2 = await runShotBackgrounds(baseShotInput({ profile, trackFingerprint: "fp-2" }), deps2)
+
+    expect(deps2.generateVideo).toHaveBeenCalledTimes(1)
+    expect(result2.renderedCount).toBe(1)
+  })
+
+  // ── Группировка фонов кадров (правка 26.08.2026): подряд идущие кадры с
+  //    ОДНИМ и тем же запрошенным фоном получают ОДНУ генерацию и ОДИН файл,
+  //    а не свою генерацию на каждый (дефект «фон меняется каждые 1.8 с»,
+  //    ролик 30 — см. background-reuse-report.md). Группировка переиспользует
+  //    ту же (`shotBackgroundIdentity`/`planShotVariationSlices`), что уже
+  //    держит непрерывность движения камеры (коммит 82e6790).
+  describe("группировка фонов кадров (одна генерация на группу)", () => {
+    /** Пять подряд идущих кадров по 1.8с с одной idea — реальная форма плана §7. */
+    async function makeGroup(idea: string, count = 5) {
+      const shots = []
+      for (let i = 0; i < count; i += 1) {
+        shots.push(await makeShot({ order: i, startSec: i * 1.8, endSec: (i + 1) * 1.8, idea }))
+      }
+      return shots
+    }
+
+    it("пять подряд идущих кадров с одной idea дают ОДНУ генерацию и ОДИН файл", async () => {
+      await makeGroup("фон группы")
+
+      const deps = happyDeps()
+      const result = await runShotBackgrounds(baseShotInput(), deps)
+
+      // Провайдер картинок вызван РОВНО один раз — не пять.
+      expect(deps.generateImage).toHaveBeenCalledTimes(1)
+      expect(deps.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 0 }))
+      expect(result.renderedCount).toBe(1)
+      expect(result.groupLinkedCount).toBe(4)
+      expect(result.reusedCount).toBe(0)
+
+      const assets = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+      })
+      expect(assets).toHaveLength(5)
+      // ОДИН файл на всю группу — не пять разных.
+      const paths = new Set(assets.map(a => a.filePath))
+      expect(paths.size).toBe(1)
+      expect([...paths][0]).toBe(assets[0]!.filePath)
+
+      // Требование 4: сумма VideoShot.costUsd по группе сходится с фактом
+      // ОДНОЙ генерации, а не платит впятеро.
+      const shots = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+      const costSum = shots.reduce((sum, s) => sum + Number(s.costUsd), 0)
+      expect(costSum).toBeCloseTo(0.025, 6)
+      expect(Number(shots[0]!.costUsd)).toBeCloseTo(0.025, 6)
+      for (let i = 1; i < 5; i += 1) expect(Number(shots[i]!.costUsd)).toBe(0)
+
+      // Сумма по кадрам обязана сходиться с тем, что реально списано в ledger
+      // (не только со сметой): реплика вернёт то же число, потому что реальных
+      // трат ОДНА генерация.
+      const replicateRows = await prisma.aiAuditLog.findMany({ where: { videoId, stepKey: "shot_background", service: "replicate" } })
+      const ledgerSum = replicateRows.reduce((sum, r) => sum + Number(r.costUsd), 0)
+      expect(ledgerSum).toBeCloseTo(costSum, 6)
+    })
+
+    it("промпт просят ОДИН раз на группу, а не на каждый кадр", async () => {
+      await makeGroup("фон группы")
+      const deps = happyDeps()
+      await runShotBackgrounds(baseShotInput(), deps)
+      expect(deps.planPrompts).toHaveBeenCalledTimes(1)
+      const call = (deps.planPrompts as ReturnType<typeof vi.fn>).mock.calls[0]![0] as { shots: Array<{ order: number }> }
+      expect(call.shots.map(s => s.order)).toEqual([0])
+    })
+
+    it("повторный прогон сгруппированного плана не платит второй раз ни за одного из пяти", async () => {
+      await makeGroup("фон группы")
+      await runShotBackgrounds(baseShotInput(), happyDeps())
+
+      const assetsAfterFirst = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+      })
+
+      const deps2 = happyDeps()
+      const second = await runShotBackgrounds(baseShotInput(), deps2)
+
+      expect(deps2.generateImage).toHaveBeenCalledTimes(0)
+      expect(deps2.planPrompts).toHaveBeenCalledTimes(0)
+      expect(second.costUsd).toBe(0)
+      expect(second.renderedCount).toBe(0)
+      expect(second.groupLinkedCount).toBe(0)
+      expect(second.reusedCount).toBe(5)
+
+      const assetsAfterSecond = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+      })
+      expect(assetsAfterSecond.map(a => a.id).sort()).toEqual(assetsAfterFirst.map(a => a.id).sort())
+      expect(assetsAfterSecond.map(a => a.filePath)).toEqual(assetsAfterFirst.map(a => a.filePath))
+    })
+
+    it("смена idea у ОДНОГО среднего кадра разрывает группу и перерисовывает только новую мини-группу", async () => {
+      const shots = await makeGroup("фон группы")
+      await runShotBackgrounds(baseShotInput(), happyDeps())
+
+      const assetsBefore = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+      })
+      const originalFilePath = assetsBefore[0]!.filePath
+
+      // Кадр 2 (средний) получает свою идею — группа [0,1,2,3,4] рвётся на
+      // [0,1] / [2] / [3,4].
+      await prisma.videoShot.update({ where: { id: shots[2]!.id }, data: { idea: "другая идея" } })
+
+      const deps2 = happyDeps()
+      const result2 = await runShotBackgrounds(baseShotInput(), deps2)
+
+      // Единственная НОВАЯ генерация — кадр 2 (новый лидер своей мини-группы).
+      expect(deps2.generateImage).toHaveBeenCalledTimes(1)
+      expect(deps2.generateImage).toHaveBeenCalledWith(expect.objectContaining({ order: 2 }))
+      expect(result2.renderedCount).toBe(1)
+
+      const assetsAfter = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+      })
+      // Кадры 0, 1 — тот же файл, что и раньше (подгруппа не задета).
+      expect(assetsAfter[0]!.filePath).toBe(originalFilePath)
+      expect(assetsAfter[1]!.filePath).toBe(originalFilePath)
+      // Кадр 2 — НОВЫЙ файл (своя идея).
+      expect(assetsAfter[2]!.filePath).not.toBe(originalFilePath)
+      // Кадры 3, 4 — идея вернулась к прежней, отпечаток совпадает с
+      // отпечатком исходной группы (по значениям, не по order) — тот же файл
+      // переиспользован БЕЗ похода к провайдеру, хотя лидер сменился (0 -> 3).
+      expect(assetsAfter[3]!.filePath).toBe(originalFilePath)
+      expect(assetsAfter[4]!.filePath).toBe(originalFilePath)
+    })
+
+    it("две НЕсоседние группы с одинаковой idea дают ДВЕ генерации — переиспользование не сквозное по ролику", async () => {
+      // Кадры 0-1 идея "A", кадр 2 идея "B" (разрывает смежность), кадры 3-4
+      // снова идея "A". Решение (см. отчёт): группировка переиспользует ТУ ЖЕ,
+      // что и непрерывность движения камеры, а она не сливает несмежные
+      // группы — сквозной кэш "idea -> файл" на весь ролик не заказан этой
+      // правкой и добавил бы отдельный класс риска (устаревшая картинка из
+      // начала ролика молча выехала бы в конец).
+      await makeShot({ order: 0, startSec: 0, endSec: 1.8, idea: "A" })
+      await makeShot({ order: 1, startSec: 1.8, endSec: 3.6, idea: "A" })
+      await makeShot({ order: 2, startSec: 3.6, endSec: 5.4, idea: "B" })
+      await makeShot({ order: 3, startSec: 5.4, endSec: 7.2, idea: "A" })
+      await makeShot({ order: 4, startSec: 7.2, endSec: 9.0, idea: "A" })
+
+      const deps = happyDeps()
+      const result = await runShotBackgrounds(baseShotInput(), deps)
+
+      expect(deps.generateImage).toHaveBeenCalledTimes(3)
+      const orders = (deps.generateImage as ReturnType<typeof vi.fn>).mock.calls.map(c => (c[0] as { order: number }).order).sort((a, b) => a - b)
+      expect(orders).toEqual([0, 2, 3])
+      expect(result.renderedCount).toBe(3)
+      expect(result.groupLinkedCount).toBe(2)
+
+      const assets = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never }, orderBy: { order: "asc" },
+      })
+      // Группа [0,1] и группа [3,4] — РАЗНЫЕ файлы, хотя idea одна и та же.
+      expect(assets[0]!.filePath).toBe(assets[1]!.filePath)
+      expect(assets[3]!.filePath).toBe(assets[4]!.filePath)
+      expect(assets[0]!.filePath).not.toBe(assets[3]!.filePath)
+    })
+
+    it("отказ провайдера на лидере группы — вся группа деградирует до none, а не пытается получить фон каждый по отдельности", async () => {
+      const shots = await makeGroup("фон группы")
+      // §10: ролик не имеет права дойти до "готов", если совсем нечего
+      // показывать — ведущий на весь экран держит кадры видимыми, пока
+      // проверяется именно "одна попытка провайдера на группу", а не §10.
+      await prisma.videoShot.update({ where: { id: shots[0]!.id }, data: { foreground: "presenter" } })
+      const deps = happyDeps({
+        generateImage: vi.fn(async () => { throw new Error("Replicate недоступен (симуляция)") }),
+      })
+
+      const result = await runShotBackgrounds(baseShotInput(), deps)
+
+      // Один провал провайдера — одна попытка, не пять.
+      expect(deps.generateImage).toHaveBeenCalledTimes(1)
+      expect(result.status).toBe("degraded")
+
+      const shotsAfter = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+      for (const s of shotsAfter) {
+        expect(s.backgroundActual).toBe("none")
+        expect(s.degradeReason).toBeTruthy()
+        expect(Number(s.costUsd)).toBe(0)
+      }
+      const assets = await prisma.videoAsset.findMany({ where: { videoId, type: "shot_background" as never } })
+      expect(assets).toHaveLength(0)
+    })
+
+    it("унаследованный costUsd последователя обнуляется группировкой, а не остаётся от старого прогона", async () => {
+      const shots = await makeGroup("фон группы", 2)
+      // Симулирует данные до этой правки: кадр 1 когда-то платил САМ по себе.
+      await prisma.videoShot.update({ where: { id: shots[1]!.id }, data: { costUsd: 0.5 } })
+
+      await runShotBackgrounds(baseShotInput(), happyDeps())
+
+      const shot1After = await prisma.videoShot.findFirst({ where: { videoId, order: 1 } })
+      expect(Number(shot1After!.costUsd)).toBe(0)
+    })
   })
 })

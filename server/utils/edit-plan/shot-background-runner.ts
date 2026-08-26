@@ -23,6 +23,13 @@
  *     контракт с `billedSec` для генеративного видео и конкретным id для
  *     библиотеки/скрина — и `promptOrders`, кадры, которым нужен промпт
  *     генерации (Task 3, `shot-background-prompt-agent.ts`).
+ *  4. группировку подряд идущих кадров с ОДНИМ и тем же запрошенным фоном
+ *     (`reuseFrom`, правка 26.08.2026, дефект «фон меняется каждые 1.8 с» —
+ *     см. отчёт `.superpowers/sdd/2026-08-24-shot-assembly/
+ *     background-reuse-report.md`). Группировка — ТА ЖЕ, что уже держит
+ *     непрерывное движение камеры (`shotBackgroundIdentity`/
+ *     `planShotVariationSlices` в `video-tools/shot-variation.ts`), а не
+ *     вторая параллельная: две разные группировки разъехались бы молча.
  *
  * Функция ЧИСТАЯ: ни БД, ни сети, ни файловой системы — ровно как у
  * `pickBackgroundSource`. Деньги и ассеты производит impure-обвязка
@@ -33,6 +40,7 @@
 import { billedSeconds, pickBackgroundSource } from "./background-source"
 import { DEFAULT_EDIT_PROFILE } from "./profile"
 import type { ShotBackground } from "./types"
+import { planShotVariationSlices, shotBackgroundIdentity } from "../video-tools/shot-variation"
 
 /** Кадр плана монтажа — то, что реально лежит в `VideoShot` на момент исполнения. */
 export interface PlannedShotRow {
@@ -58,11 +66,32 @@ export type ShotBackgroundAction =
 export interface ShotBackgroundItem {
   order: number
   action: ShotBackgroundAction
-  /** Полная цена кадра — идёт в смету ролика (§14) и в `VideoShot.costUsd`. */
+  /**
+   * Полная цена кадра ПО СМЕТЕ планирования — идёт в прогноз ролика (§14).
+   * НЕ равна тому, что реально спишется в `VideoShot.costUsd`: у кадра-
+   * последователя группы (`reuseFrom !== null`) смета всё ещё считает полную
+   * цену источника (для прогноза это честнее — источник в принципе платный),
+   * а факт спишется только на ОДНОМ кадре группы, который его произвёл
+   * (требование 4 правки 26.08.2026, раннер `runShotBackgrounds`).
+   */
   costUsd: number
   /** Только генеративное видео — накопитель потолка §7 (ruling B4-1). */
   countsAgainstBudgetUsd: number
   degradeReason: string | null
+  /**
+   * Кадр обязан переиспользовать УЖЕ произведённый файл кадра с этим
+   * `order` вместо собственной генерации/материализации — тот же приём, что
+   * `variationIndex` у `shot-variation.ts`, только источник, а не движение.
+   * `null` — кадр производит фон сам (лидер группы либо кадр вне группы).
+   *
+   * Считается ТОЛЬКО для `image`/`library`/`app_screen` — генеративное видео
+   * (`background === "video"`) в группировку не входит вовсе: длина заказа
+   * (`billedSec`) у видео реально зависит от конкретного кадра (§7), а не
+   * только от идеи. Слить пять кадров в один платный клип значило бы либо
+   * соврать про длину, либо пересчитать заказ на всю группу — это отдельная
+   * задача, не заказанная этой правкой (см. отчёт, раздел «за скобками»).
+   */
+  reuseFrom: number | null
 }
 
 export interface ShotBackgroundPlan {
@@ -122,13 +151,71 @@ function toAction(
 }
 
 /**
+ * Для каждого кадра — order ЛИДЕРА группы подряд идущих кадров с одним и тем
+ * же запрошенным фоном ({@link shotBackgroundIdentity}), чью генерацию кадр
+ * обязан переиспользовать (см. {@link ShotBackgroundItem.reuseFrom}). Лидер
+ * указывает сам на себя — `null`.
+ *
+ * Группировка — ТА ЖЕ, что уже держит непрерывное движение камеры
+ * ({@link planShotVariationSlices}), а не вторая параллельная: план монтажа
+ * (`shotTimeline`) уже приходит отсортированным по `order`, ровно тем
+ * порядком, которого требует эта функция.
+ *
+ * Генеративное видео исключено из группировки ЯВНО, ДО вызова общей функции:
+ * у неё identity `video:idea` сгруппировала бы кадры видео точно так же, как
+ * картинку, а заказ видео обязан остаться ПЕРСОНАЛЬНЫМ для каждого кадра —
+ * длина заказа (`billedSec`) реально зависит от длины ИМЕННО этого кадра
+ * (§7), слить пять кадров в один платный клип значило бы либо соврать про
+ * длину, либо пересчитать заказ на всю группу — отдельная задача, не
+ * заказанная этой правкой. Подмена ключа на `null` перед вызовом — тот же
+ * приём, что `shotBackgroundIdentity` уже применяет для «фона нет»/«идея
+ * пуста»: `null` не группируется ни с кем, кадр остаётся сам себе лидером.
+ */
+function computeReuseFromByOrder(
+  shots: readonly {
+    order: number
+    startSec: number
+    endSec: number
+    background: string
+    backgroundClipId: string | null
+    appReferenceId: string | null
+    idea: string | null
+  }[],
+): Map<number, number | null> {
+  const slices = planShotVariationSlices(shots.map(s => ({
+    order: s.order,
+    startSec: s.startSec,
+    endSec: s.endSec,
+    backgroundKey: s.background === "video" ? null : shotBackgroundIdentity(s),
+  })))
+
+  // Лидер группы — кадр с МЕНЬШИМ order среди её членов: `shots` приходит по
+  // возрастанию order (требование этой же функции ниже), значит именно он
+  // будет обработан ПЕРВЫМ и успеет произвести файл раньше, чем до него
+  // дойдёт очередь у последователей.
+  const leaderOrderByGroupIndex = new Map<number, number>()
+  for (const [order, slice] of slices) {
+    const current = leaderOrderByGroupIndex.get(slice.index)
+    if (current === undefined || order < current) leaderOrderByGroupIndex.set(slice.index, order)
+  }
+
+  const reuseFromByOrder = new Map<number, number | null>()
+  for (const [order, slice] of slices) {
+    const leaderOrder = leaderOrderByGroupIndex.get(slice.index)!
+    reuseFromByOrder.set(order, leaderOrder === order ? null : leaderOrder)
+  }
+  return reuseFromByOrder
+}
+
+/**
  * Планирует исполнение фонов ВСЕХ кадров ролика по порядку.
  *
  * Порядок обработки — порядок `input.shots` (вызывающий обязан передать его
  * отсортированным по `order`, как и приходит из БД `orderBy: { order: "asc" }`):
  * потолок §7 исчерпывается по накопительной сумме, и именно порядок решает,
  * КАКИЕ кадры попадут под деградацию при исчерпанном бюджете — «первые
- * успевшие», а не «последние в списке».
+ * успевшие», а не «последние в списке». Тот же порядок гарантирует, что
+ * лидер группы фона (`reuseFrom`) обработается раньше своих последователей.
  */
 export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionInput): ShotBackgroundPlan {
   // pickBackgroundSource читает из профиля только два поля (generativeVideoEnabled,
@@ -144,6 +231,7 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
   let spentUsd = 0
   const items: ShotBackgroundItem[] = []
   const degradeCounts = new Map<string, number>()
+  const reuseFromByOrder = computeReuseFromByOrder(input.shots)
 
   for (const shot of input.shots) {
     const durationSec = shot.endSec - shot.startSec
@@ -182,6 +270,7 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
       costUsd: pick.costUsd,
       countsAgainstBudgetUsd: pick.countsAgainstBudgetUsd,
       degradeReason: pick.degradeReason,
+      reuseFrom: reuseFromByOrder.get(shot.order) ?? null,
     })
   }
 
@@ -192,8 +281,12 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
     warnings.push(count > 1 ? `${reason} (кадров: ${count})` : reason)
   }
 
+  // Последователь группы (`reuseFrom !== null`) переиспользует ФАЙЛ лидера —
+  // ему просить собственный промпт не за чем: агент промптов зовётся ОДНИМ
+  // батчем на все `promptOrders`, и лишние order здесь — это лишние токены
+  // без единого кадра, который бы их использовал.
   const promptOrders = items
-    .filter(item => item.action.kind === "image" || item.action.kind === "video")
+    .filter(item => (item.action.kind === "image" || item.action.kind === "video") && item.reuseFrom === null)
     .map(item => item.order)
 
   return { items, warnings, promptOrders }
