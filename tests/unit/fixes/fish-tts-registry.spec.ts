@@ -23,6 +23,7 @@ import {
   resolveMediaRoute,
 } from "../../../server/utils/media-provider/registry"
 import type { MediaModelSpec } from "../../../server/utils/media-provider/types"
+import { getDefaultTtsModel, getModel } from "../../../server/utils/video-models"
 
 const EMPTY_ENV: Record<string, string | undefined> = {}
 
@@ -126,5 +127,33 @@ describe("разбор выхода", () => {
   it("ссылок нет: байты приходят в теле ответа", () => {
     const spec = specFor("fish:s2.1-pro-free")
     expect(spec.extractOutput(null)).toEqual({ urls: [], contentType: "audio/mpeg" })
+  })
+})
+
+describe("s2.1-pro включена: API-кошелёк Fish пополнен", () => {
+  it("integrated поднят — проходит тот же гейт, что server/api/videos/generate.post.ts", () => {
+    // Причина, по которой стояло integrated: false («API-кошелёк не пополнен,
+    // 402»), устранена — владелец подтвердил пополнение. generate.post.ts при
+    // явном voiceoverModelId проверяет ровно `model.task === 'tts'` и
+    // `model.integrated`; тот же контракт читает витрина video-models.
+    const model = getModel("s2.1-pro")
+    expect(model?.task).toBe("tts")
+    expect(model?.integrated).toBe(true)
+  })
+
+  it("billingConfirmed остаётся false — это ДРУГОЙ флаг, пополненный кошелёк цену не подтверждает", () => {
+    // Официальная страница тарифов по-прежнему отдаёт 404 (перепроверено),
+    // число $15 за 1M UTF-8 байт — из обзоров, а не со страницы модели.
+    // integrated про доступность вызова, billingConfirmed — про доверие к
+    // цене; путать их нельзя, даже когда причина первого отпала.
+    expect(specFor("fish:s2.1-pro").billingConfirmed).toBe(false)
+  })
+
+  it("дефолт TTS способности не сдвинулся на Fish — Replicate MiniMax стоит в реестре первым", () => {
+    // TTS_MODELS.find(m => m.integrated) берёт ПЕРВУЮ integrated модель по
+    // порядку MEDIA_MODEL_SPECS. Fish объявлен в самом конце TTS-блока
+    // намеренно (см. докстринг реестра) — поднятие его integrated не должно
+    // отодвинуть MiniMax и подменить голос всем роликам старого маршрута.
+    expect(getDefaultTtsModel()?.id).toBe("minimax/speech-02-turbo")
   })
 })

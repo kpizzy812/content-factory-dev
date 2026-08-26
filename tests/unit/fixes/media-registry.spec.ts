@@ -562,6 +562,16 @@ describe("витрина video-models собирается из спек", () =>
     expect(budget.ttsModel?.id).toBe("minimax/speech-02-turbo")
   })
 
+  it("Fish s2.1-pro подключён (integrated), но дефолт TTS способности остался на Replicate", () => {
+    // Fish Audio S2.1 Pro (платный) стал integrated: причина отказа
+    // («API-кошелёк не пополнен») отпала. Он стоит в TTS_MODELS последним
+    // (см. состав выше) — getDefaultTtsModel берёт ПЕРВУЮ integrated модель
+    // по порядку реестра, поэтому подключение Fish не должно подменить голос
+    // старому маршруту, у которого TTS-модель не выбрана явно.
+    expect(getModel("s2.1-pro")?.integrated).toBe(true)
+    expect(getDefaultTtsModel()?.id).toBe("minimax/speech-02-turbo")
+  })
+
   it("прайс витрины и прайс спеки — одно число (дубля $0.014 больше нет)", () => {
     expect(getModel("kwaivgi/kling-lip-sync")?.pricing).toEqual({ unit: "second", base: 0.014 })
     expect(estimateMediaCost(resolveMediaModel("lip_sync"), { outputSeconds: 1 })).toBe(0.014)
