@@ -40,6 +40,7 @@ const h = vi.hoisted(() => ({
   durationByPath: new Map<string, number>(),
   ffmpegRuns: [] as Array<{ input: string; output: string; outputOptions: string[] }>,
   snapshots: [] as Array<Record<string, unknown>>,
+  createdClipAssets: [] as Array<Record<string, unknown>>,
   synthesizeSpeech: vi.fn(),
   runLipSync: vi.fn(),
   probeMediaDuration: vi.fn(),
@@ -79,7 +80,10 @@ vi.mock("../../../server/utils/prisma", () => ({
   prisma: {
     videoAsset: {
       findFirst: async () => null,
-      create: async () => ({ id: "new" }),
+      create: async (args: { data: Record<string, unknown> }) => {
+        h.createdClipAssets.push(args.data)
+        return { id: "new" }
+      },
       update: async () => ({}),
     },
   },
@@ -214,6 +218,7 @@ beforeEach(async () => {
   h.durationByPath.clear()
   h.ffmpegRuns.length = 0
   h.snapshots.length = 0
+  h.createdClipAssets.length = 0
 
   h.synthesizeSpeech.mockReset()
   h.synthesizeSpeech.mockImplementation(async (args: { outputPath: string }) => {
@@ -286,7 +291,16 @@ describe("runLipSyncStep: длинная реплика дробится и си
     // Ключ переиспользования считается НА ЧАСТЬ: у двух частей он разный.
     expect(scene!.parts![0]!.reuseKey).not.toBe(scene!.parts![1]!.reuseKey)
 
+    // Счётчики — НА СЦЕНУ, а не на часть: по ним оркестратор решает, ронять ли
+    // ролик и доверять ли путям клипов из кэша озвучки.
     expect(result.syncedSceneCount).toBe(1)
+    expect(result.resyncedSceneCount).toBe(1)
+
+    // Ассет клипа — РОВНО ОДИН на сцену: `order` у VideoAsset(type=clip) это
+    // индекс сцены, и вторая строка с тем же order дала бы сборке призрачный
+    // лишний клип.
+    expect(h.createdClipAssets).toHaveLength(1)
+    expect(h.createdClipAssets[0]!.order).toBe(0)
   })
 
   it("сцена короче потолка идёт ОДНИМ вызовом с прежним именем файла", async () => {
@@ -363,6 +377,72 @@ describe("runLipSyncStep: длинная реплика дробится и си
     expect(parts![0]!.outputPath).toBeTruthy()
     expect(parts![1]!.outputPath).toBeNull()
     expect(parts![1]!.skipped).toBe("lip_sync_failed")
+  })
+
+  it("после частичного успеха повтор доделывает упавшую часть и НЕ платит за готовую", async () => {
+    let call = 0
+    h.runLipSync.mockImplementation(async (req: { outputPath: string }) => {
+      call += 1
+      if (call === 2) throw new Error("провайдер отбил вторую часть")
+      await writeFile(req.outputPath, "video")
+      return { costUsd: 0.07, provider: "replicate", outputPath: req.outputPath }
+    })
+
+    const first = await runLipSyncStep({
+      videoId: 35,
+      clipPaths: [""],
+      videoPlan: presenterOnlyPlan([9]),
+      clipSceneOrders: [],
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput([longScene(9)], 95),
+    })
+    expect(first.scenes?.[0]?.parts?.[1]?.outputPath).toBeNull()
+
+    // Прогон 2: провайдер снова работает. Упавшая часть обязана получить вторую
+    // попытку, готовая — остаться неоплаченной.
+    h.step = { id: 707, attemptCount: 1, actualCost: 0.07, outputSnapshot: first as unknown }
+    h.runLipSync.mockReset()
+    h.runLipSync.mockImplementation(async (req: { outputPath: string }) => {
+      await writeFile(req.outputPath, "video")
+      return { costUsd: 0.07, provider: "replicate", outputPath: req.outputPath }
+    })
+
+    const second = await runLipSyncStep({
+      videoId: 35,
+      clipPaths: [""],
+      videoPlan: presenterOnlyPlan([9]),
+      clipSceneOrders: [],
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput([longScene(9)], 95),
+    })
+
+    // Ровно ОДИН платный вызов — за упавшую часть, а не за обе.
+    expect(h.runLipSync).toHaveBeenCalledTimes(1)
+    expect(second.scenes?.[0]?.parts?.every(part => part.outputPath)).toBe(true)
+  })
+
+  it("обрыв между частями оставляет оплаченную часть в снапшоте", async () => {
+    // Заливка второй части падает: шаг бросает, но за первую часть уже
+    // заплачено — она обязана остаться в снапшоте, иначе следующий заход
+    // оплатит её второй раз.
+    let uploads = 0
+    h.uploadLocalAsset.mockImplementation(async (_path: string, storageKey: string) => {
+      uploads += 1
+      if (uploads === 2) throw new Error("хранилище недоступно")
+      return { storageKey, storageProvider: "local", storageBucket: null }
+    })
+
+    await expect(runLipSyncStep({
+      videoId: 36,
+      clipPaths: [""],
+      videoPlan: presenterOnlyPlan([9]),
+      clipSceneOrders: [],
+      videoConfig: VIDEO_CONFIG,
+      audioFirst: audioFirstInput([longScene(9)], 95),
+    })).rejects.toThrow(/хранилище недоступно/)
+
+    const failed = h.snapshots.at(-1) as { scenes?: Array<{ parts?: Array<{ outputPath: string | null }> }> }
+    expect(failed.scenes?.[0]?.parts?.[0]?.outputPath).toBe(join(ASSETS_DIR, "scene_0_lipsync.mp4"))
   })
 
   it("снапшот старого формата (одна запись на сцену, без parts) переиспользуется", async () => {
