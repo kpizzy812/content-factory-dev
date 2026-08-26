@@ -515,6 +515,32 @@ export async function runEditPlanStep(
   // картинок и исчерпало бы потолок Kling втрое быстрее (background-source.ts).
   let spentUsd = 0
   let plannedMediaCostUsd = 0
+
+  /**
+   * Достаёт ли клип lip-sync своей сцены до конца этого кадра.
+   *
+   * Окно считается ровно так же, как его считают валидация и ремонт
+   * (`findPresenterSceneOverflows`), и по той же причине: расхождение между
+   * «что обвиняем», «что чиним» и «что ставим» уже однажды породило Critical.
+   * Сцены нет в выравнивании либо потолок негоден — окна не существует, и
+   * ограничения нет: это та же ветка, где `fitPresenterClipsToScenes`
+   * использует клип как есть.
+   */
+  const sceneByOrderForWindow = new Map<number, AlignedScene>()
+  for (const scene of input.alignedScenes) {
+    if (!Number.isFinite(scene.startSec) || !Number.isFinite(scene.endSec)) continue
+    const known = sceneByOrderForWindow.get(scene.order)
+    if (!known || scene.startSec < known.startSec) sceneByOrderForWindow.set(scene.order, scene)
+  }
+  const shotFitsLipSyncWindow = (shot: { sceneOrder: number | null, endSec: number }): boolean => {
+    if (!Number.isFinite(input.lipSyncMaxDurationSec) || input.lipSyncMaxDurationSec <= 0) return true
+    if (shot.sceneOrder === null) return true
+    const scene = sceneByOrderForWindow.get(shot.sceneOrder)
+    if (!scene) return true
+    const coverageEndSec = Math.min(scene.endSec, scene.startSec + input.lipSyncMaxDurationSec)
+    return shot.endSec <= coverageEndSec + halfFrameSec(input.fps)
+  }
+
   const finalShots: PlannedShotWithCost[] = []
   // Minor М-2 ревью задачи: одинаковые причины деградации (флаг профиля
   // выключен, нет кандидата в библиотеке и т.п.) на плане из 20-30 кадров
@@ -576,8 +602,17 @@ export async function runEditPlanStep(
     // §10 и §7 говорят «кадр отдаётся ведущему» без оговорки про закадрового
     // нарратора, а сузить условие до presenter-сцен значило бы отдавать
     // чёрный экран там, где сегодня спека требует ведущего.
+    //  * окно, которое клип lip-sync СЦЕНЫ реально покрывает (правка
+    //    26.08.2026, дефект «липсинк застыл в конце»): lip-sync производится
+    //    на сцену одним вызовом, и `planSegmentCut` режет кусок
+    //    [начало сцены, +потолок]. Кадр за этой границей ведущему отдавать
+    //    нельзя, даже если сам он короче потолка и привязан к реплике: живого
+    //    материала там нет, и на экране будет застывшее лицо под живую речь.
+    //    Без этого условия ремонт агрегата сцены (`repair.ts`) чинил бы план,
+    //    а этот цикл ломал его обратно — уже ПОСЛЕ последней валидации.
     const holdsPresenterInvariants = shot.sceneOrder !== null
       && durationSec <= input.lipSyncMaxDurationSec + halfFrameSec(input.fps)
+      && shotFitsLipSyncWindow(shot)
     const forcePresenter = forcedEmpty && holdsPresenterInvariants
 
     // Отказ обязан быть НАЗВАН, а не тихо оставить чёрный кадр: причина
@@ -586,7 +621,10 @@ export async function runEditPlanStep(
     const refusalReason = forcedEmpty && !holdsPresenterInvariants
       ? (shot.sceneOrder === null
           ? "ведущего на этот кадр поставить нельзя: кадр не привязан ни к какой реплике (перебивка между частями)"
-          : `ведущего на этот кадр поставить нельзя: ${durationSec.toFixed(2)}с длиннее чем потолок lip-sync ${input.lipSyncMaxDurationSec}с`)
+          : durationSec > input.lipSyncMaxDurationSec + halfFrameSec(input.fps)
+            ? `ведущего на этот кадр поставить нельзя: ${durationSec.toFixed(2)}с длиннее чем потолок lip-sync ${input.lipSyncMaxDurationSec}с`
+            : `ведущего на этот кадр поставить нельзя: кадр заканчивается в ${shot.endSec.toFixed(2)}с, `
+              + `а клип lip-sync сцены ${shot.sceneOrder} покрывает только первые ${input.lipSyncMaxDurationSec}с её времени`)
       : null
     const degradeReason = refusalReason
       ? `${pick.degradeReason ?? "Задний план кадра пуст"} — ${refusalReason}`

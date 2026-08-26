@@ -355,3 +355,108 @@ describe("валидация плана кадров", () => {
     expect(shots).toEqual(snapshot)
   })
 })
+
+/**
+ * Агрегат сцены против потолка lip-sync (дефект «липсинк застыл» на ролике 30).
+ *
+ * Числа настоящие: сцена 9 занимает в треке 79.57-90.93 (11.36с), клип lip-sync
+ * из снапшота шага — 9.90с, потолок `kwaivgi/kling-lip-sync` — 10 секунд. Каждый
+ * из семи кадров сцены короткий и `presenter_too_long` проходит, но lip-sync
+ * производится НА СЦЕНУ, и клип покрывает только первые 10 секунд её времени —
+ * остаток добивался удержанием последнего кадра, то есть замороженным лицом под
+ * живую речь.
+ */
+const SCENE9_START = 79.57
+const SCENE9_END = 90.93
+const TRACK_SEC = 90.93
+
+function scene9Words() {
+  // Слова встык по 0.4с с паузами 0.1с — чтобы границы кадров ниже попадали в
+  // межсловные интервалы и `word_split` не шумел в списке нарушений.
+  const words: Array<{ text: string, startSec: number, endSec: number, matched: boolean }> = []
+  for (let cursor = SCENE9_START; cursor + 0.4 < SCENE9_END; cursor += 0.5) {
+    words.push({ text: `w${words.length}`, startSec: cursor, endSec: cursor + 0.4, matched: true })
+  }
+  return words
+}
+
+const SCENE9 = { order: 9, startSec: SCENE9_START, endSec: SCENE9_END, words: scene9Words() }
+
+/** Кадры сцены 9 по 1.62с, как в реальном плане: 7 штук на 11.36 секунды. */
+function scene9Shots(foregroundOf: (index: number) => "presenter" | "none"): PlannedShot[] {
+  const bounds = [79.57, 81.19, 82.81, 84.43, 86.05, 87.67, 89.29, 90.93]
+  return bounds.slice(0, -1).map((startSec, index) => ({
+    order: index,
+    startSec,
+    endSec: bounds[index + 1]!,
+    sceneOrder: 9,
+    foreground: foregroundOf(index),
+    background: foregroundOf(index) === "presenter" ? "none" : "image",
+    backgroundClipId: null,
+    appReferenceId: null,
+    idea: null,
+    pipEnabled: false,
+  })) as PlannedShot[]
+}
+
+function scene9Context(shots: PlannedShot[], overrides: Record<string, unknown> = {}) {
+  return context(shots, {
+    trackDurationSec: TRACK_SEC,
+    alignedScenes: [SCENE9],
+    // Кадры покрывают только сцену 9, а трек длиннее её начала — дыра в голове
+    // трека здесь заведомо есть и проверке агрегата не мешает.
+    profile: { ...DEFAULT_EDIT_PROFILE, brollRatio: 0 },
+    ...overrides,
+  })
+}
+
+describe("потолок lip-sync на СЦЕНУ, а не только на кадр", () => {
+  it("ловит сцену, где ведущий не помещается в клип: семь коротких кадров, а сцена 11.36с", () => {
+    const violations = validateShotPlan(scene9Context(scene9Shots(() => "presenter")))
+    const codes = violations.map(v => v.code)
+
+    expect(codes).toContain("presenter_scene_too_long")
+    // Именно агрегат, а не кадр: ни один кадр сцены не длиннее потолка.
+    expect(codes).not.toContain("presenter_too_long")
+    expect(violations.find(v => v.code === "presenter_scene_too_long")!.message).toContain("9")
+  })
+
+  it("тот же план с последним кадром-перебивкой нарушения не даёт", () => {
+    // Кадр 6 (89.29-90.93) — единственный, которому клип ведущей физически не
+    // покрывает время: 89.29 + 1.64 уже за 89.57 = 79.57 + 10.
+    const violations = validateShotPlan(scene9Context(scene9Shots(index => (index === 6 ? "none" : "presenter"))))
+    expect(violations.map(v => v.code)).not.toContain("presenter_scene_too_long")
+  })
+
+  it("первый кадр сцены не обвиняется никогда — живой материал у него есть по построению", () => {
+    // Единственный кадр ведущего, длиннее потолка: это `presenter_too_long`
+    // (дробление реплики, §5.3), а не агрегат сцены. Два кода на одну причину
+    // отправили бы план на платный повторный запрос дважды.
+    const shots = [{
+      ...scene9Shots(() => "presenter")[0]!,
+      order: 0,
+      startSec: SCENE9_START,
+      endSec: SCENE9_END,
+    }] as PlannedShot[]
+    const codes = validateShotPlan(scene9Context(shots)).map(v => v.code)
+
+    expect(codes).toContain("presenter_too_long")
+    expect(codes).not.toContain("presenter_scene_too_long")
+  })
+
+  it("негодный потолок модели агрегат не проверяет — окна не существует", () => {
+    for (const lipSyncMaxDurationSec of [0, -3, Number.NaN]) {
+      const violations = validateShotPlan(scene9Context(scene9Shots(() => "presenter"), { lipSyncMaxDurationSec }))
+      expect(violations.map(v => v.code)).not.toContain("presenter_scene_too_long")
+    }
+  })
+
+  it("сцены нет в выравнивании — окна тоже нет, агрегат молчит", () => {
+    // Ровно та ветка, что и в `fitPresenterClipsToScenes`: без границ сцены в
+    // ТЕКУЩЕМ выравнивании клип используется как есть, приводить его не к чему.
+    const violations = validateShotPlan(scene9Context(scene9Shots(() => "presenter"), {
+      alignedScenes: [{ ...SCENE9, order: 3 }],
+    }))
+    expect(violations.map(v => v.code)).not.toContain("presenter_scene_too_long")
+  })
+})

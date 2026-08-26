@@ -34,6 +34,49 @@ export interface ShotSources {
   backgroundPath: string | null
   /** Фон — неподвижная картинка (нужен still-клип), а не видео. */
   backgroundIsStill: boolean
+  /**
+   * Сколько секунд клипа ведущего — ЖИВЫЕ, считая от `sceneStartSec`.
+   *
+   * Приведение клипа к длине сцены (`fitPresenterClipsToScenes`) добивает
+   * недостачу удержанием последнего кадра, поэтому длина ФАЙЛА и длина живого
+   * материала — разные величины: у сцены 9 ролика 30 файл 11.36с, живого
+   * 9.90с. `null` — неизвестно (рассинхрон снапшотов), тогда ограничения нет и
+   * поведение прежнее.
+   */
+  presenterLiveSec?: number | null
+}
+
+/**
+ * Сколько замороженного хвоста в кадре ещё терпимо.
+ *
+ * Ноль здесь поставить нельзя: заказ у lip-sync квантуется, и модель отдаёт
+ * чуть меньше заказанного — у `kwaivgi/kling-lip-sync` на заказе 10.00с
+ * измерено 9.90с. При нулевом допуске эта разница в 0.1с стирала бы ЦЕЛЫЙ
+ * полуторасекундный кадр лица на каждом ролике. Четверть секунды — заметно
+ * больше измеренного недобора модели и заметно меньше того, что владелец
+ * увидел на ролике 30 (1.46с). Порог закреплён тестами с обеих сторон.
+ */
+const MAX_FROZEN_TAIL_SEC = 0.25
+
+/**
+ * Ближайший доступный фон по номеру кадра; при равном расстоянии — ПРЕДЫДУЩИЙ
+ * (продолжение того, что зритель только что видел, читается лучше, чем прыжок
+ * вперёд). Нужен там, где ведущего показать нельзя, а своего фона у кадра нет
+ * вовсе — у кадров ведущего он обычно и не запланирован (`background: "none"`).
+ */
+export function pickNearestBackground<T>(order: number, available: ReadonlyMap<number, T>): T | null {
+  let best: T | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  let bestOrder = Number.POSITIVE_INFINITY
+  for (const [candidateOrder, value] of available) {
+    const distance = Math.abs(candidateOrder - order)
+    if (distance < bestDistance || (distance === bestDistance && candidateOrder < bestOrder)) {
+      bestDistance = distance
+      bestOrder = candidateOrder
+      best = value
+    }
+  }
+  return best
 }
 
 export type ShotComposition =
@@ -76,12 +119,7 @@ export function planShotComposition(input: {
 }): ShotComposition | null {
   const { shot, sources, profile, canvasWidth, canvasHeight, fps } = input
 
-  const hasPresenter = sources.presenterPath !== null
   const hasBackground = sources.backgroundPath !== null
-
-  // Кадр без ведущего и без фона существовать не может — решение (слить с
-  // соседом) принимает вызывающий через `mergeUnrenderableShots`.
-  if (!hasPresenter && !hasBackground) return null
 
   // Смещение — ОТ НАЧАЛА СЦЕНЫ, не от нуля трека: кадр — подотрезок клипа
   // сцены, а не самостоятельный вырез. Отрицательным быть не может: кадр не
@@ -90,6 +128,21 @@ export function planShotComposition(input: {
   // `-ss` в минус.
   const offsetSec = snapSecToFrame(Math.max(0, shot.startSec - sources.sceneStartSec), fps)
   const durationSec = snapSecToFrame(shot.endSec, fps) - snapSecToFrame(shot.startSec, fps)
+
+  // Второй эшелон защиты от замороженного лица (§8, дефект ролика 30): кадр,
+  // уезжающий в удержанный хвост клипа, показывает ФОН, а не застывшую
+  // ведущую. Замороженное лицо под живую речь хуже отсутствия лица — но
+  // только пока фон есть: чёрный экран хуже обоих, поэтому без фона ведущий
+  // остаётся последним средством.
+  const liveSec = sources.presenterLiveSec
+  const presenterFrozen = typeof liveSec === "number"
+    && Number.isFinite(liveSec)
+    && offsetSec + durationSec > liveSec + MAX_FROZEN_TAIL_SEC
+  const hasPresenter = sources.presenterPath !== null && !(presenterFrozen && hasBackground)
+
+  // Кадр без ведущего и без фона существовать не может — решение (слить с
+  // соседом) принимает вызывающий через `mergeUnrenderableShots`.
+  if (!hasPresenter && !hasBackground) return null
   // Движение выбирается на ГРУППУ кадров с одним фоном, а не на кадр
   // (`shot-variation.ts`, правка 26.08.2026): одна и та же картинка не имеет
   // права получать новый план движения каждые 1.8 секунды. Группы считает

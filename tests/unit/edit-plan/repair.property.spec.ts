@@ -84,7 +84,7 @@ import { describe, expect, it } from "vitest"
 
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
 import { absoluteMinShotSec, repairShotPlan } from "~~/server/utils/edit-plan/repair"
-import { validateShotPlan } from "~~/server/utils/edit-plan/validate"
+import { halfFrameSec, validateShotPlan } from "~~/server/utils/edit-plan/validate"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 import type { ShotPlanContext } from "~~/server/utils/edit-plan/validate"
 import type { PlannedShot, ShotBackground } from "~~/server/utils/edit-plan/types"
@@ -651,3 +651,224 @@ describe("пять сидов ре-ревью раунда 3 — обязате�
 })
 
 
+
+// ── Агрегат сцены против потолка lip-sync (дефект «липсинк застыл», 26.08.2026) ──
+
+/**
+ * ТРЕТИЙ генератор, а не правка двух существующих. Причина та же, по которой
+ * `buildWideScenario` живёт отдельно от `buildScenario`: оба прежних домена
+ * держат ОДНУ выровненную сцену на весь трек и раздают кадрам `sceneOrder`,
+ * которого в выравнивании нет вовсе, — то есть окно lip-sync там определено
+ * ровно для одного кадра из десятков. Проверять на нём агрегат СЦЕНЫ значило
+ * бы проверять пустоту.
+ *
+ * Здесь домен построен под саму проверку:
+ *  - от двух до пяти сцен, каждая длиной от 0.6 до 2.6 потолка: без сцен
+ *    ДЛИННЕЕ потолка перебор не порождает ни одного входа, на котором
+ *    нарушение вообще возможно;
+ *  - `sceneOrder` кадров реально совпадает с `order` выровненных сцен, а кадры
+ *    тайлят свою сцену встык — то есть окно lip-sync определено для КАЖДОГО
+ *    кадра ведущего;
+ *  - сцены целиком presenter либо целиком перебивочные — так их размечает
+ *    `materializeShots` по `presenterSceneOrders`;
+ *  - fps в наборе есть некратный (29.97) и негодный (0, NaN) — те же грабли,
+ *    что нашёл I6 на расширенном домене.
+ *
+ * Насыщенность домена проверяется отдельным тестом ниже: если доля сценариев с
+ * нарушением на входе упадёт, перебор перестанет что-либо проверять молча.
+ */
+const SCENE_FPS = [24, 25, 29.97, 30, 60, 0, Number.NaN] as const
+
+function buildPresenterSceneScenario(seed: number): Scenario {
+  // Третий множитель: одинаковый сид в трёх доменах не должен давать один и
+  // тот же поток случайных чисел.
+  const rng = mulberry32(seed * 3266489917)
+  const fps = pick(rng, SCENE_FPS)
+  const lipSyncMaxDurationSec = pick(rng, [3, 5, 10])
+  const shotChangeSec = randRange(rng, 0.8, 3.0)
+  const sceneCount = Math.max(2, Math.floor(randRange(rng, 2, 6)))
+
+  const scenes: AlignedScene[] = []
+  const shots: PlannedShot[] = []
+  let cursor = 0
+  let order = 0
+
+  for (let index = 0; index < sceneCount; index += 1) {
+    const sceneLen = lipSyncMaxDurationSec * randRange(rng, 0.6, 2.6)
+    const sceneStart = cursor
+    const sceneEnd = sceneStart + sceneLen
+    const wordKind = pick(rng, ["dense", "sparse", "touching", "overlapping", "none"] as const)
+    const words = generateWords(rng, sceneLen, wordKind, 60)
+      .map(word => ({ ...word, startSec: word.startSec + sceneStart, endSec: word.endSec + sceneStart }))
+    scenes.push({ order: index + 1, startSec: sceneStart, endSec: sceneEnd, words })
+
+    const isPresenterScene = rng() < 0.7
+    // Кадры тайлят сцену встык — так их отдаёт `buildShotGrid`.
+    const pieces = Math.max(1, Math.round(sceneLen / Math.max(shotChangeSec, 0.2)))
+    for (let piece = 0; piece < pieces; piece += 1) {
+      const startSec = sceneStart + (sceneLen * piece) / pieces
+      const endSec = sceneStart + (sceneLen * (piece + 1)) / pieces
+      const background = pick(rng, BACKGROUNDS)
+      shots.push({
+        order,
+        startSec,
+        endSec,
+        sceneOrder: index + 1,
+        foreground: isPresenterScene ? "presenter" : "none",
+        background,
+        backgroundClipId: background === "library" && rng() < 0.5 ? `clip-${order}` : null,
+        appReferenceId: background === "app_screen" && rng() < 0.5 ? `ref-${order}` : null,
+        idea: `idea-${index}`,
+        pipEnabled: rng() < 0.3,
+      })
+      order += 1
+    }
+    cursor = sceneEnd
+  }
+
+  const trackDurationSec = cursor
+  const knownBackgroundIds = new Set<string>()
+  const knownAppScreenIds = new Set<string>()
+  for (const shot of shots) {
+    if (shot.backgroundClipId && rng() < 0.6) knownBackgroundIds.add(shot.backgroundClipId)
+    if (shot.appReferenceId && rng() < 0.6) knownAppScreenIds.add(shot.appReferenceId)
+  }
+
+  const context: ShotPlanContext = {
+    plan: { shots },
+    trackDurationSec,
+    fps,
+    alignedScenes: scenes,
+    profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec, generativeVideoEnabled: rng() < 0.5 },
+    lipSyncMaxDurationSec,
+    minGenerativeVideoSec: 5,
+    maxGenerativeVideoSec: 10,
+    knownBackgroundIds,
+    knownAppScreenIds,
+  }
+
+  const label = `scene seed=${seed} fps=${fps} cap=${lipSyncMaxDurationSec} track=${trackDurationSec.toFixed(3)} `
+    + `scenes=${sceneCount} shots=${shots.length}`
+  return { seed, shots, context, label }
+}
+
+/** Первый по времени кадр ведущего каждой сцены — тот, который ремонт не трогает никогда. */
+function headPresenterByScene(shots: readonly PlannedShot[]): Map<number, PlannedShot> {
+  const heads = new Map<number, PlannedShot>()
+  for (const shot of [...shots].sort((a, b) => a.startSec - b.startSec)) {
+    if (shot.foreground !== "presenter" || shot.sceneOrder === null) continue
+    if (!heads.has(shot.sceneOrder)) heads.set(shot.sceneOrder, shot)
+  }
+  return heads
+}
+
+function checkPresenterSceneProperties({ shots, context, label }: Scenario): void {
+  const before = validateShotPlan(context)
+  const first = repairShotPlan(context)
+  const second = repairShotPlan({ ...context, plan: first.plan })
+  const third = repairShotPlan({ ...context, plan: second.plan })
+  const fourth = repairShotPlan({ ...context, plan: third.plan })
+
+  // 1. Агрегат сцены не доживает до `remaining`: ремонт чинит его сам, иначе
+  //    план уходил бы на платный повторный запрос по построению.
+  for (const [passLabel, r] of [["1", first], ["2", second], ["3", third]] as const) {
+    expect(r.remaining.map(v => v.code), `${label} (проход ${passLabel}): агрегат сцены обязан чиниться ремонтом`)
+      .not.toContain("presenter_scene_too_long")
+  }
+
+  // 2. Геометрия чиста — Critical 1 финального ревью не сломан переводом
+  //    кадров в перебивку (ремонт агрегата границ не трогает вовсе).
+  for (const code of GEOMETRIC_CODES) {
+    expect(first.remaining.map(v => v.code), `${label}: remaining не должен содержать ${code}`).not.toContain(code)
+  }
+
+  // 3. Покрытие таймлайна буквально: кадры идут встык.
+  const repaired = first.plan.shots
+  expect(repaired.length, `${label}: план не может опустеть`).toBeGreaterThan(0)
+  for (let index = 1; index < repaired.length; index += 1) {
+    expect(Math.abs(repaired[index]!.startSec - repaired[index - 1]!.endSec), `${label}: кадры ${index - 1}/${index} не встык`)
+      .toBeLessThanOrEqual(1e-6)
+  }
+
+  // 4. Неподвижная точка после третьего прогона — тот же якорь, что у
+  //    основного набора свойств (НН-15).
+  expectSameShots(fourth.plan.shots, third.plan.shots, `${label} (неподвижная точка после 3-го прогона)`)
+
+  // 5. Ремонт не заводит блокирующих кодов, которых не было на входе.
+  //    `broll_ratio` — предупреждение (рулинг B-3), и перевод кадров в
+  //    перебивку меняет долю по построению. `word_split` — измеренное
+  //    исключение НН-6, см. основной набор свойств.
+  const codesBefore = new Set(before.map(v => v.code))
+  const allowedToAppear = new Set(["broll_ratio", "word_split"])
+  for (const code of new Set(first.remaining.map(v => v.code))) {
+    if (allowedToAppear.has(code)) continue
+    expect(codesBefore.has(code), `${label}: ремонт завёл новый код "${code}"`).toBe(true)
+  }
+
+  // 6. Ведущий не исчезает из ролика целиком.
+  if (shots.some(s => s.foreground === "presenter" && s.endSec > s.startSec)) {
+    expect(repaired.some(s => s.foreground === "presenter"), `${label}: ведущий исчез из ролика целиком`).toBe(true)
+  }
+
+  // 7. Суммарное время ведущего в сцене не превышает потолок модели —
+  //    формулировка владельца. Исключение ровно одно и названное: сцена, чей
+  //    ПЕРВЫЙ кадр ведущего сам длиннее потолка (это `presenter_too_long` и
+  //    дробление реплики §5.3, у него свой владелец).
+  if (Number.isFinite(context.lipSyncMaxDurationSec) && context.lipSyncMaxDurationSec > 0) {
+    // Допуск — РОВНО тот же, с которым сама валидация сравнивает границу с
+    // концом окна (`halfFrameSec`): кадр, заходящий за окно меньше чем на
+    // полкадра, нарушением не считается, поэтому и сумма вправе превысить
+    // потолок на ту же величину. Замер на этом домене: 3 сценария из 400
+    // (сиды 68, 103, 214), перебор 5-6 мс при потолке 3-5 с. Ставить здесь
+    // 1e-6 значило бы требовать от суммы строгости, которой нет у самой
+    // проверки, и тест краснел бы на шуме округления.
+    const capTolerance = halfFrameSec(context.fps) + 1e-6
+    const presenterSecByScene = new Map<number, number>()
+    const headTooLong = new Set<number>()
+    for (const shot of repaired) {
+      if (shot.foreground !== "presenter" || shot.sceneOrder === null) continue
+      presenterSecByScene.set(shot.sceneOrder, (presenterSecByScene.get(shot.sceneOrder) ?? 0) + (shot.endSec - shot.startSec))
+    }
+    for (const [sceneOrder, head] of headPresenterByScene(repaired)) {
+      if (head.endSec - head.startSec > context.lipSyncMaxDurationSec + capTolerance) headTooLong.add(sceneOrder)
+    }
+    for (const [sceneOrder, presenterSec] of presenterSecByScene) {
+      if (headTooLong.has(sceneOrder)) continue
+      expect(presenterSec, `${label}: сцена ${sceneOrder} отдала ведущему ${presenterSec.toFixed(2)}с при потолке ${context.lipSyncMaxDurationSec}с`)
+        .toBeLessThanOrEqual(context.lipSyncMaxDurationSec + capTolerance)
+    }
+  }
+}
+
+const SCENE_ITERATIONS = 400
+
+describe("свойства ремонта агрегата сцены (потолок lip-sync на СЦЕНУ)", () => {
+  for (let seed = 1; seed <= SCENE_ITERATIONS; seed += 1) {
+    it(`сценарий сцены #${seed}`, () => {
+      checkPresenterSceneProperties(buildPresenterSceneScenario(seed))
+    })
+  }
+})
+
+describe("насыщенность домена: перебор обязан порождать сцены длиннее потолка", () => {
+  it("нарушение агрегата сцены встречается на заметной доле сценариев", () => {
+    // Без этой проверки любое сужение генератора (например, случайно
+    // укоротившиеся сцены) молча превратило бы 400 сценариев выше в 400
+    // проверок пустоты — ровно тот класс, на котором эта работа уже горела.
+    let withViolation = 0
+    let scenesOverCap = 0
+    let scenesTotal = 0
+    for (let seed = 1; seed <= SCENE_ITERATIONS; seed += 1) {
+      const scenario = buildPresenterSceneScenario(seed)
+      if (validateShotPlan(scenario.context).some(v => v.code === "presenter_scene_too_long")) withViolation += 1
+      for (const scene of scenario.context.alignedScenes) {
+        scenesTotal += 1
+        if (scene.endSec - scene.startSec > scenario.context.lipSyncMaxDurationSec) scenesOverCap += 1
+      }
+    }
+    expect(withViolation / SCENE_ITERATIONS, `сценариев с нарушением: ${withViolation}/${SCENE_ITERATIONS}`)
+      .toBeGreaterThan(0.5)
+    expect(scenesOverCap / scenesTotal, `сцен длиннее потолка: ${scenesOverCap}/${scenesTotal}`)
+      .toBeGreaterThan(0.5)
+  })
+})

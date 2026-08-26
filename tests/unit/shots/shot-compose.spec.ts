@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { planShotComposition, type ShotSources } from "~~/server/utils/video-tools/shot-compose"
+import { pickNearestBackground, planShotComposition, type ShotSources } from "~~/server/utils/video-tools/shot-compose"
 import type { LipSyncedClipPath } from "~~/server/utils/video-tools/pip-compose"
 
 // В тестах бренд создаётся кастом ОСОЗНАННО: продакшн-код так делать не имеет
@@ -140,5 +140,92 @@ describe("композиция кадра", () => {
       sources: sources({ sceneStartSec: 4.0, backgroundPath: null }), profile: PROFILE, ...CANVAS,
     })
     expect((plan as { offsetSec: number }).offsetSec).toBeGreaterThanOrEqual(0)
+  })
+})
+
+/**
+ * Второй эшелон защиты от замороженного лица (дефект ролика 30).
+ *
+ * План монтажа уже не имеет права поставить ведущего дальше, чем достаёт клип
+ * его сцены (`presenter_scene_too_long`, `edit-plan/validate.ts`). Но клип
+ * приходит от провайдера, и его фактическая длина — не то, что заказали:
+ * у сцены 9 заказали 10.00с, `kwaivgi/kling-lip-sync` вернул 9.90с. Разницу
+ * добивает удержание последнего кадра, и если кадру достался именно
+ * удержанный хвост, показывать надо ФОН, а не застывшее лицо.
+ */
+describe("композиция не морозит лицо: клип короче своего отрезка", () => {
+  // Сцена 9 ролика 30: начало 79.57, клип живой 9.90с.
+  const LIVE_SEC = 9.9
+  const sceneSources = (over: Partial<ShotSources> = {}): ShotSources => ({
+    presenterPath: PRESENTER,
+    sceneStartSec: 79.57,
+    backgroundPath: "/a/shot_7_bg.png",
+    backgroundIsStill: true,
+    presenterLiveSec: LIVE_SEC,
+    ...over,
+  })
+  const sceneShot = (startSec: number, endSec: number, pipEnabled = false) =>
+    ({ order: 7, startSec, endSec, pipEnabled, foreground: "presenter" })
+
+  it("кадр целиком внутри живой части — ведущий как обычно", () => {
+    // 87.67-89.29 -> смещение 8.10, конец 9.72 при живых 9.90.
+    const plan = planShotComposition({
+      shot: sceneShot(87.67, 89.29), sources: sceneSources(), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("presenter_full")
+  })
+
+  it("кадр уезжает в удержанный хвост — на экране фон, а не застывшее лицо", () => {
+    // 89.29-90.93 -> смещение 9.72, конец 11.36 при живых 9.90: почти весь
+    // кадр пришёлся бы на замороженный кадр.
+    const plan = planShotComposition({
+      shot: sceneShot(89.29, 90.93), sources: sceneSources(), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("background_full")
+    expect((plan as { backgroundPath: string }).backgroundPath).toBe("/a/shot_7_bg.png")
+  })
+
+  it("PiP с замёрзшим ведущим тоже схлопывается в фон — окно PiP замерзать не должно", () => {
+    const plan = planShotComposition({
+      shot: sceneShot(89.29, 90.93, true), sources: sceneSources(), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("background_full")
+  })
+
+  it("недобор в доли кадра ведущего не отменяет — иначе квантование модели стирало бы целые кадры", () => {
+    // Заказали 10.00с, модель вернула 9.90с: кадр 88.0-89.6 (конец 10.03)
+    // выходит за живое всего на 0.13с. Отменять из-за этого весь кадр значило
+    // бы терять полторы секунды лица на каждом ролике.
+    const plan = planShotComposition({
+      shot: sceneShot(88.0, 89.6), sources: sceneSources(), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("presenter_full")
+  })
+
+  it("живая длина неизвестна — поведение прежнее, ведущий на месте", () => {
+    const plan = planShotComposition({
+      shot: sceneShot(89.29, 90.93), sources: sceneSources({ presenterLiveSec: null }), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("presenter_full")
+  })
+
+  it("фона нет вовсе — замёрзший ведущий остаётся последним средством, а не чёрный экран", () => {
+    const plan = planShotComposition({
+      shot: sceneShot(89.29, 90.93), sources: sceneSources({ backgroundPath: null }), profile: PROFILE, ...CANVAS,
+    })
+    expect(plan!.kind).toBe("presenter_full")
+  })
+})
+
+describe("ближайший доступный фон", () => {
+  it("берётся ближайший по номеру кадра, при равенстве — предыдущий", () => {
+    const available = new Map([[2, "/a/shot_2_bg.png"], [6, "/a/shot_6_bg.png"]])
+    expect(pickNearestBackground(4, available)).toBe("/a/shot_2_bg.png")
+    expect(pickNearestBackground(5, available)).toBe("/a/shot_6_bg.png")
+    expect(pickNearestBackground(2, available)).toBe("/a/shot_2_bg.png")
+  })
+
+  it("фонов нет вовсе — null, решение принимает вызывающий", () => {
+    expect(pickNearestBackground(4, new Map())).toBeNull()
   })
 })

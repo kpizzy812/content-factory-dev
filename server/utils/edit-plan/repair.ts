@@ -80,7 +80,14 @@
  */
 
 import { snapSecToFrame } from "../voiceover/segment-cut"
-import { halfFrameSec, splitsWord, timelineEndSec, validateShotPlan, wordEdgeToleranceSec } from "./validate"
+import {
+  findPresenterSceneOverflows,
+  halfFrameSec,
+  splitsWord,
+  timelineEndSec,
+  validateShotPlan,
+  wordEdgeToleranceSec,
+} from "./validate"
 import type { PlannedShot, ShotPlan } from "./types"
 import type { ResolvedEditProfile } from "./profile"
 import type { ShotPlanContext, ShotPlanViolation } from "./validate"
@@ -748,6 +755,64 @@ function relieveOversizedPresenters(
   }
 }
 
+/**
+ * Переводит в перебивку кадры с ведущим, до которых клип lip-sync СЦЕНЫ
+ * физически не достаёт (парный ремонт к `presenter_scene_too_long`).
+ *
+ * Границы кадров НЕ трогаются вовсе — меняются только метаданные, поэтому
+ * покрытие таймлайна (Critical 1 финального ревью: сумма кадров равна длине
+ * трека, соседи стыкуются встык) остаётся ровно тем же, каким его оставили
+ * шаги 1a-1c. Это и есть причина чинить агрегат сцены здесь, а не арифметикой
+ * границ: двигать границы ради потолка модели значило бы либо рвать покрытие,
+ * либо перекраивать соседей под чужую проблему.
+ *
+ * Что именно ставится вместо ведущего:
+ *  - `foreground: "none"` — кадр перестаёт быть кадром ведущего;
+ *  - `sceneOrder: null` — то же, что уже делает `splitLongPresenterLine` со
+ *    своими перебивками, и это ОБЯЗАТЕЛЬНО, а не косметика: пост-ремонтный
+ *    цикл раннера возвращает ведущего на кадр, чей фон вынужденно схлопнулся
+ *    в "none" (§10), и признак «кадр ни к какой реплике не привязан» —
+ *    единственное, что этот возврат останавливает по построению;
+ *  - `background: "image"` вместо пустого — иначе кадр нечем рисовать вовсе, и
+ *    он был бы поглощён соседом уже на композиции;
+ *  - `pipEnabled: false` — наложение ведущего на кадр без ведущего.
+ *
+ * ПЕРВЫЙ кадр ведущего в сцене не трогается никогда — см. докстринг кода
+ * нарушения в `validate.ts`. Отсюда же следует, что ремонт не может стереть
+ * ведущего из сцены целиком, а значит и из ролика: хотя бы один кадр каждой
+ * затронутой сцены остаётся за ведущим.
+ */
+function foldPresenterShotsOutsideLipSyncWindow(
+  shots: PlannedShot[],
+  context: ShotPlanContext,
+  actions: ShotPlanRepairAction[],
+): void {
+  const overflows = findPresenterSceneOverflows(
+    shots,
+    context.alignedScenes,
+    context.lipSyncMaxDurationSec,
+    context.fps,
+  )
+  if (overflows.length === 0) return
+
+  for (const overflow of overflows) {
+    for (const shot of overflow.offending) {
+      const previousBackground = shot.background
+      shot.foreground = "none"
+      shot.sceneOrder = null
+      shot.pipEnabled = false
+      if (shot.background === "none") shot.background = "image"
+      actions.push({
+        shotOrder: shot.order,
+        finalShotOrder: null,
+        message: `Кадр ${shot.order} переведён из ведущего в перебивку (фон "${previousBackground}" → "${shot.background}") — `
+          + `клип lip-sync сцены ${overflow.sceneOrder} покрывает её только до ${overflow.coverageEndSec.toFixed(2)}с, `
+          + `дальше кадр показал бы застывшее лицо под живую речь`,
+      })
+    }
+  }
+}
+
 export interface ShotPlanRepairResult {
   plan: ShotPlan
   /** Нарушения ДО ремонта — что было не так и заставило чинить план. */
@@ -885,6 +950,14 @@ export function repairShotPlan(context: ShotPlanContext): ShotPlanRepairResult {
     startSec: seg.startSec,
     endSec: seg.endSec,
   }))
+
+  // 1d. Потолок lip-sync на СЦЕНУ (дефект «липсинк застыл в конце», ролик 30).
+  //     Стоит ПЕРЕД шагом 2 намеренно: перевод кадра в перебивку ставит фон
+  //     "image" там, где его не было, и шаг 2 обязан увидеть уже итоговый
+  //     передний план — иначе сброшенная ссылка на фон у бывшего
+  //     presenter-кадра ушла бы в "none" (правило шага 2 для ведущего) и кадр
+  //     остался бы нерисуемым.
+  foldPresenterShotsOutsideLipSyncWindow(materialized, context, changes)
 
   // 2. Источники, которые нельзя оставить: несуществующий фон (библиотека БЕЗ
   //    известного клипа или app_screen без ссылки — Minor 5 ревью) и

@@ -411,20 +411,24 @@ describe("детерминированный ремонт плана кадро�
     expect(remaining.map(v => v.code)).toContain("broll_ratio")
   })
 
-  it("не может разгрузить presenter-кадр, если сосед тоже presenter — суммарная длина шире двух потолков (документированное ограничение)", () => {
+  it("разгрузить границей нельзя, если сосед тоже presenter — избыток уходит в перебивку, а границы стоят на месте", () => {
     // Оба кадра presenter, суммарно должны покрыть 10 с при потолке 3 с на
     // кадр — 2 кадра под потолком дают максимум 6 с, а нужно 10. Раздвинуть
     // общую границу некуда: любой сдвиг переносит избыток на ДРУГОЙ
-    // presenter-кадр, а не устраняет его. Дробление реплики на достаточное
-    // число кадров — работа `splitLongPresenterLine` (Task 4, §5.3),
-    // вызываемая ДО этой функции; сама по себе арифметика границ здесь
-    // бессильна, и `remaining` честно сообщает об этом.
+    // presenter-кадр, а не устраняет его. АРИФМЕТИКА ГРАНИЦ здесь по-прежнему
+    // бессильна — это и проверяется положением границ ниже.
+    //
+    // Правка 26.08.2026: раньше на этом заканчивалось, и `remaining` честно
+    // сообщал `presenter_too_long` — то есть план уходил на платный повторный
+    // запрос. Теперь у ремонта есть второй инструмент: кадр, которому клип
+    // lip-sync СЦЕНЫ физически не покрывает время (сцена кончается в 3.0, а
+    // кадр идёт до 10.0), переводится в перебивку. Это не сдвиг границы и не
+    // компромисс по геометрии — меняются только метаданные кадра.
     const { remaining, plan } = repairShotPlan(context([
       { ...base, order: 0, startSec: 0, endSec: 3, foreground: "presenter" },
       { ...base, order: 1, startSec: 3, endSec: 3.1, foreground: "presenter" },
     ], { trackDurationSec: 10, lipSyncMaxDurationSec: 3 }))
 
-    expect(remaining.map(v => v.code)).toContain("presenter_too_long")
     // Minor НН-9 ре-ревью раунда 3: прежняя версия теста проверяла только
     // код в `remaining` и выживала при удалении самой проверки «оба соседа
     // presenter» внутри `relieveOversizedPresenters` (её отсутствие давало
@@ -434,6 +438,26 @@ describe("детерминированный ремонт плана кадро�
     expect(plan.shots.length).toBe(2)
     expect(plan.shots[0]!.endSec).toBeCloseTo(3, 6)
     expect(plan.shots[1]!.endSec).toBeCloseTo(10, 6)
+
+    // Ведущий остался там, куда достаёт его клип, и только там.
+    expect(plan.shots[0]!.foreground).toBe("presenter")
+    expect(plan.shots[1]!.foreground).toBe("none")
+    expect(plan.shots[1]!.sceneOrder).toBeNull()
+    expect(remaining.map(v => v.code)).not.toContain("presenter_too_long")
+    expect(remaining.map(v => v.code)).not.toContain("presenter_scene_too_long")
+  })
+
+  it("ПЕРВЫЙ кадр ведущего в сцене не переводится в перебивку никогда — его длина это presenter_too_long", () => {
+    // Единственный кадр ведущего на всю сцену и длиннее потолка: ремонт не
+    // имеет права стереть ведущего из ролика, «починив» тем самым чужое
+    // нарушение. Дробление такой реплики — работа `splitLongPresenterLine`
+    // (§5.3), и её отсутствие обязано быть НАЗВАНО, а не замаскировано.
+    const { remaining, plan } = repairShotPlan(context([
+      { ...base, order: 0, startSec: 0, endSec: 10, foreground: "presenter" },
+    ], { trackDurationSec: 10, lipSyncMaxDurationSec: 3 }))
+
+    expect(plan.shots[0]!.foreground).toBe("presenter")
+    expect(remaining.map(v => v.code)).toContain("presenter_too_long")
   })
 
   it("разгружает presenter-кадр, который сам оказался на краю в результате слияния (Critical Н-1, найдено тестом-свойством вне committed диапазона сидов)", () => {
@@ -1045,5 +1069,129 @@ describe("фикс-раунд 3: абсолютный пол, спасение �
 
     expect(remaining.map(v => v.code)).toContain("word_split")
     expect(changes.some(c => c.message.includes("безопасной точки в пределах окна не нашлось"))).toBe(true)
+  })
+})
+
+/**
+ * Агрегат сцены против потолка lip-sync — на настоящих числах ролика 30.
+ *
+ * Сцена 9 занимает в треке 79.57-90.93 (11.36с), клип lip-sync из снапшота шага
+ * 9.90с, потолок `kwaivgi/kling-lip-sync` 10 секунд. Разницу добивало удержание
+ * последнего кадра — владелец увидел застывшее лицо под живую речь.
+ */
+const SCENE9_BOUNDS = [79.57, 81.19, 82.81, 84.43, 86.05, 87.67, 89.29, 90.93]
+
+/**
+ * Слова разложены так, чтобы КАЖДАЯ граница кадра попадала в середину
+ * межсловной щели шириной 0.2с: иначе притяжка границ (шаг 1a ремонта) уводила
+ * бы их к ближайшей щели, и тест про «границы не двигаются» проверял бы
+ * раскладку слов, а не ремонт агрегата.
+ */
+const SCENE9 = { order: 9, startSec: 79.57, endSec: 90.93, words: SCENE9_BOUNDS.slice(0, -1).map((startSec, index) => ({
+  text: `w${index}`,
+  startSec: startSec + 0.1,
+  endSec: SCENE9_BOUNDS[index + 1]! - 0.1,
+  matched: true,
+})) }
+
+/**
+ * Кадры сцены 9 по 1.62с плюс ведущая к ним перебивка [0, 79.57] за сцены 1-8:
+ * без неё ремонт законно растянул бы первый кадр до нуля трека (кадры обязаны
+ * покрывать трек целиком), и тест мерил бы совсем другое.
+ */
+function scene9Plan(): PlannedShot[] {
+  const head: PlannedShot = {
+    order: 0, startSec: 0, endSec: 79.57, sceneOrder: null,
+    foreground: "none", background: "image",
+    backgroundClipId: null, appReferenceId: null, idea: "фон сцен 1-8", pipEnabled: false,
+  }
+  return [head, ...SCENE9_BOUNDS.slice(0, -1).map((startSec, index) => ({
+    order: index + 1,
+    startSec,
+    endSec: SCENE9_BOUNDS[index + 1]!,
+    sceneOrder: 9,
+    foreground: "presenter",
+    background: "none",
+    backgroundClipId: null,
+    appReferenceId: null,
+    idea: null,
+    pipEnabled: true,
+  })) as PlannedShot[]]
+}
+
+/** Половина кадра сетки 30 fps — весь допуск, который притяжка к кадру может добавить. */
+const HALF_FRAME = 1 / 60
+
+function scene9Context(shots: PlannedShot[]) {
+  return context(shots, {
+    trackDurationSec: 90.93,
+    alignedScenes: [SCENE9],
+    profile: { ...DEFAULT_EDIT_PROFILE, brollRatio: 0, shotChangeSec: 1.6 },
+    lipSyncMaxDurationSec: 10,
+  })
+}
+
+describe("ремонт агрегата сцены: ведущий только там, куда достаёт его клип", () => {
+  it("сцена 9 ролика 30 чинится сама — хвост уходит в перебивку, покрытие цело", () => {
+    const { before, remaining, plan, changes } = repairShotPlan(scene9Context(scene9Plan()))
+
+    expect(before.map(v => v.code)).toContain("presenter_scene_too_long")
+    expect(remaining.map(v => v.code)).not.toContain("presenter_scene_too_long")
+
+    const presenters = plan.shots.filter(s => s.foreground === "presenter")
+    expect(presenters.length).toBeGreaterThanOrEqual(1)
+    // Клип покрывает сцену до 79.57 + 10 = 89.57.
+    for (const shot of presenters) expect(shot.endSec).toBeLessThanOrEqual(89.57 + 1e-6)
+    // Суммарное время ведущего в сцене — то, о чём говорит потолок модели.
+    const presenterSec = presenters.reduce((sum, s) => sum + (s.endSec - s.startSec), 0)
+    expect(presenterSec).toBeLessThanOrEqual(10 + 1e-6)
+
+    // Покрытие трека цело: соседи встык, первый и последний на границах.
+    expect(plan.shots[0]!.startSec).toBeCloseTo(0, 6)
+    expect(Math.abs(plan.shots.at(-1)!.endSec - 90.93)).toBeLessThanOrEqual(1 / 30 + 1e-9)
+    for (let i = 1; i < plan.shots.length; i += 1) {
+      expect(plan.shots[i]!.startSec).toBeCloseTo(plan.shots[i - 1]!.endSec, 9)
+    }
+
+    // Правка названа, а не сделана молча (§10).
+    expect(changes.some(c => /перевед[её]н из ведущего в перебивку/.test(c.message))).toBe(true)
+  })
+
+  it("переведённый кадр получает рисуемый фон, теряет привязку к реплике и PiP", () => {
+    const { plan } = repairShotPlan(scene9Context(scene9Plan()))
+    const folded = plan.shots.filter(s => s.foreground !== "presenter")
+
+    expect(folded.length).toBeGreaterThan(0)
+    for (const shot of folded) {
+      // Пустой фон у кадра без ведущего — чёрный экран: рисовать нечем.
+      expect(shot.background).not.toBe("none")
+      // sceneOrder: null — единственное, что по построению не даёт раннеру
+      // вернуть ведущего на этот кадр при вынужденной деградации фона (§10).
+      expect(shot.sceneOrder).toBeNull()
+      // Наложение ведущего на кадр без ведущего.
+      expect(shot.pipEnabled).toBe(false)
+    }
+  })
+
+  it("границы кадров ремонт агрегата не двигает — только притяжка к сетке кадров", () => {
+    const source = scene9Plan()
+    const { plan } = repairShotPlan(scene9Context(source))
+
+    expect(plan.shots.length).toBe(source.length)
+    for (let index = 0; index < source.length; index += 1) {
+      expect(Math.abs(plan.shots[index]!.startSec - source[index]!.startSec),
+        `кадр ${index}: начало уехало с ${source[index]!.startSec}`).toBeLessThanOrEqual(HALF_FRAME + 1e-9)
+      // У последнего кадра конец зажат концом таймлайна (floor до кадра сетки),
+      // поэтому допуск на кадр, а не на полкадра.
+      expect(Math.abs(plan.shots[index]!.endSec - source[index]!.endSec),
+        `кадр ${index}: конец уехал с ${source[index]!.endSec}`).toBeLessThanOrEqual(1 / 30 + 1e-9)
+    }
+  })
+
+  it("повторный ремонт своего же результата ничего не меняет — неподвижная точка", () => {
+    const first = repairShotPlan(scene9Context(scene9Plan()))
+    const second = repairShotPlan(scene9Context(first.plan.shots.map(s => ({ ...s }))))
+    expect(second.plan.shots).toEqual(first.plan.shots)
+    expect(second.changes.filter(c => /в перебивку/.test(c.message))).toEqual([])
   })
 })

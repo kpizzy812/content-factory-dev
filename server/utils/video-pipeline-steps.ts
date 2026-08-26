@@ -69,7 +69,7 @@ import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
 import { planAlignedClipTargets, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
-import { planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
+import { pickNearestBackground, planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
 import { planShotVariationSlices, shotBackgroundIdentity } from "./video-tools/shot-variation"
 import { renderShotComposition } from "./video-tools/shot-compose-runner"
 import { buildTrackSubtitleSegments } from "./edit-plan/shot-subtitles"
@@ -3836,6 +3836,12 @@ export function shotBackgroundIsStill(asset: { contentType: string | null, fileP
  * её нигде в проекте не измеряют, кроме как здесь. Возвращает карту
  * `sceneOrder → путь`, из которой берётся `ShotSources.presenterPath`.
  *
+ * Вместе с путём возвращается ЖИВАЯ длина клипа (`liveSec`): удержание
+ * последнего кадра добивает файл до длины сцены, но живого материала там ровно
+ * столько, сколько отдал провайдер, и композиция обязана это знать — иначе
+ * кадр, попавший в удержанный хвост, покажет застывшее лицо под живую речь
+ * (дефект ролика 30).
+ *
  * Возвращаемый путь для ПРИВЕДЁННОГО (обрезанного/удержанного) клипа
  * заново брендируется `markLipSynced` — это не блуждающий каст: источник
  * уже был `LipSyncedClipPath` (гарантия §6.3), а обрезка/удержание кадра
@@ -3846,13 +3852,13 @@ async function fitPresenterClipsToScenes(
   videoId: number,
   step: { id: number },
   alignedScenes: readonly AlignedScene[],
-): Promise<Map<number, NonNullable<ShotSources["presenterPath"]>>> {
+): Promise<Map<number, FittedPresenterClip>> {
   const lipSyncStep = await ensureStep(videoId, "lip_sync_generation", STEP_ORDER.indexOf("lip_sync_generation"))
   const sceneRecords = readPreviousSceneRecords(lipSyncStep.outputSnapshot)
   const alignedSceneByOrder = new Map(alignedScenes.map(s => [s.order, s]))
   const assetsDir = getAssetsDir(videoId)
 
-  const presenterPathBySceneOrder = new Map<number, NonNullable<ShotSources["presenterPath"]>>()
+  const presenterPathBySceneOrder = new Map<number, FittedPresenterClip>()
 
   for (const record of sceneRecords.values()) {
     if (!record.outputPath) continue
@@ -3867,14 +3873,20 @@ async function fitPresenterClipsToScenes(
     if (!alignedScene) {
       // Запись lip-sync без границ в ТЕКУЩЕМ выравнивании (рассинхрон
       // снапшотов) — используем клип как есть, приводить не к чему.
-      presenterPathBySceneOrder.set(record.sceneOrder, record.outputPath)
+      // Границ сцены нет — приводить не к чему, а значит и удержанному хвосту
+      // взяться неоткуда: живого материала ровно столько, сколько в файле.
+      presenterPathBySceneOrder.set(record.sceneOrder, { path: record.outputPath, liveSec: measuredSec })
       continue
     }
 
     const targetSec = snapSecToFrame(Math.max(0, alignedScene.endSec - alignedScene.startSec), TIMELINE_FPS)
     const diffSec = measuredSec - targetSec
+    // Живое — это то, что реально снято: обрезка ничего не добавляет, а
+    // удержание последнего кадра добавляет замороженный хвост, который в
+    // ЖИВОЕ не входит (правка 26.08.2026, дефект «липсинк застыл в конце»).
+    const liveSec = Math.min(measuredSec, targetSec)
     if (targetSec <= 0 || Math.abs(diffSec) <= 1 / TIMELINE_FPS) {
-      presenterPathBySceneOrder.set(record.sceneOrder, record.outputPath)
+      presenterPathBySceneOrder.set(record.sceneOrder, { path: record.outputPath, liveSec })
       continue
     }
 
@@ -3897,7 +3909,7 @@ async function fitPresenterClipsToScenes(
     if (await defaultShotFileExists(fittedPath)) {
       const fittedMeasuredSec = await probeMediaDuration(fittedPath)
       if (fittedMeasuredSec !== null && Math.abs(fittedMeasuredSec - targetSec) <= 1 / TIMELINE_FPS) {
-        presenterPathBySceneOrder.set(record.sceneOrder, markLipSynced(fittedPath))
+        presenterPathBySceneOrder.set(record.sceneOrder, { path: markLipSynced(fittedPath), liveSec })
         continue
       }
       await appendStepLog(
@@ -3920,7 +3932,7 @@ async function fitPresenterClipsToScenes(
         `Кадровый монтаж: клип сцены ${record.sceneOrder} удлинён удержанием кадра до ${targetSec.toFixed(3)}с (было ${measuredSec.toFixed(3)}с)`,
       )
     }
-    presenterPathBySceneOrder.set(record.sceneOrder, markLipSynced(fittedPath))
+    presenterPathBySceneOrder.set(record.sceneOrder, { path: markLipSynced(fittedPath), liveSec })
   }
 
   return presenterPathBySceneOrder
@@ -3938,6 +3950,13 @@ async function fitPresenterClipsToScenes(
  * отказ (источник вдвое короче заказа) она видит с огромным перевесом.
  */
 const SHOT_MEASURED_TOLERANCE_SEC = 2 / TIMELINE_FPS
+
+/** Клип сцены, приведённый к её длине в треке, и сколько в нём ЖИВОГО материала. */
+interface FittedPresenterClip {
+  path: NonNullable<ShotSources["presenterPath"]>
+  /** Секунды от начала сцены, где клип ещё не удержанный последний кадр. */
+  liveSec: number
+}
 
 /** Один готовый кадр монтажа — вход кадрового таймлайна сборки (Task 6). */
 export interface ComposedShot {
@@ -4066,20 +4085,30 @@ export async function composeVideoShots(
     }
 
     const bgAsset = backgroundByShotOrder.get(shot.order) ?? null
-    const presenterPath = shot.sceneOrder !== null ? presenterPathBySceneOrder.get(shot.sceneOrder) ?? null : null
+    const presenterClip = shot.sceneOrder !== null ? presenterPathBySceneOrder.get(shot.sceneOrder) ?? null : null
     const alignedScene = shot.sceneOrder !== null
       ? alignedScenes.find(s => s.order === shot.sceneOrder)
       : undefined
 
+    // Кадру, у которого ведущего показать нельзя (клип не достаёт), а своего
+    // фона нет вовсе, отдаётся БЛИЖАЙШИЙ доступный фон: у кадров ведущего фон
+    // обычно и не планируется (`background: "none"`), а чёрный экран хуже
+    // чужой картинки. На кадры со своим фоном это не влияет никак.
+    const fallbackBackground = bgAsset === null && presenterClip !== null
+      ? pickNearestBackground(shot.order, backgroundByShotOrder)
+      : null
+    const effectiveBg = bgAsset ?? fallbackBackground
+
     const sources: ShotSources = {
-      presenterPath,
+      presenterPath: presenterClip?.path ?? null,
+      presenterLiveSec: presenterClip?.liveSec ?? null,
       // Смещение подотрезка внутри сцены считается от начала СЦЕНЫ в треке —
       // это `alignedScene.startSec`, а не плановый `VideoShot.startSec`
       // самого первого кадра сцены (они совпадают в штатном случае, но
       // выравнивание — источник истины по треку).
       sceneStartSec: alignedScene?.startSec ?? shot.startSec,
-      backgroundPath: bgAsset?.filePath ?? null,
-      backgroundIsStill: bgAsset ? shotBackgroundIsStill(bgAsset) : true,
+      backgroundPath: effectiveBg?.filePath ?? null,
+      backgroundIsStill: effectiveBg ? shotBackgroundIsStill(effectiveBg) : true,
     }
 
     const composition = planShotComposition({

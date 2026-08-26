@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import { runEditPlanStep } from "~~/server/utils/edit-plan/runner"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
 import { validateShotPlan } from "~~/server/utils/edit-plan/validate"
+import { buildShotGrid } from "~~/server/utils/edit-plan/grid"
 import type { EditPlanModelShot, EditPlanStepDeps, EditPlanStepInput } from "~~/server/utils/edit-plan/runner"
 import type { PlannedShotWithCost } from "~~/server/utils/edit-plan/types"
 
@@ -281,7 +282,16 @@ describe("шаг плана монтажа", () => {
     await expect(runEditPlanStep(unfixable, dependencies)).rejects.toThrow(/план монтажа/i)
   })
 
-  it("дробит presenter-сцену длиннее потолка модели", async () => {
+  it("сцену длиннее потолка модели ведущий занимает только там, куда достаёт его клип", async () => {
+    // Правка 26.08.2026 (дефект «липсинк застыл в конце», ролик 30). Прежняя
+    // редакция этого теста требовала «не меньше двух presenter-кадров» —
+    // дробление реплики по §5.3 действительно даёт две части. Но lip-sync
+    // производится НА СЦЕНУ одним вызовом, и `planSegmentCut` режет из трека
+    // кусок [начало сцены, +потолок]: второй части живого материала не
+    // достаётся вовсе, и на экране она была замороженным лицом под живую речь.
+    // Утверждение переписано на то, что действительно обязано держаться:
+    // ведущий остаётся там, куда достаёт клип, остальное — перебивка, а
+    // покрытие трека не рвётся.
     const long = [{ order: 1, startSec: 0, endSec: 14, words: [
       { text: "а", startSec: 0, endSec: 6, matched: true },
       { text: "б", startSec: 7, endSec: 14, matched: true },
@@ -292,9 +302,6 @@ describe("шаг плана монтажа", () => {
         alignedScenes: long,
         trackDurationSec: 14,
         presenterSceneOrders: [1],
-        // Шаг смены картинки шире потолка lip-sync: только тогда дробление
-        // presenter-реплики видно в самой сетке, а не тонет в более частой
-        // нарезке по shotChangeSec.
         profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 12 },
       },
       deps({
@@ -304,18 +311,52 @@ describe("шаг плана монтажа", () => {
       }),
     )
 
-    for (const shot of result.shots.filter(s => s.foreground === "presenter")) {
-      expect(shot.endSec - shot.startSec).toBeLessThanOrEqual(10 + 1e-6)
-    }
-    expect(result.shots.filter(s => s.foreground === "presenter").length).toBeGreaterThanOrEqual(2)
+    const presenters = result.shots.filter(s => s.foreground === "presenter")
+    expect(presenters.length).toBeGreaterThanOrEqual(1)
+    // Ни один кадр ведущего не заходит за конец клипа сцены (0 + 10).
+    for (const shot of presenters) expect(shot.endSec).toBeLessThanOrEqual(10 + 1e-6)
+    // Суммарное время ведущего в сцене — то, о чём говорит потолок модели.
+    const presenterSec = presenters.reduce((sum, s) => sum + (s.endSec - s.startSec), 0)
+    expect(presenterSec).toBeLessThanOrEqual(10 + 1e-6)
+    // Хвост сцены не потерян: он покрыт перебивкой, а не выброшен.
+    expect(result.shots.some(s => s.foreground !== "presenter" && s.endSec > 10)).toBe(true)
+    expect(result.shots.at(-1)!.endSec).toBeCloseTo(14, 6)
   })
 
-  it("перебивка между частями длинной реплики получает sceneOrder: null", async () => {
-    // Тот же вход, что у теста branch 2 в split-line.spec.ts: пауза
-    // [3.0, 3.2] недостаточно длинная (0.2с) для "намеренного" реза (branch 1
-    // просит >= 0.35с), но проходит требование 10 (>= 0.1с) — splitLongPresenterLine
-    // ставит между частями перебивку. Она не привязана ни к какой реплике,
-    // grid.ts обязан отдать ей sceneOrder: null, а не sceneOrder сцены.
+  it("дробление длинной реплики §5.3 живёт в сетке — перебивка между частями не привязана к реплике", async () => {
+    // Утверждение снято на уровне СЕТКИ (`buildShotGrid`), а не по итогу шага:
+    // до правки 26.08.2026 план этой сцены не имел ни одного блокирующего
+    // нарушения, ремонт не запускался вовсе, и перебивка доезжала до результата
+    // как отдельный кадр. Теперь агрегат сцены — блокирующее нарушение, ремонт
+    // запускается, и его слияние коротких кадров (порог 0.4 × shotChangeSec =
+    // 8с при shotChangeSec 20) законно поглощает двухсотмиллисекундную
+    // перебивку. Проверять `sceneOrder` перебивки по итогу шага стало
+    // проверять поведение СЛИЯНИЯ, а не сетки.
+    const scene = { order: 1, startSec: 0, endSec: 13, words: [
+      { text: "а", startSec: 0, endSec: 0.008, matched: true },
+      { text: "б", startSec: 0.3, endSec: 3.0, matched: true },
+      { text: "в", startSec: 3.2, endSec: 13.0, matched: true },
+    ] }
+
+    const grid = buildShotGrid({
+      alignedScenes: [scene],
+      presenterSceneOrders: new Set([1]),
+      shotChangeSec: 20,
+      lipSyncMaxDurationSec: 10,
+      fps: 30,
+      brollAllowed: true,
+    })
+
+    const interlude = grid.cells.find(c => Math.abs(c.startSec - 3.0) < 0.05 && Math.abs(c.endSec - 3.2) < 0.05)
+    expect(interlude).toBeDefined()
+    expect(interlude!.sceneOrder).toBeNull()
+  })
+
+  it("время перебивки не приписывается реплике и по итогу шага", async () => {
+    // Вторая половина того же утверждения, но по итогу ШАГА: сам кадр-перебивка
+    // может быть поглощён слиянием коротких кадров, а вот его время не имеет
+    // права оказаться приписанным реплике — кадр, покрывающий 3.0-3.2, обязан
+    // остаться без привязки к сцене и без ведущего.
     const scene = [{ order: 1, startSec: 0, endSec: 13, words: [
       { text: "а", startSec: 0, endSec: 0.008, matched: true },
       { text: "б", startSec: 0.3, endSec: 3.0, matched: true },
@@ -346,9 +387,10 @@ describe("шаг плана монтажа", () => {
       dependencies,
     )
 
-    const interlude = result.shots.find(s => Math.abs(s.startSec - 3.0) < 0.05 && Math.abs(s.endSec - 3.2) < 0.05)
-    expect(interlude).toBeDefined()
-    expect(interlude!.sceneOrder).toBeNull()
+    const covering = result.shots.find(s => s.startSec <= 3.0 + 1e-6 && s.endSec >= 3.2 - 1e-6)
+    expect(covering).toBeDefined()
+    expect(covering!.sceneOrder).toBeNull()
+    expect(covering!.foreground).not.toBe("presenter")
   })
 
   it("сохраняет кадры один раз за прогон", async () => {
@@ -734,6 +776,43 @@ describe("шаг плана монтажа: форсированный веду�
       expect(shot.degradeReason).toMatch(/реплик/i)
     }
     expect(blockingViolations(INTERLUDE_INPUT, result.shots)).toEqual([])
+  })
+
+  // Сцена ДЛИННЕЕ потолка lip-sync, нарезанная на короткие кадры: каждый кадр
+  // по отдельности потолок проходит, `sceneOrder` у всех проставлен, то есть
+  // прежняя пара условий `holdsPresenterInvariants` пропускала ведущего на
+  // ВЕСЬ хвост сцены — включая ту его часть, куда клип lip-sync физически не
+  // достаёт. Ровно тот же класс, что и Important 1 финального ревью, только
+  // третьим условием.
+  const LONG_SCENE_INPUT: EditPlanStepInput = {
+    ...INPUT,
+    profile: { ...DEFAULT_EDIT_PROFILE, shotChangeSec: 3 },
+    presenterSceneOrders: [],
+    trackDurationSec: 14,
+    alignedScenes: [{ order: 1, startSec: 0, endSec: 14, words: Array.from({ length: 14 }, (_, index) => ({
+      text: `слово${index}`, startSec: index, endSec: index + 0.8, matched: true,
+    })) }],
+    imageGenerationAllowed: false,
+  }
+
+  it("хвост сцены длиннее потолка lip-sync ведущему не отдаётся — клип туда не достаёт", async () => {
+    const result = await runEditPlanStep(LONG_SCENE_INPUT, deps())
+
+    // Вход обязан оставаться тем, ради чего написан: сцена длиннее потолка,
+    // а кадры внутри неё — короче.
+    expect(result.shots.length).toBeGreaterThan(2)
+    expect(result.shots.at(-1)!.endSec).toBeGreaterThan(LONG_SCENE_INPUT.lipSyncMaxDurationSec)
+    for (const shot of result.shots) {
+      expect(shot.endSec - shot.startSec).toBeLessThanOrEqual(LONG_SCENE_INPUT.lipSyncMaxDurationSec)
+    }
+    // Ни один кадр за концом клипа сцены (0 + 10) не стал кадром ведущего.
+    for (const shot of result.shots) {
+      if (shot.endSec > LONG_SCENE_INPUT.lipSyncMaxDurationSec + 1e-6) {
+        expect(shot.foreground, `кадр ${shot.order} (${shot.startSec}-${shot.endSec})`).not.toBe("presenter")
+      }
+    }
+    // Итоговый план — тот, что уедет в БД, — обязан проходить ту же валидацию.
+    expect(blockingViolations(LONG_SCENE_INPUT, result.shots)).toEqual([])
   })
 
   it("кадр внутри реплики и в пределах потолка ведущему по-прежнему отдаётся (§10 не отменён)", async () => {

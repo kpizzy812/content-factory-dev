@@ -38,6 +38,22 @@ export type ViolationCode
     | "overlap"
     | "word_split"
     | "presenter_too_long"
+    /**
+     * Агрегат СЦЕНЫ против потолка lip-sync (дефект «липсинк застыл в конце»,
+     * ролик 30, 26.08.2026). `presenter_too_long` ограничивает ОДИН кадр, но
+     * lip-sync производится НА СЦЕНУ: `planSegmentCut` режет из трека кусок
+     * `[scene.startSec, scene.startSec + потолок]`, и дальше этого момента у
+     * клипа живого материала нет вовсе. Сцена 9 ролика 30 занимала 11.36с,
+     * каждый из семи её кадров был короче потолка и валидацию проходил, а
+     * последние 1.46с показывали замороженное лицо под живую речь.
+     *
+     * Обвиняется НЕ первый кадр ведущего в сцене: у него живой материал есть
+     * по построению, а если он один длиннее потолка — это `presenter_too_long`
+     * и дробление реплики (§5.3), у которого свой владелец. Так ремонт чинит
+     * ровно то, что валидация обвиняет, и ни на один вход не приходится два
+     * кода об одной причине.
+     */
+    | "presenter_scene_too_long"
     | "unknown_background"
     | "broll_ratio"
     | "generative_video_too_short"
@@ -156,6 +172,90 @@ function timelineEndSec(trackDurationSec: number, fps: number): number {
  */
 function wordEdgeToleranceSec(fps: number): number {
   return halfFrameSec(fps) + 0.003
+}
+
+/** Кадр глазами проверки окна lip-sync — только время, сцена и передний план. */
+export interface PresenterWindowShot {
+  order: number
+  startSec: number
+  endSec: number
+  sceneOrder: number | null
+  foreground: string
+}
+
+/** Сцена, у которой ведущий заявлен дальше, чем достаёт её клип lip-sync. */
+export interface PresenterSceneOverflow<T extends PresenterWindowShot> {
+  sceneOrder: number
+  /** Момент, после которого клип ведущей этой сцены физически пуст. */
+  coverageEndSec: number
+  /** Сколько секунд сцены план отдал ведущему — то, что владелец назвал суммой. */
+  presenterSec: number
+  /** Кадры, которым живого материала не хватает; первый кадр сцены сюда не попадает. */
+  offending: T[]
+}
+
+/**
+ * Сцены, где план заявил ведущего дальше конца его клипа.
+ *
+ * ОДИН источник истины для валидации и ремонта — тем же приёмом и по той же
+ * причине, что `timelineEndSec`/`splitsWord`: расхождение между «что обвиняем»
+ * и «что чиним» уже однажды породило Critical 2 этой ветки.
+ *
+ * Окно берётся ОТ НАЧАЛА СЦЕНЫ, потому что именно так его режет
+ * `planSegmentCut` (`voiceover/segment-cut.ts`): при сцене длиннее потолка
+ * `endSec = floorToFrame(startSec + maxDurationSec)`. Клип, приведённый затем к
+ * длине сцены (`fitPresenterClipsToScenes`), за этой границей содержит только
+ * удержанный последний кадр.
+ *
+ * Сцены нет в выравнивании — окна нет: это ровно та ветка, где
+ * `fitPresenterClipsToScenes` использует клип как есть, приводить его не к
+ * чему. Потолок не положительное конечное число — считать окно нечем.
+ */
+export function findPresenterSceneOverflows<T extends PresenterWindowShot>(
+  shots: readonly T[],
+  alignedScenes: readonly AlignedScene[],
+  lipSyncMaxDurationSec: number,
+  fps: number,
+): PresenterSceneOverflow<T>[] {
+  if (!Number.isFinite(lipSyncMaxDurationSec) || lipSyncMaxDurationSec <= 0) return []
+
+  const eps = halfFrameSec(fps)
+  // Дубли `order` у сцен — задокументированная реальность проекта
+  // (`transcription/align.ts`): берём САМУЮ РАННЮЮ, потому что кусок трека под
+  // lip-sync режется от начала сцены, и раннее начало даёт консервативное окно.
+  const sceneByOrder = new Map<number, AlignedScene>()
+  for (const scene of alignedScenes) {
+    if (!Number.isFinite(scene.startSec) || !Number.isFinite(scene.endSec)) continue
+    const known = sceneByOrder.get(scene.order)
+    if (!known || scene.startSec < known.startSec) sceneByOrder.set(scene.order, scene)
+  }
+
+  const byScene = new Map<number, T[]>()
+  for (const shot of shots) {
+    if (shot.foreground !== "presenter" || shot.sceneOrder === null) continue
+    if (!sceneByOrder.has(shot.sceneOrder)) continue
+    if (!Number.isFinite(shot.startSec) || !Number.isFinite(shot.endSec)) continue
+    const list = byScene.get(shot.sceneOrder)
+    if (list) list.push(shot)
+    else byScene.set(shot.sceneOrder, [shot])
+  }
+
+  const overflows: PresenterSceneOverflow<T>[] = []
+  for (const [sceneOrder, list] of byScene) {
+    const scene = sceneByOrder.get(sceneOrder)!
+    list.sort((a, b) => a.startSec - b.startSec)
+    const coverageEndSec = Math.min(scene.endSec, scene.startSec + lipSyncMaxDurationSec)
+    // `slice(1)` — первый кадр сцены неприкосновенен, см. докстринг кода
+    // нарушения: у него живой материал есть, а его собственная длина — забота
+    // `presenter_too_long`.
+    const offending = list.slice(1).filter(shot => shot.endSec > coverageEndSec + eps)
+    if (offending.length === 0) continue
+    const presenterSec = list.reduce((sum, shot) => sum + Math.max(0, shot.endSec - shot.startSec), 0)
+    overflows.push({ sceneOrder, coverageEndSec, presenterSec, offending })
+  }
+
+  overflows.sort((a, b) => a.sceneOrder - b.sceneOrder)
+  return overflows
 }
 
 export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
@@ -293,6 +393,19 @@ export function validateShotPlan(input: ShotPlanContext): ShotPlanViolation[] {
 
     if (shot.foreground !== "presenter") brollSeconds += duration
     cursor = Math.max(cursor, shot.endSec)
+  }
+
+  // Потолок lip-sync на СЦЕНУ. Проверка отдельная от цикла по кадрам: она про
+  // агрегат, а не про кадр, и её нельзя посчитать, не увидев всю сцену целиком.
+  for (const overflow of findPresenterSceneOverflows(shots, input.alignedScenes, input.lipSyncMaxDurationSec, input.fps)) {
+    const orders = overflow.offending.map(shot => shot.order).join(", ")
+    violations.push({
+      code: "presenter_scene_too_long",
+      shotOrder: null,
+      message: `Сцена ${overflow.sceneOrder}: кадры с ведущим занимают ${overflow.presenterSec.toFixed(2)}с `
+        + `при потолке модели ${input.lipSyncMaxDurationSec}с — клип ведущей покрывает сцену только до `
+        + `${overflow.coverageEndSec.toFixed(2)}с, дальше кадры (${orders}) показали бы застывшее лицо`,
+    })
   }
 
   if (cursor < trackEnd - epsilon) {
