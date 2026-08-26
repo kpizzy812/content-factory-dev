@@ -2167,6 +2167,19 @@ const REPLICATE_WHISPER: TranscriptionModelSpec = Object.freeze<TranscriptionMod
  * `integrated: false` — включается на стенде явной переменной
  * `MEDIA_MODEL_TRANSCRIPTION=replicate:whisperx` (§4.1 спеки), как и было
  * задумано для транскрипции до подтверждения канарейкой на боевых деньгах.
+ *
+ * `timeoutMs` — 15 минут, а не 5 (было так до 27.08.2026). Стенд 26.08.2026
+ * дважды подряд упал «модель не ответила за 300с» на этой же модели и том же
+ * треке, который часом ранее отработал за $0.0182 (~13с работы). Модель
+ * рабочая: 5 минут были тесны для холодного старта Nvidia A100 (80GB) —
+ * инстанс масштабируется в ноль между вызовами, и разогрев такого железа
+ * занимает минуты, плюс возможна очередь на стороне Replicate. Реальная
+ * генерация в этот потолок почти не входит вовсе. 15 минут — не наугад:
+ * ровно тот же потолок уже стоит у `KLING_LIP_SYNC`/`FAL_SYNC_LIPSYNC` ниже —
+ * другого Replicate-контура с тем же профилем «секунды работы, холодный старт
+ * может занять минуты». `REPLICATE_WHISPER` выше НЕ тронута: она работает на
+ * Nvidia T4, `integrated: false` и по факту непригодна для маршрута (см. её
+ * докстринг) — поднимать её потолок незачем.
  */
 const REPLICATE_WHISPERX: TranscriptionModelSpec = Object.freeze<TranscriptionModelSpec>({
   registryKey: "replicate:whisperx",
@@ -2190,7 +2203,7 @@ const REPLICATE_WHISPERX: TranscriptionModelSpec = Object.freeze<TranscriptionMo
     maxDurationSec: 600,
     audioExtensions: Object.freeze(["mp3", "wav", "m4a"]),
   }),
-  timeoutMs: 5 * 60_000,
+  timeoutMs: 15 * 60_000,
   mapInput(input) {
     const audioUrl = requireText(input.audioUrl, "audioUrl")
     const language = (input.language || "ru").slice(0, 2).toLowerCase()

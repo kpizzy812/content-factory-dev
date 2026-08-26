@@ -212,8 +212,23 @@ export interface RunMediaTaskDependencies {
     timeoutMs: number,
     /** `spec.providerVersion` — обязателен для community-моделей Replicate. */
     version?: string,
+    /**
+     * Сигнал «мы всё ещё ждём ответа провайдера» — `runReplicateJsonModel`
+     * зовёт это не чаще чем раз в `WAIT_PROGRESS_LOG_INTERVAL_MS`, пока опрашивает
+     * predictions API. Без него холодный старт GPU-инстанса (минуты тишины
+     * при потолке в 15 минут — см. `REPLICATE_WHISPERX.timeoutMs`) в логе шага
+     * неотличим от зависшего опроса.
+     */
+    onWaiting?: (elapsedMs: number) => void | Promise<void>,
   ) => Promise<unknown>
   readTextFile?: (path: string) => Promise<string>
+  /**
+   * Лог шага (`VideoGenerationStep.logs`) — по умолчанию `appendStepLog`
+   * (`video-pipeline-db.ts`). Единственный сегодняшний потребитель — прогресс
+   * ожидания ветки sync_json, поэтому дефолт читает модуль ЛЕНИВО, тем же
+   * приёмом, что и остальные DB-зависимости этого файла.
+   */
+  appendStepLog?: (stepId: number, message: string) => Promise<void>
 }
 
 export async function runMediaTask<C extends MediaCapability>(
@@ -503,10 +518,29 @@ async function runSyncJsonTask<C extends MediaCapability>(
     }
 
     const runJson = dependencies.runJsonModel ?? defaultRunJsonModel
+    // Без stepId (вызов вне шага пайплайна) писать прогресс некуда — тот же
+    // гейт, каким `writeArtifact` в async_prediction ветке решает то же самое.
+    const onWaiting = request.stepId != null
+      ? async (elapsedMs: number) => {
+          try {
+            const log = dependencies.appendStepLog ?? defaultAppendStepLog
+            await log(
+              request.stepId!,
+              `Транскрипция: провайдер ${spec.id} ещё не ответил — ждём ${Math.round(elapsedMs / 1000)}с `
+              + `из ${Math.round(spec.timeoutMs / 1000)}с (вероятно, холодный старт GPU-инстанса или `
+              + "очередь на стороне Replicate — не зависание)",
+            )
+          } catch (error) {
+            // Прогресс-лог — не содержательная часть задачи: сбой записи (БД
+            // недоступна) не должен прервать реальное ожидание ответа провайдера.
+            console.warn(`[media-task] прогресс ожидания шага ${request.stepId} не записан: ${describeError(error)}`)
+          }
+        }
+      : undefined
     // Community-модели Replicate (openai/whisper) не отвечают на эндпоинте
     // официальных моделей — версия из спеки обязана дойти до провайдера
     // (canary 26.08.2026, whisper-version-report.md).
-    const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs, spec.providerVersion)
+    const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs, spec.providerVersion, onWaiting)
 
     const write = dependencies.writeBytes ?? defaultWriteBytes
     await write(request.outputPath, Buffer.from(JSON.stringify(raw), "utf8"))
@@ -541,10 +575,16 @@ async function defaultRunJsonModel(
   payload: Record<string, unknown>,
   timeoutMs: number,
   version?: string,
+  onWaiting?: (elapsedMs: number) => void | Promise<void>,
 ): Promise<unknown> {
   const { readReplicateConfig } = await import("../replicate/config")
   const { runReplicateJsonModel } = await import("../replicate/json-model")
-  return runReplicateJsonModel(modelId, payload, readReplicateConfig(), timeoutMs, version)
+  return runReplicateJsonModel(modelId, payload, readReplicateConfig(), timeoutMs, version, { onWaiting })
+}
+
+async function defaultAppendStepLog(stepId: number, message: string): Promise<void> {
+  const { appendStepLog } = await import("../video-pipeline-db")
+  await appendStepLog(stepId, message)
 }
 
 // ─── Ветка async_prediction (Replicate): обобщённый runLipSync ────

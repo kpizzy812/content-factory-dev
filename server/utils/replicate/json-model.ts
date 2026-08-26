@@ -20,15 +20,48 @@
  *    `{ version, input }`. `openai/whisper` — community-модель без пометки
  *    «Official model»: эндпоинт официальных моделей отвечает ей 404, именно
  *    так и упал маршрут «монтаж от звука» на стенде.
+ *
+ * ПОТОЛОК ОЖИДАНИЯ (`timeoutMs`) — это `spec.timeoutMs` из `model-specs.ts`,
+ * НЕ отдельная настройка этого модуля: дедлайн здесь — единственное место,
+ * которое его считает и сравнивает с временем. У опроса свой, гораздо более
+ * короткий интервал (`POLL_INTERVAL_MS`) — он определяет ТОЛЬКО частоту
+ * запросов к Replicate, а не то, когда раннер сдаётся.
+ *
+ * Стенд 26.08.2026: `victor-upmeet/whisperx` дважды подряд не уложилась в
+ * тогдашние 5 минут (`REPLICATE_WHISPERX.timeoutMs`), хотя тремя часами раньше
+ * тот же трек на той же модели отработал за $0.0182 (~13с работы на A100).
+ * Модель рабочая — тесен был потолок: GPU-инстанс A100 масштабируется в ноль,
+ * и холодный старт такого железа занимает минуты, плюс возможна очередь на
+ * стороне Replicate. Отсюда `onWaiting` ниже: без периодической отметки в лог
+ * шага 15 минут тишины неотличимы оператором от зависшего опроса.
  */
 
 import type { ReplicateConfig } from "./config"
 
 const POLL_INTERVAL_MS = 2_000
 
+/**
+ * Как часто отчитываемся в лог шага, что ожидание продолжается.
+ *
+ * Не на каждый опрос (раз в 2с — лог шага захлебнулся бы за 15 минут), а
+ * достаточно часто, чтобы оператор видел разницу между «ждём холодный старт
+ * GPU» и «зависли» раньше, чем истечёт весь потолок.
+ */
+export const WAIT_PROGRESS_LOG_INTERVAL_MS = 60_000
+
 export interface ReplicateJsonModelDeps {
   fetchImpl?: typeof fetch
   sleep?: (ms: number) => Promise<void>
+  /** Инъекция времени для тестов — тот же приём, что у `prediction-service.ts`. */
+  now?: () => number
+  /**
+   * Сигнал «мы всё ещё ждём», не чаще чем раз в {@link WAIT_PROGRESS_LOG_INTERVAL_MS}.
+   * Не вызывается после того, как предсказание перестало быть starting/processing —
+   * иначе в лог шага попала бы ложная отметка «ещё ждём» в момент, когда ответ
+   * уже пришёл. Сбой самого колбэка (например, запись в БД) — не повод ронять
+   * ожидание ответа провайдера, поэтому он оборачивается в try/catch здесь же.
+   */
+  onWaiting?: (elapsedMs: number) => void | Promise<void>
 }
 
 export async function runReplicateJsonModel(
@@ -62,7 +95,9 @@ export async function runReplicateJsonModel(
 
   const doFetch = deps.fetchImpl ?? fetch
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)))
-  const deadline = Date.now() + timeoutMs
+  const now = deps.now ?? Date.now
+  const startedAt = now()
+  const deadline = startedAt + timeoutMs
 
   // Пустая строка — как отсутствие: спека не должна расщеплять маршрут
   // случайно заданной "", это не валидный хеш версии.
@@ -87,10 +122,15 @@ export async function runReplicateJsonModel(
   }
 
   let prediction = await created.json() as { id: string, status: string, output?: unknown, error?: unknown }
+  let lastProgressLogAt = startedAt
 
   while (prediction.status === "starting" || prediction.status === "processing") {
-    if (Date.now() > deadline) {
-      throw new Error(`Транскрипция: модель ${modelId} не ответила за ${Math.round(timeoutMs / 1000)}с`)
+    if (now() > deadline) {
+      throw new Error(
+        `Транскрипция: модель ${modelId} не ответила за отведённые ей ${Math.round(timeoutMs / 1000)}с ожидания — `
+        + "это НАШ потолок, а не отказ модели: вероятная причина — холодный старт GPU-инстанса и/или очередь "
+        + "на стороне Replicate, сама генерация обычно занимает секунды. Повторный запуск шага может пройти успешно.",
+      )
     }
     await sleep(POLL_INTERVAL_MS)
     const polled = await doFetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
@@ -100,6 +140,22 @@ export async function runReplicateJsonModel(
       throw new Error(`Транскрипция: Replicate ответил ${polled.status} при опросе задачи`)
     }
     prediction = await polled.json() as typeof prediction
+
+    const stillWaiting = prediction.status === "starting" || prediction.status === "processing"
+    if (deps.onWaiting && stillWaiting) {
+      const current = now()
+      if (current - lastProgressLogAt >= WAIT_PROGRESS_LOG_INTERVAL_MS) {
+        lastProgressLogAt = current
+        try {
+          await deps.onWaiting(current - startedAt)
+        } catch (error) {
+          console.warn(
+            `[replicate/json-model] прогресс-лог ожидания ${modelId} не записан: `
+            + (error instanceof Error ? error.message : String(error)),
+          )
+        }
+      }
+    }
   }
 
   if (prediction.status !== "succeeded") {
