@@ -10,8 +10,9 @@ const SCENES = [
 const INPUT = {
   videoId: 7,
   stepId: 3,
+  // Только локальный путь: раннер больше не принимает ссылку на трек — её
+  // заливает провайдеру runTask (inputUploads в реальном requestTranscription).
   audioPath: "/tmp/voiceover.mp3",
-  audioUrl: "https://cdn/voiceover.mp3",
   scenes: SCENES,
   language: "ru",
   outputPath: "/tmp/transcript.json",
@@ -45,6 +46,22 @@ describe("шаг транскрипции", () => {
     expect(result.scenes[0]).toMatchObject({ order: 1, startSec: 0, endSec: 1.1 })
     expect(result.scenes[1]).toMatchObject({ order: 2, startSec: 1.4, endSec: 2.8 })
     expect(result.costUsd).toBeCloseTo(0.02, 6)
+  })
+
+  it("зовёт runTask только с локальным путём — ссылки на трек в вызове нет", async () => {
+    // Регрессия canary 26.08.2026: раньше сюда приходила `audioUrl` из
+    // хранилища (у локального драйвера — ОТНОСИТЕЛЬНЫЙ путь, Replicate его не
+    // скачивает). Теперь адрес провайдеру находит сам runTask заливкой байтов
+    // (inputUploads), а раннер отдаёт ему только audioPath.
+    const dependencies = deps()
+
+    await runTranscriptionStep(INPUT, dependencies as never)
+
+    expect(dependencies.runTask).toHaveBeenCalledWith(expect.objectContaining({
+      audioPath: INPUT.audioPath,
+    }))
+    const [callArgs] = (dependencies.runTask as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(callArgs).not.toHaveProperty("audioUrl")
   })
 
   it("сохраняет выровненный транскрипт — повтор прогона не теряет тайминги", async () => {

@@ -23,6 +23,8 @@ const h = vi.hoisted(() => ({
   updates: [] as Array<Record<string, unknown>>,
   uploads: [] as string[],
   downloads: [] as string[],
+  /** Ключи, по которым запрашивалась ПОДПИСАННАЯ ССЫЛКА (getSignedDownloadUrl). */
+  signedUrlRequests: [] as string[],
   logs: [] as string[],
   /** Строки расхода: по ним видно, попали ли деньги упавшей попытки в отчёт. */
   ledger: [] as Array<{ stepKey: string, costUsd: number }>,
@@ -94,7 +96,10 @@ vi.mock("../../../server/utils/storage", () => ({
       await h.downloadWrites()
       return localPath
     },
-    getSignedDownloadUrl: async (key: string) => `https://cdn/${key}`,
+    getSignedDownloadUrl: async (key: string) => {
+      h.signedUrlRequests.push(key)
+      return `https://cdn/${key}`
+    },
   }),
 }))
 
@@ -162,6 +167,7 @@ beforeEach(async () => {
   h.updates.length = 0
   h.uploads.length = 0
   h.downloads.length = 0
+  h.signedUrlRequests.length = 0
   h.logs.length = 0
   h.ledger.length = 0
   h.videoAssetWrites.length = 0
@@ -333,6 +339,27 @@ describe("шаг транскрипции", () => {
     })).rejects.toThrow(/границ/i)
 
     expect(h.updates.at(-1)).toMatchObject({ status: "failed" })
+  })
+
+  it("провайдеру НЕ передаётся ссылка из хранилища — только локальный путь трека (canary 26.08.2026: 422)", async () => {
+    // Причина боевого отказа: локальный драйвер хранилища отдаёт ОТНОСИТЕЛЬНЫЙ
+    // путь (`/api/files/...`), Replicate не может его скачать. Правильный
+    // адрес заливкой байтов находит requestTranscription/runMediaTask сам —
+    // getSignedDownloadUrl шагу транскрипции вообще не нужен.
+    const { runVideoTranscription } = await loadSteps()
+
+    await runVideoTranscription({
+      videoId: 44,
+      track: TRACK,
+      scenes: SCENES,
+      language: "ru",
+    })
+
+    expect(h.signedUrlRequests).toEqual([])
+    expect(h.transcriptionTask).toHaveBeenCalledTimes(1)
+    const [callArgs] = h.transcriptionTask.mock.calls[0]!
+    expect(callArgs).toMatchObject({ audioPath: TRACK.path })
+    expect(callArgs).not.toHaveProperty("audioUrl")
   })
 
   it("провайдер ответил и списал деньги, а ответ не разобрался — шаг падает, но расход записан", async () => {

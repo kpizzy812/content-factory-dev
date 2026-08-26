@@ -2374,20 +2374,21 @@ export async function runVideoTranscription(
     }
   }
 
-  // Провайдер читает трек по ссылке. Нет ключа или ссылка не выдалась —
-  // платного вызова не делаем, но и ролик «готовым» не объявляем.
+  // Трек обязан быть залит в объектное хранилище — это отдельная гарантия от
+  // способа передачи файла провайдеру: без неё файл не попадёт ни в каскад
+  // удаления ролика, ни в orphan-scan, а recovery не найдёт его после
+  // рестарта. Самому вызову провайдера ссылка из хранилища больше не нужна —
+  // `requestTranscription` заливает БАЙТЫ локального файла (`input.track.path`)
+  // напрямую (inputUploads), тем же способом, каким уже работают lip-sync и
+  // аватарный маршрут. Раньше здесь брали `getSignedDownloadUrl`, а у
+  // ЛОКАЛЬНОГО драйвера хранилища это ОТНОСИТЕЛЬНЫЙ путь (`/api/files/...`),
+  // который Replicate не может скачать — 422 при создании задачи (canary
+  // 26.08.2026, третий прогон, `transcription-upload-report.md`).
   if (!input.track.storageKey) {
     return failStep(
       "track_not_in_storage",
-      "Транскрипция ролика: трек не залит в хранилище — провайдеру нечего скачивать",
+      "Транскрипция ролика: трек не залит в хранилище — без постоянной копии транскрипция не подтверждена",
     )
-  }
-  let audioUrl: string
-  try {
-    audioUrl = await getStorageDriver().getSignedDownloadUrl(input.track.storageKey)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return failStep("signed_url_failed", `Транскрипция ролика: ссылку на трек выдать не удалось (${message})`)
   }
 
   const attempt = stepAttemptForLedger(step.attemptCount + 1)
@@ -2437,7 +2438,6 @@ export async function runVideoTranscription(
       videoId,
       stepId: step.id,
       audioPath: input.track.path,
-      audioUrl,
       scenes: input.scenes,
       language: input.language,
       outputPath: join(assetsDir, "transcript.json"),

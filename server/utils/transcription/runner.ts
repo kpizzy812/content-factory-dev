@@ -22,10 +22,15 @@ import { normalizeTranscriptPayload } from "./normalize"
 export interface TranscriptionStepInput {
   videoId: number
   stepId: number
-  /** Локальный файл трека: по нему считается длительность и цена. */
+  /**
+   * Локальный файл трека: по нему считается длительность и цена, и он же
+   * уходит провайдеру — заливкой байтов (`inputUploads`), а не ссылкой из
+   * хранилища. Ссылки на трек здесь больше нет: у локального драйвера
+   * хранилища `getSignedDownloadUrl` отдаёт ОТНОСИТЕЛЬНЫЙ путь
+   * (`/api/files/...`), который Replicate не может скачать — 422 при
+   * создании задачи (canary 26.08.2026, `transcription-upload-report.md`).
+   */
   audioPath: string
-  /** Публичный URL трека для провайдера. */
-  audioUrl: string
   scenes: AlignScene[]
   language: string
   /** Куда сложить сырой ответ модели. */
@@ -52,7 +57,6 @@ export interface TranscriptionStepDeps {
     videoId: number
     stepId: number
     audioPath: string
-    audioUrl: string
     language: string
     outputPath: string
     /**
@@ -95,7 +99,6 @@ export async function runTranscriptionStep(
       videoId: input.videoId,
       stepId: input.stepId,
       audioPath: input.audioPath,
-      audioUrl: input.audioUrl,
       language: input.language,
       outputPath: input.outputPath,
       scenes: input.scenes,

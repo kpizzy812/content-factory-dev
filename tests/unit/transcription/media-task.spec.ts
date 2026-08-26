@@ -25,8 +25,12 @@ vi.mock("~~/server/utils/tts", () => ({ probeAudioDuration: h.probeAudioDuration
 const INPUT = {
   videoId: 7,
   stepId: 3,
+  // Только локальный файл: адрес провайдеру больше не передаётся ссылкой из
+  // хранилища — `runMediaTask` сам заливает БАЙТЫ файла (inputUploads), как
+  // это уже делают lip-sync и аватарный маршрут (canary 26.08.2026: локальный
+  // driver хранилища отдаёт ОТНОСИТЕЛЬНЫЙ путь, Replicate его не скачивает —
+  // 422 при создании задачи).
   audioPath: "/tmp/voiceover.mp3",
-  audioUrl: "https://cdn/voiceover.mp3",
   language: "ru",
   outputPath: "/tmp/transcript.json",
 }
@@ -75,6 +79,14 @@ describe("requestTranscription: маршрут, потолок длительн�
       storageKey: StorageKeys.videoTranscript(7),
       contentType: "application/json",
     })
+    // Ссылки из хранилища больше нет: локальный файл трека объявлен как
+    // inputUploads — заливает и подставляет URL сам runMediaTask
+    // (server/utils/media-provider/run-media-task.ts, prepareInputs),
+    // ровно как это уже делает lip-sync/аватарный маршрут.
+    expect(call.inputUploads).toEqual([
+      { field: "audioUrl", path: INPUT.audioPath, contentType: "audio/mpeg" },
+    ])
+    expect((call.input as Record<string, unknown>).audioUrl).toBe("")
     expect(result).toEqual({ costUsd: 0.0025, raw: { words: [] } })
   })
 

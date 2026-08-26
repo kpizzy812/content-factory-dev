@@ -436,66 +436,103 @@ async function defaultWriteBytes(path: string, bytes: Buffer): Promise<void> {
  * пишется в `outputPath`, оттуда попадает в постоянное хранилище на общих
  * основаниях. Остальное общее с другими ветками: три уровня переиспользования,
  * ключ идемпотентности, запись `MediaPrediction`.
+ *
+ * Заливка входных файлов (`inputUploads`) РЕАЛЬНО работает — тем же
+ * провайдером (Replicate), что и у `runAsyncPredictionTask` ниже
+ * (`uploadReplicateInput`/`deleteReplicateInput`). Раньше `prepareInputs`
+ * здесь получал заглушку, которая при ЛЮБОМ `inputUploads` бросала «заливка
+ * входных файлов этой веткой не поддерживается» — на транскрипцию это не
+ * попадало, потому что вызывающий код отдавал провайдеру ГОТОВУЮ ссылку из
+ * `getSignedDownloadUrl`. Для локального драйвера хранилища эта ссылка —
+ * ОТНОСИТЕЛЬНЫЙ путь (`/api/files/...`), Replicate не может его скачать и
+ * отвечает 422 при создании задачи (canary 26.08.2026, третий прогон,
+ * `transcription-upload-report.md`). Починка ровно та, что уже работает у
+ * lip-sync и аватарного маршрута: заливаем БАЙТЫ файла, ссылок не передаём.
+ *
+ * Конфиг Replicate читается ЛЕНИВО и только когда `inputUploads` реально
+ * есть: способность без файлов на входе (гипотетическая будущая sync_json)
+ * переменных REPLICATE_* не потребует вовсе — тот же принцип, что и у
+ * `runAsyncPredictionTask`, только без «всегда читаем config», потому что
+ * здесь заливка не единственный сценарий использования ветки (см. тесты без
+ * inputUploads в `sync-json-paid-gate.spec.ts`).
  */
 async function runSyncJsonTask<C extends MediaCapability>(
   request: MediaTaskRequest<C>,
   spec: MediaModelSpec,
   dependencies: RunMediaTaskDependencies,
 ): Promise<MediaTaskResult> {
-  const prepared = await prepareInputs(request, dependencies, async () => {
-    throw new Error(`${spec.registryKey}: заливка входных файлов этой веткой не поддерживается`)
-  })
-  const mapped = spec.mapInput(prepared.input as never, {
-    unitKey: request.unitKey,
-    sceneOrder: request.sceneOrder,
-  })
-  const identity = buildIdentity(request, spec, prepared)
+  const hasUploads = (request.inputUploads?.length ?? 0) > 0
+  const uploader = hasUploads && !dependencies.uploadReplicateInput
+    ? (await import("../replicate/client")).createReplicateInputUploader(
+      dependencies.replicateConfig ?? (await import("../replicate/config")).readReplicateConfig(),
+    )
+    : null
+  const uploadInput = dependencies.uploadReplicateInput
+    ?? ((path: string, contentType: string) => uploader!.uploadFile(path, contentType))
+  const deleteInput = dependencies.deleteReplicateInput
+    ?? (async (id: string) => { await uploader?.deleteFile(id) })
+  const uploadedIds: string[] = []
 
-  const reused = await reuseFromStorage(request, spec, identity, dependencies)
-  if (reused) return reused
+  try {
+    const prepared = await prepareInputs(request, dependencies, uploadInput)
+    uploadedIds.push(...prepared.uploadedIds)
 
-  // Гейт платных вызовов — только там, где вызов платный (как в sync_bytes) и
-  // только там, где вызов ВООБЩЕ уходит наружу. Мок-режим провайдера денег не
-  // тратит, и гейт в нём — не защита, а поломка: ветку sync_json исполняет
-  // Replicate, и на стенде с REPLICATE_MOCK_MODE=true и штатным
-  // ENABLE_PAID_APIS=false транскрипция падала здесь ещё до мока, унося с собой
-  // весь маршрут «монтаж от звука». Ровно то же исключение уже делает
-  // `runAsyncPredictionTask` ниже.
-  const costsMoney = spec.billing.unit !== "flat" || spec.billing.usd > 0
-  const replicateMocked = spec.provider === "replicate"
-    && (dependencies.replicateConfig?.mockMode ?? process.env.REPLICATE_MOCK_MODE === "true")
-  if (costsMoney && !replicateMocked) {
-    const requirePaid = dependencies.requirePaidApis
-      ?? (await import("../paid-guard")).requirePaidApisEnabled
-    requirePaid(spec.vendorLabel)
-  }
+    const mapped = spec.mapInput(prepared.input as never, {
+      unitKey: request.unitKey,
+      sceneOrder: request.sceneOrder,
+    })
+    const identity = buildIdentity(request, spec, prepared)
 
-  const runJson = dependencies.runJsonModel ?? defaultRunJsonModel
-  // Community-модели Replicate (openai/whisper) не отвечают на эндпоинте
-  // официальных моделей — версия из спеки обязана дойти до провайдера
-  // (canary 26.08.2026, whisper-version-report.md).
-  const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs, spec.providerVersion)
+    const reused = await reuseFromStorage(request, spec, identity, dependencies)
+    if (reused) return reused
 
-  const write = dependencies.writeBytes ?? defaultWriteBytes
-  await write(request.outputPath, Buffer.from(JSON.stringify(raw), "utf8"))
+    // Гейт платных вызовов — только там, где вызов платный (как в sync_bytes) и
+    // только там, где вызов ВООБЩЕ уходит наружу. Мок-режим провайдера денег не
+    // тратит, и гейт в нём — не защита, а поломка: ветку sync_json исполняет
+    // Replicate, и на стенде с REPLICATE_MOCK_MODE=true и штатным
+    // ENABLE_PAID_APIS=false транскрипция падала здесь ещё до мока, унося с собой
+    // весь маршрут «монтаж от звука». Ровно то же исключение уже делает
+    // `runAsyncPredictionTask` ниже.
+    const costsMoney = spec.billing.unit !== "flat" || spec.billing.usd > 0
+    const replicateMocked = spec.provider === "replicate"
+      && (dependencies.replicateConfig?.mockMode ?? process.env.REPLICATE_MOCK_MODE === "true")
+    if (costsMoney && !replicateMocked) {
+      const requirePaid = dependencies.requirePaidApis
+        ?? (await import("../paid-guard")).requirePaidApisEnabled
+      requirePaid(spec.vendorLabel)
+    }
 
-  const storage = await persistOutput(request, dependencies)
-  if (identity) {
-    await savePrediction(request, spec, identity, null, mapped.payload, null, storage ?? null, dependencies)
-  }
+    const runJson = dependencies.runJsonModel ?? defaultRunJsonModel
+    // Community-модели Replicate (openai/whisper) не отвечают на эндпоинте
+    // официальных моделей — версия из спеки обязана дойти до провайдера
+    // (canary 26.08.2026, whisper-version-report.md).
+    const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs, spec.providerVersion)
 
-  return {
-    localPath: request.outputPath,
-    provider: spec.provider,
-    modelId: spec.id,
-    externalRef: null,
-    idempotencyKey: identity?.idempotencyKey ?? null,
-    costUsd: safeCost(spec, request, prepared.input, mapped.effectiveDurationSec),
-    source: "generated",
-    remoteUrl: null,
-    contentType: "application/json",
-    storage,
-    raw,
+    const write = dependencies.writeBytes ?? defaultWriteBytes
+    await write(request.outputPath, Buffer.from(JSON.stringify(raw), "utf8"))
+
+    const storage = await persistOutput(request, dependencies)
+    if (identity) {
+      await savePrediction(request, spec, identity, null, mapped.payload, null, storage ?? null, dependencies)
+    }
+
+    return {
+      localPath: request.outputPath,
+      provider: spec.provider,
+      modelId: spec.id,
+      externalRef: null,
+      idempotencyKey: identity?.idempotencyKey ?? null,
+      costUsd: safeCost(spec, request, prepared.input, mapped.effectiveDurationSec),
+      source: "generated",
+      remoteUrl: null,
+      contentType: "application/json",
+      storage,
+      raw,
+    }
+  } finally {
+    // Уборка заливки — как у async_prediction: файл у провайдера временный, и
+    // ждать своей garbage collection ему незачем ни при успехе, ни при отказе.
+    await Promise.allSettled(uploadedIds.map(id => deleteInput(id)))
   }
 }
 

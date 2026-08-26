@@ -69,8 +69,18 @@ export function isTranscriptionRouteAvailable(): boolean {
 export async function requestTranscription(input: {
   videoId: number
   stepId: number
+  /**
+   * Локальный файл готового трека. Раньше рядом был ещё `audioUrl` —
+   * подписанная ссылка из хранилища, которую собирал вызывающий код
+   * (`runVideoTranscription`). Для ЛОКАЛЬНОГО драйвера хранилища эта ссылка —
+   * ОТНОСИТЕЛЬНЫЙ путь (`/api/files/...`), Replicate не может его скачать и
+   * отвечает 422 при создании задачи (canary 26.08.2026, третий прогон
+   * маршрута «монтаж от звука», `transcription-upload-report.md`). Теперь
+   * адрес для провайдера находит `runMediaTask` сам — заливкой БАЙТОВ этого
+   * файла (`inputUploads` ниже), тем же способом, каким уже работают
+   * lip-sync и аватарный маршрут (`server/utils/avatar-source.ts`).
+   */
   audioPath: string
-  audioUrl: string
   language: string
   outputPath: string
   /** Сцены с очищенным текстом — вход мока и (потенциально) подсказка модели. */
@@ -114,7 +124,14 @@ export async function requestTranscription(input: {
   const task = await runMediaTask({
     capability: "transcription",
     spec,
-    input: { audioUrl: input.audioUrl, language: input.language },
+    // audioUrl — заглушка: реальный адрес подставит runMediaTask после
+    // заливки локального файла (prepareInputs, inputUploads ниже). В ключ
+    // идемпотентности идёт отпечаток СОДЕРЖИМОГО файла, а не временный адрес
+    // заливки — повтор с тем же треком узнаётся и второй раз не платит.
+    input: { audioUrl: "", language: input.language },
+    inputUploads: [
+      { field: "audioUrl", path: input.audioPath, contentType: "audio/mpeg" },
+    ],
     // Без videoId нет ключа идемпотентности — повтор оплатит задачу заново.
     videoId: input.videoId,
     stepId: input.stepId,
