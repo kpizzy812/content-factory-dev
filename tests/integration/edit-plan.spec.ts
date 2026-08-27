@@ -1,3 +1,8 @@
+import { existsSync } from "node:fs"
+import { rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { tmpdir } from "node:os"
+
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { prisma } from "~~/server/utils/prisma"
@@ -1569,5 +1574,175 @@ describe("шаг shot_background: идемпотентность, деньги, 
       const shot1After = await prisma.videoShot.findFirst({ where: { videoId, order: 1 } })
       expect(Number(shot1After!.costUsd)).toBe(0)
     })
+
+    /**
+     * Группировка ГЕНЕРАТИВНОГО ВИДЕО (правка 27.08.2026): раньше пять подряд
+     * идущих кадров с одной идеей давали пять независимых заказов Kling.
+     */
+    it("два подряд идущих видео-кадра с одной idea — ОДИН заказ провайдеру, платит лидер", async () => {
+      await prisma.videoShot.create({
+        data: {
+          videoId, order: 0, startSec: 0, endSec: 5, sceneOrder: null,
+          foreground: "none", background: "video", idea: "полёт дрона над городом",
+        },
+      })
+      await prisma.videoShot.create({
+        data: {
+          videoId, order: 1, startSec: 5, endSec: 10, sceneOrder: null,
+          foreground: "none", background: "video", idea: "полёт дрона над городом",
+        },
+      })
+
+      const deps = happyDeps()
+      const profile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 5 }
+      const result = await runShotBackgrounds(baseShotInput({ profile }), deps)
+
+      // Один вызов на группу, длиной во всю группу (10 с), а не два по 5 с.
+      expect(deps.generateVideo).toHaveBeenCalledTimes(1)
+      expect(deps.generateVideo).toHaveBeenCalledWith(expect.objectContaining({ order: 0, billedSec: 10 }))
+      // Промпт тоже один на группу.
+      expect(deps.planPrompts).toHaveBeenCalledTimes(1)
+      expect(result.status).toBe("completed")
+
+      const shots = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+      expect(shots.map(s => s.backgroundActual)).toEqual(["video", "video"])
+      // Деньги списаны один раз — на кадре, который клип произвёл.
+      expect(Number(shots[0]!.costUsd)).toBeCloseTo(0.5, 6)
+      expect(Number(shots[1]!.costUsd)).toBe(0)
+
+      // Оба кадра адресуют ОДИН файл: композиция возьмёт из него свои куски.
+      const assets = await prisma.videoAsset.findMany({
+        where: { videoId, type: "shot_background" as never },
+        orderBy: { order: "asc" },
+      })
+      expect(assets).toHaveLength(2)
+      expect(assets[0]!.filePath).toBe(assets[1]!.filePath)
+    })
+
+    it("видео-кадры короче минимума модели по-прежнему идут картинками — слияние не открывает видео в обход §7", async () => {
+      for (const order of [0, 1, 2]) {
+        await prisma.videoShot.create({
+          data: {
+            videoId, order, startSec: order * 1.8, endSec: order * 1.8 + 1.8, sceneOrder: null,
+            foreground: "none", background: "video", idea: "полёт дрона над городом",
+          },
+        })
+      }
+
+      const deps = happyDeps()
+      const profile = { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, generativeVideoBudgetUsd: 5 }
+      await runShotBackgrounds(baseShotInput({ profile }), deps)
+
+      expect(deps.generateVideo).toHaveBeenCalledTimes(0)
+      // Картинка — одна на группу: деградировавшие видео-кадры группируются как картинки.
+      expect(deps.generateImage).toHaveBeenCalledTimes(1)
+      const shots = await prisma.videoShot.findMany({ where: { videoId }, orderBy: { order: "asc" } })
+      expect(shots.map(s => s.backgroundActual)).toEqual(["image", "image", "image"])
+    })
+  })
+})
+
+/**
+ * Ruling S8-9: перезапуск шага, который производит МАТЕРИАЛ внутри кадра
+ * (клипы сцен, lip-sync), обязан обесценить уже собранные кадры.
+ *
+ * `shot_${order}_composed.mp4` — не `VideoAsset`, каскад `assetTypesForSteps`
+ * его не знает, а `composeVideoShots` переиспользует кадр по ключу «путь из
+ * `assetPath` + `status=completed` + файл на диске», в котором содержимого
+ * нет вовсе. `shot_background` стоит РАНЬШЕ клипов и lip-sync в
+ * `STEP_EXECUTION_ORDER_AUDIO_FIRST`, поэтому его ключ кэша при таком
+ * перезапуске цел, `runShotBackgrounds` не трогает ни одной строки
+ * `VideoShot` — и оператор платит за новый lip-sync, получая ролик байт в
+ * байт прежним, без единой ошибки.
+ *
+ * Перезапуск `assembly` под это правило не подпадает: материал кадра тот же,
+ * пересборка ffmpeg по каждому кадру (до 180 с на ветке PiP) была бы платой
+ * временем ни за что — идемпотентность Ruling S8-7.
+ */
+describe("каскад перезапуска: собранные кадры (Ruling S8-9)", () => {
+  async function makeComposedShot(order: number): Promise<{ id: string, path: string }> {
+    const dir = getAssetsDir(videoId)
+    await ensureDir(dir)
+    const path = join(dir, `shot_${order}_composed.mp4`)
+    await writeFile(path, `собранный кадр ${order} прошлого прогона`)
+    const shot = await prisma.videoShot.create({
+      data: {
+        videoId,
+        order,
+        startSec: order * 2,
+        endSec: order * 2 + 2,
+        sceneOrder: 1,
+        foreground: "presenter",
+        background: "none",
+        backgroundActual: "none",
+        status: "completed",
+        assetPath: path,
+      },
+    })
+    return { id: shot.id, path }
+  }
+
+  const MATERIAL_STEPS: StepKey[] = ["clip_generation", "lip_sync_generation"]
+
+  it.each(MATERIAL_STEPS)("перезапуск %s обесценивает собранные кадры — оплаченный заново материал доезжает до ролика", async (stepKey) => {
+    const first = await makeComposedShot(0)
+    const second = await makeComposedShot(1)
+
+    await resetComposedShots(videoId, stepKey, stepsToRerunFrom(stepKey, true))
+
+    for (const shot of [first, second]) {
+      const after = await prisma.videoShot.findUnique({ where: { id: shot.id } })
+      expect(after).not.toBeNull()
+      expect(after!.assetPath).toBeNull()
+      expect(existsSync(shot.path)).toBe(false)
+    }
+
+    // Кадр и его оплаченный фон остаются: перезапуск lip-sync не повод
+    // заново платить за картинки (их каскад — `resetEditPlanShots`).
+    expect(await prisma.videoShot.count({ where: { videoId } })).toBe(2)
+  })
+
+  it("перезапуск assembly собранные кадры не трогает — ffmpeg по готовым кадрам заново не гоняется (Ruling S8-7)", async () => {
+    const shot = await makeComposedShot(0)
+
+    await resetComposedShots(videoId, "assembly", stepsToRerunFrom("assembly", true))
+
+    const after = await prisma.videoShot.findUnique({ where: { id: shot.id } })
+    expect(after!.assetPath).toBe(shot.path)
+    expect(existsSync(shot.path)).toBe(true)
+  })
+
+  it("перезапуск music_generation собранные кадры не трогает — музыка живёт отдельной дорожкой", async () => {
+    const shot = await makeComposedShot(0)
+
+    await resetComposedShots(videoId, "music_generation", stepsToRerunFrom("music_generation", true))
+
+    const after = await prisma.videoShot.findUnique({ where: { id: shot.id } })
+    expect(after!.assetPath).toBe(shot.path)
+    expect(existsSync(shot.path)).toBe(true)
+  })
+
+  it("файл собранного кадра вне каталога ассетов не удаляется, но кадр всё равно обесценивается", async () => {
+    // Путь из чужого каталога в БД возможен только порчей данных, но
+    // `removeAssetFiles` обязан отказаться его трогать (isPathInsideDir), а
+    // строку это не оправдывает: кадр всё равно должен пересобраться.
+    const outside = join(tmpdir(), `cf-outside-${videoId}.mp4`)
+    await writeFile(outside, "чужой файл")
+    const shot = await prisma.videoShot.create({
+      data: {
+        videoId, order: 0, startSec: 0, endSec: 2, sceneOrder: 1,
+        foreground: "presenter", background: "none", status: "completed", assetPath: outside,
+      },
+    })
+
+    await resetComposedShots(videoId, "lip_sync_generation", stepsToRerunFrom("lip_sync_generation", true))
+
+    const after = await prisma.videoShot.findUnique({ where: { id: shot.id } })
+    expect(after!.assetPath).toBeNull()
+    expect(existsSync(outside)).toBe(true)
+    await rm(outside, { force: true })
+  })
+})
+
   })
 })

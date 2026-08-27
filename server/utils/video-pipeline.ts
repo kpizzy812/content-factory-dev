@@ -1590,6 +1590,73 @@ export async function resetEditPlanShots(
   }
 }
 
+/**
+ * Шаги, чей продукт лежит ВНУТРИ собранного кадра (`shot_N_composed.mp4`).
+ *
+ * Клипы сцен и lip-sync попадают в кадр картинкой — переснять их и оставить
+ * кадр прежним значит выбросить оплаченное. Фон кадра сюда НЕ входит: его
+ * собственный шаг (`shot_background`) обнуляет `assetPath` сам и только у
+ * кадров, чей фон реально сменился (Critical 2 финального ревью ветки).
+ * `music_generation` и `assembly` тоже не входят: музыка живёт отдельной
+ * дорожкой сведения, а сборка ролика материал кадра не меняет вовсе.
+ */
+const SHOT_MATERIAL_STEPS: ReadonlySet<StepKey> = new Set<StepKey>([
+  "clip_generation",
+  "lip_sync_generation",
+])
+
+/**
+ * Каскад перезапуска для СОБРАННЫХ кадров (Ruling S8-9).
+ *
+ * Собранный кадр — файл `shot_N_composed.mp4`, а не `VideoAsset`: ни
+ * `assetTypesForSteps`, ни каскад ассетов его не знают. `composeVideoShots`
+ * переиспользует кадр по ключу «`assetPath` равен ожидаемому пути +
+ * `status=completed` + файл на диске», в котором содержимого нет, а
+ * `shot_background` стоит РАНЬШЕ клипов и lip-sync в
+ * `STEP_EXECUTION_ORDER_AUDIO_FIRST` — значит его ключ шага при перезапуске
+ * материала цел, `runShotBackgrounds` не трогает ни строки `VideoShot`, и без
+ * этой функции оператор платит за новый lip-sync, получая прежний ролик
+ * байт в байт, без единой ошибки.
+ *
+ * Кадры и их оплаченные фоны остаются на месте: обесценивается ровно
+ * композиция. Отдельной функцией — по той же причине, что и
+ * `resetEditPlanShots`: `rerunVideoStep` в конце запускает пайплайн, и в
+ * лёгком DB-тесте это гонка с `afterEach`.
+ */
+export async function resetComposedShots(
+  videoId: number,
+  stepKey: StepKey,
+  stepsToReset: readonly StepKey[],
+): Promise<void> {
+  if (!stepsToReset.some(step => SHOT_MATERIAL_STEPS.has(step))) return
+
+  const composed = await prisma.videoShot.findMany({
+    where: { videoId, assetPath: { not: null } },
+    select: { id: true, assetPath: true },
+  })
+  if (composed.length === 0) return
+
+  // Файл удаляется, хотя ffmpeg и так пишет с `-y`: огрызок прошлого прогона
+  // не должен пережить перезапуск, если новая сборка упадёт раньше записи.
+  // Путь вне каталога ассетов `removeAssetFiles` не тронет — но строку это не
+  // оправдывает, кадр обесценивается в любом случае.
+  const removal = await removeAssetFiles(
+    composed.map(shot => shot.assetPath),
+    getAssetsDirFor(videoId),
+    createAssetFileRemovalDeps(),
+  )
+  await prisma.videoShot.updateMany({
+    where: { id: { in: composed.map(shot => shot.id) } },
+    data: { assetPath: null },
+  })
+
+  await logAgent('video-pipeline', 'info',
+    `Video ${videoId}: перезапуск с шага ${stepKey} — обесценено ${composed.length} собранных кадров, `
+    + `файлов удалено ${removal.removed}, не удалось ${removal.failed}`,
+    { videoId },
+  ).catch(() => {})
+}
+
 export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise<void> {
   // Каскад считаем по РЕАЛЬНОМУ порядку выполнения, а не по STEP_ORDER (там
   // lip_sync стоит после озвучки ради исторического stepIndex). Иначе перезапуск
@@ -1634,6 +1701,7 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
   }
 
   await resetEditPlanShots(videoId, stepKey, stepsToReset, isAudioFirstRoute)
+  await resetComposedShots(videoId, stepKey, stepsToReset)
 
   await prisma.videoGenerationStep.updateMany({
     where: {
