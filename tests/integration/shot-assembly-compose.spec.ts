@@ -223,6 +223,20 @@ describe("composeVideoShots: оркестрация на реальной БД �
       await expect(stat(shot.assetPath!)).resolves.toBeTruthy()
     }
 
+    // (а2) перцептивный хеш собранного кадра (§5.2): контур уникальности
+    // сравнивает ролики по хешам кадров, и считать их заново по готовому
+    // ролику значит второй раз гонять ffmpeg по тому, что уже проходило
+    // через него при сборке. Хеш — 16 шестнадцатеричных символов
+    // (`dHashFromGrayscale`), и у РАЗНЫХ по картинке кадров он разный:
+    // одинаковый хеш у всех означал бы, что снимается не тот файл.
+    const hashes = new Set<string>()
+    for (const order of [0, 1, 3, 4]) {
+      const hash = byOrder.get(order)!.perceptualHash
+      expect(hash).toMatch(/^[0-9a-f]{16}$/)
+      hashes.add(hash!)
+    }
+    expect(hashes.size).toBeGreaterThan(1)
+
     // (б) донор слияния (order 2) — degraded, assetPath null, endSec order1
     // раздвинут до 5 (поглотил интервал order2).
     const donor = byOrder.get(2)!

@@ -69,7 +69,10 @@ import { resolveMediaRoute } from "./media-provider/registry"
 import { runMediaTask } from "./media-provider/run-media-task"
 import { planAlignedClipTargets, shouldReconcileVoiceover } from "./video-pipeline-run-policy"
 import { renderStillClip } from "./video-tools/still-clip-runner"
-import { pickNearestBackground, planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
+import { pickNearestBackground, planSharedBackgroundOffsets, planShotComposition, mergeUnrenderableShots, type ShotSources } from "./video-tools/shot-compose"
+// Тот же dHash, что у контура похожести роликов — второго алгоритма в проекте
+// нет (см. докстринг `quality/video-frame-hasher.ts`).
+import { hashImageFile } from "./quality/video-frame-hasher"
 import { planShotVariationSlices, shotBackgroundIdentity } from "./video-tools/shot-variation"
 import { renderShotComposition } from "./video-tools/shot-compose-runner"
 import { buildTrackSubtitleSegments } from "./edit-plan/shot-subtitles"
@@ -4455,9 +4458,27 @@ export async function composeVideoShots(
         )
       }
 
+      // Перцептивный хеш собранного кадра (§5.2): контур уникальности
+      // сравнивает ролики по хешам кадров, и без этого поля он гонял бы
+      // ffmpeg второй раз по уже готовому ролику. Отказ хеширования кадр НЕ
+      // роняет — картинка собрана, а хеш это метаданные: пишем `null` и
+      // продолжаем, как это делает и `hashVideoFrames` со своими точками.
+      // Только по измеренному файлу: `measuredSec === null` означает, что
+      // ffprobe этот путь не прочитал вовсе (в юнит-тестах композиции файла
+      // физически нет — ffmpeg там замокан), и запускать по нему ещё один
+      // процесс незачем.
+      const perceptualHash = measuredSec === null ? null : await hashImageFile(outputPath).catch(async (error) => {
+        await appendStepLog(
+          step.id,
+          `Кадровый монтаж: хеш кадра ${shot.order} не снят (${error instanceof Error ? error.message : String(error)}) `
+          + "— кадр собран, уникальность посчитается по готовому ролику",
+        )
+        return null
+      })
+
       await prisma.videoShot.update({
         where: { id: original.id },
-        data: { assetPath: outputPath, status: "completed", degradeReason: null },
+        data: { assetPath: outputPath, status: "completed", degradeReason: null, perceptualHash },
       })
       composedCount += 1
       shots.push({ order: shot.order, startSec: shot.startSec, endSec: shot.endSec, path: outputPath })
