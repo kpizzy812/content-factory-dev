@@ -90,6 +90,36 @@ function onSaved() {
         <section class="rounded-lg border border-border bg-panel p-3.5">
           <div class="mb-2">
             <h2 class="flex items-center gap-2 text-micro tracking-[.06em] text-subtle uppercase">
+              <Icon name="mingcute:scissors-line" />
+              Монтажный профиль
+            </h2>
+            <p class="mt-1 text-sm text-muted">
+              Правила монтажа для всех роликов приложения: доля перебивок, смена кадра, картинка в углу
+              и два денежных потолка на один ролик. На отдельном ролике их можно переопределить.
+            </p>
+          </div>
+
+          <AdminAppEditProfiles :app-id="app.id" />
+        </section>
+
+        <section class="rounded-lg border border-border bg-panel p-3.5">
+          <div class="mb-2">
+            <h2 class="flex items-center gap-2 text-micro tracking-[.06em] text-subtle uppercase">
+              <Icon name="mingcute:pic-line" />
+              Библиотека фонов
+            </h2>
+            <p class="mt-1 text-sm text-muted">
+              Записи экрана, съёмка и картинки, которые монтаж берёт вместо платной генерации фона.
+              Дубли по файлу отсекаются, похожие по первому кадру — помечаются.
+            </p>
+          </div>
+
+          <AdminAppBackgroundLibrary :app-id="app.id" />
+        </section>
+
+        <section class="rounded-lg border border-border bg-panel p-3.5">
+          <div class="mb-2">
+            <h2 class="flex items-center gap-2 text-micro tracking-[.06em] text-subtle uppercase">
               <Icon name="mingcute:share-2-line" />
               Аккаунты и группы
             </h2>

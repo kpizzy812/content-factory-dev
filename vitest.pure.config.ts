@@ -57,6 +57,9 @@ export default defineConfig({
       "tests/unit/shots/**/*.spec.ts",
       // Монтажная консоль: чистая логика экранов и защита дорогих действий.
       "tests/unit/edit-console/**/*.spec.ts",
+      // Админка приложения: форма монтажного профиля (две денежные ручки) и
+      // библиотека фонов с честным разбором дедупа.
+      "tests/unit/admin-edit-profile/**/*.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },
