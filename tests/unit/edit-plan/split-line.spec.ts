@@ -488,3 +488,92 @@ describe("поправка 2 — вырожденные паузы не зави
     expect(result.warning).toMatch(/WARN/)
   })
 })
+
+/**
+ * Сомнение 1 отчёта `scene-split-report.md`: ветка 2 плодила лишние части.
+ *
+ * Кандидаты перебивки сортировались по УБЫВАНИЮ ШИРИНЫ паузы, а при равных
+ * ширинах стабильная сортировка оставляла первую по времени — то есть рез шёл
+ * у самого курсора. Замер на реплике 14 с с паузами 0.2 с: 5 частей вместо 2,
+ * каждая короче минимума модели добивается тишиной — +29% оплаченных секунд
+ * lip-sync на ровном месте.
+ *
+ * Ширина паузы в ветке 2 и так заведомо «не намеренная» (иначе сработала бы
+ * ветка 1), а нижнюю границу держит `MIN_INTERLUDE_SEC`. Значит выбирать между
+ * такими паузами надо не по ширине, а по позиции — как это уже делает ветка 3.
+ */
+describe("ветка 2 §5.3 выбирает паузу ближе к потолку, а не первую самую широкую", () => {
+  /** Слова по секунде с паузой между ними — реплика заведомо длиннее потолка. */
+  function evenlySpacedLine(wordCount: number, pauseSec: number) {
+    const words: Array<[string, number, number]> = []
+    let at = 0
+    for (let index = 0; index < wordCount; index += 1) {
+      words.push([`слово${index}`, at, at + 1])
+      at += 1 + pauseSec
+    }
+    return scene(words)
+  }
+
+  it("реплика 14 с с равными паузами 0.2 с даёт две части, а не пять", () => {
+    const result = splitLongPresenterLine({
+      scene: evenlySpacedLine(12, 0.2),
+      maxDurationSec: 10,
+      fps: 30,
+      brollAllowed: true,
+    })
+
+    expect(result.parts).toHaveLength(2)
+    // Первая часть обязана дотянуться почти до потолка — ради этого правка.
+    expect(result.parts[0]!.endSec).toBeGreaterThan(9)
+    expect(result.parts[0]!.endSec).toBeLessThanOrEqual(10)
+    expect(result.warning).toBeNull()
+  })
+
+  it("ни одна часть не короче минимума модели — платить за тишину не приходится", () => {
+    // Части короче ~2 с провайдер добивает тишиной до своего минимума: каждая
+    // лишняя часть это оплаченные впустую секунды.
+    const result = splitLongPresenterLine({
+      scene: evenlySpacedLine(20, 0.2),
+      maxDurationSec: 10,
+      fps: 30,
+      brollAllowed: true,
+    })
+
+    for (const part of result.parts) {
+      expect(part.endSec - part.startSec).toBeGreaterThan(2)
+    }
+  })
+
+  it("между двумя узкими паузами побеждает поздняя, даже если ранняя шире", () => {
+    // Ранняя пауза [2.0, 2.3] шире (0.3 с) поздней [8.0, 8.2] (0.2 с), но обе
+    // «не намеренные» (< 0.35 с). Рез обязан уйти в позднюю: часть получается
+    // 8 с вместо 2 с, а перебивка 0.2 с монтажно не хуже 0.3 с.
+    const result = splitLongPresenterLine({
+      scene: scene([["а", 0, 2], ["б", 2.3, 8], ["в", 8.2, 16]]),
+      maxDurationSec: 10,
+      fps: 30,
+      brollAllowed: true,
+    })
+
+    expect(result.parts[0]).toEqual({ startSec: 0, endSec: 8 })
+    expect(result.interludes).toEqual([{ startSec: 8, endSec: 8.2 }])
+    expect(result.warning).toBeNull()
+  })
+
+  it("ветка 1 не тронута: намеренная пауза выбирается по ширине, а не по позиции", () => {
+    // Контроль обратной стороны правки. Пауза [3, 4.5] намеренная (1.5 с) и
+    // РАНЬШЕ, чем намеренная [8, 8.4] (0.4 с) — ветка 1 обязана взять широкую,
+    // потому что там смена плана выглядит намеренной (§5.3 п.1).
+    const result = splitLongPresenterLine({
+      scene: scene([["а", 0, 3], ["б", 4.5, 8], ["в", 8.4, 16]]),
+      maxDurationSec: 10,
+      fps: 30,
+      brollAllowed: true,
+    })
+
+    expect(result.parts[0]!.endSec).toBeGreaterThanOrEqual(3)
+    expect(result.parts[0]!.endSec).toBeLessThanOrEqual(4.5)
+    expect(result.interludes).toEqual([])
+    expect(result.warning).toBeNull()
+  })
+})
