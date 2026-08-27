@@ -257,6 +257,7 @@ export const CharacterScalarFieldEnum = {
   ageRange: 'ageRange',
   voiceId: 'voiceId',
   voiceModelId: 'voiceModelId',
+  voiceSampleSha1: 'voiceSampleSha1',
   archived: 'archived',
   createdById: 'createdById',
   createdAt: 'createdAt',
@@ -659,7 +660,10 @@ export const VideoScalarFieldEnum = {
   fitScore: 'fitScore',
   fitRationale: 'fitRationale',
   editProfileId: 'editProfileId',
-  editOverrides: 'editOverrides'
+  editOverrides: 'editOverrides',
+  stepwiseApproval: 'stepwiseApproval',
+  awaitingStepKey: 'awaitingStepKey',
+  approvedStepKey: 'approvedStepKey'
 } as const
 
 export type VideoScalarFieldEnum = (typeof VideoScalarFieldEnum)[keyof typeof VideoScalarFieldEnum]

@@ -7068,6 +7068,7 @@ export const CharacterScalarFieldEnum = {
   ageRange: 'ageRange',
   voiceId: 'voiceId',
   voiceModelId: 'voiceModelId',
+  voiceSampleSha1: 'voiceSampleSha1',
   archived: 'archived',
   createdById: 'createdById',
   createdAt: 'createdAt',
@@ -7470,7 +7471,10 @@ export const VideoScalarFieldEnum = {
   fitScore: 'fitScore',
   fitRationale: 'fitRationale',
   editProfileId: 'editProfileId',
-  editOverrides: 'editOverrides'
+  editOverrides: 'editOverrides',
+  stepwiseApproval: 'stepwiseApproval',
+  awaitingStepKey: 'awaitingStepKey',
+  approvedStepKey: 'approvedStepKey'
 } as const
 
 export type VideoScalarFieldEnum = (typeof VideoScalarFieldEnum)[keyof typeof VideoScalarFieldEnum]
@@ -9196,20 +9200,6 @@ export type ListEnumVideoFormatFieldRefInput<$PrismaModel> = FieldRefInputType<$
 
 
 /**
- * Reference to a field of type 'AssetType'
- */
-export type EnumAssetTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AssetType'>
-    
-
-
-/**
- * Reference to a field of type 'AssetType[]'
- */
-export type ListEnumAssetTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AssetType[]'>
-    
-
-
-/**
  * Reference to a field of type 'VideoStepKey'
  */
 export type EnumVideoStepKeyFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VideoStepKey'>
@@ -9220,6 +9210,20 @@ export type EnumVideoStepKeyFieldRefInput<$PrismaModel> = FieldRefInputType<$Pri
  * Reference to a field of type 'VideoStepKey[]'
  */
 export type ListEnumVideoStepKeyFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VideoStepKey[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AssetType'
+ */
+export type EnumAssetTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AssetType'>
+    
+
+
+/**
+ * Reference to a field of type 'AssetType[]'
+ */
+export type ListEnumAssetTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AssetType[]'>
     
 
 

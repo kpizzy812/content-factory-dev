@@ -74,6 +74,8 @@ describe("доменные мапперы", () => {
   it("покрывают весь enum VideoStatus из схемы", () => {
     expect(Object.keys(VIDEO_STATUS_TO_ENTITY).sort()).toEqual([
       "assembling",
+      // Пошаговый режим (§9): ролик ждёт решения оператора, прогона за ним нет.
+      "awaiting_operator",
       "canceled",
       "completed",
       "configuring",

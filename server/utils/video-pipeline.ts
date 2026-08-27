@@ -6,6 +6,7 @@
  * - rerunVideoStep(videoId, stepKey) — retry a specific step
  * - cancelVideoPipeline(videoId) — cancel active generation
  * - resumeVideoPipeline(videoId) — resume interrupted generation
+ * - applyStepwiseApproval(videoId, action) — решение оператора в пошаговом режиме
  *
  * Step runners, DB helpers, and lock management are in:
  * - video-pipeline-steps.ts (step runners)
@@ -97,6 +98,11 @@ import {
   stepsInvalidatedByFreshClips,
   stepsToRerunFrom,
 } from "./video-pipeline-run-policy"
+import {
+  AWAITING_OPERATOR_STATUS,
+  planStepwisePause,
+  resolveStepwiseEnabled,
+} from "./video-pipeline-stepwise"
 
 /**
  * Маршрут, по которому ролик пойдёт НА САМОМ ДЕЛЕ.
@@ -564,6 +570,58 @@ export async function runVideoPipeline(
      */
     const audioFirstRoute = await resolveVideoRoute(videoId, video.editPipeline)
 
+    /**
+     * ── Пошаговый режим (§9): ожидание решения оператора ВНЕ прогона ──
+     *
+     * Шаг доводится до конца, ролик уходит в статус ожидания, прогон выходит
+     * штатным `return` — блокировку снимает тот же `finally`, что и всегда, и
+     * процесс завершает работу. Ждать внутри живого прогона нельзя: удержанный
+     * lock и подвешенный процесс не переживают перезапуск воркера, а требование
+     * «долгие операции идемпотентны и восстанавливаемы после рестарта»
+     * (`AGENTS.md`) относится и к ожиданию.
+     *
+     * Профиль приложения по умолчанию читаем только когда он реально решает:
+     * при заданном переопределении на ролике или собственном профиле ролика
+     * лишний запрос в БД на КАЖДОМ прогоне не нужен.
+     */
+    const stepwiseProfile = video.editProfile
+      ?? (video.stepwiseApproval === null && enrichmentContext.appId
+        ? await prisma.editProfile.findFirst({ where: { appId: enrichmentContext.appId, isDefault: true } })
+        : null)
+    const stepwiseEnabled = resolveStepwiseEnabled({
+      videoOverride: video.stepwiseApproval,
+      profileStepwise: stepwiseProfile?.stepwiseApproval,
+    })
+    /** Порядок МАРШРУТА ролика: на audio-first шаги идут в другой очерёдности. */
+    const stepwiseOrder = executionOrderFor(audioFirstRoute)
+    const stepwiseApprovedThrough = (video.approvedStepKey as StepKey | null) ?? null
+
+    /**
+     * Пора ли встать после шага. `true` — вызывающий обязан немедленно выйти из
+     * прогона штатным `return`, ничего больше не делая.
+     */
+    const pauseAfterStep = async (justFinished: StepKey): Promise<boolean> => {
+      const decision = planStepwisePause({
+        stepwiseEnabled,
+        justFinished,
+        order: stepwiseOrder,
+        approvedThrough: stepwiseApprovedThrough,
+      })
+      if (!decision.pause) return false
+
+      await updateVideoStatus(videoId, AWAITING_OPERATOR_STATUS, {
+        awaitingStepKey: decision.awaitingStepKey,
+        // Ролик стоит на этом шаге — по нему UI и покажет, чьё решение ждут.
+        currentStep: decision.awaitingStepKey,
+        errorMessage: null,
+      })
+      await logAgent('video-pipeline', 'info',
+        `Video ${videoId}: пошаговый режим — ${decision.reason}, прогон завершён, блокировка отпущена`,
+        { videoId },
+      ).catch(() => {})
+      return true
+    }
+
     const costConfig = {
       audioFirst: audioFirstRoute,
       imageModelId: effectiveImageModelId,
@@ -682,6 +740,10 @@ export async function runVideoPipeline(
       await chargeStep(videoId, "prompt_generation", "anthropic", null, prompts.scenePrompts ? 0.02 : 0.01)
     }
 
+    // Пауза ставится ПОСЛЕ учёта денег: шаг доведён до конца целиком, включая
+    // строку в ledger, — иначе принятый оператором результат остался бы неоплаченным.
+    if (await pauseAfterStep("prompt_generation")) return
+
     // ── 2b. Маршрут «монтаж от звука»: озвучка и транскрипция ДО картинки ──
     //
     // Порядок здесь не косметика: на этом маршруте звук — эталон времени, и
@@ -728,6 +790,11 @@ export async function runVideoPipeline(
       )
 
       if (audioFirstTrack.status === 'completed' && audioFirstTrack.trackPath && audioFirstTrack.trackFingerprint) {
+        // Трек синтезирован и оплачен — на этом маршруте это и есть шаг озвучки.
+        // Пауза только при СОСТОЯВШЕМСЯ треке: не состоялся — шаг озвучки ролику
+        // ещё предстоит прежним путём (ветка `else` ниже), и вставать тут не за чем.
+        if (await pauseAfterStep("voiceover_generation")) return
+
         // ── Cancel checkpoint: до транскрипции ──
         throwIfAborted(signal)
         // Границ не будет — шаг бросит, и прогон честно упадёт: ролик без сцен
@@ -764,6 +831,8 @@ export async function runVideoPipeline(
             { videoId },
           ).catch(() => {})
         }
+
+        if (await pauseAfterStep("transcription")) return
       } else {
         // Речи в ролике нет вовсе (нет StoryPlan либо ни реплик в кадре, ни
         // закадровых строк): единый трек собирать не из чего, выравнивать нечего
@@ -847,6 +916,8 @@ export async function runVideoPipeline(
         { videoId },
       ).catch(() => {})
 
+      if (await pauseAfterStep("edit_plan")) return
+
       /**
        * ── 2d. Маршрут «монтаж от звука»: медиа фона на кадр ──
        *
@@ -888,6 +959,8 @@ export async function runVideoPipeline(
           + (shotBackgroundResult.warnings.length > 0 ? `, предупреждений: ${shotBackgroundResult.warnings.length}` : ''),
           { videoId },
         ).catch(() => {})
+
+        if (await pauseAfterStep("shot_background")) return
       }
     }
 
@@ -979,6 +1052,8 @@ export async function runVideoPipeline(
     }
     await chargeImages(imgResult.generatedCount)
 
+    if (await pauseAfterStep("image_generation")) return
+
     // ── Cancel checkpoint #5: до генерации клипов ──
     throwIfAborted(signal)
 
@@ -1037,6 +1112,8 @@ export async function runVideoPipeline(
     }
     const clipPaths = clipResult.clipPaths
     await chargeClips(clipResult.generatedCount)
+
+    if (await pauseAfterStep("clip_generation")) return
 
     // Порядок нарезки клипов задаёт МОДЕЛЬ: runClipGeneration идёт по
     // prompts.scenePrompts.scenes и нигде их не сортирует, поэтому clipPaths[i] —
@@ -1143,6 +1220,11 @@ export async function runVideoPipeline(
     const lipSyncAttemptGrew = (await loadStepAttempt(videoId, "lip_sync_generation")) > lipSyncAttemptBefore
     const lipSyncProducedNewClips = didLipSyncProduceNewClips(lipSyncResult, lipSyncAttemptGrew)
 
+    // Ровно здесь, а не раньше: гейт «ни одной сцены ведущего» выше обязан
+    // отработать до паузы — иначе оператору предъявили бы на приёмку заведомо
+    // бракованный ролик вместо честного отказа.
+    if (await pauseAfterStep("lip_sync_generation")) return
+
     // Приведение клипов к единому кодеку/fps/таймбазе — ДО озвучки, а не внутри
     // сборки. Нормализация режет по границе кадра и укорачивает клип на
     // 0.02-0.06 с; пока её делала сборка, шаг озвучки строил таймлайн по
@@ -1234,6 +1316,10 @@ export async function runVideoPipeline(
           ).catch(() => {})
         }
       }
+
+      // Только в этой ветке: на audio-first шаг озвучки уже был принят выше
+      // (блок 2b), второй раз спрашивать оператора за тот же шаг нельзя.
+      if (await pauseAfterStep("voiceover_generation")) return
     }
 
     // ── Cancel checkpoint #8: до музыки ──
@@ -1256,6 +1342,8 @@ export async function runVideoPipeline(
         await chargeStep(videoId, "music_generation", "mubert", "mubert", musicModel.pricing.base)
       }
     }
+
+    if (await pauseAfterStep("music_generation")) return
 
     // 7. Сборка (бесплатно — локальный FFmpeg)
     // subtitleStyleOverride: читаем актуальный Video.subtitlesStyle (мог быть изменён
@@ -1346,6 +1434,9 @@ export async function runVideoPipeline(
       "video/mp4",
     )
     await updateVideoStatus(videoId, "completed", {
+      // Ролик готов — ждать больше нечего. Иначе UI показывал бы «ждём решения
+      // по шагу X» на завершённом ролике.
+      awaitingStepKey: null,
       filePath: result.filePath,
       fileUrl: storageKeyToLegacyUrl(finalStorage.storageKey),
       duration: result.duration,
@@ -1720,7 +1811,15 @@ export async function resetSingleShot(videoId: number, order: number): Promise<v
   ).catch(() => {})
 }
 
-export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise<void> {
+/**
+ * Сброс шага и всего каскада после него. Прогон НЕ запускает.
+ *
+ * Выделено из `rerunVideoStep` ради пошагового режима: «перегенерировать» обязан
+ * сбросить шаг ровно тем же кодом (второй путь сброса разошёлся бы с этим при
+ * первой же правке), но запуск прогона там делает вызывающий — иначе ручка
+ * стартовала бы пайплайн дважды.
+ */
+export async function resetVideoStepForRerun(videoId: number, stepKey: StepKey): Promise<void> {
   // Каскад считаем по РЕАЛЬНОМУ порядку выполнения, а не по STEP_ORDER (там
   // lip_sync стоит после озвучки ради исторического stepIndex). Иначе перезапуск
   // озвучки заставлял заново оплачивать lip-sync, а перезапуск lip-sync оставлял
@@ -1776,13 +1875,27 @@ export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise
     data: STEP_RERUN_RESET_PATCH as never,
   })
 
+  // Приёмка сбрасываемых шагов откатывается вместе с ними: результат, который
+  // оператор принял, перестаёт существовать, и предъявлять на приёмку заново
+  // прогон обязан начиная ровно с этого шага. Принятым остаётся то, что идёт
+  // ДО него; шаг первый в порядке — не принято ничего.
+  const order = executionOrderFor(isAudioFirstRoute)
+  const rerunIndex = order.indexOf(stepKey)
+  const approvedStepKey = rerunIndex > 0 ? order[rerunIndex - 1]! : null
+
   await updateVideoStatus(videoId, "pending", {
     errorMessage: null,
     finishedAt: null,
     filePath: null,
     fileUrl: null,
     totalCostActual: null,
+    awaitingStepKey: null,
+    approvedStepKey,
   })
+}
+
+export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise<void> {
+  await resetVideoStepForRerun(videoId, stepKey)
 
   runVideoPipeline(videoId).catch((err) => {
     logAgent('video-pipeline', 'error', `Ошибка перезапуска шага видео ${videoId}: ${err instanceof Error ? err.message : err}`, { videoId }).catch(() => {})
@@ -1870,4 +1983,83 @@ export async function resumeVideoPipeline(videoId: number): Promise<void> {
   runVideoPipeline(videoId).catch((err) => {
     logAgent('video-pipeline', 'error', `Ошибка возобновления видео ${videoId}: ${err instanceof Error ? err.message : err}`, { videoId }).catch(() => {})
   })
+}
+
+/** Что оператор решил по показанному шагу. */
+export type StepwiseApprovalAction = "approve" | "regenerate"
+
+export interface StepwiseApprovalResult {
+  videoId: number
+  action: StepwiseApprovalAction
+  /** Шаг, который оператор принял. null — принято ничего (перегенерация). */
+  approvedStepKey: StepKey | null
+  /** Шаг, отправленный на переделку. null — переделки не было. */
+  regeneratedStepKey: StepKey | null
+}
+
+/**
+ * Записать решение оператора по шагу, на котором стоит ролик.
+ *
+ * Прогон НЕ запускает намеренно — его запускает вызывающий (ручка делает это
+ * fire-and-forget, ровно как `resumeVideoPipeline`). Разделение нужно, чтобы
+ * решение оператора попадало в БД ДО старта прогона и чтобы тест мог дождаться
+ * прогона, а не гоняться с ним.
+ *
+ * Продолжение — это просто новый `runVideoPipeline(videoId)`: завершённые шаги
+ * он переиспользует по снапшотам и повторно за них не платит (образец —
+ * `resumeVideoPipeline`).
+ */
+export async function applyStepwiseApproval(
+  videoId: number,
+  action: StepwiseApprovalAction = "approve",
+): Promise<StepwiseApprovalResult> {
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+    select: { id: true, status: true, awaitingStepKey: true },
+  })
+  if (!video) throw createError({ statusCode: 404, message: `Видео ${videoId} не найдено` })
+
+  // 409, а не 400: это состояние ролика, а не кривой запрос. Ролик, за которым
+  // прямо сейчас идёт прогон, решения не ждёт — принимать нечего.
+  if (String(video.status) !== AWAITING_OPERATOR_STATUS) {
+    throw createError({
+      statusCode: 409,
+      message: `Видео ${videoId} не ждёт решения оператора (статус '${video.status}') — принимать нечего`,
+    })
+  }
+
+  const awaitingStepKey = video.awaitingStepKey as StepKey | null
+  if (!awaitingStepKey) {
+    // Статус ожидания без шага — рассогласование записи: продолжать вслепую
+    // значило бы принять неизвестно что.
+    throw createError({
+      statusCode: 409,
+      message: `Видео ${videoId} стоит в ожидании без указанного шага — принять нечего, перезапустите прогон`,
+    })
+  }
+
+  if (action === "regenerate") {
+    // Сброс тем же кодом, что и у кнопки «перезапустить шаг»: он же откатывает
+    // приёмку на шаг назад, поэтому следующий прогон переиграет шаг и снова
+    // остановится на нём — оператор увидит новый результат.
+    await resetVideoStepForRerun(videoId, awaitingStepKey)
+    await logAgent('video-pipeline', 'info',
+      `Video ${videoId}: пошаговый режим — оператор отправил шаг ${awaitingStepKey} на перегенерацию`,
+      { videoId },
+    ).catch(() => {})
+    return { videoId, action, approvedStepKey: null, regeneratedStepKey: awaitingStepKey }
+  }
+
+  await updateVideoStatus(videoId, "pending", {
+    approvedStepKey: awaitingStepKey,
+    awaitingStepKey: null,
+    errorMessage: null,
+    finishedAt: null,
+  })
+  await logAgent('video-pipeline', 'info',
+    `Video ${videoId}: пошаговый режим — оператор принял шаг ${awaitingStepKey}, прогон продолжается`,
+    { videoId },
+  ).catch(() => {})
+
+  return { videoId, action, approvedStepKey: awaitingStepKey, regeneratedStepKey: null }
 }

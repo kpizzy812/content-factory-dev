@@ -184,7 +184,8 @@ export const VideoStatus = {
   failed: 'failed',
   timeout: 'timeout',
   canceled: 'canceled',
-  file_missing: 'file_missing'
+  file_missing: 'file_missing',
+  awaiting_operator: 'awaiting_operator'
 } as const
 
 export type VideoStatus = (typeof VideoStatus)[keyof typeof VideoStatus]

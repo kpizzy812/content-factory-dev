@@ -14,6 +14,8 @@ export const VIDEO_STATUS_TO_ENTITY: Record<string, EntityStatus> = {
   failed: 'failed',
   timeout: 'failed',
   canceled: 'cancelled',
+  // Не 'running': прогона за роликом нет вовсе, он ждёт человека.
+  awaiting_operator: 'queued',
 }
 
 export const VIDEO_STEP_TO_ENTITY: Record<string, EntityStatus> = {

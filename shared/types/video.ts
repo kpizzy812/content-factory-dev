@@ -23,6 +23,9 @@ export type VideoStatus =
   | "failed"
   | "timeout"
   | "canceled"
+  // Пошаговый режим (§9): шаг доведён до конца, ролик ждёт решения оператора.
+  // Прогона за ним нет — блокировка отпущена, процесс завершился.
+  | "awaiting_operator"
 
 export type VideoStepKey =
   | "prompt_generation"
