@@ -11,7 +11,9 @@ import {
   runVideoEditPlan, type VideoEditPlanInput,
   runShotBackgrounds, type VideoShotBackgroundInput, type ShotBackgroundStepDeps,
 } from "~~/server/utils/video-pipeline-steps"
-import { resetEditPlanShots } from "~~/server/utils/video-pipeline"
+import { resetComposedShots, resetEditPlanShots, resetSingleShot } from "~~/server/utils/video-pipeline"
+import { stepsToRerunFrom } from "~~/server/utils/video-pipeline-run-policy"
+import type { StepKey } from "~~/server/utils/video-pipeline-db"
 import { DEFAULT_EDIT_PROFILE } from "~~/server/utils/edit-plan/profile"
 import type { ResolvedEditProfile } from "~~/server/utils/edit-plan/profile"
 import type { EditPlanModelShot, EditPlanModelUsage } from "~~/server/utils/edit-plan/runner"
@@ -1744,5 +1746,99 @@ describe("каскад перезапуска: собранные кадры (Ru
   })
 })
 
+/**
+ * Перегенерация ОДНОГО кадра (§12: «перегенерация одного кадра не трогает
+ * соседей»; план C, Task 7 — до 27.08.2026 схема под неё была, а кода не было).
+ *
+ * Задача ручки — сделать ровно один кадр «непроизведённым»: снести его фон
+ * (ассет и файл), обесценить собранный кадр и распечатать кэш шага фонов,
+ * который иначе вернулся бы не тронув ни строки (тот же класс, что Ruling
+ * S8-9). Соседи обязаны остаться оплаченными: их ассеты, файлы и собранные
+ * кадры не трогаются, и повторный прогон переиспользует их бесплатно.
+ */
+describe("перегенерация одного кадра", () => {
+  async function seedComposedShot(order: number, idea: string) {
+    const dir = getAssetsDir(videoId)
+    await ensureDir(dir)
+    const composed = join(dir, `shot_${order}_composed.mp4`)
+    const background = join(dir, `shot_${order}_bg.png`)
+    await writeFile(composed, `кадр ${order}`)
+    await writeFile(background, `фон ${order}`)
+
+    const shot = await prisma.videoShot.create({
+      data: {
+        videoId, order, startSec: order * 2, endSec: order * 2 + 2, sceneOrder: null,
+        foreground: "none", background: "image", backgroundActual: "image", idea,
+        status: "completed", assetPath: composed, costUsd: 0.025, perceptualHash: "aaaaaaaaaaaaaaaa",
+      },
+    })
+    const asset = await prisma.videoAsset.create({
+      data: {
+        videoId, type: "shot_background" as never, order, filePath: background,
+        prompt: `отпечаток кадра ${order}`, contentType: "image/png",
+      },
+    })
+    return { shot, asset, composed, background }
+  }
+
+  it("сносит фон и собранный файл ТОЛЬКО у своего кадра", async () => {
+    const target = await seedComposedShot(0, "первая идея")
+    const neighbour = await seedComposedShot(1, "вторая идея")
+
+    await resetSingleShot(videoId, 0)
+
+    const targetAfter = await prisma.videoShot.findUnique({ where: { id: target.shot.id } })
+    expect(targetAfter!.assetPath).toBeNull()
+    expect(targetAfter!.backgroundActual).toBeNull()
+    expect(targetAfter!.status).toBe("planned")
+    expect(Number(targetAfter!.costUsd)).toBe(0)
+    expect(targetAfter!.perceptualHash).toBeNull()
+    expect(existsSync(target.composed)).toBe(false)
+    expect(existsSync(target.background)).toBe(false)
+    expect(await prisma.videoAsset.findUnique({ where: { id: target.asset.id } })).toBeNull()
+
+    // Сосед не тронут ничем: ни строкой, ни файлом, ни ассетом.
+    const neighbourAfter = await prisma.videoShot.findUnique({ where: { id: neighbour.shot.id } })
+    expect(neighbourAfter!.assetPath).toBe(neighbour.composed)
+    expect(neighbourAfter!.status).toBe("completed")
+    expect(Number(neighbourAfter!.costUsd)).toBeCloseTo(0.025, 6)
+    expect(existsSync(neighbour.composed)).toBe(true)
+    expect(existsSync(neighbour.background)).toBe(true)
+    expect(await prisma.videoAsset.findUnique({ where: { id: neighbour.asset.id } })).not.toBeNull()
+
+    // План кадров цел — перегенерация кадра не переигрывает монтаж.
+    expect(await prisma.videoShot.count({ where: { videoId } })).toBe(2)
+  })
+
+  it("распечатывает кэш шагов фонов и сборки — иначе прогон вернётся, не тронув кадр", async () => {
+    await seedComposedShot(0, "первая идея")
+    const background = await prisma.videoGenerationStep.create({
+      data: {
+        videoId, stepKey: "shot_background", stepIndex: 6, status: "completed",
+        outputSnapshot: { cacheKey: "старый ключ" }, actualCost: 0.05, finishedAt: new Date(),
+      },
+    })
+    const assembly = await prisma.videoGenerationStep.create({
+      data: { videoId, stepKey: "assembly", stepIndex: 9, status: "completed", finishedAt: new Date() },
+    })
+    const transcription = await prisma.videoGenerationStep.create({
+      data: { videoId, stepKey: "transcription", stepIndex: 4, status: "completed", actualCost: 0.02, finishedAt: new Date() },
+    })
+
+    await resetSingleShot(videoId, 0)
+
+    for (const step of [background, assembly]) {
+      const after = await prisma.videoGenerationStep.findUnique({ where: { id: step.id } })
+      expect(after!.status).toBe("pending")
+      expect(after!.outputSnapshot).toBeNull()
+    }
+    // Оплаченная транскрипция перегенерацией кадра не обесценивается.
+    const transcriptionAfter = await prisma.videoGenerationStep.findUnique({ where: { id: transcription.id } })
+    expect(transcriptionAfter!.status).toBe("completed")
+    expect(Number(transcriptionAfter!.actualCost)).toBeCloseTo(0.02, 6)
+  })
+
+  it("несуществующий кадр — понятный отказ, а не молчаливый успех", async () => {
+    await expect(resetSingleShot(videoId, 42)).rejects.toThrow(/кадр/i)
   })
 })

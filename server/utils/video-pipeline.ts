@@ -1657,6 +1657,69 @@ export async function resetComposedShots(
   ).catch(() => {})
 }
 
+/**
+ * Перегенерация ОДНОГО кадра плана монтажа (§12, план C Task 7).
+ *
+ * Делает ровно один кадр «непроизведённым» и не трогает соседей: сносит его
+ * фон (строку `VideoAsset` и файл), обесценивает собранный кадр вместе с его
+ * файлом и обнуляет факт исполнения (`backgroundActual`, `costUsd`,
+ * `perceptualHash`) — план кадра (`background`, `idea`, границы) остаётся, его
+ * решал `edit_plan`, а не эта ручка.
+ *
+ * Кэш шагов `shot_background` и `assembly` распечатывается: без этого шаг
+ * фонов вернулся бы по совпавшему ключу, не тронув ни строки `VideoShot`
+ * (ровно класс Ruling S8-9), и оператор увидел бы прежний ролик. Остальные
+ * шаги — включая оплаченные транскрипцию, озвучку и lip-sync — не трогаются:
+ * кадр перерисовывается, речь переозвучке не подлежит.
+ *
+ * Пайплайн отсюда НЕ запускается: это делает вызывающий (ручка API) — так же,
+ * как `resetEditPlanShots`, отдельной функцией её можно проверить DB-тестом
+ * без гонки с `afterEach`.
+ */
+export async function resetSingleShot(videoId: number, order: number): Promise<void> {
+  const shot = await prisma.videoShot.findFirst({ where: { videoId, order } })
+  if (!shot) {
+    throw new Error(`Video ${videoId}: кадр ${order} не найден — перегенерировать нечего`)
+  }
+
+  const assets = await prisma.videoAsset.findMany({
+    where: { videoId, order, type: "shot_background" as never },
+    select: { id: true, filePath: true },
+  })
+
+  const removal = await removeAssetFiles(
+    [...assets.map(a => a.filePath), shot.assetPath],
+    getAssetsDirFor(videoId),
+    createAssetFileRemovalDeps(),
+  )
+  if (assets.length > 0) {
+    await prisma.videoAsset.deleteMany({ where: { id: { in: assets.map(a => a.id) } } })
+  }
+
+  await prisma.videoShot.update({
+    where: { id: shot.id },
+    data: {
+      status: "planned",
+      assetPath: null,
+      backgroundActual: null,
+      degradeReason: null,
+      costUsd: 0,
+      perceptualHash: null,
+    },
+  })
+
+  await prisma.videoGenerationStep.updateMany({
+    where: { videoId, stepKey: { in: ["shot_background", "assembly"] as never[] } },
+    data: STEP_RERUN_RESET_PATCH as never,
+  })
+
+  await logAgent('video-pipeline', 'info',
+    `Video ${videoId}: перегенерация кадра ${order} — снесено ${assets.length} ассетов фона, `
+    + `файлов удалено ${removal.removed}, не удалось ${removal.failed}`,
+    { videoId },
+  ).catch(() => {})
+}
+
 export async function rerunVideoStep(videoId: number, stepKey: StepKey): Promise<void> {
   // Каскад считаем по РЕАЛЬНОМУ порядку выполнения, а не по STEP_ORDER (там
   // lip_sync стоит после озвучки ради исторического stepIndex). Иначе перезапуск

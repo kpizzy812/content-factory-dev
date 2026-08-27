@@ -1155,3 +1155,96 @@ describe("код ответа не выдаёт существование пр�
     expect(await prisma.backgroundClip.count()).toBe(0)
   })
 })
+
+/**
+ * POST /api/videos/[id]/shots/[order]/rerender — перегенерация ОДНОГО кадра
+ * (§12, план C Task 7; ручка появилась 27.08.2026).
+ *
+ * Сама механика сброса покрыта DB-тестом (`resetSingleShot` в
+ * `tests/integration/edit-plan.spec.ts`); здесь — контракт ручки: коды
+ * ответов, права и то, что запуск пайплайна не происходит на отказах.
+ */
+describe("POST /api/videos/[id]/shots/[order]/rerender", () => {
+  async function statusOf(run: () => Promise<unknown>): Promise<number> {
+    try {
+      await run()
+      return 200
+    }
+    catch (error) {
+      return (error as { statusCode?: number }).statusCode ?? 0
+    }
+  }
+
+  async function videoWithShot(status: string, extra: Record<string, unknown> = {}) {
+    const scenario = await prisma.scenario.create({ data: { status: "draft" } })
+    const video = await prisma.video.create({
+      data: { scenarioId: scenario.id, editPipeline: true, status, ...extra },
+    })
+    await prisma.videoShot.create({
+      data: {
+        videoId: video.id, order: 0, startSec: 0, endSec: 2, sceneOrder: null,
+        foreground: "none", background: "image", idea: "идея", status: "completed",
+      },
+    })
+    return video
+  }
+
+  it("401 без auth — и кадр остаётся собранным", async () => {
+    const video = await videoWithShot("completed")
+
+    expect(await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, { method: "POST" }))).toBe(401)
+
+    const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
+    expect(shot!.status).toBe("completed")
+  })
+
+  it("404 на несуществующий кадр — номер кадра не выдумывается", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const video = await videoWithShot("completed")
+
+    const code = await statusOf(() => $fetch(`/api/videos/${video.id}/shots/7/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))
+
+    expect(code).toBe(404)
+  })
+
+  it("400 на некорректный номер кадра", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const video = await videoWithShot("completed")
+
+    const code = await statusOf(() => $fetch(`/api/videos/${video.id}/shots/-1/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))
+
+    expect(code).toBe(400)
+  })
+
+  it("409 на заблокированном ролике — идёт другая операция", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const video = await videoWithShot("completed", { isLocked: true })
+
+    const code = await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))
+
+    expect(code).toBe(409)
+    const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
+    expect(shot!.status).toBe("completed")
+  })
+
+  it("400 в рабочем статусе — перегенерация не вклинивается в идущий прогон", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+    const video = await videoWithShot("processing")
+
+    const code = await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))
+
+    expect(code).toBe(400)
+  })
+})
