@@ -63,6 +63,8 @@ interface World {
   files: Map<string, string>
   durations: Map<string, number>
   steps: Map<string, { id: number, status: string, snapshot: Record<string, unknown> | null }>
+  /** Сценарий ролика — там живёт исходный текст реплики (`ScenarioVariant.storyPlan`). */
+  script: { variantId: number, storyPlan: Record<string, unknown> } | null
   calls: {
     synthesize: Array<Record<string, unknown>>
     transcribe: Array<Record<string, unknown>>
@@ -73,6 +75,8 @@ interface World {
     logs: string[]
     removed: string[]
     assets: Array<Record<string, unknown>>
+    /** Каждая фиксация: какие шаги и уехал ли с ними патч сценария. */
+    commits: Array<{ stepIds: number[], withScript: boolean }>
   }
   /** Что ответит ffprobe на склеенном файле. */
   splicedDurationSec: number
@@ -93,6 +97,8 @@ function makeWorld(options: {
   resetShotsThrows?: boolean
   /** Длительность трека, записанная в снапшоте, — она бывает ОЦЕНКОЙ, а не фактом. */
   snapshotDurationSec?: number
+  /** `null` — у ролика нет сценария вовсе (legacy, вариант отвязан). */
+  script?: { variantId: number, storyPlan: Record<string, unknown> } | null
 } = {}): World {
   const files = new Map<string, string>([
     [TRACK, "track-v1"],
@@ -169,13 +175,39 @@ function makeWorld(options: {
     logs: [],
     removed: [],
     assets: [],
+    commits: [],
   }
+
+  /**
+   * Сценарий ролика: сцена 2 говорится ведущим в кадре (`spokenLine`), сцена 3
+   * — закадровым нарратором. Оба источника нужны в одной фикстуре: правка
+   * обязана попадать ровно в тот, откуда фраза в трек и пришла
+   * (`mergeScriptLines` отдаёт приоритет реплике в кадре).
+   */
+  const script = options.script === undefined
+    ? {
+        variantId: 7,
+        storyPlan: {
+          version: "1.0",
+          scenes: [
+            { order: 1, spokenLine: "первая", subtitleCopy: "первая" },
+            { order: 2, spokenLine: "вторая", subtitleCopy: "вторая" },
+            { order: 3, spokenLine: null, subtitleCopy: "третья" },
+          ],
+          voiceoverPlan: {
+            enabled: true,
+            lines: [{ sceneOrder: 3, text: "третья", emotion: "neutral", pauseAfter: "none" }],
+          },
+        } as Record<string, unknown>,
+      }
+    : options.script
 
   const world: World = {
     deps: null as unknown as ReplaceSegmentDeps,
     files,
     durations,
     steps,
+    script,
     calls,
     splicedDurationSec: options.splicedDurationSec ?? 20.95,
     spliceFails: false,
@@ -194,12 +226,20 @@ function makeWorld(options: {
         voiceoverModelId: "minimax/speech-02-turbo",
       }),
       readStep: async (_videoId: number, stepKey: string) => steps.get(stepKey) ?? null,
-      commit: async (updates: ReadonlyArray<{ stepId: number, snapshot: Record<string, unknown> }>) => {
+      loadScript: async () => world.script,
+      commit: async (
+        updates: ReadonlyArray<{ stepId: number, snapshot: Record<string, unknown> }>,
+        scriptPatch?: { variantId: number, storyPlan: Record<string, unknown> } | null,
+      ) => {
+        calls.commits.push({ stepIds: updates.map(update => update.stepId), withScript: !!scriptPatch })
         for (const update of updates) {
           for (const entry of steps.values()) {
             if (entry.id === update.stepId) entry.snapshot = update.snapshot
           }
         }
+        // Сценарий пишется той же транзакцией, что и снапшоты: фейк обязан
+        // повторять это свойство, иначе тест «одной транзакцией» ничего не ловит.
+        if (scriptPatch) world.script = { variantId: scriptPatch.variantId, storyPlan: scriptPatch.storyPlan }
       },
       appendLog: async (_stepId: number, message: string) => { calls.logs.push(message) },
       recordCost: async (input: { stepKey: string, costUsd: number }) => {
@@ -296,6 +336,18 @@ function alignedScenesOf(world: World): AlignedScene[] {
 function lipSyncRecordsOf(world: World): Map<number, Record<string, unknown>> {
   const snapshot = world.steps.get("lip_sync_generation")!.snapshot as { scenes?: Array<Record<string, unknown>> }
   return new Map((snapshot.scenes ?? []).map(record => [record.sceneOrder as number, record]))
+}
+
+/** Реплика сцены в сценарии ролика — то, из чего трек соберут при полной перегенерации. */
+function scriptSpokenLineOf(world: World, sceneOrder: number): string | null {
+  const scenes = (world.script?.storyPlan.scenes ?? []) as Array<{ order: number, spokenLine: string | null }>
+  return scenes.find(item => item.order === sceneOrder)?.spokenLine ?? null
+}
+
+/** Закадровая строка сцены в сценарии ролика. */
+function scriptNarrationOf(world: World, sceneOrder: number): string | null {
+  const plan = world.script?.storyPlan.voiceoverPlan as { lines?: Array<{ sceneOrder: number, text: string }> } | undefined
+  return plan?.lines?.find(line => line.sceneOrder === sceneOrder)?.text ?? null
 }
 
 /** Ключ куска трека ровно так, как его считает lip-sync-runner. */
@@ -569,6 +621,96 @@ describe("replaceVoiceoverSegment", () => {
     expect(scenes.find(item => item.order === 1)!.text).toBe("первая")
   })
 
+  it("новый текст уезжает в сценарий, а не только в трек", async () => {
+    // Трек — производная сценария, а не источник истины: полная перегенерация
+    // (`runAudioFirstVoiceover`) собирает его заново из `storyPlan.scenes[].spokenLine`.
+    // Оставь мы сценарий прежним — первая же перегенерация молча вернула бы
+    // СТАРУЮ фразу и стёрла правку оператора, за которую он уже заплатил.
+    const result = await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 2, newText: "Новая формулировка." },
+      world.deps,
+    )
+
+    expect(scriptSpokenLineOf(world, 2)).toBe("Новая формулировка.")
+    expect(result.scriptUpdated).toBe("spoken")
+    // Соседние сцены сценария не трогаются вовсе.
+    expect(scriptSpokenLineOf(world, 1)).toBe("первая")
+  })
+
+  it("правка сцены нарратора уходит в закадровую строку, а не в реплику ведущего", async () => {
+    // `mergeScriptLines` берёт закадровую строку только когда реплики в кадре
+    // нет. Запиши мы новый текст в `spokenLine` такой сцены — ролик получил бы
+    // говорящего в кадре ведущего там, где его не было, и оплатил бы lip-sync.
+    const result = await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 3, newText: "Новая закадровая." },
+      world.deps,
+    )
+
+    expect(scriptNarrationOf(world, 3)).toBe("Новая закадровая.")
+    expect(scriptSpokenLineOf(world, 3)).toBeNull()
+    expect(result.scriptUpdated).toBe("narration")
+  })
+
+  it("сценарий и снапшоты фиксируются одной транзакцией", async () => {
+    // Разъехавшись, они дали бы трек с новой фразой и сценарий со старой:
+    // следующая полная перегенерация вернула бы старый текст, и оператор
+    // увидел бы откат правки, за которую заплатил.
+    await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 2, newText: "Новая формулировка." },
+      world.deps,
+    )
+
+    // Фиксация замены — та, что несёт снапшот озвучки (id 101) с историей вклеек.
+    const fixation = world.calls.commits.find(commit => commit.stepIds.includes(101) && commit.stepIds.length > 1)
+    expect(fixation).toBeDefined()
+    expect(fixation!.withScript).toBe(true)
+    // Отдельной записи сценария быть не должно: она и есть «разъехались».
+    expect(world.calls.commits.filter(commit => commit.withScript)).toHaveLength(1)
+  })
+
+  it("ролик без сценария меняет фразу, но оператор об этом предупреждён", async () => {
+    // Legacy-ролик или отвязанный вариант: писать новый текст некуда. Замена
+    // при этом законна (трек-то есть), а вот молчать нельзя — оператор обязан
+    // знать, что его правка живёт только в треке.
+    const orphan = makeWorld({ script: null })
+
+    const result = await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 2, newText: "Новая формулировка." },
+      orphan.deps,
+    )
+
+    expect(result.scriptUpdated).toBeNull()
+    expect(result.warnings.some(text => /сценар/i.test(text))).toBe(true)
+    expect(result.trackDurationSec).toBeCloseTo(20.95, 6)
+  })
+
+  it("повтор дописывает текст в сценарий, если он туда не доехал", async () => {
+    // Замена могла быть сделана прошлой версией кода (история вклеек есть,
+    // сценарий не тронут). Повтор ничего не оплачивает, но и оставлять
+    // сценарий со старой фразой не имеет права — это та же дыра.
+    await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 2, newText: "Одинаковый текст." },
+      world.deps,
+    )
+    const scenes = world.script!.storyPlan.scenes as Array<{ order: number, spokenLine: string | null }>
+    world.script = {
+      variantId: 7,
+      storyPlan: {
+        ...world.script!.storyPlan,
+        scenes: scenes.map(item => (item.order === 2 ? { ...item, spokenLine: "вторая" } : item)),
+      },
+    }
+
+    const second = await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 2, newText: "Одинаковый текст." },
+      world.deps,
+    )
+
+    expect(second.reused).toBe(true)
+    expect(second.costUsd).toBe(0)
+    expect(scriptSpokenLineOf(world, 2)).toBe("Одинаковый текст.")
+  })
+
   it("кадры сдвинувшихся сцен уходят в planned, чужие не трогаются", async () => {
     await replaceVoiceoverSegment(
       { videoId: VIDEO_ID, sceneOrder: 2, newText: "Новая формулировка." },
@@ -680,7 +822,43 @@ describe("planReplaceSegmentRequest", () => {
       video,
     })
 
-    expect(result).toEqual({ ok: true, videoId: 44, sceneOrder: 2, newText: "Новая формулировка." })
+    expect(result).toEqual({
+      ok: true,
+      videoId: 44,
+      sceneOrder: 2,
+      newText: "Новая формулировка.",
+      // Досмотренный ролик после замены уходит в пересборку: завершённые шаги
+      // прогон поднимет из снапшотов, пересоберётся только инвалидированное.
+      resumePipeline: true,
+      nextStatus: "pending",
+    })
+  })
+
+  it("ролик, ждущий решения оператора, править можно", () => {
+    // `awaiting_operator` — это остановленный ролик: шаг доведён до конца,
+    // блокировка отпущена, процесса нет. Отказ заставил бы оператора сначала
+    // нажать «принять» (то есть оплатить следующие шаги) только ради того,
+    // чтобы поправить фразу, — деньги ровно за то, чего он не просил.
+    const result = planReplaceSegmentRequest({
+      id: 44,
+      body: { sceneOrder: 2, newText: "Новая формулировка." },
+      video: { status: "awaiting_operator", isLocked: false },
+    })
+
+    expect(result).toMatchObject({ ok: true, videoId: 44, sceneOrder: 2 })
+  })
+
+  it("замена на ролике в ожидании не запускает прогон за оператора", () => {
+    // Продолжение — это решение оператора и только его («принять»). Переведи
+    // ручка такой ролик в `pending` и запусти прогон, правка одной фразы молча
+    // сняла бы пошаговый режим и оплатила бы шаги, которых никто не принимал.
+    const result = planReplaceSegmentRequest({
+      id: 44,
+      body: { sceneOrder: 2, newText: "Новая формулировка." },
+      video: { status: "awaiting_operator", isLocked: false },
+    })
+
+    expect(result).toMatchObject({ ok: true, resumePipeline: false, nextStatus: "awaiting_operator" })
   })
 
   it("отбивает некорректный id видео", () => {

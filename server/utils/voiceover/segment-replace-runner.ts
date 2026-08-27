@@ -72,6 +72,8 @@ import { shiftAlignmentAfterSplice } from "./alignment-shift"
 import { buildSpliceFilters, planSegmentSplice } from "./segment-splice"
 import { buildTempSegmentPath, renameWithRetry } from "./segment-cut"
 import { buildTrackRequest, type TrackPause } from "./track-builder"
+import { planScriptTextPatch, type ScriptTextTarget } from "./script-patch"
+import { AWAITING_OPERATOR_STATUS } from "../video-pipeline-stepwise"
 
 /** Ключи шагов, снапшоты которых читает и переписывает замена. */
 export type ReplaceSegmentStepKey = "voiceover_generation" | "transcription" | "lip_sync_generation"
@@ -100,6 +102,11 @@ export interface ReplaceSegmentResult {
   sourceDurationMeasureFailed: boolean
   /** Длительность фразы — оценка, а не измерение готового файла. */
   durationEstimated: boolean
+  /**
+   * Куда лёг новый текст в сценарии ролика. `null` — писать было некуда
+   * (нет варианта или нет сцены), и об этом сказано в `warnings`.
+   */
+  scriptUpdated: ScriptTextTarget | null
   /** То, о чём оператор обязан узнать, но из-за чего не стоит отменять замену. */
   warnings: string[]
 }
@@ -123,14 +130,27 @@ export interface StepSnapshotUpdate {
   snapshot: Record<string, unknown>
 }
 
+/** Сценарий ролика с новым текстом реплики — пишется вместе со снапшотами. */
+export interface ScriptPatchUpdate {
+  variantId: number
+  storyPlan: Record<string, unknown>
+}
+
 export interface SegmentReplaceStore {
   loadVideo: (videoId: number) => Promise<ReplaceSegmentVideo | null>
   readStep: (videoId: number, stepKey: ReplaceSegmentStepKey) => Promise<ReplaceSegmentStepRecord | null>
   /**
-   * Атомарная запись снапшотов. Именно атомарная: склеенный трек со старым
-   * выравниванием — это субтитры и куски по звуку, которого в треке нет.
+   * Сценарий ролика: `null` — варианта нет или он без `storyPlan` (legacy).
+   * Именно отсюда полная перегенерация собирает трек заново.
    */
-  commit: (updates: readonly StepSnapshotUpdate[]) => Promise<void>
+  loadScript: (videoId: number) => Promise<{ variantId: number, storyPlan: unknown } | null>
+  /**
+   * Атомарная запись снапшотов И сценария. Именно атомарная: склеенный трек со
+   * старым выравниванием — это субтитры и куски по звуку, которого в треке нет,
+   * а новый трек при старом сценарии — правка, которую первая же полная
+   * перегенерация молча отменит.
+   */
+  commit: (updates: readonly StepSnapshotUpdate[], script?: ScriptPatchUpdate | null) => Promise<void>
   appendLog: (stepId: number, message: string) => Promise<void>
   /** Расход пишется СРАЗУ после платного вызова: отказ ниже не теряет деньги. */
   recordCost: (input: {
@@ -377,6 +397,28 @@ export async function replaceVoiceoverSegment(
   const modelId = (voiceoverStep.snapshot?.modelId as string | null) ?? video.voiceoverModelId
   const voiceId = (voiceoverStep.snapshot?.voiceId as string | null) ?? video.voiceoverVoiceId
 
+  // Сценарий ролика. Трек — его производная: полная перегенерация собирает
+  // трек заново из `storyPlan`, поэтому правка, не доехавшая до сценария,
+  // живёт до первой же перегенерации и потом молча откатывается.
+  //
+  // Отказом это НЕ является: у legacy-ролика сценария может не быть вовсе, а
+  // трек при этом есть и правится законно. Но промолчать нельзя — оператор
+  // обязан знать, что его правка живёт только в треке.
+  const script = await store.loadScript(videoId)
+  const scriptPatch = script
+    ? planScriptTextPatch({ storyPlan: script.storyPlan, sceneOrder, newText: phraseText })
+    : ({ ok: false, reason: "у ролика нет сценария (storyPlan)" } as const)
+  if (!scriptPatch.ok) {
+    warnings.push(
+      `WARN новый текст не записан в сценарий (${scriptPatch.reason}) — `
+      + "правка живёт только в треке, полная перегенерация вернёт прежнюю фразу",
+    )
+  }
+  const scriptUpdate: ScriptPatchUpdate | null = scriptPatch.ok && scriptPatch.changed && script
+    ? { variantId: script.variantId, storyPlan: scriptPatch.storyPlan }
+    : null
+  const scriptUpdated: ScriptTextTarget | null = scriptPatch.ok ? scriptPatch.target : null
+
   // Ключ вклейки. Отпечаток трека внутри обязателен: перегенерированный трек
   // приносит обратно ИСХОДНЫЙ текст сцены, и старая запись истории не должна
   // выдать её за уже сделанную.
@@ -396,8 +438,15 @@ export async function replaceVoiceoverSegment(
   const history = readSpliceHistory(voiceoverStep.snapshot)
   const alreadyDone = history.find(entry => entry.key === spliceKey && entry.trackPath === track.trackPath)
   if (alreadyDone) {
-    // Работа уже сделана и оплачена. Единственное, что могло не доехать, —
-    // заливка склеенного трека в хранилище (она идёт после фиксации).
+    // Работа уже сделана и оплачена. Не доехать могли две вещи, и обе бесплатны.
+    //
+    // Первая — сценарий: замену мог сделать прошлый код (или прогон, умерший
+    // между транзакцией и ответом). Оставить сценарий со старой фразой значит
+    // сохранить ровно ту дыру, ради которой всё и затевалось.
+    if (scriptUpdate) {
+      await store.commit([], scriptUpdate)
+    }
+    // Вторая — заливка склеенного трека в хранилище (она идёт после фиксации).
     if (!alreadyDone.uploaded && await media.fileExists(track.trackPath)) {
       await publishTrack(deps, {
         videoId,
@@ -423,7 +472,8 @@ export async function replaceVoiceoverSegment(
       skippedPauses: alreadyDone.skippedPauses ?? [],
       sourceDurationMeasureFailed: alreadyDone.sourceDurationMeasureFailed ?? false,
       durationEstimated: alreadyDone.durationEstimated ?? false,
-      warnings: alreadyDone.warnings ?? [],
+      scriptUpdated,
+      warnings: [...(alreadyDone.warnings ?? []), ...warnings],
     }
   }
 
@@ -697,7 +747,10 @@ export async function replaceVoiceoverSegment(
   // Снапшот озвучки — последним в списке: он несёт и новый трек, и запись
   // истории, то есть является точкой фиксации всей замены.
   updates.push({ stepId: voiceoverStep.id, snapshot: voiceoverSnapshot })
-  await store.commit(updates)
+  // Сценарий уезжает ТОЙ ЖЕ транзакцией: разъехавшись, он оставил бы трек с
+  // новой фразой при сценарии со старой — и следующая полная перегенерация
+  // молча вернула бы прежний текст.
+  await store.commit(updates, scriptUpdate)
 
   // Кадры сдвинувшихся сцен — обратно в planned. Замена к этому моменту уже
   // оплачена и зафиксирована, поэтому сбой здесь это предупреждение, а не
@@ -745,6 +798,7 @@ export async function replaceVoiceoverSegment(
     skippedPauses,
     sourceDurationMeasureFailed,
     durationEstimated,
+    scriptUpdated,
     warnings,
   }
 }
@@ -800,14 +854,41 @@ export function createReplaceSegmentDeps(): ReplaceSegmentDeps {
         }
       },
 
+      // Сценарий ролика живёт в варианте (`ScenarioVariant.storyPlan`), а не в
+      // самом ролике: именно оттуда `runAudioFirstVoiceover` собирает текст
+      // трека. Варианта может не быть вовсе (legacy-ролик) — тогда и писать
+      // некуда, и раннер это переживает предупреждением.
+      loadScript: async (videoId) => {
+        const video = await prisma.video.findUnique({
+          where: { id: videoId },
+          select: { variantId: true },
+        })
+        if (!video?.variantId) return null
+        const variant = await prisma.scenarioVariant.findUnique({
+          where: { id: video.variantId },
+          select: { storyPlan: true },
+        })
+        if (!variant) return null
+        return { variantId: video.variantId, storyPlan: variant.storyPlan }
+      },
+
       // Одной транзакцией: разъехавшиеся снапшоты — это склеенный трек со
       // старым выравниванием, то есть субтитры и куски по звуку, которого в
-      // треке уже нет.
-      commit: async (updates) => {
-        await prisma.$transaction(updates.map(update => prisma.videoGenerationStep.update({
+      // треке уже нет. Сценарий здесь же: трек с новой фразой при сценарии со
+      // старой — правка, которую первая же полная перегенерация отменит.
+      commit: async (updates, script) => {
+        const operations: unknown[] = updates.map(update => prisma.videoGenerationStep.update({
           where: { id: update.stepId },
           data: { outputSnapshot: update.snapshot as never },
-        })))
+        }))
+        if (script) {
+          operations.push(prisma.scenarioVariant.update({
+            where: { id: script.variantId },
+            data: { storyPlan: script.storyPlan as never },
+          }))
+        }
+        if (operations.length === 0) return
+        await prisma.$transaction(operations as never)
       },
 
       appendLog: async (stepId, message) => {
@@ -1029,11 +1110,39 @@ export function createReplaceSegmentDeps(): ReplaceSegmentDeps {
  * (`shots/[order]/rerender.post.ts`): ролик либо досмотрен, либо остановился.
  * Ролик в середине генерации трогать нельзя даже без блокировки — прогон
  * перезапишет снапшоты шагов своими значениями.
+ *
+ * `awaiting_operator` (пошаговый режим, §9) сюда входит осознанно: это тоже
+ * ОСТАНОВЛЕННЫЙ ролик — шаг доведён до конца, блокировка отпущена, процесса
+ * нет (`video-pipeline-stepwise.ts`). Отказ заставил бы оператора сначала
+ * нажать «принять», то есть оплатить следующие шаги, только ради того, чтобы
+ * поправить одну фразу. Что при этом НЕЛЬЗЯ — так это продолжать прогон за
+ * него; см. `resumePipeline` ниже.
  */
-const REPLACEABLE_VIDEO_STATUSES = ["completed", "failed", "canceled"] as const
+export const REPLACEABLE_VIDEO_STATUSES = [
+  "completed",
+  "failed",
+  "canceled",
+  AWAITING_OPERATOR_STATUS,
+] as const
 
 export type ReplaceSegmentRequestPlan =
-  | { ok: true, videoId: number, sceneOrder: number, newText: string }
+  | {
+    ok: true
+    videoId: number
+    sceneOrder: number
+    newText: string
+    /**
+     * Запускать ли пересборку сразу после замены.
+     *
+     * Для ролика в ожидании — `false`: продолжение это решение оператора и
+     * только его. Переведи ручка такой ролик в `pending` и запусти прогон,
+     * правка одной фразы молча сняла бы пошаговый режим, потеряла бы
+     * `awaitingStepKey` и оплатила бы шаги, которых никто не принимал.
+     */
+    resumePipeline: boolean
+    /** В каком статусе ролик останется после замены. */
+    nextStatus: "pending" | typeof AWAITING_OPERATOR_STATUS
+  }
   | { ok: false, statusCode: number, message: string }
 
 /**
@@ -1076,5 +1185,13 @@ export function planReplaceSegmentRequest(input: {
     }
   }
 
-  return { ok: true, videoId: input.id, sceneOrder, newText }
+  const awaiting = input.video.status === AWAITING_OPERATOR_STATUS
+  return {
+    ok: true,
+    videoId: input.id,
+    sceneOrder,
+    newText,
+    resumePipeline: !awaiting,
+    nextStatus: awaiting ? AWAITING_OPERATOR_STATUS : "pending",
+  }
 }

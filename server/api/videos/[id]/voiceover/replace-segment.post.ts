@@ -54,26 +54,35 @@ export default defineEventHandler(async (event) => {
 
   // Ролик возвращается в очередь, и новый прогон поднимает завершённые шаги из
   // снапшотов: пересобирается только то, что инвалидировано заменой.
-  await updateVideoStatus(plan.videoId, 'pending', {
-    errorMessage: null,
-    finishedAt: null,
-    filePath: null,
-    fileUrl: null,
-  })
+  //
+  // Кроме ролика, который ждёт решения оператора (пошаговый режим, §9): его
+  // статус и `awaitingStepKey` трогать нельзя, а прогон продолжает «принять» и
+  // только оно. Иначе правка одной фразы молча сняла бы пошаговый режим и
+  // оплатила бы шаги, которых оператор не принимал.
+  if (plan.resumePipeline) {
+    await updateVideoStatus(plan.videoId, 'pending', {
+      errorMessage: null,
+      finishedAt: null,
+      filePath: null,
+      fileUrl: null,
+    })
 
-  runVideoPipeline(plan.videoId).catch((err) => {
-    logAgent('video-pipeline', 'error',
-      `Ошибка пересборки видео ${plan.videoId} после замены фразы сцены ${plan.sceneOrder}: `
-      + `${err instanceof Error ? err.message : err}`,
-      { videoId: plan.videoId },
-    ).catch(() => {})
-  })
+    runVideoPipeline(plan.videoId).catch((err) => {
+      logAgent('video-pipeline', 'error',
+        `Ошибка пересборки видео ${plan.videoId} после замены фразы сцены ${plan.sceneOrder}: `
+        + `${err instanceof Error ? err.message : err}`,
+        { videoId: plan.videoId },
+      ).catch(() => {})
+    })
+  }
 
   return {
     data: {
       id: plan.videoId,
       sceneOrder: plan.sceneOrder,
-      status: 'pending',
+      status: plan.nextStatus,
+      /** Куда лёг новый текст в сценарии. `null` — писать было некуда, см. warnings. */
+      scriptUpdated: result.scriptUpdated,
       deltaSec: result.deltaSec,
       invalidatedSceneOrders: result.invalidatedSceneOrders,
       costUsd: result.costUsd,
