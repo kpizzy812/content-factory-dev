@@ -49,11 +49,47 @@ const POLL_INTERVAL_MS = 2_000
  */
 export const WAIT_PROGRESS_LOG_INTERVAL_MS = 60_000
 
+/**
+ * Ответы мока ПО СПОСОБНОСТИ.
+ *
+ * Пока ветку `sync_json` исполняла одна транскрипция, мок мог отдавать её форму
+ * безусловно. С появлением `voice_cloning` на той же ветке это стало ловушкой:
+ * стенд с `REPLICATE_MOCK_MODE=true` получал на клон голоса ТРАНСКРИПТ, не
+ * находил в нём `voice_id` и ронял маршрут — ровно там, где мок-режим нужнее
+ * всего, потому что настоящий прогон стоит $3.
+ *
+ * Незнакомая способность падает громко, а не получает чужой выход: тот же
+ * принцип, что у `OUTPUT_EXTENSION_BY_CAPABILITY` в `mock.ts` для файловых
+ * способностей. Ключ — строка, а не `MediaCapability`: модуль транспортный и
+ * зависеть от реестра способностей ему незачем.
+ */
+const MOCK_JSON_OUTPUT_BY_CAPABILITY: Record<string, () => unknown> = {
+  // Форма `chunks` — та, которую понимает нормализатор транскрипта.
+  transcription: () => ({
+    text: "мок транскрипции",
+    chunks: [
+      { text: "мок", timestamp: [0, 0.4] },
+      { text: "транскрипции", timestamp: [0.4, 1.2] },
+    ],
+  }),
+  // Форма ответа `minimax/voice-cloning`: структура `{ voice_id, preview, model }`
+  // (`scripts/clone-voice.ts`, оплаченный прогон 15.08.2026). Префикс `R8_` —
+  // как у настоящего voice_id, чтобы заглушку было видно в логах и в БД.
+  voice_cloning: () => ({ voice_id: "R8_MOCKVOICE01", preview: null, model: "mock" }),
+}
+
 export interface ReplicateJsonModelDeps {
   fetchImpl?: typeof fetch
   sleep?: (ms: number) => Promise<void>
   /** Инъекция времени для тестов — тот же приём, что у `prediction-service.ts`. */
   now?: () => number
+  /**
+   * Способность спеки (`MediaModelSpecBase.capability`). Нужна ТОЛЬКО моку:
+   * боевой вызов о способности не знает и знать не должен — он передаёт payload
+   * как есть. Без неё мок-режим отвечать нечем, и это честнее, чем выдать
+   * транскрипт тому, кто просил не транскрипт.
+   */
+  capability?: string
   /**
    * Сигнал «мы всё ещё ждём», не чаще чем раз в {@link WAIT_PROGRESS_LOG_INTERVAL_MS}.
    * Не вызывается после того, как предсказание перестало быть starting/processing —
@@ -77,15 +113,17 @@ export async function runReplicateJsonModel(
   deps: ReplicateJsonModelDeps = {},
 ): Promise<unknown> {
   if (config.mockMode) {
-    // Мок отдаёт форму `chunks`, которую понимает нормализатор: локальный стенд
-    // обязан проходить маршрут целиком без единого платного вызова.
-    return {
-      text: "мок транскрипции",
-      chunks: [
-        { text: "мок", timestamp: [0, 0.4] },
-        { text: "транскрипции", timestamp: [0.4, 1.2] },
-      ],
+    // Локальный стенд обязан проходить маршрут целиком без единого платного
+    // вызова — но именно СВОЙ маршрут: выход выбирается по способности.
+    const build = deps.capability ? MOCK_JSON_OUTPUT_BY_CAPABILITY[deps.capability] : undefined
+    if (!build) {
+      throw new Error(
+        `Мок Replicate не знает JSON-выход способности ${deps.capability ?? "(не передана)"} `
+        + `(модель ${modelId}). Добавьте её в MOCK_JSON_OUTPUT_BY_CAPABILITY: молча отданный выход `
+        + "чужой способности — это брак, который всплывёт только на реальных деньгах.",
+      )
     }
+    return build()
   }
 
   const token = config.apiToken

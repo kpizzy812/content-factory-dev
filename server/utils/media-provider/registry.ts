@@ -40,6 +40,7 @@ export const MEDIA_CAPABILITIES: readonly MediaCapability[] = Object.freeze([
   "speech_to_video",
   "image_to_image",
   "transcription",
+  "voice_cloning",
 ])
 
 const CAPABILITY_SET = new Set<string>(MEDIA_CAPABILITIES)
@@ -60,6 +61,7 @@ const ENV_MODEL_KEYS: Record<MediaCapability, readonly string[]> = Object.freeze
   speech_to_video: Object.freeze(["MEDIA_MODEL_SPEECH_TO_VIDEO"]),
   image_to_image: Object.freeze(["MEDIA_MODEL_IMAGE_TO_IMAGE"]),
   transcription: Object.freeze(["MEDIA_MODEL_TRANSCRIPTION"]),
+  voice_cloning: Object.freeze(["MEDIA_MODEL_VOICE_CLONING"]),
 })
 
 /** По-способностный override резерва поверх общего MEDIA_PROVIDER_FALLBACK. */
@@ -72,6 +74,10 @@ const ENV_FALLBACK_KEYS: Record<MediaCapability, string> = Object.freeze({
   speech_to_video: "MEDIA_PROVIDER_FALLBACK_SPEECH_TO_VIDEO",
   image_to_image: "MEDIA_PROVIDER_FALLBACK_IMAGE_TO_IMAGE",
   transcription: "MEDIA_PROVIDER_FALLBACK_TRANSCRIPTION",
+  // Резерва у клонирования сегодня нет ни одного (единственная спека — на
+  // Replicate), но ключ заведён наравне с остальными: словарь полный по
+  // построению, и способность без записи в нём просто не скомпилируется.
+  voice_cloning: "MEDIA_PROVIDER_FALLBACK_VOICE_CLONING",
 })
 
 const BY_REGISTRY_KEY = new Map<string, MediaModelSpec>(

@@ -463,6 +463,12 @@ describe("контракт реестра", () => {
       // REPLICATE_INCREDIBLY_FAST_WHISPER в model-specs.ts). integrated тоже
       // остаётся false — тот же §4.1.
       "vaibhavs10/incredibly-fast-whisper",
+      // Клон голоса: $3 за успешный прогон — тариф со страницы модели
+      // (`generic_output_count`), снят при работе над `scripts/clone-voice.ts`
+      // и подтверждён оплаченным прогоном 15.08.2026
+      // (`docs/operations/replicate.md` §«Голос ведущей»). Единица `flat`:
+      // модель не крутится на железе Replicate, это прокси к API MiniMax.
+      "minimax/voice-cloning",
     ])
     for (const spec of listMediaSpecs()) {
       if (spec.provider !== "replicate") continue
@@ -476,7 +482,7 @@ describe("контракт реестра", () => {
     for (const spec of listMediaSpecs("lip_sync")) expect(spec.billingConfirmed).toBe(true)
   })
 
-  it("Replicate закрывает все восемь способностей, fal остаётся резервом", () => {
+  it("Replicate закрывает все девять способностей, fal остаётся резервом", () => {
     const replicate = listMediaSpecs().filter(spec => spec.provider === "replicate")
     expect([...new Set(replicate.map(spec => spec.capability))].sort()).toEqual([
       "image_to_image",
@@ -487,6 +493,9 @@ describe("контракт реестра", () => {
       "text_to_speech",
       "text_to_video",
       "transcription",
+      // Девятая способность — клон голоса ведущего (`minimax/voice-cloning`),
+      // и она только у Replicate: у fal такой модели в контуре нет.
+      "voice_cloning",
     ])
     // У каждой способности первым подключённым идёт Replicate.
     const capabilities = [

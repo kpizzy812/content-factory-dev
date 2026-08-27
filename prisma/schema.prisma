@@ -271,6 +271,12 @@ model Character {
   // модель, и тот же voiceId в другой модели не существует.
   voiceId         String?
   voiceModelId    String?
+  /// sha1 образца (первые 16 hex, как у PresenterSourceClip.sha1), на котором
+  /// обучен голос. Повторная заливка того же файла под ту же целевую модель не
+  /// должна стоить ещё $3: штатный ключ идемпотентности медиазадачи здесь не
+  /// работает — в него входит payload, а в payload'е подписанная ссылка на
+  /// образец, новая при каждом запросе.
+  voiceSampleSha1 String?
   archived        Boolean                   @default(false)
   createdById     Int?
   createdAt       DateTime                  @default(now())
@@ -665,6 +671,10 @@ enum VideoStatus {
   timeout
   canceled
   file_missing
+  /// Пошаговый режим: шаг доведён до конца, ждём решения оператора.
+  /// Вне RESUMABLE_VIDEO_STATUSES намеренно — watchdog не должен поднимать
+  /// прогон, которого оператор не просил, и платить за следующий шаг сам.
+  awaiting_operator
 }
 
 enum VideoStepKey {
@@ -969,6 +979,21 @@ model Video {
   /// Переопределения полей профиля на этом ролике. Частичный объект тех же
   /// полей; слияние делает resolveEditProfile.
   editOverrides            Json?
+  /// Пошаговый режим на этом ролике — переопределение оператора поверх
+  /// монтажного профиля (`EditProfile.stepwiseApproval`). Nullable намеренно:
+  /// «оператор выключил» и «оператор ничего не выбирал» — разные состояния, и
+  /// одним boolean с дефолтом false выключить режим, включённый профилем, было
+  /// бы нечем. Разрешает их `resolveStepwiseEnabled`.
+  stepwiseApproval         Boolean?
+  /// Шаг, решения по которому ждём. Заполнено только в статусе
+  /// awaiting_operator.
+  awaitingStepKey          VideoStepKey?
+  /// Последний шаг, решение по которому оператор уже принял.
+  ///
+  /// Без него пошаговый режим встал бы на первом шаге навсегда: «принять»
+  /// запускает НОВЫЙ прогон, тот переиспользует шаг из снапшота, доводит его до
+  /// конца — и правило снова требует паузы на том же самом шаге.
+  approvedStepKey          VideoStepKey?
   shots                    VideoShot[]
 
   @@index([scenarioId, status])

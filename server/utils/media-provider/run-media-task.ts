@@ -220,6 +220,14 @@ export interface RunMediaTaskDependencies {
      * неотличим от зависшего опроса.
      */
     onWaiting?: (elapsedMs: number) => void | Promise<void>,
+    /**
+     * `spec.capability` — нужна МОКУ провайдера, чтобы отвечать формой своей
+     * способности. Раньше ветку sync_json исполняла одна транскрипция, и мок
+     * отдавал её транскрипт кому угодно; клон голоса на том же транспорте
+     * получал бы `{ text, chunks }` вместо `voice_id`. Аргумент последний,
+     * чтобы прежние вызывающие и их тесты не поехали.
+     */
+    capability?: string,
   ) => Promise<unknown>
   readTextFile?: (path: string) => Promise<string>
   /**
@@ -540,7 +548,14 @@ async function runSyncJsonTask<C extends MediaCapability>(
     // Community-модели Replicate (openai/whisper) не отвечают на эндпоинте
     // официальных моделей — версия из спеки обязана дойти до провайдера
     // (canary 26.08.2026, whisper-version-report.md).
-    const raw = await runJson(spec.id, mapped.payload, spec.timeoutMs, spec.providerVersion, onWaiting)
+    const raw = await runJson(
+      spec.id,
+      mapped.payload,
+      spec.timeoutMs,
+      spec.providerVersion,
+      onWaiting,
+      spec.capability,
+    )
 
     const write = dependencies.writeBytes ?? defaultWriteBytes
     await write(request.outputPath, Buffer.from(JSON.stringify(raw), "utf8"))
@@ -576,10 +591,18 @@ async function defaultRunJsonModel(
   timeoutMs: number,
   version?: string,
   onWaiting?: (elapsedMs: number) => void | Promise<void>,
+  capability?: string,
 ): Promise<unknown> {
   const { readReplicateConfig } = await import("../replicate/config")
   const { runReplicateJsonModel } = await import("../replicate/json-model")
-  return runReplicateJsonModel(modelId, payload, readReplicateConfig(), timeoutMs, version, { onWaiting })
+  return runReplicateJsonModel(
+    modelId,
+    payload,
+    readReplicateConfig(),
+    timeoutMs,
+    version,
+    { onWaiting, capability },
+  )
 }
 
 async function defaultAppendStepLog(stepId: number, message: string): Promise<void> {

@@ -79,6 +79,31 @@ export const StorageKeys = {
   presenterRecording: (appId: number | string, characterId: string, sha1: string, ext = "mp4"): string =>
     `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/recordings/${sha1}.${ext}`,
 
+  /**
+   * Образец голоса, на котором обучается клон.
+   *
+   * Расширение в ключе ОБЯЗАТЕЛЬНО и не косметика: `minimax/voice-cloning` —
+   * прокси к API MiniMax, файл скачивает сам MiniMax и опознаёт формат по
+   * расширению в ПУТИ ссылки. Ключ без расширения означал бы подписанную
+   * ссылку без расширения и отказ модели уже ПОСЛЕ создания задачи, то есть за
+   * $3 (`docs/operations/replicate.md` §«Голос ведущей»).
+   */
+  characterVoiceSample: (appId: number | string, characterId: string, sha1: string, ext = "mp3"): string =>
+    `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/voice-samples/${sha1}.${ext.replace(/^\./, "")}`,
+
+  /**
+   * Ответ модели клонирования (`{ voice_id, preview, model }`).
+   *
+   * Ключ ДЕТЕРМИНИРОВАН по образцу и целевой модели, и это единственная защита
+   * от второй оплаты, переживающая рестарт процесса: ключ идемпотентности
+   * медиазадачи здесь не работает — в него входит payload, а в payload'е стоит
+   * ПОДПИСАННАЯ ссылка на образец, новая при каждом запросе. Целевая модель
+   * чистится от разделителей пути: она приходит из тела запроса.
+   */
+  characterVoiceClone: (appId: number | string, characterId: string, sha1: string, targetModel: string): string =>
+    `${STORAGE_PATH_PREFIX}apps/${appId}/characters/${characterId}/voice-clones/`
+    + `${sha1}.${targetModel.toLowerCase().replace(/[^a-z0-9._-]+/g, "_")}.json`,
+
   /** Scene reference image (F2) — эталонные кадры сцены композитора.
    *  GCS path: `zavodcamp/apps/{appId}/scenes/{sceneId}/refs/{sha1}.{ext}`. */
   sceneReferenceImage: (appId: number | string, sceneId: string, sha1: string, ext = "png"): string =>

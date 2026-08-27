@@ -18,6 +18,7 @@ export type MediaCapability =
   | "speech_to_video"
   | "image_to_image"
   | "transcription"
+  | "voice_cloning"
 // b_roll добавляется отдельным решением (P0-16, §7 спецификации)
 
 export type MediaProviderName = "replicate" | "fal" | "fish"
@@ -150,6 +151,39 @@ export interface TranscriptionInput {
   language?: string
 }
 
+/**
+ * Клонирование голоса ведущего. Разовая административная операция: голос
+ * клонируется один раз, дальше `voice_id` уходит в обычную TTS-спеку
+ * (`replicate:minimax-speech-02-turbo` и так прокидывает произвольный
+ * `voice_id` в payload — правок кода это не потребовало,
+ * `docs/operations/replicate.md` §«Голос ведущей»).
+ */
+export interface VoiceCloningInput {
+  /**
+   * ПУБЛИЧНЫЙ URL образца, оканчивающийся расширением файла.
+   *
+   * Оба требования сняты дорого — оплаченным прогоном 15.08.2026
+   * (`docs/operations/replicate.md`): модель не крутится на железе Replicate,
+   * это прокси к API MiniMax, и файл скачивает сам MiniMax. Ссылка Files API
+   * `api.replicate.com/v1/files/{id}` не годится дважды — она и приватная
+   * (MiniMax получает 401), и без расширения, а формат MiniMax определяет
+   * именно по нему.
+   */
+  audioUrl: string
+  /** Под какую TTS-модель обучается голос: тот же id в другой модели не существует. */
+  targetModel: string
+  noiseReduction?: boolean
+  volumeNormalization?: boolean
+}
+
+export interface VoiceCloningConstraints {
+  /** С точкой (".mp3"), как у speech_to_video: сравнивается с хвостом URL. */
+  audioExtensions: readonly string[]
+  minDurationSec: number
+  maxDurationSec: number
+  maxBytes: number
+}
+
 export interface MediaInputMap {
   lip_sync: LipSyncInput
   text_to_image: TextToImageInput
@@ -159,6 +193,7 @@ export interface MediaInputMap {
   speech_to_video: SpeechToVideoInput
   image_to_image: ImageToImageInput
   transcription: TranscriptionInput
+  voice_cloning: VoiceCloningInput
 }
 
 export type MediaInputFor<C extends MediaCapability> = MediaInputMap[C]
@@ -384,6 +419,7 @@ export type TextToSpeechModelSpec = MediaModelSpecBase<"text_to_speech", TtsInpu
 export type SpeechToVideoModelSpec = MediaModelSpecBase<"speech_to_video", SpeechToVideoInput, SpeechToVideoConstraints>
 export type ImageToImageModelSpec = MediaModelSpecBase<"image_to_image", ImageToImageInput, ImageToImageConstraints>
 export type TranscriptionModelSpec = MediaModelSpecBase<"transcription", TranscriptionInput, TranscriptionConstraints>
+export type VoiceCloningModelSpec = MediaModelSpecBase<"voice_cloning", VoiceCloningInput, VoiceCloningConstraints>
 
 export type MediaModelSpec =
   | LipSyncModelSpec
@@ -394,6 +430,7 @@ export type MediaModelSpec =
   | SpeechToVideoModelSpec
   | ImageToImageModelSpec
   | TranscriptionModelSpec
+  | VoiceCloningModelSpec
 
 export type MediaSpecFor<C extends MediaCapability> = Extract<MediaModelSpec, { capability: C }>
 

@@ -150,6 +150,11 @@ const KIND_BY_CAPABILITY: Record<MediaCapability, MockMediaKind> = {
   image_to_image: "image",
   text_to_speech: "audio",
   transcription: "transcript",
+  // Клон голоса медиафайла не отдаёт вовсе: выход — структура `{ voice_id }`,
+  // и заглушка ему нужна ровно такая, какую даёт «неизвестно» — JSON. Своего
+  // вида ради одной способности не заводим: расширение у него было бы то же
+  // `.json`, а «transcript» здесь означал бы неправду (форма другая).
+  voice_cloning: "unknown",
 }
 
 /** Длина видео-заглушки, когда заказчик её не назвал. */

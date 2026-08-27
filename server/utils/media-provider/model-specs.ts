@@ -35,6 +35,7 @@ import type {
   TextToSpeechModelSpec,
   TextToVideoModelSpec,
   TranscriptionModelSpec,
+  VoiceCloningModelSpec,
 } from "./types"
 
 // ─── Общие проверки входа ───────────────────────────────────────
@@ -2446,6 +2447,144 @@ const REPLICATE_INCREDIBLY_FAST_WHISPER: TranscriptionModelSpec = Object.freeze<
   avgGenerationTime: "~4-5 сек (p50 страницы модели; прозе \"within 5 seconds\" соответствует верхняя граница)",
 })
 
+// ─── voice_cloning: голос ведущего обучается один раз ────────────
+
+/**
+ * Расширение файла из ПУТИ ссылки, в нижнем регистре. Пустая строка — в пути
+ * расширения нет вовсе.
+ *
+ * Query отрезается намеренно: публичная ссылка хранилища приходит подписанной
+ * (`?X-Amz-Signature=…`), и подпись — не имя файла. Обратное тоже верно и
+ * важнее: `…/v1/files/abc123?name=sample.mp3` расширения НЕ имеет — скачивающая
+ * сторона читает путь, а не параметры.
+ *
+ * Экспортируется ради одного потребителя — эндпоинта клонирования голоса
+ * (`voice-clone.ts`): он обязан отвергнуть непригодную ссылку хранилища ДО
+ * оплаты, и правило «что считать расширением» должно быть у них одно на двоих.
+ */
+export function urlPathExtension(url: string): string {
+  const path = url.split(/[?#]/, 1)[0] ?? ""
+  const slash = path.lastIndexOf("/")
+  const fileName = slash >= 0 ? path.slice(slash + 1) : path
+  const dot = fileName.lastIndexOf(".")
+  // dot === 0 — это имя вида ".mp3" без самого имени, файлом его не считаем.
+  if (dot <= 0) return ""
+  return fileName.slice(dot).toLowerCase()
+}
+
+/**
+ * `minimax/voice-cloning` на Replicate — клон голоса ведущего.
+ *
+ * Разовая административная операция, а не шаг конвейера: голос клонируется
+ * один раз, дальше `voice_id` живёт на персонаже и уходит в обычную спеку
+ * `replicate:minimax-speech-02-turbo` — она и так прокидывает произвольный
+ * `voice_id` в payload. Логика перенесена из `scripts/clone-voice.ts` вместе
+ * со всеми проверками ДО оплаты.
+ *
+ * ЦЕНА — $3 за успешный прогон, тариф со страницы модели
+ * (`generic_output_count`), снят при работе над скриптом; там же он и записан
+ * в докстринге. Поэтому единица `flat` и `billingConfirmed: true`: цена не
+ * зависит ни от длины образца, ни от времени железа — модель вообще не
+ * крутится на железе Replicate (см. ниже). `integrated: true` в отличие от
+ * транскрипции законно: у той `integrated: false` держится не из-за цены, а
+ * потому что маршрут включается на стенде явной переменной (§4.1 спеки), а
+ * здесь маршрута в конвейере нет вовсе — есть кнопка оператора, которая и так
+ * требует подтверждения суммы.
+ *
+ * ССЫЛКА НА ОБРАЗЕЦ ОБЯЗАНА БЫТЬ ПУБЛИЧНОЙ И С РАСШИРЕНИЕМ. Оба требования
+ * оплачены прогоном 15.08.2026 (`docs/operations/replicate.md` §«Голос
+ * ведущей»): модель — прокси к API MiniMax, а не модель на железе Replicate,
+ * файл скачивает сам MiniMax. Ссылка Files API
+ * `api.replicate.com/v1/files/{id}` не годится дважды — она приватная (MiniMax
+ * получает 401) и без расширения, а формат MiniMax определяет именно по нему.
+ * Отвечает модель при этом всегда одинаково — «invalid file ext for voice
+ * clone», и текст УВОДИТ В СТОРОНУ: он приходит и когда дело в доступе. Важно
+ * то, что приходит он ПОСЛЕ создания задачи, то есть за деньги, — поэтому
+ * форма ссылки проверяется здесь, до вызова.
+ *
+ * Спека проверяет ровно то, что видно в строке: расширение в пути. Публичность
+ * ссылки, длительность (10с — 5 мин) и размер (<20 МБ) проверяет эндпоинт —
+ * URL мы не скачиваем, а ограничения держим рядом со спекой, чтобы проверять
+ * их было по чему.
+ *
+ * Официальная модель Replicate (как `minimax/speech-02-turbo`): адресуется
+ * именем, `providerVersion` не нужен — community-моделям транскрипции он
+ * обязателен, а здесь эндпоинт официальных моделей работает.
+ */
+const MINIMAX_VOICE_CLONING: VoiceCloningModelSpec = Object.freeze<VoiceCloningModelSpec>({
+  registryKey: "replicate:minimax-voice-cloning",
+  id: "minimax/voice-cloning",
+  provider: "replicate",
+  capability: "voice_cloning",
+  // Выход — структура `{ voice_id, preview, model }`, а не файл: та же ветка,
+  // что у транскрипции, нового транспорта не требуется.
+  execution: "sync_json",
+  billing: { unit: "flat", usd: 3 },
+  billingConfirmed: true,
+  constraints: Object.freeze({
+    // Требования модели из снятой схемы: MP3, M4A или WAV, от 10 секунд до
+    // 5 минут, меньше 20 МБ (`scripts/clone-voice.ts`, `docs/operations/replicate.md`).
+    audioExtensions: Object.freeze([".mp3", ".m4a", ".wav"]),
+    minDurationSec: 10,
+    maxDurationSec: 5 * 60,
+    maxBytes: 20 * 1024 * 1024,
+  }),
+  // Обучение занимает минуты («несколько минут» в скрипте), а ветка sync_json
+  // ждёт ответа в том же вызове — потолок тот же, что у транскрипции.
+  timeoutMs: 15 * 60_000,
+  mapInput(input) {
+    const audioUrl = requireText(input.audioUrl, "audioUrl")
+    const targetModel = requireText(input.targetModel, "targetModel")
+
+    const extension = urlPathExtension(audioUrl)
+    if (!extension) {
+      throw new Error(
+        `${this.id}: ссылка на образец обязана оканчиваться расширением файла `
+        + `(${this.constraints.audioExtensions.join(", ")}) — MiniMax скачивает файл сам и `
+        + "опознаёт его по расширению; ссылка без него отвергается уже ПОСЛЕ создания задачи, то есть за деньги",
+      )
+    }
+    if (!this.constraints.audioExtensions.includes(extension)) {
+      throw new Error(
+        `${this.id}: формат ${extension} модель не принимает. `
+        + `Допустимые: ${this.constraints.audioExtensions.join(", ")}`,
+      )
+    }
+
+    return {
+      payload: {
+        voice_file: audioUrl,
+        model: targetModel,
+        // Флаги едут ТОЛЬКО когда их попросили: ключи payload'а входят в
+        // idempotencyKey, и лишнее поле со значением по умолчанию — другой
+        // ключ на том же входе, то есть вторая оплата вместо переиспользования.
+        ...(input.noiseReduction ? { need_noise_reduction: true } : {}),
+        ...(input.volumeNormalization ? { need_volume_normalization: true } : {}),
+      },
+    }
+  },
+  // Выход — структура с `voice_id`, а не ссылка на файл: скачивать нечего.
+  extractOutput: () => ({ urls: [] }),
+  dataProcessor: Object.freeze({
+    name: "MiniMax",
+    note: "Replicate sends this model's inputs to the model provider for processing.",
+  }),
+  integrated: true,
+  tier: "premium",
+  name: "MiniMax Voice Cloning",
+  vendorLabel: "Replicate / MiniMax",
+  strengths: Object.freeze([
+    "Голос ведущего вместо стокового пресета: обучается один раз, дальше живёт как обычный voice_id",
+    "Цена подтверждена страницей модели и оплаченным прогоном 15.08.2026",
+  ]),
+  tradeoffs: Object.freeze([
+    "$3 за прогон — дороже всего остального в контуре, поэтому кнопка требует подтверждения суммы",
+    "Нужен ПУБЛИЧНЫЙ URL с расширением: модель — прокси к API MiniMax, файл скачивает он сам",
+    "Голос обучается ПОД конкретную TTS-модель: тот же voice_id в другой модели не существует",
+  ]),
+  avgGenerationTime: "~несколько минут",
+})
+
 /**
  * Порядок значим: витрина и дефолты («первая integrated модель способности»)
  * читают этот массив сверху вниз.
@@ -2489,4 +2628,5 @@ export const MEDIA_MODEL_SPECS: readonly MediaModelSpec[] = Object.freeze([
   REPLICATE_WHISPER,
   REPLICATE_WHISPERX,
   REPLICATE_INCREDIBLY_FAST_WHISPER,
+  MINIMAX_VOICE_CLONING,
 ])
