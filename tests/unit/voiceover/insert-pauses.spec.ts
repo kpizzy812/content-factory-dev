@@ -13,6 +13,8 @@ import { buildPauseInsertionPlan, insertVoiceoverPauses, planPauseSplit } from "
  */
 const h = vi.hoisted(() => ({
   probeAudioDuration: vi.fn<(path: string) => Promise<number>>(),
+  /** Графы `filter_complex`, реально отданные ffmpeg — по одному на прогон. */
+  complexFilterCalls: [] as string[][],
 }))
 
 vi.mock("~~/server/utils/tts", () => ({ probeAudioDuration: h.probeAudioDuration }))
@@ -24,7 +26,13 @@ vi.mock("fluent-ffmpeg", () => {
     const chain = () => cmd
     Object.assign(cmd, {
       input: chain,
-      complexFilter: chain,
+      // Граф записываем: он и есть то, что проверяется в тестах на пустые
+      // куски — ассерт на возврат чистой функции не докажет, что в ffmpeg
+      // ушёл именно он.
+      complexFilter: (filters: string[]) => {
+        h.complexFilterCalls.push(filters)
+        return cmd
+      },
       outputOptions: chain,
       output: chain,
       on: (event: string, cb: (...args: unknown[]) => void) => {
@@ -134,6 +142,74 @@ describe("сборка ffmpeg-плана вставки тишины (buildPause
   })
 })
 
+describe("пустые куски трека не доезжают до concat (buildPauseInsertionPlan)", () => {
+  // Кусок нулевой длины — это вход `concat` без единого сэмпла. ffmpeg на
+  // таком графе в лучшем случае отдаёт мусор на стыке, в худшем падает, и
+  // разбираться придётся уже по stderr готового ролика. Появляются такие
+  // куски штатно, а не в экзотике: маркер в конце последней фразы даёт точку
+  // разреза ровно на длине трека — то есть ровно случай локальной замены,
+  // где синтезируется одна фраза и пауза стоит в её конце.
+
+  it("пауза в самом конце трека не даёт хвостового куска нулевой длины", () => {
+    const plan = buildPauseInsertionPlan(
+      "/tmp/phrase.mp3",
+      [{ afterSceneOrder: 2, atSec: 4, durationSec: 2 }],
+      4,
+    )
+
+    expect(plan.filters.some(f => f.includes("atrim=4.000:4.000"))).toBe(false)
+    expect(plan.filters[plan.filters.length - 1]).toBe("[seg0][sil0]concat=n=2:v=0:a=1[aout]")
+  })
+
+  it("точка разреза в самом начале трека не даёт головного куска нулевой длины", () => {
+    // Достижимо, когда первая сцена осталась без символов: доля символов до
+    // неё — ноль, точка разреза встаёт в начало трека.
+    const plan = buildPauseInsertionPlan(
+      "/tmp/track.mp3",
+      [{ afterSceneOrder: 1, atSec: 0, durationSec: 1.5 }],
+      10,
+    )
+
+    expect(plan.filters.some(f => f.includes("atrim=0.000:0.000"))).toBe(false)
+    expect(plan.filters[plan.filters.length - 1]).toBe("[sil0][seg0]concat=n=2:v=0:a=1[aout]")
+  })
+
+  it("две паузы в одной точке идут встык, без пустого куска между ними", () => {
+    // Два маркера в одной сцене дают две точки с одинаковым `atSec` —
+    // buildTrackRequest кладёт в список каждый найденный маркер.
+    const plan = buildPauseInsertionPlan(
+      "/tmp/track.mp3",
+      [
+        { afterSceneOrder: 1, atSec: 5, durationSec: 1 },
+        { afterSceneOrder: 1, atSec: 5, durationSec: 2 },
+      ],
+      10,
+    )
+
+    expect(plan.filters[plan.filters.length - 1]).toBe("[seg0][sil0][sil1][seg1]concat=n=4:v=0:a=1[aout]")
+  })
+
+  it("кусок короче миллисекунды в граф не попадает — в аргументах он всё равно нулевой", () => {
+    // Аргументы `atrim` округляются до миллисекунд, поэтому решать «пустой
+    // или нет» надо по тому, что реально уедет в ffmpeg, а не по исходным
+    // числам: 4.0001..4.0002 в графе выглядит как 4.000:4.000.
+    const plan = buildPauseInsertionPlan(
+      "/tmp/track.mp3",
+      [{ afterSceneOrder: 1, atSec: 4.0001, durationSec: 1 }],
+      4.0002,
+    )
+
+    expect(plan.filters.some(f => f.includes("atrim=4.000:4.000"))).toBe(false)
+    expect(plan.filters[plan.filters.length - 1]).toBe("[seg0][sil0]concat=n=2:v=0:a=1[aout]")
+  })
+
+  it("граф не собирается, когда резать нечего", () => {
+    // `concat=n=0` — заведомо битая команда. Лучше отказ с внятной причиной,
+    // чем ffmpeg, падающий на разборе фильтра.
+    expect(() => buildPauseInsertionPlan("/tmp/track.mp3", [], 0)).toThrow(/резать нечего/)
+  })
+})
+
 describe("фоллбек на длину синтеза при неудачном замере (insertVoiceoverPauses)", () => {
   // probeAudioDuration при ошибке ffprobe возвращает 0, а не бросает. Ноль
   // отсюда уезжает в снапшот шага и молча отключает подгон длины клипов и
@@ -141,6 +217,30 @@ describe("фоллбек на длину синтеза при неудачно�
   // стоять на всех трёх точках замера внутри функции (см. Task 2 бриф).
   beforeEach(() => {
     h.probeAudioDuration.mockReset()
+    h.complexFilterCalls.length = 0
+  })
+
+  it("маркер в конце единственной фразы — в ffmpeg уходит граф без пустых кусков", async () => {
+    // Сквозная проверка случая локальной замены: одна фраза, маркер в её
+    // конце, точка разреза совпадает с концом трека. Ассерт на чистую
+    // функцию выше не доказывает, что в процесс ушёл именно этот граф.
+    h.probeAudioDuration
+      .mockResolvedValueOnce(4) // исходник
+      .mockResolvedValueOnce(6) // результат со вставленной тишиной
+    const pauses = [{ afterSceneOrder: 2, durationSec: 2 }]
+
+    const result = await insertVoiceoverPauses(
+      "/tmp/phrase.mp3",
+      pauses,
+      [scene(2, "Смотри сюда.")],
+      4,
+    )
+
+    expect(result.durationSec).toBeCloseTo(6, 3)
+    expect(result.skippedPauses).toEqual([])
+    const filters = h.complexFilterCalls.at(-1) ?? []
+    expect(filters.some(f => f.includes("atrim=4.000:4.000"))).toBe(false)
+    expect(filters[filters.length - 1]).toBe("[seg0][sil0]concat=n=2:v=0:a=1[aout]")
   })
 
   it("неизмеримая длительность при отсутствии пауз — результат равен длине синтеза, а не нулю", async () => {

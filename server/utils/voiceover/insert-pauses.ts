@@ -104,34 +104,58 @@ export interface PauseInsertionPlan {
  *
  * `anullsrc` используется как filter source (не отдельный ffmpeg input) —
  * тот же приём, что и в `render.ts` для немого клипа.
+ *
+ * Куски НУЛЕВОЙ длины в граф не попадают. Такой кусок — вход `concat` без
+ * единого сэмпла: ffmpeg на нём в лучшем случае мусорит на стыке, в худшем
+ * падает, и разбираться придётся уже по stderr готового ролика. Появляются
+ * они не в экзотике, а штатно:
+ * - маркер в конце ПОСЛЕДНЕЙ сцены даёт точку разреза ровно на длине трека
+ *   (хвостовой кусок `[D..D]`) — это и есть случай локальной замены, где
+ *   синтезируется одна фраза и пауза стоит в её конце;
+ * - два маркера в одной сцене дают две точки с одинаковым `atSec`, между
+ *   ними кусок `[t..t]`;
+ * - сцена без символов ставит точку в начало трека — кусок `[0..0]`.
+ *
+ * «Нулевой» считается по тем числам, которые РЕАЛЬНО уедут в ffmpeg (после
+ * округления до миллисекунд), а не по исходным: 4.0001..4.0002 в графе
+ * выглядит как `atrim=4.000:4.000` и режется точно так же насухо.
  */
 export function buildPauseInsertionPlan(
   path: string,
   points: readonly PauseSplitPoint[],
   totalDurationSec: number,
 ): PauseInsertionPlan {
-  const segments: Array<{ start: number, end: number }> = []
-  let cursor = 0
-  for (const point of points) {
-    segments.push({ start: cursor, end: Math.max(cursor, point.atSec) })
-    cursor = point.atSec
-  }
-  segments.push({ start: cursor, end: totalDurationSec })
-
   const filters: string[] = []
   const labels: string[] = []
-  segments.forEach((segment, index) => {
-    const segmentLabel = `seg${index}`
-    filters.push(`[0:a]atrim=${segment.start.toFixed(3)}:${segment.end.toFixed(3)},asetpts=N/SR/TB[${segmentLabel}]`)
-    labels.push(`[${segmentLabel}]`)
+  let pieceIndex = 0
 
-    const point = points[index]
-    if (point) {
-      const silenceLabel = `sil${index}`
-      filters.push(`anullsrc=channel_layout=stereo:sample_rate=44100,atrim=0:${point.durationSec.toFixed(3)},asetpts=N/SR/TB[${silenceLabel}]`)
-      labels.push(`[${silenceLabel}]`)
-    }
+  const pushSegment = (start: number, end: number): void => {
+    const startText = start.toFixed(3)
+    const endText = end.toFixed(3)
+    if (Number(endText) - Number(startText) <= 0) return
+
+    const label = `seg${pieceIndex++}`
+    filters.push(`[0:a]atrim=${startText}:${endText},asetpts=N/SR/TB[${label}]`)
+    labels.push(`[${label}]`)
+  }
+
+  let cursor = 0
+  points.forEach((point, index) => {
+    const end = Math.max(cursor, point.atSec)
+    pushSegment(cursor, end)
+
+    const silenceLabel = `sil${index}`
+    filters.push(`anullsrc=channel_layout=stereo:sample_rate=44100,atrim=0:${point.durationSec.toFixed(3)},asetpts=N/SR/TB[${silenceLabel}]`)
+    labels.push(`[${silenceLabel}]`)
+    cursor = end
   })
+  pushSegment(cursor, totalDurationSec)
+
+  if (labels.length === 0) {
+    // `concat=n=0` — заведомо битая команда. Отказ с внятной причиной лучше,
+    // чем ffmpeg, падающий на разборе фильтра где-то в середине конвейера.
+    throw new Error("Вставка пауз в трек озвучки: резать нечего — ни одного куска звука и ни одной паузы")
+  }
   filters.push(`${labels.join("")}concat=n=${labels.length}:v=0:a=1[aout]`)
 
   const outputPath = path.replace(/(\.[a-zA-Z0-9]+)?$/, (ext) => `_paused${ext || ".mp3"}`)
