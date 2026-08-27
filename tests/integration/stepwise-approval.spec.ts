@@ -454,4 +454,131 @@ describe("пошаговый режим ждёт оператора вне пр�
     const after = await stepFacts(videoId, "prompt_generation")
     expect(after!.attemptCount).toBeGreaterThan(before!.attemptCount)
   }, 60_000)
+
+  /**
+   * «Отклонить» — третий исход, которого до сих пор не было.
+   *
+   * Спека §9 называет ровно две кнопки, «принять» и «перегенерировать», а §10
+   * описывает только неотвечающего оператора («ролик стоит в статусе ожидания
+   * без блокировки и без процесса»). Отдельного «отклонить» спека НЕ определяет
+   * — и именно поэтому дыра боевая: автопродолжения по таймауту нет намеренно,
+   * watchdog такой ролик не трогает намеренно, а `cancel.post.ts` статус
+   * ожидания в список отменяемых не включал. Ролик, который оператор решил не
+   * доводить, оставался висеть навсегда: ни принять, ни отменить.
+   *
+   * Раз спека молчит, поведение выбрано по правилу «не терять оплаченное»:
+   * отклонение переводит ролик в штатный `canceled` тем же
+   * `cancelVideoPipeline`, что и кнопка отмены, и НЕ трогает завершённые шаги —
+   * ни их статус, ни `actualCost`, ни снапшоты. Деньги, уже потраченные на
+   * пройденные шаги, остаются учтёнными, а сам результат — поднимаемым:
+   * передумавший оператор перезапускает ролик и платит только за непройденное.
+   * Удалять шаги или обнулять стоимость значило бы стереть факт оплаты.
+   */
+  it("«отклонить» останавливает ролик и НЕ теряет оплаченные шаги", async () => {
+    const videoId = await createVideoFixture(true)
+    const { runVideoPipeline, applyStepwiseApproval } = await import("../../server/utils/video-pipeline")
+    await runVideoPipeline(videoId)
+
+    const before = await stepFacts(videoId, "prompt_generation")
+    expect(before?.status).toBe("completed")
+
+    const result = await applyStepwiseApproval(videoId, "reject")
+    expect(result.rejected).toBe(true)
+    // Ручка обязана НЕ запускать прогон после отклонения: иначе отменённый
+    // ролик тут же поехал бы дальше и оплатил бы шаги, которых не просили.
+    expect(result.continueRun).toBe(false)
+
+    const video = await videoFacts(videoId)
+    expect(video.status).toBe("canceled")
+    // Ролик больше не ждёт решения — иначе UI показывал бы отменённому ролику
+    // кнопки приёмки.
+    expect(video.awaitingStepKey).toBeNull()
+    expect(video.finishedAt).not.toBeNull()
+    expect(video.isLocked).toBe(false)
+
+    // ГЛАВНОЕ: оплаченный шаг цел — статус, попытки и стоимость на месте.
+    const after = await stepFacts(videoId, "prompt_generation")
+    expect(after?.status).toBe("completed")
+    expect(after?.attemptCount).toBe(before?.attemptCount)
+    expect(after?.actualCost).toBe(before?.actualCost)
+  }, 60_000)
+
+  it("«отклонить» на ролике не в ожидании отвергается тем же правилом", async () => {
+    const videoId = await createVideoFixture(true)
+    const { applyStepwiseApproval } = await import("../../server/utils/video-pipeline")
+    // Гейт статуса общий на все действия: отменять ролик, который решения не
+    // ждёт, — это обычная отмена, у неё своя ручка со своими правилами.
+    await expect(applyStepwiseApproval(videoId, "reject")).rejects.toMatchObject({ statusCode: 409 })
+    expect((await videoFacts(videoId)).status).toBe("pending")
+  })
+
+  /**
+   * Переключатель режима на КОНКРЕТНОМ ролике.
+   *
+   * До этой правки включить пошаговый режим можно было только полем монтажного
+   * профиля приложения или прямой записью в БД: ручки, выставляющей
+   * `Video.stepwiseApproval`, не существовало, хотя поле сделано nullable ровно
+   * затем, чтобы ролик мог перебить профиль в обе стороны.
+   */
+  it("переключатель пишет все три состояния и возвращает эффективное", async () => {
+    const videoId = await createVideoFixture(null)
+    const { setVideoStepwiseApproval } = await import("../../server/utils/video-pipeline")
+
+    const on = await setVideoStepwiseApproval(videoId, true)
+    expect(on.stepwiseApproval).toBe(true)
+    expect(on).toMatchObject({ enabled: true, source: "video" })
+    expect((await prisma.video.findUniqueOrThrow({ where: { id: videoId }, select: { stepwiseApproval: true } })).stepwiseApproval).toBe(true)
+
+    const off = await setVideoStepwiseApproval(videoId, false)
+    expect(off.stepwiseApproval).toBe(false)
+    expect(off).toMatchObject({ enabled: false, source: "video" })
+
+    // null — «наследовать профиль». Профиля у фикстуры нет, значит выключен по
+    // умолчанию, и источник обязан называться честно.
+    const inherit = await setVideoStepwiseApproval(videoId, null)
+    expect(inherit.stepwiseApproval).toBeNull()
+    expect(inherit).toMatchObject({ enabled: false, source: "default" })
+    expect((await prisma.video.findUniqueOrThrow({ where: { id: videoId }, select: { stepwiseApproval: true } })).stepwiseApproval).toBeNull()
+  })
+
+  it("наследование берёт значение из монтажного профиля приложения", async () => {
+    const videoId = await createVideoFixture(null)
+    const { setVideoStepwiseApproval } = await import("../../server/utils/video-pipeline")
+
+    const video = await prisma.video.findUniqueOrThrow({
+      where: { id: videoId },
+      select: { scenario: { select: { appId: true } } },
+    })
+    await prisma.editProfile.create({
+      data: { appId: video.scenario.appId, name: "Профиль с пошаговым", isDefault: true, stepwiseApproval: true },
+    })
+
+    // Ролик ничего не выбирал — решает профиль, и это видно в источнике.
+    const inherited = await setVideoStepwiseApproval(videoId, null)
+    expect(inherited).toMatchObject({ enabled: true, source: "profile" })
+
+    // А явное «выключить» на ролике профиль перебивает — ради этого поле и
+    // сделано nullable.
+    const overridden = await setVideoStepwiseApproval(videoId, false)
+    expect(overridden).toMatchObject({ enabled: false, source: "video" })
+  })
+
+  it("переключатель реально управляет прогоном, а не только колонкой", async () => {
+    // Ролик создан БЕЗ переопределения: сам по себе он не встал бы (это
+    // проверяет тест «выключенный режим прогон не останавливает вовсе»).
+    const videoId = await createVideoFixture(null)
+    const { runVideoPipeline, setVideoStepwiseApproval } = await import("../../server/utils/video-pipeline")
+
+    await setVideoStepwiseApproval(videoId, true)
+    await runVideoPipeline(videoId)
+
+    const video = await videoFacts(videoId)
+    expect(video.status).toBe(AWAITING_OPERATOR_STATUS)
+    expect(video.awaitingStepKey).toBe("prompt_generation")
+  }, 60_000)
+
+  it("переключатель на несуществующем ролике — 404", async () => {
+    const { setVideoStepwiseApproval } = await import("../../server/utils/video-pipeline")
+    await expect(setVideoStepwiseApproval(2_000_000_000, true)).rejects.toMatchObject({ statusCode: 404 })
+  })
 })

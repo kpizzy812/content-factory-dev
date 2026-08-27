@@ -105,3 +105,61 @@ export function resolveStepwiseEnabled(input: StepwiseFlagInput): boolean {
   if (typeof input.videoOverride === "boolean") return input.videoOverride
   return input.profileStepwise === true
 }
+
+/** Кто именно решил судьбу режима — нужно интерфейсу, чтобы не врать подписью. */
+export type StepwiseSource = "video" | "profile" | "default"
+
+export interface StepwiseState {
+  enabled: boolean
+  source: StepwiseSource
+}
+
+/**
+ * То же решение, что у `resolveStepwiseEnabled`, плюс его причина.
+ *
+ * Отдельная функция, а не второе правило: `enabled` здесь обязан совпадать с
+ * `resolveStepwiseEnabled` при любых входах (это утверждается тестом), иначе
+ * интерфейс показывал бы одно, а прогон делал бы другое. Причина нужна ровно
+ * для подписи переключателя: «наследовать профиль» при отсутствующем профиле —
+ * это `default`, и называть это решением профиля было бы враньём.
+ */
+export function describeStepwiseState(input: StepwiseFlagInput): StepwiseState {
+  if (typeof input.videoOverride === "boolean") {
+    return { enabled: input.videoOverride, source: "video" }
+  }
+  if (typeof input.profileStepwise === "boolean") {
+    return { enabled: input.profileStepwise, source: "profile" }
+  }
+  return { enabled: false, source: "default" }
+}
+
+export type StepwiseOverrideParse =
+  | { ok: true, value: boolean | null }
+  | { ok: false, message: string }
+
+/**
+ * Разобрать тело запроса на переключение режима у ролика.
+ *
+ * `null` — законное значение («наследовать профиль»), и его обязательно нужно
+ * отличать от «поле не прислали»: склей их через `?? null`, и любой кривой
+ * запрос молча стирал бы переопределение оператора. Поэтому проверяется именно
+ * НАЛИЧИЕ ключа, а не его истинность.
+ *
+ * Строки и числа не приводятся намеренно: `"false"` в JS истинно, и оператор,
+ * выключивший режим формой, получил бы включённый — то есть заплатил бы за шаги,
+ * которых не заказывал.
+ */
+export function parseStepwiseOverride(body: unknown): StepwiseOverrideParse {
+  const expected = "Поле 'stepwiseApproval' обязано быть true, false или null "
+    + "(null — наследовать монтажный профиль)"
+
+  if (typeof body !== "object" || body === null || !("stepwiseApproval" in body)) {
+    return { ok: false, message: expected }
+  }
+
+  const raw = (body as { stepwiseApproval: unknown }).stepwiseApproval
+  if (raw === null) return { ok: true, value: null }
+  if (typeof raw === "boolean") return { ok: true, value: raw }
+
+  return { ok: false, message: expected }
+}

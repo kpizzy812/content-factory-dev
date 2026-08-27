@@ -16,8 +16,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Видео не найдено" })
   }
 
-  const cancelableStatuses = ["pending", "generating_prompts", "generating_images", "generating_clips", "generating_music", "assembling"]
-  if (!cancelableStatuses.includes(video.status)) {
+  // Список переехал в video-pipeline-run-policy.ts вместе с объяснением, почему
+  // `awaiting_operator` в нём есть, а в возобновляемых — нет. Инлайн его держать
+  // нельзя: тестом отсюда до него не дотянуться без поднятого Nuxt, а ролик в
+  // ожидании без права на отмену запирается навсегда.
+  if (!CANCELABLE_VIDEO_STATUSES.includes(video.status)) {
     throw createError({
       statusCode: 400,
       message: `Нельзя отменить видео в статусе '${video.status}'`,

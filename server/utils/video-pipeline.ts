@@ -101,8 +101,10 @@ import {
 } from "./video-pipeline-run-policy"
 import {
   AWAITING_OPERATOR_STATUS,
+  describeStepwiseState,
   planStepwisePause,
   resolveStepwiseEnabled,
+  type StepwiseSource,
 } from "./video-pipeline-stepwise"
 
 /**
@@ -2000,7 +2002,15 @@ export async function resumeVideoPipeline(videoId: number): Promise<void> {
 }
 
 /** Что оператор решил по показанному шагу. */
-export type StepwiseApprovalAction = "approve" | "regenerate"
+/**
+ * Что оператор решил по шагу.
+ *
+ * `reject` появился третьим: спека §9 называет две кнопки, но ролик, который
+ * оператор решил НЕ доводить, до сих пор не имел выхода вовсе — автопродолжения
+ * по таймауту нет намеренно (§9), watchdog статус ожидания не трогает намеренно,
+ * а обычная отмена этот статус в отменяемые не включала. Ролик висел навсегда.
+ */
+export type StepwiseApprovalAction = "approve" | "regenerate" | "reject"
 
 export interface StepwiseApprovalResult {
   videoId: number
@@ -2009,6 +2019,16 @@ export interface StepwiseApprovalResult {
   approvedStepKey: StepKey | null
   /** Шаг, отправленный на переделку. null — переделки не было. */
   regeneratedStepKey: StepKey | null
+  /** Ролик отклонён и остановлен насовсем. */
+  rejected: boolean
+  /**
+   * Обязан ли вызывающий продолжить прогон.
+   *
+   * Отдельное поле, а не сравнение действия в ручке: отклонённый ролик уже
+   * отменён, и запуск `runVideoPipeline` после него оплатил бы шаги, которых
+   * никто не заказывал. Решение принимает то же место, что и отмену.
+   */
+  continueRun: boolean
 }
 
 /**
@@ -2052,6 +2072,35 @@ export async function applyStepwiseApproval(
     })
   }
 
+  if (action === "reject") {
+    /**
+     * Отклонение = штатная отмена ролика ТЕМ ЖЕ кодом, что и кнопка «отменить».
+     *
+     * Спека прямого «отклонить» не описывает, поэтому поведение выбрано по
+     * правилу «не терять оплаченное»: `cancelVideoPipeline` переводит в
+     * `canceled` только ЖИВЫЕ и ещё не начатые шаги, а завершённые не трогает —
+     * ни статус, ни `actualCost`, ни снапшот. Факт оплаты пройденного остаётся
+     * в учёте, а сам результат — поднимаемым: передумавший оператор перезапустит
+     * ролик и заплатит только за непройденное. Удалять шаги или обнулять
+     * стоимость значило бы стереть уже потраченные деньги из истории.
+     *
+     * `awaitingStepKey` чистим: отменённый ролик решения больше не ждёт, иначе
+     * интерфейс показывал бы ему кнопки приёмки. `approvedStepKey` остаётся —
+     * это история приёмки, и она честна.
+     */
+    await cancelVideoPipeline(videoId)
+    await prisma.video.update({ where: { id: videoId }, data: { awaitingStepKey: null } })
+    await logAgent('video-pipeline', 'info',
+      `Video ${videoId}: пошаговый режим — оператор отклонил ролик на шаге ${awaitingStepKey}, `
+      + `прогон остановлен, оплаченные шаги сохранены`,
+      { videoId },
+    ).catch(() => {})
+    return {
+      videoId, action, approvedStepKey: null, regeneratedStepKey: null,
+      rejected: true, continueRun: false,
+    }
+  }
+
   if (action === "regenerate") {
     // Сброс тем же кодом, что и у кнопки «перезапустить шаг»: он же откатывает
     // приёмку на шаг назад, поэтому следующий прогон переиграет шаг и снова
@@ -2061,7 +2110,10 @@ export async function applyStepwiseApproval(
       `Video ${videoId}: пошаговый режим — оператор отправил шаг ${awaitingStepKey} на перегенерацию`,
       { videoId },
     ).catch(() => {})
-    return { videoId, action, approvedStepKey: null, regeneratedStepKey: awaitingStepKey }
+    return {
+      videoId, action, approvedStepKey: null, regeneratedStepKey: awaitingStepKey,
+      rejected: false, continueRun: true,
+    }
   }
 
   await updateVideoStatus(videoId, "pending", {
@@ -2075,5 +2127,85 @@ export async function applyStepwiseApproval(
     { videoId },
   ).catch(() => {})
 
-  return { videoId, action, approvedStepKey: awaitingStepKey, regeneratedStepKey: null }
+  return {
+    videoId, action, approvedStepKey: awaitingStepKey, regeneratedStepKey: null,
+    rejected: false, continueRun: true,
+  }
+}
+
+export interface StepwiseFlagResult {
+  videoId: number
+  /** Переопределение, записанное на ролике. null — «наследовать профиль». */
+  stepwiseApproval: boolean | null
+  /** Что из этого вышло на деле — ровно то, чем будет руководствоваться прогон. */
+  enabled: boolean
+  source: StepwiseSource
+  /** Шаг, на котором ролик стоит прямо сейчас. null — ролик решения не ждёт. */
+  awaitingStepKey: StepKey | null
+}
+
+/**
+ * Включить/выключить пошаговый режим на КОНКРЕТНОМ ролике.
+ *
+ * Три состояния, а не два: `true` — включён, `false` — выключен, `null` —
+ * наследовать монтажный профиль. Поле `Video.stepwiseApproval` для того и
+ * сделано nullable (Task 6): «оператор выключил» и «оператор не выбирал» —
+ * разные вещи, иначе выключить режим, включённый профилем, было бы нечем.
+ *
+ * ПРОГОН НЕ ЗАПУСКАЕТСЯ И НЕ ОСТАНАВЛИВАЕТСЯ. Если ролик прямо сейчас стоит в
+ * `awaiting_operator`, выключение режима само его не отпускает: автопродолжения
+ * в этом режиме нет намеренно (§9), и трогать деньги переключателем флага
+ * нельзя. Ролик снимается с ожидания только явным решением оператора
+ * (`applyStepwiseApproval`), поэтому текущий `awaitingStepKey` возвращается —
+ * чтобы интерфейсу было чем сказать «ролик всё ещё ждёт решения по шагу X».
+ */
+export async function setVideoStepwiseApproval(
+  videoId: number,
+  stepwiseApproval: boolean | null,
+): Promise<StepwiseFlagResult> {
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+    select: {
+      id: true, editProfileId: true, awaitingStepKey: true,
+      scenario: { select: { appId: true } },
+    },
+  })
+  if (!video) throw createError({ statusCode: 404, message: `Видео ${videoId} не найдено` })
+
+  const updated = await prisma.video.update({
+    where: { id: videoId },
+    data: { stepwiseApproval },
+    select: { stepwiseApproval: true, awaitingStepKey: true },
+  })
+
+  // Профиль резолвим ТЕМ ЖЕ порядком, что и прогон (собственный профиль ролика
+  // сильнее умолчания приложения) — иначе переключатель показывал бы оператору
+  // одно, а прогон делал бы другое.
+  const profile = video.editProfileId
+    ? await prisma.editProfile.findUnique({ where: { id: video.editProfileId }, select: { stepwiseApproval: true } })
+    : video.scenario?.appId
+      ? await prisma.editProfile.findFirst({
+        where: { appId: video.scenario.appId, isDefault: true },
+        select: { stepwiseApproval: true },
+      })
+      : null
+
+  const state = describeStepwiseState({
+    videoOverride: updated.stepwiseApproval,
+    profileStepwise: profile?.stepwiseApproval,
+  })
+
+  await logAgent('video-pipeline', 'info',
+    `Video ${videoId}: пошаговый режим на ролике — ${stepwiseApproval === null ? 'наследует профиль' : stepwiseApproval ? 'включён' : 'выключен'}`
+    + ` (действует: ${state.enabled ? 'включён' : 'выключен'}, решает: ${state.source})`,
+    { videoId },
+  ).catch(() => {})
+
+  return {
+    videoId,
+    stepwiseApproval: updated.stepwiseApproval,
+    enabled: state.enabled,
+    source: state.source,
+    awaitingStepKey: (updated.awaitingStepKey as StepKey | null) ?? null,
+  }
 }
