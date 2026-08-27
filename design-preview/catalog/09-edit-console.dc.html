@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--color-surface);color:var(--color-text);font-family:var(--font-ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--color-accent-text);text-decoration:none}
+a:hover{color:var(--color-accent-text);text-decoration:underline}
+::selection{background:var(--color-accent-bg)}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+input,button,textarea,select{font:inherit;color:inherit}
+button,select{white-space:nowrap}
+input[type=checkbox],input[type=radio]{accent-color:var(--color-accent)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+:root,[data-theme=dark]{
+--font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+--font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--color-surface:#0c0e10;--color-panel:#111417;--color-card:#16191d;--color-raised:#1d2126;
+--color-border:#272c32;--color-divider:#1e2329;--color-overlay:rgba(4,5,7,.72);
+--color-text:#e7eaed;--color-text-muted:#99a2aa;--color-text-subtle:#69737b;--color-text-inverse:#0c0e10;
+--color-neutral:#99a2aa;--color-neutral-bg:#1b2025;--color-neutral-border:#2b3138;
+--color-info:#74b7e8;--color-info-bg:#11212f;--color-info-border:#21384c;
+--color-success:#5fbe8c;--color-success-bg:#0f2018;--color-success-border:#1e3c2c;
+--color-warning:#e3a944;--color-warning-bg:#241c0d;--color-warning-border:#453419;
+--color-danger:#ec7d70;--color-danger-bg:#26130f;--color-danger-border:#4a231d;
+--radius-sm:3px;--radius-md:5px;--radius-lg:8px;--radius-full:999px;
+--shadow-sm:0 1px 2px rgba(0,0,0,.5);--shadow-md:0 6px 16px rgba(0,0,0,.5);--shadow-lg:0 18px 44px rgba(0,0,0,.55);
+--duration-fast:120ms;--duration-base:160ms;--duration-slow:200ms;
+--row-h-text:36px;--row-h-media:44px;
+}
+[data-theme=light]{
+--color-surface:#f5f6f8;--color-panel:#ffffff;--color-card:#ffffff;--color-raised:#ffffff;
+--color-border:#dee2e7;--color-divider:#eaedf0;--color-overlay:rgba(18,22,26,.38);
+--color-text:#15191d;--color-text-muted:#586269;--color-text-subtle:#848d95;--color-text-inverse:#ffffff;
+--color-neutral:#586269;--color-neutral-bg:#eef0f2;--color-neutral-border:#dbdfe3;
+--color-info:#1b6ca4;--color-info-bg:#e9f2fa;--color-info-border:#c3dcef;
+--color-success:#1b7549;--color-success-bg:#e7f4ec;--color-success-border:#c0e1cf;
+--color-warning:#8a5a08;--color-warning-bg:#fbf1dc;--color-warning-border:#eedab0;
+--color-danger:#b03a2b;--color-danger-bg:#fbeae7;--color-danger-border:#f0ccc6;
+--shadow-sm:0 1px 2px rgba(16,22,28,.08);--shadow-md:0 6px 16px rgba(16,22,28,.1);--shadow-lg:0 18px 44px rgba(16,22,28,.16);
+}
+[data-accent=amber]{--color-accent:#f0a63c;--color-accent-hover:#f8b757;--color-accent-active:#d68f2a;--color-accent-bg:#2a2010;--color-accent-border:#4c3818;--color-on-accent:#171003;--color-accent-text:#f0a63c}
+[data-accent=cyan]{--color-accent:#3fb3d6;--color-accent-hover:#5cc5e5;--color-accent-active:#2f9bbb;--color-accent-bg:#0f2530;--color-accent-border:#1c4557;--color-on-accent:#03151c;--color-accent-text:#3fb3d6}
+[data-accent=pine]{--color-accent:#46b384;--color-accent-hover:#5fc699;--color-accent-active:#369a6f;--color-accent-bg:#10251c;--color-accent-border:#1d4433;--color-on-accent:#03150d;--color-accent-text:#46b384}
+[data-theme=light][data-accent=amber]{--color-accent:#c47a08;--color-accent-hover:#ab6a05;--color-accent-active:#8f5804;--color-accent-bg:#fbf0d9;--color-accent-border:#ecd6a8;--color-on-accent:#1a1103;--color-accent-text:#a1660a}
+[data-theme=light][data-accent=cyan]{--color-accent:#1189ad;--color-accent-hover:#0d7191;--color-accent-active:#0a5d78;--color-accent-bg:#e5f2f7;--color-accent-border:#b8dae6;--color-on-accent:#02171e;--color-accent-text:#0d6c8a}
+[data-theme=light][data-accent=pine]{--color-accent:#1d9366;--color-accent-hover:#177853;--color-accent-active:#126345;--color-accent-bg:#e6f4ee;--color-accent-border:#bce0cf;--color-on-accent:#03160f;--color-accent-text:#177650}
+@keyframes cf-sk{0%,100%{opacity:.55}50%{opacity:.95}}
+@keyframes cf-run{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+@keyframes cf-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-surface);color:var(--color-text);padding-bottom:60px">
+
+<div style="position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:12px 24px;background:var(--color-panel);border-bottom:1px solid var(--color-border)">
+  <div style="display:flex;align-items:center;gap:9px;white-space:nowrap">
+    <div style="width:22px;height:22px;border-radius:var(--radius-sm);background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:var(--color-on-accent);font-size:11px;font-weight:700;font-family:var(--font-mono)">CF</div>
+    <span style="font-size:14px;font-weight:600">Монтажная консоль</span>
+    <span style="font-size:12px;color:var(--color-text-subtle)">Задача 9</span>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <a href="#v1" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Консоль</a>
+    <a href="#v2" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Ждём оператора</a>
+    <a href="#v3" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Дорогое действие</a>
+    <a href="#v4" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Клон голоса</a>
+    <a href="#v5" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Профиль и фоны</a>
+    <a href="#v6" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Пусто и ошибки</a>
+    <a href="#v7" style="padding:4px 8px;font-size:12px;color:var(--color-text-muted);border-radius:var(--radius-sm)" style-hover="background:var(--color-card)">Адаптив</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+    <button onClick="{{ setDark }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tDarkBg }};color:{{ tDarkFg }}">Тёмная</button>
+    <button onClick="{{ setLight }}" style="height:24px;padding:0 10px;border:0;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:{{ tLightBg }};color:{{ tLightFg }}">Светлая</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v1 · Монтажная консоль, основной вид — вкладка «Монтаж» на детали ролика
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v1" style="padding:24px;overflow-x:auto">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">1440 × 980</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Новая вкладка «Монтаж» на детали ролика. Каркас страницы не меняется: слева содержимое, справа процесс. Разделение действий — <b>по цене</b>, а не по статусу: бесплатное живёт прямо в строке, платное уводится в отдельный блок с суммой и подтверждением.</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:16px;max-width:1400px;align-items:start">
+
+    <!-- ── Левая колонка ─────────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+      <!-- component: EditShotTable · таблица кадров, план против факта -->
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+          <span style="font-size:14px;font-weight:600">План монтажа</span>
+          <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">12 кадров</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">
+            <!-- icon: mingcute:alert-line -->
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            2 деградировали
+          </span>
+          <span style="flex:1"></span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">факт 1,72 $</span>
+        </div>
+
+        <div style="overflow-x:auto">
+          <!-- component: EntityTableHead -->
+          <div style="display:grid;grid-template-columns:34px 44px minmax(230px,1fr) 168px 92px 120px 64px;min-width:860px;align-items:center;height:32px;padding:0 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">
+            <span>#</span><span></span><span>Кадр и смысл</span><span>Фон · план → факт</span><span style="text-align:right">Стоимость</span><span>Статус</span><span style="text-align:right">Ещё раз</span>
+          </div>
+
+          <!-- component: EditShotRow · обычный кадр, фон из библиотеки -->
+          <div style="display:grid;grid-template-columns:34px 44px minmax(230px,1fr) 168px 92px 120px 64px;min-width:860px;align-items:center;height:44px;padding:0 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">1</span>
+            <span><span style="display:block;width:32px;height:32px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 5px,#22303a 5px 10px)"></span></span>
+            <span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ведущий в кадре, крупный план на вопросе</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">0,00 – 2,40 · сцена 1 · ведущий</span></span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-muted)">Библиотека <span style="color:var(--color-text-subtle)">→</span> <span style="color:var(--color-text)">Библиотека</span></span>
+            <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">0,00 $</span>
+            <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>Готов</span></span>
+            <span style="display:flex;justify-content:flex-end"><button title="Собрать кадр заново — бесплатно, фон берётся из библиотеки" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);cursor:pointer"><!-- icon: mingcute:refresh-2-line --><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 11a8 8 0 0 0-14-5M4 13a8 8 0 0 0 14 5"/><path d="M20 5v6h-6M4 19v-6h6"/></svg></button></span>
+          </div>
+
+          <!-- component: EditShotRow · генеративное видео, платный факт -->
+          <div style="display:grid;grid-template-columns:34px 44px minmax(230px,1fr) 168px 92px 120px 64px;min-width:860px;align-items:center;height:44px;padding:0 12px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">2</span>
+            <span><span style="display:block;width:32px;height:32px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3a3040 0 5px,#2e2734 5px 10px)"></span></span>
+            <span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Камера облетает распечатанный чертёж на столе</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">2,40 – 7,40 · перебивка</span></span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-muted)">Видео <span style="color:var(--color-text-subtle)">→</span> <span style="display:inline-flex;align-items:center;gap:4px;color:var(--color-text)">Видео <span style="display:inline-flex;align-items:center;height:16px;padding:0 4px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-size:10px">платно</span></span></span>
+            <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">0,35 $</span>
+            <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>Готов</span></span>
+            <span style="display:flex;justify-content:flex-end"><button title="Пересборка этого кадра снова закажет генеративное видео — ~0,35 $" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-warning-border);border-radius:var(--radius-sm);background:var(--color-warning-bg);color:var(--color-warning);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 11a8 8 0 0 0-14-5M4 13a8 8 0 0 0 14 5"/><path d="M20 5v6h-6M4 19v-6h6"/></svg></button></span>
+          </div>
+
+          <!-- component: EditShotRow · ДЕГРАДАЦИЯ: потолок картинок исчерпан -->
+          <div style="min-width:860px;border-bottom:1px solid var(--color-divider);background:var(--color-warning-bg)">
+            <div style="display:grid;grid-template-columns:34px 44px minmax(230px,1fr) 168px 92px 120px 64px;align-items:center;height:44px;padding:0 12px">
+              <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">7</span>
+              <span><span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);background:var(--color-surface);border:1px dashed var(--color-warning-border);color:var(--color-warning)"><!-- icon: mingcute:pic-line --><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m5 17 5-5 4 4 2-2 3 3"/></svg></span></span>
+              <span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Схема воронки на светлом фоне</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">31,80 – 34,20 · перебивка</span></span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-muted)">Картинка <span style="color:var(--color-text-subtle)">→</span> <span style="color:var(--color-warning)">Пусто</span></span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">0,00 $</span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-panel);border:1px solid var(--color-warning-border);color:var(--color-warning)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>Деградировал</span></span>
+              <span style="display:flex;justify-content:flex-end"><button title="Повторить кадр — сначала поднимите потолок картинок, иначе он снова останется пустым" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 11a8 8 0 0 0-14-5M4 13a8 8 0 0 0 14 5"/><path d="M20 5v6h-6M4 19v-6h6"/></svg></button></span>
+            </div>
+            <!-- component: ShotDegradeReason · причина словами, ровно та строка, что записал сервер -->
+            <div style="display:flex;align-items:flex-start;gap:7px;padding:0 12px 9px 90px;font-size:11.5px;color:var(--color-warning);line-height:1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:2px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+              <span>Потолок расхода на картинки $1.50 исчерпан (потрачено $1.498, картинка стоила бы $0.040)<span style="color:var(--color-text-muted)"> — поднимите потолок в монтажном профиле и повторите кадр, иначе он останется пустым.</span></span>
+            </div>
+          </div>
+
+          <!-- component: EditShotRow · ДЕГРАДАЦИЯ: генеративное видео выключено -->
+          <div style="min-width:860px;border-bottom:1px solid var(--color-divider);background:var(--color-warning-bg)">
+            <div style="display:grid;grid-template-columns:34px 44px minmax(230px,1fr) 168px 92px 120px 64px;align-items:center;height:44px;padding:0 12px">
+              <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">9</span>
+              <span><span style="display:block;width:32px;height:32px;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#3d3327 0 5px,#332b21 5px 10px)"></span></span>
+              <span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Пролёт над складом, движение слева направо</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">42,10 – 47,10 · перебивка</span></span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-muted)">Видео <span style="color:var(--color-text-subtle)">→</span> <span style="color:var(--color-text)">Картинка</span></span>
+              <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums">0,04 $</span>
+              <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-panel);border:1px solid var(--color-warning-border);color:var(--color-warning)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>Деградировал</span></span>
+              <span style="display:flex;justify-content:flex-end"><button style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text-muted);cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 11a8 8 0 0 0-14-5M4 13a8 8 0 0 0 14 5"/><path d="M20 5v6h-6M4 19v-6h6"/></svg></button></span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:7px;padding:0 12px 9px 90px;font-size:11.5px;color:var(--color-warning);line-height:1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:2px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+              <span>Генеративное видео выключено в профиле — кадр идёт картинкой с движением</span>
+            </div>
+          </div>
+
+          <!-- component: EditShotRow · кадр в работе -->
+          <div style="display:grid;grid-template-columns:34px 44px minmax(230px,1fr) 168px 92px 120px 64px;min-width:860px;align-items:center;height:44px;padding:0 12px" style-hover="background:var(--color-card)">
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">12</span>
+            <span><span style="display:block;width:32px;height:32px;border-radius:var(--radius-sm);background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite"></span></span>
+            <span style="min-width:0"><span style="display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Финальный призыв, ведущий в кадре</span><span style="display:block;font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">54,60 – 58,00 · сцена 8 · ведущий</span></span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-muted)">Библиотека <span style="color:var(--color-text-subtle)">→</span> <span style="color:var(--color-text-subtle)">—</span></span>
+            <span style="text-align:right;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--color-text-subtle)">—</span>
+            <span><span style="display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);font-size:11.5px;background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral)">Запланирован</span></span>
+            <span></span>
+          </div>
+        </div>
+
+        <!-- component: BudgetFooter · потолки видно ровно там, где видно их последствия -->
+        <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-card)">
+          <div style="display:flex;align-items:center;gap:8px;min-width:230px;flex:1">
+            <span style="font-size:11.5px;color:var(--color-text-muted);white-space:nowrap">Картинки</span>
+            <span style="position:relative;flex:1;height:5px;border-radius:3px;background:var(--color-raised);overflow:hidden"><span style="position:absolute;inset:0;width:100%;background:var(--color-warning)"></span></span>
+            <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-warning);font-variant-numeric:tabular-nums;white-space:nowrap">1,50 / 1,50 $</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;min-width:230px;flex:1">
+            <span style="font-size:11.5px;color:var(--color-text-muted);white-space:nowrap">Генеративное видео</span>
+            <span style="position:relative;flex:1;height:5px;border-radius:3px;background:var(--color-raised);overflow:hidden"><span style="position:absolute;inset:0;width:70%;background:var(--color-accent)"></span></span>
+            <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap">0,35 / 0,50 $</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- component: VoiceoverPanel · дешёвая правка и дорогая перегенерация РАЗВЕДЕНЫ -->
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+          <span style="font-size:14px;font-weight:600">Озвучка</span>
+          <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">единый трек · 58,0 с</span>
+          <span style="flex:1"></span>
+          <span style="font-size:11.5px;color:var(--color-text-subtle)">Правка одной фразы пересобирает только сдвинувшиеся кадры</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column">
+          <!-- component: VoiceoverSceneRow -->
+          <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 128px;align-items:center;gap:10px;padding:0 12px;height:36px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">0,0–4,8</span>
+            <span style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Вы платите за замер, а потом ещё раз — за переделку. Знакомо?</span>
+            <span style="display:flex;justify-content:flex-end"><button style="height:26px;padding:0 9px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12px;cursor:pointer">Заменить фразу</button></span>
+          </div>
+
+          <!-- component: VoiceoverReplaceForm · раскрытая строка -->
+          <div style="border-bottom:1px solid var(--color-divider);background:var(--color-card)">
+            <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 128px;align-items:center;gap:10px;padding:0 12px;height:36px">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">4,8–9,1</span>
+              <span style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text-muted)">Мы делаем замер один раз и фиксируем размеры в договоре.</span>
+              <span style="display:flex;justify-content:flex-end"><button style="height:26px;padding:0 9px;border:1px solid var(--color-accent-border);border-radius:var(--radius-md);background:var(--color-accent-bg);color:var(--color-accent-text);font-size:12px;cursor:pointer">Свернуть</button></span>
+            </div>
+            <div style="padding:0 12px 12px 78px">
+              <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Новое звучание фразы</label>
+              <textarea rows="2" style="width:100%;padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;resize:vertical">Замер делаем один раз и фиксируем размеры прямо в договоре.</textarea>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap">
+                <button style="height:28px;padding:0 11px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Пересинтезировать фразу</button>
+                <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">≈ 0,02 $</span>
+                <span style="font-size:11.5px;color:var(--color-text-subtle)">Синтезируется только эта фраза и вклеивается в трек по паузам. Подтверждения не спрашиваем — сумма копеечная.</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 128px;align-items:center;gap:10px;padding:0 12px;height:36px;border-bottom:1px solid var(--color-divider)" style-hover="background:var(--color-card)">
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">9,1–13,4</span>
+            <span style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Если размер не сошёлся — переделка за наш счёт.</span>
+            <span style="display:flex;justify-content:flex-end"><button style="height:26px;padding:0 9px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12px;cursor:pointer">Заменить фразу</button></span>
+          </div>
+
+          <!-- component: SkippedPauseNotice · маркер паузы, которому не нашлось места -->
+          <div style="display:flex;align-items:flex-start;gap:7px;padding:9px 12px;border-bottom:1px solid var(--color-divider);background:var(--color-info-bg);color:var(--color-info);font-size:11.5px;line-height:1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="8"/><path d="M12 11v5m0-8h.01"/></svg>
+            <span>Пауза 2 с перед сценой 5 не вставлена: тихого места для врезки не нашлось. Трек собран без неё.</span>
+          </div>
+        </div>
+
+        <!-- component: DangerZone · дорогое действие вынесено из потока, а не поставлено рядом -->
+        <div style="margin:12px;padding:12px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg)">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.7" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            <span style="font-size:13px;font-weight:600;color:var(--color-danger)">Перегенерация всего трека</span>
+            <span style="flex:1"></span>
+            <span style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--color-danger);font-variant-numeric:tabular-nums">≈ 14,31 $</span>
+          </div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:10px;max-width:720px">
+            Новый трек меняет отпечаток и обесценивает <b style="color:var(--color-text)">все 42 кадра</b>: липсинк придётся оплатить второй раз (61,4 с). Правка одной фразы дешевле в сотни раз — сначала попробуйте её.
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button style="height:30px;padding:0 12px;border:1px solid var(--color-danger);border-radius:var(--radius-md);background:transparent;color:var(--color-danger);font-size:12.5px;font-weight:500;cursor:pointer">Показать смету и подтвердить</button>
+            <span style="font-size:11.5px;color:var(--color-text-subtle)">Кнопка не запускает перегенерацию: сервер сперва отдаёт смету, а прогон стартует только после явного подтверждения суммы.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Правая колонка ────────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- component: EditProfileSummary -->
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+          <span style="font-size:14px;font-weight:600">Монтажный профиль</span>
+          <span style="flex:1"></span>
+          <a href="#v5" style="font-size:12px">Изменить</a>
+        </div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:7px">
+          <div style="display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:12.5px"><span style="color:var(--color-text-muted)">Профиль</span><span>Продуктовый, вертикаль</span></div>
+          <div style="display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:12.5px"><span style="color:var(--color-text-muted)">Доля перебивок</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,40</span></div>
+          <div style="display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:12.5px"><span style="color:var(--color-text-muted)">Смена кадра</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">1,8 с</span></div>
+          <div style="display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:12.5px"><span style="color:var(--color-text-muted)">Картинка в углу</span><span style="color:var(--color-text-muted)">выключена</span></div>
+          <div style="height:1px;background:var(--color-divider);margin:3px 0"></div>
+          <div style="display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:12.5px;align-items:center"><span style="color:var(--color-text-muted)">Потолок картинок</span><span style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">1,50 $</span><span style="display:inline-flex;align-items:center;height:17px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-size:10.5px">исчерпан</span></span></div>
+          <div style="display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;font-size:12.5px"><span style="color:var(--color-text-muted)">Потолок видео</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,50 $ · 1080×1920</span></div>
+        </div>
+      </div>
+
+      <!-- component: StepwisePanel -->
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+          <span style="font-size:14px;font-weight:600">Пошаговый режим</span>
+          <span style="flex:1"></span>
+          <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral);font-size:11px">из профиля</span>
+        </div>
+        <div style="padding:10px 12px">
+          <!-- component: TriStateToggle · три состояния, а не чекбокс: null — законное значение -->
+          <div style="display:flex;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+            <button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:var(--color-raised);color:var(--color-text);font-size:12px;cursor:pointer">Как в профиле</button>
+            <button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Включить</button>
+            <button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Выключить</button>
+          </div>
+          <p style="margin:9px 0 0;font-size:11.5px;color:var(--color-text-muted);line-height:1.5">
+            Профиль говорит «выключен», значит прогон идёт целиком. Включите, чтобы ролик останавливался после каждого шага и ждал вашего решения. Автопродолжения по таймауту нет — ролик будет ждать столько, сколько нужно.
+          </p>
+        </div>
+      </div>
+
+      <!-- component: CostBreakdown · сводка расхода по ролику -->
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="padding:9px 12px;border-bottom:1px solid var(--color-border);font-size:14px;font-weight:600">Расход по ролику</div>
+        <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px">
+          <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Синтез речи</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,42 $</span></div>
+          <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Липсинк</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">6,14 $</span></div>
+          <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Картинки фонов</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">1,50 $</span></div>
+          <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Генеративное видео</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,35 $</span></div>
+          <div style="height:1px;background:var(--color-divider);margin:2px 0"></div>
+          <div style="display:flex;font-weight:600"><span style="flex:1">Итого</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">8,41 $</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v2 · Ждём решения оператора — статус awaiting_operator
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v2" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">awaiting_operator</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Шаг доведён до конца, прогон завершён, блокировка отпущена. Ролик стоит и ждёт человека — это не «идёт генерация», и статус не должен выглядеть как бегущий.</span>
+  </div>
+
+  <div style="max-width:1000px;display:flex;flex-direction:column;gap:12px">
+    <!-- component: AwaitingOperatorBanner -->
+    <div style="border:1px solid var(--color-warning-border);border-radius:var(--radius-lg);background:var(--color-warning-bg);overflow:hidden">
+      <div style="display:flex;gap:12px;padding:14px 16px">
+        <div style="width:34px;height:34px;flex:none;border-radius:var(--radius-md);background:var(--color-panel);border:1px solid var(--color-warning-border);display:flex;align-items:center;justify-content:center;color:var(--color-warning)">
+          <!-- icon: mingcute:pause-line -->
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 5v14M15 5v14"/></svg>
+        </div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:14px;font-weight:600;color:var(--color-warning)">Ролик ждёт вашего решения</div>
+          <div style="font-size:12.5px;color:var(--color-text-muted);margin:4px 0 12px;max-width:720px">
+            Шаг <b style="color:var(--color-text)">«План монтажа»</b> закончен. Прогон не идёт, блокировка снята, счётчик времени не тикает. «Принять» запускает новый прогон со следующего шага; «Перегенерировать» переделывает этот же шаг заново.
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button style="height:30px;padding:0 13px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Принять и продолжить</button>
+            <button style="height:30px;padding:0 12px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Перегенерировать шаг</button>
+            <span style="flex:1"></span>
+            <button style="height:30px;padding:0 12px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:transparent;color:var(--color-danger);font-size:12.5px;cursor:pointer">Отклонить ролик</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:8px 16px;border-top:1px solid var(--color-warning-border);font-size:11.5px;color:var(--color-text-muted)">
+        Шаг «План монтажа» бесплатный — перегенерация ничего не спишет. У платного шага на кнопке будет сумма.
+      </div>
+    </div>
+
+    <!-- component: StepwisePanel · тот же блок в состоянии ожидания -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);max-width:392px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+        <span style="font-size:14px;font-weight:600">Пошаговый режим</span>
+        <span style="flex:1"></span>
+        <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning);font-size:11px">на ролике</span>
+      </div>
+      <div style="padding:10px 12px">
+        <div style="display:flex;padding:2px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+          <button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Как в профиле</button>
+          <button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:var(--color-accent);color:var(--color-on-accent);font-size:12px;font-weight:500;cursor:pointer">Включить</button>
+          <button style="flex:1;height:26px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);font-size:12px;cursor:pointer">Выключить</button>
+        </div>
+        <div style="margin-top:9px;display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--color-text-muted)">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--color-warning);flex:none"></span>
+          Стоим на шаге <span style="font-family:var(--font-mono);color:var(--color-text)">edit_plan</span>
+        </div>
+        <p style="margin:9px 0 0;font-size:11.5px;color:var(--color-text-subtle);line-height:1.5">
+          Выключение режима прямо сейчас ролик не отпустит: из ожидания его выводит только решение по шагу.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v3 · Дорогое действие — смета до подтверждения
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v3" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">confirmExpensive</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Два действия во всём разделе стоят заметных денег: перегенерация трека и клон голоса. Оба идут в два шага — сначала сервер отдаёт смету и <b>ничего не запускает</b>, потом человек подтверждает сумму. Ни одно другое действие подтверждения не спрашивает, чтобы подтверждение не превратилось в шум.</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;max-width:1160px;align-items:start">
+
+    <!-- component: ExpensiveConfirmModal · перегенерация трека -->
+    <div style="background:var(--color-overlay);border-radius:var(--radius-lg);padding:26px 20px">
+      <div style="max-width:460px;margin:0 auto;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--color-border)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.7" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          <span style="font-size:14px;font-weight:600">Перегенерировать весь трек?</span>
+        </div>
+        <div style="padding:14px">
+          <div style="display:flex;align-items:baseline;gap:9px;padding:11px 12px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);margin-bottom:12px">
+            <span style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--color-danger);font-variant-numeric:tabular-nums;line-height:1">14,31&nbsp;$</span>
+            <span style="font-size:12px;color:var(--color-text-muted)">верхняя оценка списания</span>
+          </div>
+
+          <!-- component: KeyValue · смета из ответа сервера, поле в поле -->
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;margin-bottom:12px">
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Сцен в новом треке</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">20</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Символов на синтез</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">1 830</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-danger)">Кадров собрать заново</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--color-danger);font-weight:600">42</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-danger)">Липсинк оплатить второй раз</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--color-danger)">61,4 с</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Разошлись со сценарием</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">сцены 3, 7</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Голос или модель менялись</span><span>нет</span></div>
+          </div>
+
+          <div style="padding:10px 11px;border:1px solid var(--color-info-border);border-radius:var(--radius-md);background:var(--color-info-bg);font-size:12px;color:var(--color-text-muted);margin-bottom:12px">
+            Разошлись всего две сцены. <a href="#v1">Замена этих двух фраз</a> обойдётся примерно в <span style="font-family:var(--font-mono);color:var(--color-text)">0,04&nbsp;$</span> и сохранит уже оплаченный липсинк остальных кадров.
+          </div>
+
+          <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;cursor:pointer;line-height:1.5">
+            <input type="checkbox" style="width:15px;height:15px;cursor:pointer;flex:none;margin-top:2px"/>
+            <span>Понимаю, что 42 кадра будут собраны заново и это спишет до <b>14,31&nbsp;$</b></span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding:11px 14px;border-top:1px solid var(--color-border);background:var(--color-card)">
+          <button style="height:30px;padding:0 12px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Отмена</button>
+          <button disabled="disabled" style="height:30px;padding:0 13px;border:1px dashed var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-subtle);font-size:12.5px;cursor:not-allowed">Перегенерировать за 14,31&nbsp;$</button>
+        </div>
+      </div>
+      <div style="max-width:460px;margin:10px auto 0;font-size:11.5px;color:var(--color-text-subtle);text-align:center">Кнопка мертва, пока галочка не стоит. Сумма стоит <b>на самой кнопке</b> — палец не должен узнавать цену из подписи сверху.</div>
+    </div>
+
+    <!-- component: ExpensiveConfirmModal · подтверждено -->
+    <div style="background:var(--color-overlay);border-radius:var(--radius-lg);padding:26px 20px">
+      <div style="max-width:460px;margin:0 auto;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--color-border)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.7" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          <span style="font-size:14px;font-weight:600">Перегенерировать весь трек?</span>
+        </div>
+        <div style="padding:14px">
+          <div style="display:flex;align-items:baseline;gap:9px;padding:11px 12px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);margin-bottom:12px">
+            <span style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--color-danger);font-variant-numeric:tabular-nums;line-height:1">14,31&nbsp;$</span>
+            <span style="font-size:12px;color:var(--color-text-muted)">верхняя оценка списания</span>
+          </div>
+          <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;cursor:pointer;line-height:1.5">
+            <input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer;flex:none;margin-top:2px"/>
+            <span>Понимаю, что 42 кадра будут собраны заново и это спишет до <b>14,31&nbsp;$</b></span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding:11px 14px;border-top:1px solid var(--color-border);background:var(--color-card)">
+          <button style="height:30px;padding:0 12px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Отмена</button>
+          <button style="height:30px;padding:0 13px;border:0;border-radius:var(--radius-md);background:var(--color-danger);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer">Перегенерировать за 14,31&nbsp;$</button>
+        </div>
+      </div>
+      <div style="max-width:460px;margin:10px auto 0;font-size:11.5px;color:var(--color-text-subtle);text-align:center">Подтверждённое состояние: кнопка красная, не акцентная. Акцент в системе — «дальше по маршруту», а это списание.</div>
+    </div>
+  </div>
+
+  <!-- component: CheapVsExpensive · шкала, по которой принимается решение о подтверждении -->
+  <div style="max-width:1160px;margin-top:16px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+    <div style="padding:9px 12px;border-bottom:1px solid var(--color-border);font-size:13px;font-weight:600">Правило раздела: подтверждение — по цене, не по «опасности»</div>
+    <div style="overflow-x:auto">
+    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 108px 150px minmax(220px,1.4fr);min-width:700px;align-items:center;height:32px;padding:0 12px;background:var(--color-card);border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-subtle)">
+      <span>Действие</span><span style="text-align:right">Цена</span><span>Как выглядит</span><span>Почему так</span>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 108px 150px minmax(220px,1.4fr);min-width:700px;align-items:center;min-height:36px;padding:6px 12px;border-bottom:1px solid var(--color-divider);font-size:12.5px">
+      <span>Замена одной фразы</span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">≈ 0,02 $</span><span style="color:var(--color-text-muted)">кнопка в строке</span><span style="color:var(--color-text-muted);font-size:12px">Пересобираются только сдвинувшиеся кадры</span>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 108px 150px minmax(220px,1.4fr);min-width:700px;align-items:center;min-height:36px;padding:6px 12px;border-bottom:1px solid var(--color-divider);font-size:12.5px">
+      <span>Пересборка кадра без платного фона</span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">0,00 $</span><span style="color:var(--color-text-muted)">иконка в строке</span><span style="color:var(--color-text-muted);font-size:12px">Локальная работа, платных вызовов нет</span>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 108px 150px minmax(220px,1.4fr);min-width:700px;align-items:center;min-height:36px;padding:6px 12px;border-bottom:1px solid var(--color-divider);font-size:12.5px">
+      <span>Пересборка кадра с генеративным видео</span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums">≈ 0,35 $</span><span style="color:var(--color-warning)">жёлтая иконка + сумма</span><span style="color:var(--color-text-muted);font-size:12px">Заметно, но не блокирует: сумма в подсказке и в подтверждении</span>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 108px 150px minmax(220px,1.4fr);min-width:700px;align-items:center;min-height:36px;padding:6px 12px;border-bottom:1px solid var(--color-divider);font-size:12.5px;background:var(--color-danger-bg)">
+      <span style="color:var(--color-danger);font-weight:500">Клон голоса</span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--color-danger);font-weight:600">3,00 $</span><span style="color:var(--color-danger)">сумма на кнопке + галочка</span><span style="color:var(--color-text-muted);font-size:12px">Сервер требует поле confirmUsd, равное 3</span>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 108px 150px minmax(220px,1.4fr);min-width:700px;align-items:center;min-height:36px;padding:6px 12px;font-size:12.5px;background:var(--color-danger-bg)">
+      <span style="color:var(--color-danger);font-weight:500">Перегенерация трека</span><span style="text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--color-danger);font-weight:600">до 14,31 $</span><span style="color:var(--color-danger)">смета + галочка</span><span style="color:var(--color-text-muted);font-size:12px">Обесценивает липсинк всех кадров ролика</span>
+    </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v4 · Клон голоса — карточка персонажа
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v4" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">POST /api/characters/:id/clone-voice</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Три состояния подряд: голоса нет, подтверждение суммы, голос обучен. Отдельно — почему клон привязан к модели: тот же voice_id в другой TTS-модели не существует, и молчать об этом нельзя.</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;max-width:1400px;align-items:start">
+
+    <!-- component: VoiceCloneCard · голоса нет -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+        <!-- icon: mingcute:mic-line -->
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <span style="font-size:14px;font-weight:600">Голос персонажа</span>
+        <span style="flex:1"></span>
+        <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral);font-size:11px">не обучен</span>
+      </div>
+      <div style="padding:12px">
+        <!-- component: Dropzone -->
+        <div role="button" tabindex="0" style="border:2px dashed var(--color-border);border-radius:var(--radius-lg);padding:18px;text-align:center;cursor:pointer" style-hover="border-color:var(--color-accent);background:var(--color-accent-bg)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round"><path d="M12 16V5m0 0L8 9m4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          <div style="font-size:13px;font-weight:500;margin-top:5px">Образец голоса</div>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:3px">MP3, M4A или WAV · от 10 секунд до 5 минут · до 20 МБ</div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Целевая TTS-модель</label>
+          <div style="position:relative">
+            <select style="width:100%;height:32px;padding:0 30px 0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;appearance:none;cursor:pointer"><option>speech-02-turbo</option><option>speech-02-hd</option></select>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+          </div>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Голос обучается <b>под конкретную модель</b>. В другой модели этого голоса не существует — переучивать придётся заново и за те же деньги.</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:12px">
+          <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer"/>Шумоподавление</label>
+          <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/>Нормализация громкости</label>
+        </div>
+
+        <!-- component: ExpensiveActionButton · сумма стоит на кнопке -->
+        <div style="margin-top:14px;padding:11px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg)">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.7" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            <span style="font-size:12px;color:var(--color-text-muted)">Каждый успешный прогон клонирования списывает фиксированные <b style="color:var(--color-danger)">3,00 $</b>. Повторная загрузка того же файла бесплатна — голос переиспользуется.</span>
+          </div>
+          <button disabled="disabled" style="width:100%;height:32px;border:1px dashed var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-subtle);font-size:12.5px;cursor:not-allowed">Клонировать голос за 3,00&nbsp;$</button>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:6px;text-align:center">Сначала выберите образец</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- component: VoiceCloneConfirmModal -->
+    <div style="background:var(--color-overlay);border-radius:var(--radius-lg);padding:26px 16px">
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--color-border)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="1.7" stroke-linecap="round"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          <span style="font-size:14px;font-weight:600">Клонировать голос?</span>
+        </div>
+        <div style="padding:14px">
+          <div style="display:flex;align-items:baseline;gap:9px;padding:11px 12px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);margin-bottom:12px">
+            <span style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--color-danger);font-variant-numeric:tabular-nums;line-height:1">3,00&nbsp;$</span>
+            <span style="font-size:12px;color:var(--color-text-muted)">фиксированная цена прогона</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;margin-bottom:12px">
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Образец</span><span style="font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px">anna-studio-take3.mp3</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Длительность</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">48 с</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Размер</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">1,1 МБ</span></div>
+            <div style="display:flex"><span style="flex:1;color:var(--color-text-muted)">Модель</span><span style="font-family:var(--font-mono)">speech-02-turbo</span></div>
+          </div>
+          <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;cursor:pointer;line-height:1.5">
+            <input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer;flex:none;margin-top:2px"/>
+            <span>Подтверждаю списание <b>3,00&nbsp;$</b> за этот прогон</span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding:11px 14px;border-top:1px solid var(--color-border);background:var(--color-card)">
+          <button style="height:30px;padding:0 12px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Отмена</button>
+          <button style="height:30px;padding:0 13px;border:0;border-radius:var(--radius-md);background:var(--color-danger);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer">Клонировать за 3,00&nbsp;$</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- component: VoiceCloneCard · голос обучен + ошибки образца -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          <span style="font-size:14px;font-weight:600">Голос персонажа</span>
+          <span style="flex:1"></span>
+          <span style="display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:var(--radius-sm);background:var(--color-success-bg);border:1px solid var(--color-success-border);color:var(--color-success);font-size:11.5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 13 4.5 4.5L19 7"/></svg>обучен</span>
+        </div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:7px;font-size:12.5px">
+          <div style="display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px"><span style="color:var(--color-text-muted)">voiceId</span><span style="font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">cf_char_9f21_v1</span></div>
+          <div style="display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px"><span style="color:var(--color-text-muted)">Модель</span><span style="font-family:var(--font-mono)">speech-02-turbo</span></div>
+          <div style="display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px"><span style="color:var(--color-text-muted)">Образец</span><span style="font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">sha1 4b9c…e07a</span></div>
+          <div style="display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px"><span style="color:var(--color-text-muted)">Обучен</span><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">17 авг, 12:04</span></div>
+          <div style="display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px;align-items:center"><span style="color:var(--color-text-muted)">Списано</span><span style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">3,00 $</span><span style="display:inline-flex;align-items:center;height:17px;padding:0 5px;border-radius:var(--radius-sm);background:var(--color-neutral-bg);border:1px solid var(--color-neutral-border);color:var(--color-neutral);font-size:10.5px">один раз</span></span></div>
+        </div>
+        <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--color-divider);background:var(--color-card)">
+          <button style="height:28px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Заменить образец</button>
+          <span style="flex:1"></span>
+          <span style="font-size:11.5px;color:var(--color-text-subtle);align-self:center">Тот же файл — 0,00 $</span>
+        </div>
+      </div>
+
+      <!-- component: ErrorInline · отказы по образцу, кодами сервера -->
+      <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:12px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle);margin-bottom:9px">Отказы по образцу · до списания</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);font-size:12px;color:var(--color-danger)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            <span>Формат <span style="font-family:var(--font-mono)">.ogg</span> не поддержан: нужен MP3, M4A или WAV</span>
+          </div>
+          <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);font-size:12px;color:var(--color-danger)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            <span>Образец 24,8 МБ, предел модели 20 МБ</span>
+          </div>
+          <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);font-size:12px;color:var(--color-danger)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+            <span>Образец 6 с, модели нужно от 10 с до 5 минут</span>
+          </div>
+        </div>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:9px">Все три проверки проходят до платного вызова: отказ по образцу ничего не списывает.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v5 · Монтажный профиль и библиотека фонов
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v5" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">/api/edit-profiles · /api/apps/:id/background-clips</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Форма правил и библиотека исходников для фона. Денежные ручки не тонут среди остальных полей: они собраны в отдельный блок, подписаны как потолки на один ролик, и там же сказано, что происходит при исчерпании.</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(400px,100%),1fr));gap:16px;max-width:1400px;align-items:start">
+
+    <!-- component: EditProfileForm -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+        <span style="font-size:14px;font-weight:600">Монтажный профиль</span>
+        <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:var(--radius-sm);background:var(--color-accent-bg);border:1px solid var(--color-accent-border);color:var(--color-accent-text);font-size:11px">по умолчанию</span>
+      </div>
+
+      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Название</label>
+          <input value="Продуктовый, вертикаль" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px"/>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Промт монтажа</label>
+          <textarea rows="2" style="width:100%;padding:8px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;resize:vertical">Перебивки — только по смыслу реплики. Никаких стоков с людьми в офисе.</textarea>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Доля перебивок</label>
+          <input value="0.40" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-family:var(--font-mono)"/>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">0 … 1</div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Смена кадра, с</label>
+          <input value="1.8" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-family:var(--font-mono)"/>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Не меньше 0,8</div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Картинка в углу</label>
+          <div style="position:relative">
+            <select style="width:100%;height:32px;padding:0 30px 0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;appearance:none;cursor:pointer"><option>Снизу справа</option><option>Снизу слева</option><option>Сверху справа</option><option>Сверху слева</option></select>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Размер картинки в углу</label>
+          <input value="0.28" style="width:100%;height:32px;padding:0 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-family:var(--font-mono)"/>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">0,1 … 0,5</div>
+        </div>
+      </div>
+
+      <!-- component: BudgetFieldset · две денежные ручки собраны и подписаны -->
+      <div style="margin:0 12px 12px;border:1px solid var(--color-warning-border);border-radius:var(--radius-md);background:var(--color-warning-bg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid var(--color-warning-border)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v8m-2-6h4m-4 4h4"/></svg>
+          <span style="font-size:12.5px;font-weight:600;color:var(--color-warning)">Потолки расхода на один ролик</span>
+          <span style="flex:1"></span>
+          <span style="font-size:11.5px;color:var(--color-text-muted)">Исчерпан — кадр деградирует и объясняет причину</span>
+        </div>
+        <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+          <div>
+            <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer;margin-bottom:6px"><input type="checkbox" checked="checked" style="width:15px;height:15px;cursor:pointer"/>Генерировать картинки фона</label>
+            <div style="position:relative">
+              <input value="1.50" style="width:100%;height:32px;padding:0 26px 0 10px;background:var(--color-panel);border:1px solid var(--color-warning-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-family:var(--font-mono);font-variant-numeric:tabular-nums"/>
+              <span style="position:absolute;right:10px;top:7px;font-size:12px;color:var(--color-text-subtle);pointer-events:none">$</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--color-text-muted);margin-top:4px">Одна картинка ≈ 0,04 $. При потолке 1,50 $ хватит примерно на 37 кадров.</div>
+          </div>
+          <div>
+            <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer;margin-bottom:6px"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/>Генеративное видео на фонах</label>
+            <div style="position:relative">
+              <input value="0.50" style="width:100%;height:32px;padding:0 26px 0 10px;background:var(--color-panel);border:1px solid var(--color-warning-border);border-radius:var(--radius-md);color:var(--color-text);font-size:13px;font-family:var(--font-mono);font-variant-numeric:tabular-nums"/>
+              <span style="position:absolute;right:10px;top:7px;font-size:12px;color:var(--color-text-subtle);pointer-events:none">$</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--color-text-muted);margin-top:4px">Клип 5 с ≈ 0,35 $. Выключено — фоны идут картинкой с движением.</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11.5px;color:var(--color-text-muted);margin-bottom:5px">Разрешение генеративного видео</label>
+            <div style="position:relative">
+              <select disabled="disabled" style="width:100%;height:32px;padding:0 30px 0 10px;background:var(--color-surface);border:1px dashed var(--color-divider);border-radius:var(--radius-md);color:var(--color-text-subtle);font-size:13px;appearance:none"><option>1080×1920</option></select>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round" style="position:absolute;right:9px;top:9px;pointer-events:none"><path d="m6 10 6 6 6-6"/></svg>
+            </div>
+            <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:4px">Доступно при включённом генеративном видео</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:0 12px 12px;display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" style="width:15px;height:15px;cursor:pointer"/>Пошаговый режим по умолчанию</label>
+        <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:-4px;padding-left:24px">Все новые ролики этого профиля будут останавливаться после каждого шага. На отдельном ролике это можно переопределить.</div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;padding:11px 12px;border-top:1px solid var(--color-border);background:var(--color-card)">
+        <button style="height:30px;padding:0 12px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);font-size:12.5px;cursor:pointer">Отмена</button>
+        <button style="height:30px;padding:0 13px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Сохранить профиль</button>
+      </div>
+    </div>
+
+    <!-- component: BackgroundLibrary -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)">
+        <span style="font-size:14px;font-weight:600">Библиотека фонов</span>
+        <span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card);font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">14 · 486 МБ</span>
+        <span style="flex:1"></span>
+        <span style="font-size:11.5px;color:var(--color-text-subtle)">Бесплатный источник фона</span>
+      </div>
+
+      <div style="padding:12px">
+        <div role="button" tabindex="0" style="border:2px dashed var(--color-border);border-radius:var(--radius-lg);padding:16px;text-align:center;cursor:pointer" style-hover="border-color:var(--color-accent);background:var(--color-accent-bg)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="m17 11 4-3v8l-4-3z"/></svg>
+          <div style="font-size:13px;font-weight:500;margin-top:4px">Добавить фоны</div>
+          <div style="font-size:11.5px;color:var(--color-text-subtle);margin-top:3px">Запись экрана, съёмка или статичная картинка</div>
+        </div>
+
+        <!-- component: DedupNotice -->
+        <div style="display:flex;gap:8px;margin-top:10px;padding:9px 10px;border:1px solid var(--color-info-border);border-radius:var(--radius-md);background:var(--color-info-bg);font-size:12px;color:var(--color-info)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="8"/><path d="M12 11v5m0-8h.01"/></svg>
+          <span><b>screen-onboarding.mp4</b> уже был в библиотеке байт в байт — новая запись не создана. Ещё 2 фона похожи по первому кадру.</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px">
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;background:var(--color-card)">
+            <div style="aspect-ratio:16/9;background:repeating-linear-gradient(135deg,#2c3b46 0 6px,#22303a 6px 12px)"></div>
+            <div style="padding:7px 8px">
+              <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Экран онбординга</div>
+              <div style="display:flex;gap:6px;margin-top:4px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums"><span>0:12</span><span>·</span><span>18 МБ</span><span>·</span><span>×7</span></div>
+            </div>
+          </div>
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;background:var(--color-card)">
+            <div style="aspect-ratio:16/9;background:repeating-linear-gradient(135deg,#3a3040 0 6px,#2e2734 6px 12px)"></div>
+            <div style="padding:7px 8px">
+              <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Склад, пролёт</div>
+              <div style="display:flex;gap:6px;margin-top:4px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums"><span>0:08</span><span>·</span><span>32 МБ</span><span>·</span><span>×2</span></div>
+            </div>
+          </div>
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;background:var(--color-card)">
+            <div style="aspect-ratio:16/9;background:repeating-linear-gradient(135deg,#2f3a2c 0 6px,#262f24 6px 12px);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m5 17 5-5 4 4 2-2 3 3"/></svg></div>
+            <div style="padding:7px 8px">
+              <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Схема тарифов</div>
+              <div style="display:flex;gap:6px;margin-top:4px;font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums"><span>картинка</span><span>·</span><span>0,4 МБ</span><span>·</span><span>×0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v6 · Пустые состояния, ошибки и запреты
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v6" style="padding:24px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">пусто · загрузка · отказ</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Отказ объясняется причиной, а не кодом. Три из четырёх отказов ниже — не поломка, а состояние ролика, и оператор должен понять, что делать дальше.</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;max-width:1400px;align-items:start">
+
+    <!-- component: EmptyState · плана нет -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:14px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle);margin-bottom:12px">Плана монтажа ещё нет</div>
+      <div style="display:flex;gap:12px;padding:14px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+        <div style="width:34px;height:34px;flex:none;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)">
+          <!-- icon: mingcute:layout-line -->
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:500">Кадры появятся после шага «План монтажа»</div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin:3px 0 0">Ролик собирается от звука: сначала трек и транскрипция, потом раскадровка. До этого шага показывать нечего.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- component: EmptyState · фонов нет -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:14px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle);margin-bottom:12px">Библиотека фонов пуста</div>
+      <div style="display:flex;gap:12px;padding:14px;background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-md)">
+        <div style="width:34px;height:34px;flex:none;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;color:var(--color-text-subtle)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="m17 11 4-3v8l-4-3z"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:500">Фонов пока нет</div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin:3px 0 9px">Пока библиотека пуста, каждый фоновый кадр уходит в генерацию картинки и тратит потолок. Загруженные фоны бесплатны.</div>
+          <button style="height:28px;padding:0 11px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Загрузить фоны</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- component: ErrorInline · отказы ручек -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:14px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle);margin-bottom:12px">Действие сейчас недоступно</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-warning-border);border-radius:var(--radius-md);background:var(--color-warning-bg);font-size:12px;color:var(--color-warning)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          <span>Ролик заблокирован — идёт другая операция. Дождитесь её конца и повторите.</span>
+        </div>
+        <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-warning-border);border-radius:var(--radius-md);background:var(--color-warning-bg);font-size:12px;color:var(--color-warning)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          <span>Замена фразы недоступна в статусе «Сборка». Правки принимаются у готового, упавшего, отменённого ролика и у ролика в ожидании.</span>
+        </div>
+        <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-neutral-border);border-radius:var(--radius-md);background:var(--color-neutral-bg);font-size:12px;color:var(--color-text-muted)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="8"/><path d="M12 11v5m0-8h.01"/></svg>
+          <span>Ролик собирали не от звука — единого трека нет. Локальная замена фразы работает только на маршруте «монтаж от звука».</span>
+        </div>
+        <div role="alert" style="display:flex;gap:8px;padding:9px 10px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg);font-size:12px;color:var(--color-danger)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 8v5m0 3h.01M12 3 2 20h20L12 3Z"/></svg>
+          <span>Не удалось загрузить кадры. <a href="#v1" style="color:inherit;text-decoration:underline">Повторить</a></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- component: SkeletonTable -->
+    <div style="background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden">
+      <div style="padding:9px 12px;border-bottom:1px solid var(--color-border);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-subtle)">Загрузка кадров</div>
+      <div style="padding:8px 12px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:grid;grid-template-columns:32px minmax(0,1fr) 84px;gap:10px;align-items:center;height:44px"><span style="height:32px;border-radius:var(--radius-sm);background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite"></span><span style="height:11px;border-radius:3px;background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite"></span><span style="height:11px;border-radius:3px;background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite"></span></div>
+        <div style="display:grid;grid-template-columns:32px minmax(0,1fr) 84px;gap:10px;align-items:center;height:44px"><span style="height:32px;border-radius:var(--radius-sm);background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite .1s"></span><span style="height:11px;width:72%;border-radius:3px;background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite .1s"></span><span style="height:11px;border-radius:3px;background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite .1s"></span></div>
+        <div style="display:grid;grid-template-columns:32px minmax(0,1fr) 84px;gap:10px;align-items:center;height:44px"><span style="height:32px;border-radius:var(--radius-sm);background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite .2s"></span><span style="height:11px;width:84%;border-radius:3px;background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite .2s"></span><span style="height:11px;border-radius:3px;background:var(--color-raised);animation:cf-sk 1.4s ease-in-out infinite .2s"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     v7 · Адаптив 768 и 390
+     ══════════════════════════════════════════════════════════════════════ -->
+<section id="v7" style="padding:24px 24px 40px;border-top:1px solid var(--color-divider)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle)">768 · 390</span>
+    <span style="font-size:12.5px;color:var(--color-text-muted);max-width:940px">Таблица кадров на узком экране разворачивается в карточки: колонки «план → факт» и причина деградации остаются, потому что ради них таблицу и открывают. Дорогое действие не сжимается в иконку — сумма остаётся на кнопке.</span>
+  </div>
+
+  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+    <div style="width:768px;max-width:100%;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;background:var(--color-panel)">
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);padding:8px 12px;border-bottom:1px solid var(--color-divider)">768 · одна колонка, правая панель уходит вниз</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:600">План монтажа</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;height:19px;padding:0 6px;border-radius:var(--radius-sm);font-size:11px;background:var(--color-warning-bg);border:1px solid var(--color-warning-border);color:var(--color-warning)">2 деградировали</span>
+          <span style="flex:1"></span>
+          <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums">1,72 $</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);padding:9px;background:var(--color-card)">
+            <div style="display:flex;gap:8px;align-items:center"><span style="width:28px;height:28px;flex:none;border-radius:var(--radius-sm);background:repeating-linear-gradient(135deg,#2c3b46 0 5px,#22303a 5px 10px)"></span><div style="min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ведущий в кадре</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">0,0–2,4 · библиотека</div></div></div>
+          </div>
+          <div style="border:1px solid var(--color-warning-border);border-radius:var(--radius-md);padding:9px;background:var(--color-warning-bg)">
+            <div style="display:flex;gap:8px;align-items:center"><span style="width:28px;height:28px;flex:none;border-radius:var(--radius-sm);background:var(--color-surface);border:1px dashed var(--color-warning-border)"></span><div style="min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Схема воронки</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">31,8–34,2 · картинка → пусто</div></div></div>
+            <div style="font-size:11px;color:var(--color-warning);margin-top:6px;line-height:1.45">Потолок расхода на картинки $1.50 исчерпан</div>
+          </div>
+        </div>
+        <div style="padding:11px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg)">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px"><span style="font-size:12.5px;font-weight:600;color:var(--color-danger)">Перегенерация всего трека</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--color-danger);font-variant-numeric:tabular-nums">≈ 14,31 $</span></div>
+          <button style="width:100%;height:30px;border:1px solid var(--color-danger);border-radius:var(--radius-md);background:transparent;color:var(--color-danger);font-size:12.5px;font-weight:500;cursor:pointer">Показать смету и подтвердить</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:390px;max-width:100%;border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;background:var(--color-panel)">
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-subtle);padding:8px 12px;border-bottom:1px solid var(--color-divider)">390 · карточки в один столбец</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="padding:11px;border:1px solid var(--color-warning-border);border-radius:var(--radius-md);background:var(--color-warning-bg)">
+          <div style="font-size:13px;font-weight:600;color:var(--color-warning);margin-bottom:4px">Ролик ждёт решения</div>
+          <div style="font-size:11.5px;color:var(--color-text-muted);margin-bottom:9px">Шаг «План монтажа» закончен. Прогон не идёт.</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button style="height:30px;border:0;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font-size:12.5px;font-weight:500;cursor:pointer">Принять и продолжить</button>
+            <button style="height:30px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-raised);color:var(--color-text);font-size:12.5px;cursor:pointer">Перегенерировать шаг</button>
+            <button style="height:30px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:transparent;color:var(--color-danger);font-size:12.5px;cursor:pointer">Отклонить ролик</button>
+          </div>
+        </div>
+        <div style="border:1px solid var(--color-warning-border);border-radius:var(--radius-md);padding:9px;background:var(--color-warning-bg)">
+          <div style="display:flex;gap:8px;align-items:center"><span style="width:28px;height:28px;flex:none;border-radius:var(--radius-sm);background:var(--color-surface);border:1px dashed var(--color-warning-border)"></span><div style="min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Схема воронки</div><div style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-subtle);font-variant-numeric:tabular-nums">картинка → пусто · 0,00 $</div></div></div>
+          <div style="font-size:11px;color:var(--color-warning);margin-top:6px;line-height:1.45">Потолок расхода на картинки $1.50 исчерпан (потрачено $1.498, картинка стоила бы $0.040)</div>
+        </div>
+        <div style="padding:11px;border:1px solid var(--color-danger-border);border-radius:var(--radius-md);background:var(--color-danger-bg)">
+          <div style="font-size:12.5px;font-weight:600;color:var(--color-danger);margin-bottom:8px">Клон голоса</div>
+          <button style="width:100%;height:32px;border:0;border-radius:var(--radius-md);background:var(--color-danger);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer">Клонировать за 3,00&nbsp;$</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultAccent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amber&quot;,&quot;cyan&quot;,&quot;pine&quot;],&quot;default&quot;:&quot;amber&quot;,&quot;tsType&quot;:&quot;'amber'|'cyan'|'pine'&quot;,&quot;section&quot;:&quot;Тема&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Тема&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.defaultTheme ?? 'dark', accent: this.props.defaultAccent ?? 'amber' };
+  componentDidMount(){ this.apply(); }
+  componentDidUpdate(){ this.apply(); }
+  apply(){
+    const r = document.documentElement;
+    r.dataset.theme = this.state.theme;
+    r.dataset.accent = this.state.accent;
+  }
+  renderVals(){
+    const s = this.state, on = 'var(--color-raised)';
+    return {
+      setDark: () => this.setState({ theme: 'dark' }),
+      setLight: () => this.setState({ theme: 'light' }),
+      tDarkBg: s.theme === 'dark' ? on : 'transparent',
+      tDarkFg: s.theme === 'dark' ? 'var(--color-text)' : 'var(--color-text-muted)',
+      tLightBg: s.theme === 'light' ? on : 'transparent',
+      tLightFg: s.theme === 'light' ? 'var(--color-text)' : 'var(--color-text-muted)'
+    };
+  }
+}
+</script>
+</body>
+</html>
