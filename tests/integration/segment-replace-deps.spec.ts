@@ -129,11 +129,16 @@ describe("createReplaceSegmentDeps — порты замены сегмента 
     expect(await createReplaceSegmentDeps().store.readStep(videoId, "lip_sync_generation")).toBeNull()
   })
 
-  it("читает сценарий ролика из варианта", async () => {
+  it("читает общий сценарий варианта и правки самого ролика", async () => {
+    // Два источника, и порт обязан отдавать их РАЗДЕЛЬНО: общий текст живёт в
+    // варианте, правки реплик — на ролике (`Video.scriptOverrides`). Склей их
+    // порт в одно, правка одного ролика ушла бы в общий вариант и переписала
+    // сценарий соседям (`tests/integration/scenario-per-video-script.spec.ts`).
     const script = await createReplaceSegmentDeps().store.loadScript(videoId)
 
-    expect(script).toMatchObject({ variantId })
     expect((script!.storyPlan as typeof STORY_PLAN).scenes[1]!.spokenLine).toBe("Вторая реплика.")
+    // Правок не было — колонка пуста, копии плана у ролика нет.
+    expect(script!.overrides).toBeNull()
   })
 
   it("ролик без варианта отдаёт пустой сценарий, а не падает", async () => {
@@ -144,26 +149,26 @@ describe("createReplaceSegmentDeps — порты замены сегмента 
     expect(await createReplaceSegmentDeps().store.loadScript(videoId)).toBeNull()
   })
 
-  it("пишет снапшоты и сценарий одной транзакцией", async () => {
+  it("пишет снапшоты и правку сценария одной транзакцией", async () => {
     await createReplaceSegmentDeps().store.commit(
       [
         { stepId: transcriptionStepId, snapshot: { trackFingerprint: "fp-1", scenes: [{ order: 1 }] } },
         { stepId: voiceoverStepId, snapshot: { route: "audio_first", trackPath: "/assets/track-v2.mp3" } },
       ],
       {
-        variantId,
-        storyPlan: {
-          ...STORY_PLAN,
-          scenes: [STORY_PLAN.scenes[0]!, { order: 2, spokenLine: "Новая формулировка." }],
-        },
+        videoId,
+        overrides: { v: 1, lines: [{ sceneOrder: 2, target: "spoken", text: "Новая формулировка.", at: "t" }] },
       },
     )
 
     const voiceover = await prisma.videoGenerationStep.findUnique({ where: { id: voiceoverStepId } })
+    const video = await prisma.video.findUnique({ where: { id: videoId }, select: { scriptOverrides: true } })
     const variant = await prisma.scenarioVariant.findUnique({ where: { id: variantId } })
     expect((voiceover!.outputSnapshot as Record<string, unknown>).trackPath).toBe("/assets/track-v2.mp3")
-    expect((variant!.storyPlan as unknown as typeof STORY_PLAN).scenes[1]!.spokenLine)
+    expect((video!.scriptOverrides as { lines: Array<{ text: string }> }).lines[0]!.text)
       .toBe("Новая формулировка.")
+    // Общий вариант не тронут: его читают все остальные ролики этого сценария.
+    expect((variant!.storyPlan as unknown as typeof STORY_PLAN).scenes[1]!.spokenLine).toBe("Вторая реплика.")
   })
 
   it("сорвавшаяся фиксация не оставляет половину записей", async () => {
@@ -175,13 +180,16 @@ describe("createReplaceSegmentDeps — порты замены сегмента 
         { stepId: voiceoverStepId, snapshot: { route: "audio_first", trackPath: "/assets/track-v2.mp3" } },
         { stepId: voiceoverStepId + 100_000, snapshot: { boom: true } },
       ],
-      { variantId, storyPlan: { ...STORY_PLAN, marker: "не должно доехать" } },
+      {
+        videoId,
+        overrides: { v: 1, lines: [{ sceneOrder: 2, target: "spoken", text: "не должно доехать", at: "t" }] },
+      },
     )).rejects.toThrow()
 
     const voiceover = await prisma.videoGenerationStep.findUnique({ where: { id: voiceoverStepId } })
-    const variant = await prisma.scenarioVariant.findUnique({ where: { id: variantId } })
+    const video = await prisma.video.findUnique({ where: { id: videoId }, select: { scriptOverrides: true } })
     expect((voiceover!.outputSnapshot as Record<string, unknown>).trackPath).toBe("/assets/track.mp3")
-    expect((variant!.storyPlan as Record<string, unknown>).marker).toBeUndefined()
+    expect(video!.scriptOverrides).toBeNull()
   })
 
   it("расход замены идёт НОВОЙ попыткой шага, а не дублем первой", async () => {

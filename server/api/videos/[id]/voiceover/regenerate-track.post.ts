@@ -20,6 +20,7 @@
  */
 
 import { planTrackRegeneration } from '~~/server/utils/voiceover/track-regenerate'
+import { loadVideoStoryPlan } from '~~/server/utils/voiceover/script-source'
 import { getModel, getDefaultTtsModel, getDefaultLipSyncModel } from '~~/server/utils/video-models'
 import { rerunVideoStep } from '~~/server/utils/video-pipeline'
 
@@ -36,7 +37,6 @@ export default defineEventHandler(async (event) => {
         id: true,
         status: true,
         isLocked: true,
-        variantId: true,
         voiceoverEnabled: true,
         voiceoverVoiceId: true,
         voiceoverModelId: true,
@@ -46,15 +46,18 @@ export default defineEventHandler(async (event) => {
     : null
 
   // Читаем ТОЛЬКО когда ролик существует: на 404 лишние запросы в БД не нужны.
-  const [voiceoverStep, variant, shotsToRebuild] = video
+  //
+  // Сценарий берётся ролика, а не варианта: вариант ОБЩИЙ, и правки реплик,
+  // сделанные на этом ролике, живут в `Video.scriptOverrides`. Читай мы вариант
+  // напрямую — перегенерация синтезировала бы общий текст, то есть откатила бы
+  // правку, за которую оператор уже заплатил, и списала бы за это ещё раз.
+  const [voiceoverStep, storyPlan, shotsToRebuild] = video
     ? await Promise.all([
       prisma.videoGenerationStep.findFirst({
         where: { videoId: video.id, stepKey: 'voiceover_generation' as never },
         select: { status: true, outputSnapshot: true },
       }),
-      video.variantId
-        ? prisma.scenarioVariant.findUnique({ where: { id: video.variantId }, select: { storyPlan: true } })
-        : Promise.resolve(null),
+      loadVideoStoryPlan(video.id),
       prisma.videoShot.count({ where: { videoId: video.id } }),
     ])
     : [null, null, 0]
@@ -82,7 +85,7 @@ export default defineEventHandler(async (event) => {
         snapshot: (voiceoverStep.outputSnapshot ?? null) as Record<string, unknown> | null,
       }
       : null,
-    storyPlan: variant?.storyPlan ?? null,
+    storyPlan: storyPlan ?? null,
     shotsToRebuild,
     pricing: {
       ttsUnit: ttsModel?.pricing.unit ?? 'character',

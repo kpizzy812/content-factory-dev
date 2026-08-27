@@ -22,6 +22,7 @@ import { getModel, getDefaultImageModel, getDefaultVideoModel } from "./video-mo
 import type { StoryPlan } from "~~/shared/types/story"
 import { normalizeSubtitleStyle } from "./subtitle-style"
 import { buildStoryVideoPlan } from "./story-video-planner"
+import { applyScriptOverrides } from "./voiceover/script-overrides"
 import { selectScenarioVariantForVideo, describeVariantSelection } from "./scenario-variant-selection"
 
 import {
@@ -351,9 +352,22 @@ export async function runVideoPipeline(
     // Дефолт берётся из реестра спек, а не литералом: ровно то, что записал в
     // Video эндпоинт запуска. Литеральная копия здесь молча ломала подстановку
     // стратегии, как только основной провайдер сменился (P1-17).
+    /**
+     * Сценарий ГЛАЗАМИ ЭТОГО ролика: общий вариант плюс правки реплик, сделанные
+     * оператором на самом ролике (`Video.scriptOverrides`).
+     *
+     * Наложение обязано идти ДО планировщика, а не только перед синтезом трека:
+     * `buildStoryVideoPlan` считает длительность сцены ПО ТЕКСТУ реплики. Возьми
+     * он общий вариант — сцена жила бы по длине старой фразы, а трек звучал бы
+     * новой, и реконсиляция resize'ила бы клипы под чужую длину.
+     *
+     * Правок нет — возвращается тот же объект варианта, копии плана не заводится.
+     */
+    const effectiveStoryPlan = applyScriptOverrides(variant.storyPlan, video.scriptOverrides)
+
     const DEFAULT_IMG = getDefaultImageModel().id
     const DEFAULT_VID = getDefaultVideoModel().id
-    const storyPlanForStrategy = variant.storyPlan as { scenes?: unknown[] } | null
+    const storyPlanForStrategy = effectiveStoryPlan as { scenes?: unknown[] } | null
     const storySceneCount = storyPlanForStrategy?.scenes?.length ?? 0
     const strategyFromDb = (video.modelStrategy as ModelStrategy | undefined) ?? 'auto'
 
@@ -411,7 +425,7 @@ export async function runVideoPipeline(
     // Ролик, целиком снятый живой ведущей, не трогает fal вообще: ни клипов,
     // ни превью-кадра. Пробивать доступ к моделям, которые не будут вызваны,
     // и падать из-за отсутствующего FAL_KEY — нечестно.
-    const storyScenes = (variant.storyPlan as StoryPlan | null)?.scenes ?? []
+    const storyScenes = (effectiveStoryPlan as StoryPlan | null)?.scenes ?? []
     const presenterCapable = video.lipSyncEnabled && !!video.lipSyncCharacterId
     const presenterSceneCount = presenterCapable
       ? storyScenes.filter(s => s.spokenLine && s.spokenLine.trim().length > 0).length
@@ -497,7 +511,7 @@ export async function runVideoPipeline(
     // ── Build Story-Driven Video Plan ──
     const enrichmentContext = await loadEnrichmentContext(scenario, variant)
     const videoPlan = buildStoryVideoPlan({
-      storyPlan: variant.storyPlan as StoryPlan | null,
+      storyPlan: effectiveStoryPlan as StoryPlan | null,
       videoModel: vidModel,
       userImageCount: video.imageCount ?? 3,
       userClipDuration: video.clipDuration,
@@ -722,8 +736,8 @@ export async function runVideoPipeline(
     // структуру сразу при ингесте (clamp wordsPerLine, дефолт 4 если отсутствует).
     // Если у Video уже есть subtitlesStyle (rerun pipeline после ручной правки) —
     // не перезатираем оператора, считаем что он уже принял решение.
-    if (variant.storyPlan) {
-      const plan = variant.storyPlan as Record<string, unknown>
+    if (effectiveStoryPlan) {
+      const plan = effectiveStoryPlan as Record<string, unknown>
       const videoUpdate: Record<string, unknown> = {}
       if (plan.voiceoverPlan) videoUpdate.voiceoverPlan = plan.voiceoverPlan
       if (plan.subtitleStyle && !video.subtitlesStyle) {
@@ -946,7 +960,7 @@ export async function runVideoPipeline(
           format: video.format as "portrait" | "landscape",
           renderQuality: video.renderQuality,
           profile: resolvedEditProfile,
-          visualStyle: (variant.storyPlan as StoryPlan | null)?.globalVisualSystem?.stylePrompt ?? null,
+          visualStyle: (effectiveStoryPlan as StoryPlan | null)?.globalVisualSystem?.stylePrompt ?? null,
           appName: appRecord?.name ?? null,
           imageModelId: effectiveImageModelId,
           videoModelId: effectiveVideoModelId,
@@ -1098,7 +1112,7 @@ export async function runVideoPipeline(
         ? await runClipGeneration(
           videoId, prompts, video.format, video.clipDuration,
           effectiveVideoModelId, video.generateAudio, videoPlan,
-          variant.storyPlan as StoryPlan | null,
+          effectiveStoryPlan as StoryPlan | null,
           presenterSceneIndexes,
           brollSceneIndexes,
           imagePathsByScene,

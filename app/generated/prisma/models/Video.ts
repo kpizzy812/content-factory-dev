@@ -276,6 +276,7 @@ export type VideoCountAggregateOutputType = {
   fitRationale: number
   editProfileId: number
   editOverrides: number
+  scriptOverrides: number
   stepwiseApproval: number
   awaitingStepKey: number
   approvedStepKey: number
@@ -533,6 +534,7 @@ export type VideoCountAggregateInputType = {
   fitRationale?: true
   editProfileId?: true
   editOverrides?: true
+  scriptOverrides?: true
   stepwiseApproval?: true
   awaitingStepKey?: true
   approvedStepKey?: true
@@ -693,6 +695,7 @@ export type VideoGroupByOutputType = {
   fitRationale: string | null
   editProfileId: number | null
   editOverrides: runtime.JsonValue | null
+  scriptOverrides: runtime.JsonValue | null
   stepwiseApproval: boolean | null
   awaitingStepKey: $Enums.VideoStepKey | null
   approvedStepKey: $Enums.VideoStepKey | null
@@ -789,6 +792,7 @@ export type VideoWhereInput = {
   fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
   editProfileId?: Prisma.IntNullableFilter<"Video"> | number | null
   editOverrides?: Prisma.JsonNullableFilter<"Video">
+  scriptOverrides?: Prisma.JsonNullableFilter<"Video">
   stepwiseApproval?: Prisma.BoolNullableFilter<"Video"> | boolean | null
   awaitingStepKey?: Prisma.EnumVideoStepKeyNullableFilter<"Video"> | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.EnumVideoStepKeyNullableFilter<"Video"> | $Enums.VideoStepKey | null
@@ -880,6 +884,7 @@ export type VideoOrderByWithRelationInput = {
   fitRationale?: Prisma.SortOrderInput | Prisma.SortOrder
   editProfileId?: Prisma.SortOrderInput | Prisma.SortOrder
   editOverrides?: Prisma.SortOrderInput | Prisma.SortOrder
+  scriptOverrides?: Prisma.SortOrderInput | Prisma.SortOrder
   stepwiseApproval?: Prisma.SortOrderInput | Prisma.SortOrder
   awaitingStepKey?: Prisma.SortOrderInput | Prisma.SortOrder
   approvedStepKey?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -974,6 +979,7 @@ export type VideoWhereUniqueInput = Prisma.AtLeast<{
   fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
   editProfileId?: Prisma.IntNullableFilter<"Video"> | number | null
   editOverrides?: Prisma.JsonNullableFilter<"Video">
+  scriptOverrides?: Prisma.JsonNullableFilter<"Video">
   stepwiseApproval?: Prisma.BoolNullableFilter<"Video"> | boolean | null
   awaitingStepKey?: Prisma.EnumVideoStepKeyNullableFilter<"Video"> | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.EnumVideoStepKeyNullableFilter<"Video"> | $Enums.VideoStepKey | null
@@ -1065,6 +1071,7 @@ export type VideoOrderByWithAggregationInput = {
   fitRationale?: Prisma.SortOrderInput | Prisma.SortOrder
   editProfileId?: Prisma.SortOrderInput | Prisma.SortOrder
   editOverrides?: Prisma.SortOrderInput | Prisma.SortOrder
+  scriptOverrides?: Prisma.SortOrderInput | Prisma.SortOrder
   stepwiseApproval?: Prisma.SortOrderInput | Prisma.SortOrder
   awaitingStepKey?: Prisma.SortOrderInput | Prisma.SortOrder
   approvedStepKey?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -1146,6 +1153,7 @@ export type VideoScalarWhereWithAggregatesInput = {
   fitRationale?: Prisma.StringNullableWithAggregatesFilter<"Video"> | string | null
   editProfileId?: Prisma.IntNullableWithAggregatesFilter<"Video"> | number | null
   editOverrides?: Prisma.JsonNullableWithAggregatesFilter<"Video">
+  scriptOverrides?: Prisma.JsonNullableWithAggregatesFilter<"Video">
   stepwiseApproval?: Prisma.BoolNullableWithAggregatesFilter<"Video"> | boolean | null
   awaitingStepKey?: Prisma.EnumVideoStepKeyNullableWithAggregatesFilter<"Video"> | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.EnumVideoStepKeyNullableWithAggregatesFilter<"Video"> | $Enums.VideoStepKey | null
@@ -1212,6 +1220,7 @@ export type VideoCreateInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -1303,6 +1312,7 @@ export type VideoUncheckedCreateInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -1381,6 +1391,7 @@ export type VideoUpdateInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -1472,6 +1483,7 @@ export type VideoUncheckedUpdateInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -1557,6 +1569,7 @@ export type VideoCreateManyInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -1623,6 +1636,7 @@ export type VideoUpdateManyMutationInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -1696,6 +1710,7 @@ export type VideoUncheckedUpdateManyInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -1779,6 +1794,7 @@ export type VideoCountOrderByAggregateInput = {
   fitRationale?: Prisma.SortOrder
   editProfileId?: Prisma.SortOrder
   editOverrides?: Prisma.SortOrder
+  scriptOverrides?: Prisma.SortOrder
   stepwiseApproval?: Prisma.SortOrder
   awaitingStepKey?: Prisma.SortOrder
   approvedStepKey?: Prisma.SortOrder
@@ -2477,6 +2493,7 @@ export type VideoCreateWithoutLipSyncCharacterInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -2566,6 +2583,7 @@ export type VideoUncheckedCreateWithoutLipSyncCharacterInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -2680,6 +2698,7 @@ export type VideoScalarWhereInput = {
   fitRationale?: Prisma.StringNullableFilter<"Video"> | string | null
   editProfileId?: Prisma.IntNullableFilter<"Video"> | number | null
   editOverrides?: Prisma.JsonNullableFilter<"Video">
+  scriptOverrides?: Prisma.JsonNullableFilter<"Video">
   stepwiseApproval?: Prisma.BoolNullableFilter<"Video"> | boolean | null
   awaitingStepKey?: Prisma.EnumVideoStepKeyNullableFilter<"Video"> | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.EnumVideoStepKeyNullableFilter<"Video"> | $Enums.VideoStepKey | null
@@ -2746,6 +2765,7 @@ export type VideoCreateWithoutScenarioInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -2835,6 +2855,7 @@ export type VideoUncheckedCreateWithoutScenarioInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -2939,6 +2960,7 @@ export type VideoCreateWithoutFramesInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -3029,6 +3051,7 @@ export type VideoUncheckedCreateWithoutFramesInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -3122,6 +3145,7 @@ export type VideoUpdateWithoutFramesInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -3212,6 +3236,7 @@ export type VideoUncheckedUpdateWithoutFramesInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -3289,6 +3314,7 @@ export type VideoCreateWithoutAssetsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -3379,6 +3405,7 @@ export type VideoUncheckedCreateWithoutAssetsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -3472,6 +3499,7 @@ export type VideoUpdateWithoutAssetsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -3562,6 +3590,7 @@ export type VideoUncheckedUpdateWithoutAssetsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -3639,6 +3668,7 @@ export type VideoCreateWithoutStepsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -3729,6 +3759,7 @@ export type VideoUncheckedCreateWithoutStepsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -3822,6 +3853,7 @@ export type VideoUpdateWithoutStepsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -3912,6 +3944,7 @@ export type VideoUncheckedUpdateWithoutStepsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -3989,6 +4022,7 @@ export type VideoCreateWithoutMediaPredictionsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -4079,6 +4113,7 @@ export type VideoUncheckedCreateWithoutMediaPredictionsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -4172,6 +4207,7 @@ export type VideoUpdateWithoutMediaPredictionsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -4262,6 +4298,7 @@ export type VideoUncheckedUpdateWithoutMediaPredictionsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -4339,6 +4376,7 @@ export type VideoCreateWithoutUploadsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -4429,6 +4467,7 @@ export type VideoUncheckedCreateWithoutUploadsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -4522,6 +4561,7 @@ export type VideoUpdateWithoutUploadsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -4612,6 +4652,7 @@ export type VideoUncheckedUpdateWithoutUploadsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -4689,6 +4730,7 @@ export type VideoCreateWithoutFactoryPublicationsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -4779,6 +4821,7 @@ export type VideoUncheckedCreateWithoutFactoryPublicationsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -4872,6 +4915,7 @@ export type VideoUpdateWithoutFactoryPublicationsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -4962,6 +5006,7 @@ export type VideoUncheckedUpdateWithoutFactoryPublicationsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -5039,6 +5084,7 @@ export type VideoCreateWithoutFactoryQaReviewsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5129,6 +5175,7 @@ export type VideoUncheckedCreateWithoutFactoryQaReviewsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5222,6 +5269,7 @@ export type VideoUpdateWithoutFactoryQaReviewsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -5312,6 +5360,7 @@ export type VideoUncheckedUpdateWithoutFactoryQaReviewsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -5389,6 +5438,7 @@ export type VideoCreateWithoutPipelineInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5478,6 +5528,7 @@ export type VideoUncheckedCreateWithoutPipelineInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5582,6 +5633,7 @@ export type VideoCreateWithoutRunInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5671,6 +5723,7 @@ export type VideoUncheckedCreateWithoutRunInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5775,6 +5828,7 @@ export type VideoCreateWithoutDriveCredentialInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5864,6 +5918,7 @@ export type VideoUncheckedCreateWithoutDriveCredentialInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -5968,6 +6023,7 @@ export type VideoCreateWithoutDriveFileInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6058,6 +6114,7 @@ export type VideoUncheckedCreateWithoutDriveFileInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6151,6 +6208,7 @@ export type VideoUpdateWithoutDriveFileInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -6241,6 +6299,7 @@ export type VideoUncheckedUpdateWithoutDriveFileInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -6318,6 +6377,7 @@ export type VideoCreateWithoutEditProfileInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6407,6 +6467,7 @@ export type VideoUncheckedCreateWithoutEditProfileInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6511,6 +6572,7 @@ export type VideoCreateWithoutShotsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6601,6 +6663,7 @@ export type VideoUncheckedCreateWithoutShotsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6694,6 +6757,7 @@ export type VideoUpdateWithoutShotsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -6784,6 +6848,7 @@ export type VideoUncheckedUpdateWithoutShotsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -6861,6 +6926,7 @@ export type VideoCreateWithoutPostingJobsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -6951,6 +7017,7 @@ export type VideoUncheckedCreateWithoutPostingJobsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -7044,6 +7111,7 @@ export type VideoUpdateWithoutPostingJobsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -7134,6 +7202,7 @@ export type VideoUncheckedUpdateWithoutPostingJobsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -7211,6 +7280,7 @@ export type VideoCreateWithoutUniqueVariantsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -7301,6 +7371,7 @@ export type VideoUncheckedCreateWithoutUniqueVariantsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -7394,6 +7465,7 @@ export type VideoUpdateWithoutUniqueVariantsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -7484,6 +7556,7 @@ export type VideoUncheckedUpdateWithoutUniqueVariantsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -7561,6 +7634,7 @@ export type VideoCreateWithoutCaptionsInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -7651,6 +7725,7 @@ export type VideoUncheckedCreateWithoutCaptionsInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -7744,6 +7819,7 @@ export type VideoUpdateWithoutCaptionsInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -7834,6 +7910,7 @@ export type VideoUncheckedUpdateWithoutCaptionsInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -7917,6 +7994,7 @@ export type VideoCreateManyLipSyncCharacterInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -7983,6 +8061,7 @@ export type VideoUpdateWithoutLipSyncCharacterInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8072,6 +8151,7 @@ export type VideoUncheckedUpdateWithoutLipSyncCharacterInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8156,6 +8236,7 @@ export type VideoUncheckedUpdateManyWithoutLipSyncCharacterInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8228,6 +8309,7 @@ export type VideoCreateManyScenarioInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -8294,6 +8376,7 @@ export type VideoUpdateWithoutScenarioInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8383,6 +8466,7 @@ export type VideoUncheckedUpdateWithoutScenarioInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8467,6 +8551,7 @@ export type VideoUncheckedUpdateManyWithoutScenarioInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8539,6 +8624,7 @@ export type VideoCreateManyPipelineInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -8605,6 +8691,7 @@ export type VideoUpdateWithoutPipelineInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8694,6 +8781,7 @@ export type VideoUncheckedUpdateWithoutPipelineInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8778,6 +8866,7 @@ export type VideoUncheckedUpdateManyWithoutPipelineInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -8850,6 +8939,7 @@ export type VideoCreateManyRunInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -8916,6 +9006,7 @@ export type VideoUpdateWithoutRunInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9005,6 +9096,7 @@ export type VideoUncheckedUpdateWithoutRunInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9089,6 +9181,7 @@ export type VideoUncheckedUpdateManyWithoutRunInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9161,6 +9254,7 @@ export type VideoCreateManyDriveCredentialInput = {
   fitRationale?: string | null
   editProfileId?: number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -9227,6 +9321,7 @@ export type VideoUpdateWithoutDriveCredentialInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9316,6 +9411,7 @@ export type VideoUncheckedUpdateWithoutDriveCredentialInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9400,6 +9496,7 @@ export type VideoUncheckedUpdateManyWithoutDriveCredentialInput = {
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editProfileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9472,6 +9569,7 @@ export type VideoCreateManyEditProfileInput = {
   fitScore?: number | null
   fitRationale?: string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: boolean | null
   awaitingStepKey?: $Enums.VideoStepKey | null
   approvedStepKey?: $Enums.VideoStepKey | null
@@ -9538,6 +9636,7 @@ export type VideoUpdateWithoutEditProfileInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9627,6 +9726,7 @@ export type VideoUncheckedUpdateWithoutEditProfileInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9711,6 +9811,7 @@ export type VideoUncheckedUpdateManyWithoutEditProfileInput = {
   fitScore?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   fitRationale?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   editOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  scriptOverrides?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   stepwiseApproval?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
   awaitingStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
   approvedStepKey?: Prisma.NullableEnumVideoStepKeyFieldUpdateOperationsInput | $Enums.VideoStepKey | null
@@ -9905,6 +10006,7 @@ export type VideoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   fitRationale?: boolean
   editProfileId?: boolean
   editOverrides?: boolean
+  scriptOverrides?: boolean
   stepwiseApproval?: boolean
   awaitingStepKey?: boolean
   approvedStepKey?: boolean
@@ -9997,6 +10099,7 @@ export type VideoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   fitRationale?: boolean
   editProfileId?: boolean
   editOverrides?: boolean
+  scriptOverrides?: boolean
   stepwiseApproval?: boolean
   awaitingStepKey?: boolean
   approvedStepKey?: boolean
@@ -10076,6 +10179,7 @@ export type VideoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   fitRationale?: boolean
   editProfileId?: boolean
   editOverrides?: boolean
+  scriptOverrides?: boolean
   stepwiseApproval?: boolean
   awaitingStepKey?: boolean
   approvedStepKey?: boolean
@@ -10155,12 +10259,13 @@ export type VideoSelectScalar = {
   fitRationale?: boolean
   editProfileId?: boolean
   editOverrides?: boolean
+  scriptOverrides?: boolean
   stepwiseApproval?: boolean
   awaitingStepKey?: boolean
   approvedStepKey?: boolean
 }
 
-export type VideoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scenarioId" | "variantId" | "applicationId" | "status" | "currentStep" | "format" | "filePath" | "fileUrl" | "storageKey" | "storageProvider" | "fileSizeBytes" | "fileSha256" | "duration" | "errorMessage" | "subtitlesEnabled" | "subtitlesStyle" | "subtitlePreset" | "voiceoverPlan" | "musicEnabled" | "musicMood" | "musicDuration" | "musicVolume" | "musicVolumeWithVoiceover" | "clipDuration" | "imageCount" | "renderQuality" | "targetPlatform" | "voiceoverEnabled" | "voiceoverProvider" | "voiceoverModelId" | "voiceoverVoiceId" | "voiceoverLanguage" | "voiceoverPacing" | "voiceoverReconciliation" | "imageModelId" | "videoModelId" | "modelStrategy" | "generateAudio" | "editPipeline" | "lipSyncEnabled" | "lipSyncModelId" | "lipSyncCharacterId" | "isLocked" | "lockedAt" | "lockedReason" | "startedAt" | "finishedAt" | "totalCostEstimate" | "totalCostActual" | "createdAt" | "updatedAt" | "runId" | "pipelineId" | "isExternalCreative" | "externalSource" | "externalSourceId" | "driveFileId" | "driveCredentialId" | "analysisData" | "framePassVersion" | "framePassRunAt" | "analysisDurationSec" | "fitScore" | "fitRationale" | "editProfileId" | "editOverrides" | "stepwiseApproval" | "awaitingStepKey" | "approvedStepKey", ExtArgs["result"]["video"]>
+export type VideoOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scenarioId" | "variantId" | "applicationId" | "status" | "currentStep" | "format" | "filePath" | "fileUrl" | "storageKey" | "storageProvider" | "fileSizeBytes" | "fileSha256" | "duration" | "errorMessage" | "subtitlesEnabled" | "subtitlesStyle" | "subtitlePreset" | "voiceoverPlan" | "musicEnabled" | "musicMood" | "musicDuration" | "musicVolume" | "musicVolumeWithVoiceover" | "clipDuration" | "imageCount" | "renderQuality" | "targetPlatform" | "voiceoverEnabled" | "voiceoverProvider" | "voiceoverModelId" | "voiceoverVoiceId" | "voiceoverLanguage" | "voiceoverPacing" | "voiceoverReconciliation" | "imageModelId" | "videoModelId" | "modelStrategy" | "generateAudio" | "editPipeline" | "lipSyncEnabled" | "lipSyncModelId" | "lipSyncCharacterId" | "isLocked" | "lockedAt" | "lockedReason" | "startedAt" | "finishedAt" | "totalCostEstimate" | "totalCostActual" | "createdAt" | "updatedAt" | "runId" | "pipelineId" | "isExternalCreative" | "externalSource" | "externalSourceId" | "driveFileId" | "driveCredentialId" | "analysisData" | "framePassVersion" | "framePassRunAt" | "analysisDurationSec" | "fitScore" | "fitRationale" | "editProfileId" | "editOverrides" | "scriptOverrides" | "stepwiseApproval" | "awaitingStepKey" | "approvedStepKey", ExtArgs["result"]["video"]>
 export type VideoInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   scenario?: boolean | Prisma.ScenarioDefaultArgs<ExtArgs>
   lipSyncCharacter?: boolean | Prisma.Video$lipSyncCharacterArgs<ExtArgs>
@@ -10303,6 +10408,22 @@ export type $VideoPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * полей; слияние делает resolveEditProfile.
      */
     editOverrides: runtime.JsonValue | null
+    /**
+     * Правки реплик сценария, ЛИЧНЫЕ для этого ролика (`{ v: 1, lines: [...] }`,
+     * разбор — server/utils/voiceover/script-overrides.ts).
+     * 
+     * `ScenarioVariant.storyPlan` — ОБЩИЙ артефакт: variantId уникальности не
+     * даёт, а конвейер и вовсе выбирает вариант через scenario.selectedVariantId.
+     * Пиши замена фразы прямо в вариант — правка на одном ролике меняла бы
+     * сценарий соседнему, уже снятому, и тот при первой перегенерации оплатил бы
+     * чужой текст (TTS плюс lip-sync всех сцен). Поэтому правка хранится патчем
+     * на ролике и накладывается при чтении — тем же приёмом, что editOverrides
+     * поверх EditProfile.
+     * 
+     * null (и он же дефолт) — правок не было: ролик читает общий сценарий как
+     * есть. Копия плана не заводится никогда, только список поправленных реплик.
+     */
+    scriptOverrides: runtime.JsonValue | null
     /**
      * Пошаговый режим на этом ролике — переопределение оператора поверх
      * монтажного профиля (`EditProfile.stepwiseApproval`). Nullable намеренно:
@@ -10832,6 +10953,7 @@ export interface VideoFieldRefs {
   readonly fitRationale: Prisma.FieldRef<"Video", 'String'>
   readonly editProfileId: Prisma.FieldRef<"Video", 'Int'>
   readonly editOverrides: Prisma.FieldRef<"Video", 'Json'>
+  readonly scriptOverrides: Prisma.FieldRef<"Video", 'Json'>
   readonly stepwiseApproval: Prisma.FieldRef<"Video", 'Boolean'>
   readonly awaitingStepKey: Prisma.FieldRef<"Video", 'VideoStepKey'>
   readonly approvedStepKey: Prisma.FieldRef<"Video", 'VideoStepKey'>

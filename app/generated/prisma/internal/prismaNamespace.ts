@@ -7472,6 +7472,7 @@ export const VideoScalarFieldEnum = {
   fitRationale: 'fitRationale',
   editProfileId: 'editProfileId',
   editOverrides: 'editOverrides',
+  scriptOverrides: 'scriptOverrides',
   stepwiseApproval: 'stepwiseApproval',
   awaitingStepKey: 'awaitingStepKey',
   approvedStepKey: 'approvedStepKey'

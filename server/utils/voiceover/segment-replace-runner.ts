@@ -72,7 +72,9 @@ import { shiftAlignmentAfterSplice } from "./alignment-shift"
 import { buildSpliceFilters, planSegmentSplice } from "./segment-splice"
 import { buildTempSegmentPath, renameWithRetry } from "./segment-cut"
 import { buildTrackRequest, type TrackPause } from "./track-builder"
-import { planScriptTextPatch, type ScriptTextTarget } from "./script-patch"
+import type { ScriptTextTarget } from "./script-patch"
+import { planVideoScriptOverride, type VideoScriptOverrides } from "./script-overrides"
+import { loadVideoScriptSource } from "./script-source"
 import { AWAITING_OPERATOR_STATUS } from "../video-pipeline-stepwise"
 
 /** Ключи шагов, снапшоты которых читает и переписывает замена. */
@@ -130,25 +132,32 @@ export interface StepSnapshotUpdate {
   snapshot: Record<string, unknown>
 }
 
-/** Сценарий ролика с новым текстом реплики — пишется вместе со снапшотами. */
+/**
+ * Правка сценария, личная для ролика, — пишется вместе со снапшотами.
+ *
+ * Пишем в РОЛИК (`Video.scriptOverrides`), а не в вариант: вариант общий, и
+ * правка фразы на одном ролике меняла бы сценарий соседнему, уже снятому
+ * (см. `script-overrides.ts`).
+ */
 export interface ScriptPatchUpdate {
-  variantId: number
-  storyPlan: Record<string, unknown>
+  videoId: number
+  overrides: VideoScriptOverrides
 }
 
 export interface SegmentReplaceStore {
   loadVideo: (videoId: number) => Promise<ReplaceSegmentVideo | null>
   readStep: (videoId: number, stepKey: ReplaceSegmentStepKey) => Promise<ReplaceSegmentStepRecord | null>
   /**
-   * Сценарий ролика: `null` — варианта нет или он без `storyPlan` (legacy).
-   * Именно отсюда полная перегенерация собирает трек заново.
+   * Источники сценария ролика: ОБЩИЙ план варианта и правки ЭТОГО ролика.
+   * `null` — варианта нет или он без `storyPlan` (legacy). Именно из наложения
+   * одного на другое полная перегенерация собирает трек заново.
    */
-  loadScript: (videoId: number) => Promise<{ variantId: number, storyPlan: unknown } | null>
+  loadScript: (videoId: number) => Promise<{ storyPlan: unknown, overrides: unknown } | null>
   /**
-   * Атомарная запись снапшотов И сценария. Именно атомарная: склеенный трек со
-   * старым выравниванием — это субтитры и куски по звуку, которого в треке нет,
-   * а новый трек при старом сценарии — правка, которую первая же полная
-   * перегенерация молча отменит.
+   * Атомарная запись снапшотов И правки сценария. Именно атомарная: склеенный
+   * трек со старым выравниванием — это субтитры и куски по звуку, которого в
+   * треке нет, а новый трек при старом сценарии — правка, которую первая же
+   * полная перегенерация молча отменит.
    */
   commit: (updates: readonly StepSnapshotUpdate[], script?: ScriptPatchUpdate | null) => Promise<void>
   appendLog: (stepId: number, message: string) => Promise<void>
@@ -401,12 +410,21 @@ export async function replaceVoiceoverSegment(
   // трек заново из `storyPlan`, поэтому правка, не доехавшая до сценария,
   // живёт до первой же перегенерации и потом молча откатывается.
   //
-  // Отказом это НЕ является: у legacy-ролика сценария может не быть вовсе, а
-  // трек при этом есть и правится законно. Но промолчать нельзя — оператор
-  // обязан знать, что его правка живёт только в треке.
+  // Правка кладётся на РОЛИК (`Video.scriptOverrides`), а не в общий вариант:
+  // вариант делится между роликами, и запись в него меняла бы текст соседу,
+  // уже снятому или снимающемуся (`script-overrides.ts`).
+  //
+  // Отсутствие сценария отказом НЕ является: у legacy-ролика варианта может не
+  // быть вовсе, а трек при этом есть и правится законно. Но промолчать нельзя —
+  // оператор обязан знать, что его правка живёт только в треке.
   const script = await store.loadScript(videoId)
   const scriptPatch = script
-    ? planScriptTextPatch({ storyPlan: script.storyPlan, sceneOrder, newText: phraseText })
+    ? planVideoScriptOverride({
+      storyPlan: script.storyPlan,
+      overrides: script.overrides,
+      sceneOrder,
+      newText: phraseText,
+    })
     : ({ ok: false, reason: "у ролика нет сценария (storyPlan)" } as const)
   if (!scriptPatch.ok) {
     warnings.push(
@@ -414,8 +432,8 @@ export async function replaceVoiceoverSegment(
       + "правка живёт только в треке, полная перегенерация вернёт прежнюю фразу",
     )
   }
-  const scriptUpdate: ScriptPatchUpdate | null = scriptPatch.ok && scriptPatch.changed && script
-    ? { variantId: script.variantId, storyPlan: scriptPatch.storyPlan }
+  const scriptUpdate: ScriptPatchUpdate | null = scriptPatch.ok && scriptPatch.changed
+    ? { videoId, overrides: scriptPatch.overrides }
     : null
   const scriptUpdated: ScriptTextTarget | null = scriptPatch.ok ? scriptPatch.target : null
 
@@ -854,37 +872,28 @@ export function createReplaceSegmentDeps(): ReplaceSegmentDeps {
         }
       },
 
-      // Сценарий ролика живёт в варианте (`ScenarioVariant.storyPlan`), а не в
-      // самом ролике: именно оттуда `runAudioFirstVoiceover` собирает текст
-      // трека. Варианта может не быть вовсе (legacy-ролик) — тогда и писать
-      // некуда, и раннер это переживает предупреждением.
-      loadScript: async (videoId) => {
-        const video = await prisma.video.findUnique({
-          where: { id: videoId },
-          select: { variantId: true },
-        })
-        if (!video?.variantId) return null
-        const variant = await prisma.scenarioVariant.findUnique({
-          where: { id: video.variantId },
-          select: { storyPlan: true },
-        })
-        if (!variant) return null
-        return { variantId: video.variantId, storyPlan: variant.storyPlan }
-      },
+      // Общий текст живёт в варианте (`ScenarioVariant.storyPlan`), правки
+      // ролика — в `Video.scriptOverrides`; один читатель на всех потребителей
+      // (`script-source.ts`). Варианта может не быть вовсе (legacy-ролик) —
+      // тогда и писать некуда, и раннер это переживает предупреждением.
+      loadScript: videoId => loadVideoScriptSource(videoId),
 
       // Одной транзакцией: разъехавшиеся снапшоты — это склеенный трек со
       // старым выравниванием, то есть субтитры и куски по звуку, которого в
-      // треке уже нет. Сценарий здесь же: трек с новой фразой при сценарии со
-      // старой — правка, которую первая же полная перегенерация отменит.
+      // треке уже нет. Правка сценария здесь же: трек с новой фразой при
+      // сценарии со старой — правка, которую первая же полная перегенерация
+      // отменит.
       commit: async (updates, script) => {
         const operations: unknown[] = updates.map(update => prisma.videoGenerationStep.update({
           where: { id: update.stepId },
           data: { outputSnapshot: update.snapshot as never },
         }))
         if (script) {
-          operations.push(prisma.scenarioVariant.update({
-            where: { id: script.variantId },
-            data: { storyPlan: script.storyPlan as never },
+          // Пишем в РОЛИК. Запись в `scenarioVariant` здесь означала бы, что
+          // правку одной фразы получают все ролики этого варианта.
+          operations.push(prisma.video.update({
+            where: { id: script.videoId },
+            data: { scriptOverrides: script.overrides as never },
           }))
         }
         if (operations.length === 0) return

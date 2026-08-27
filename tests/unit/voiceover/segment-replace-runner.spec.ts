@@ -27,6 +27,7 @@ import {
   type ReplaceSegmentDeps,
 } from "~~/server/utils/voiceover/segment-replace-runner"
 import { segmentIdentity } from "~~/server/utils/voiceover/segment-cut"
+import { applyScriptOverrides } from "~~/server/utils/voiceover/script-overrides"
 import type { AlignedScene } from "~~/server/utils/transcription/align"
 
 const VIDEO_ID = 44
@@ -63,8 +64,13 @@ interface World {
   files: Map<string, string>
   durations: Map<string, number>
   steps: Map<string, { id: number, status: string, snapshot: Record<string, unknown> | null }>
-  /** Сценарий ролика — там живёт исходный текст реплики (`ScenarioVariant.storyPlan`). */
-  script: { variantId: number, storyPlan: Record<string, unknown> } | null
+  /**
+   * ОБЩИЙ сценарий варианта (`ScenarioVariant.storyPlan`) — его читают все
+   * ролики этого варианта. Замена не имеет права его трогать.
+   */
+  sharedPlan: Record<string, unknown> | null
+  /** Правки сценария, личные для ЭТОГО ролика (`Video.scriptOverrides`). */
+  overrides: unknown
   calls: {
     synthesize: Array<Record<string, unknown>>
     transcribe: Array<Record<string, unknown>>
@@ -98,7 +104,7 @@ function makeWorld(options: {
   /** Длительность трека, записанная в снапшоте, — она бывает ОЦЕНКОЙ, а не фактом. */
   snapshotDurationSec?: number
   /** `null` — у ролика нет сценария вовсе (legacy, вариант отвязан). */
-  script?: { variantId: number, storyPlan: Record<string, unknown> } | null
+  script?: Record<string, unknown> | null
 } = {}): World {
   const files = new Map<string, string>([
     [TRACK, "track-v1"],
@@ -184,22 +190,19 @@ function makeWorld(options: {
    * обязана попадать ровно в тот, откуда фраза в трек и пришла
    * (`mergeScriptLines` отдаёт приоритет реплике в кадре).
    */
-  const script = options.script === undefined
+  const sharedPlan = options.script === undefined
     ? {
-        variantId: 7,
-        storyPlan: {
-          version: "1.0",
-          scenes: [
-            { order: 1, spokenLine: "первая", subtitleCopy: "первая" },
-            { order: 2, spokenLine: "вторая", subtitleCopy: "вторая" },
-            { order: 3, spokenLine: null, subtitleCopy: "третья" },
-          ],
-          voiceoverPlan: {
-            enabled: true,
-            lines: [{ sceneOrder: 3, text: "третья", emotion: "neutral", pauseAfter: "none" }],
-          },
-        } as Record<string, unknown>,
-      }
+        version: "1.0",
+        scenes: [
+          { order: 1, spokenLine: "первая", subtitleCopy: "первая" },
+          { order: 2, spokenLine: "вторая", subtitleCopy: "вторая" },
+          { order: 3, spokenLine: null, subtitleCopy: "третья" },
+        ],
+        voiceoverPlan: {
+          enabled: true,
+          lines: [{ sceneOrder: 3, text: "третья", emotion: "neutral", pauseAfter: "none" }],
+        },
+      } as Record<string, unknown>
     : options.script
 
   const world: World = {
@@ -207,7 +210,8 @@ function makeWorld(options: {
     files,
     durations,
     steps,
-    script,
+    sharedPlan,
+    overrides: null,
     calls,
     splicedDurationSec: options.splicedDurationSec ?? 20.95,
     spliceFails: false,
@@ -226,10 +230,14 @@ function makeWorld(options: {
         voiceoverModelId: "minimax/speech-02-turbo",
       }),
       readStep: async (_videoId: number, stepKey: string) => steps.get(stepKey) ?? null,
-      loadScript: async () => world.script,
+      // Порт отдаёт ОБЩИЙ сценарий и правки ЭТОГО ролика отдельно — так же,
+      // как боевая реализация читает вариант и колонку ролика.
+      loadScript: async () => (world.sharedPlan
+        ? { storyPlan: world.sharedPlan, overrides: world.overrides }
+        : null),
       commit: async (
         updates: ReadonlyArray<{ stepId: number, snapshot: Record<string, unknown> }>,
-        scriptPatch?: { variantId: number, storyPlan: Record<string, unknown> } | null,
+        scriptPatch?: { videoId: number, overrides: unknown } | null,
       ) => {
         calls.commits.push({ stepIds: updates.map(update => update.stepId), withScript: !!scriptPatch })
         for (const update of updates) {
@@ -237,9 +245,10 @@ function makeWorld(options: {
             if (entry.id === update.stepId) entry.snapshot = update.snapshot
           }
         }
-        // Сценарий пишется той же транзакцией, что и снапшоты: фейк обязан
+        // Правка пишется той же транзакцией, что и снапшоты: фейк обязан
         // повторять это свойство, иначе тест «одной транзакцией» ничего не ловит.
-        if (scriptPatch) world.script = { variantId: scriptPatch.variantId, storyPlan: scriptPatch.storyPlan }
+        // И пишется она в РОЛИК, а не в общий вариант — `sharedPlan` неприкасаем.
+        if (scriptPatch) world.overrides = scriptPatch.overrides
       },
       appendLog: async (_stepId: number, message: string) => { calls.logs.push(message) },
       recordCost: async (input: { stepKey: string, costUsd: number }) => {
@@ -338,16 +347,30 @@ function lipSyncRecordsOf(world: World): Map<number, Record<string, unknown>> {
   return new Map((snapshot.scenes ?? []).map(record => [record.sceneOrder as number, record]))
 }
 
+/**
+ * Сценарий ГЛАЗАМИ ЭТОГО ролика: общий вариант плюс личные правки. Именно из
+ * него полная перегенерация соберёт трек.
+ */
+function effectivePlanOf(world: World): Record<string, unknown> | null {
+  return applyScriptOverrides(world.sharedPlan, world.overrides)
+}
+
 /** Реплика сцены в сценарии ролика — то, из чего трек соберут при полной перегенерации. */
 function scriptSpokenLineOf(world: World, sceneOrder: number): string | null {
-  const scenes = (world.script?.storyPlan.scenes ?? []) as Array<{ order: number, spokenLine: string | null }>
+  const scenes = (effectivePlanOf(world)?.scenes ?? []) as Array<{ order: number, spokenLine: string | null }>
   return scenes.find(item => item.order === sceneOrder)?.spokenLine ?? null
 }
 
 /** Закадровая строка сцены в сценарии ролика. */
 function scriptNarrationOf(world: World, sceneOrder: number): string | null {
-  const plan = world.script?.storyPlan.voiceoverPlan as { lines?: Array<{ sceneOrder: number, text: string }> } | undefined
+  const plan = effectivePlanOf(world)?.voiceoverPlan as { lines?: Array<{ sceneOrder: number, text: string }> } | undefined
   return plan?.lines?.find(line => line.sceneOrder === sceneOrder)?.text ?? null
+}
+
+/** Реплика сцены в ОБЩЕМ варианте — то, что видят соседние ролики. */
+function sharedSpokenLineOf(world: World, sceneOrder: number): string | null {
+  const scenes = (world.sharedPlan?.scenes ?? []) as Array<{ order: number, spokenLine: string | null }>
+  return scenes.find(item => item.order === sceneOrder)?.spokenLine ?? null
 }
 
 /** Ключ куска трека ровно так, как его считает lip-sync-runner. */
@@ -637,6 +660,22 @@ describe("replaceVoiceoverSegment", () => {
     expect(scriptSpokenLineOf(world, 1)).toBe("первая")
   })
 
+  it("правка уезжает в РОЛИК, а общий вариант остаётся прежним", async () => {
+    // Вариант сценария делится между роликами: `Video.variantId` уникальности
+    // не даёт. Пиши замена в `ScenarioVariant.storyPlan` — правка одной фразы
+    // меняла бы текст соседнему ролику, уже снятому или снимающемуся, и тот
+    // при первой перегенерации оплатил бы чужой текст.
+    await replaceVoiceoverSegment(
+      { videoId: VIDEO_ID, sceneOrder: 2, newText: "Новая формулировка." },
+      world.deps,
+    )
+
+    expect(sharedSpokenLineOf(world, 2)).toBe("вторая")
+    // А сам ролик видит новый текст — через личные правки.
+    expect(world.overrides).not.toBeNull()
+    expect(scriptSpokenLineOf(world, 2)).toBe("Новая формулировка.")
+  })
+
   it("правка сцены нарратора уходит в закадровую строку, а не в реплику ведущего", async () => {
     // `mergeScriptLines` берёт закадровую строку только когда реплики в кадре
     // нет. Запиши мы новый текст в `spokenLine` такой сцены — ролик получил бы
@@ -692,14 +731,8 @@ describe("replaceVoiceoverSegment", () => {
       { videoId: VIDEO_ID, sceneOrder: 2, newText: "Одинаковый текст." },
       world.deps,
     )
-    const scenes = world.script!.storyPlan.scenes as Array<{ order: number, spokenLine: string | null }>
-    world.script = {
-      variantId: 7,
-      storyPlan: {
-        ...world.script!.storyPlan,
-        scenes: scenes.map(item => (item.order === 2 ? { ...item, spokenLine: "вторая" } : item)),
-      },
-    }
+    // Правка «не доехала»: история вклеек есть, а личных правок у ролика нет.
+    world.overrides = null
 
     const second = await replaceVoiceoverSegment(
       { videoId: VIDEO_ID, sceneOrder: 2, newText: "Одинаковый текст." },
