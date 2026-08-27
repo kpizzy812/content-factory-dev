@@ -23,24 +23,38 @@ const SOURCE = resolve(
   "../../../server/utils/video-pipeline.ts",
 )
 
-function rerunVideoStepBody(): string {
+function functionBody(name: string): string {
   const source = readFileSync(SOURCE, "utf8")
-  const start = source.indexOf("export async function rerunVideoStep(")
-  expect(start).toBeGreaterThan(-1)
-  // Следующее объявление верхнего уровня — граница тела. Функций после
-  // `rerunVideoStep` в файле несколько, берём ближайшую.
+  const start = source.indexOf(`export async function ${name}(`)
+  expect(start, `функция ${name} не найдена`).toBeGreaterThan(-1)
+  // Следующее объявление верхнего уровня — граница тела.
   const rest = source.slice(start + 1)
   const end = rest.search(/\nexport (async function|function|const) /)
   return end < 0 ? rest : rest.slice(0, end)
 }
 
+/**
+ * Сброс каскада живёт в `resetVideoStepForRerun` — её выделили из
+ * `rerunVideoStep` ради пошагового режима, чтобы «перегенерировать» сбрасывало
+ * шаг тем же кодом, но не стартовало прогон дважды. Проверяем ОБЕ стороны
+ * связи: вызов внутри сброса и то, что перезапуск шага действительно идёт
+ * через него, — иначе рефакторинг мог бы оставить сброс мёртвым кодом.
+ */
+function resetCascadeBody(): string {
+  return functionBody("resetVideoStepForRerun")
+}
+
 describe("врезка каскада собранных кадров в rerunVideoStep (Ruling S8-9)", () => {
-  it("rerunVideoStep зовёт resetComposedShots", () => {
-    expect(rerunVideoStepBody()).toContain("resetComposedShots(videoId, stepKey, stepsToReset)")
+  it("сброс шага зовёт resetComposedShots", () => {
+    expect(resetCascadeBody()).toContain("resetComposedShots(videoId, stepKey, stepsToReset)")
+  })
+
+  it("перезапуск шага идёт через этот сброс, а не мимо него", () => {
+    expect(functionBody("rerunVideoStep")).toContain("resetVideoStepForRerun(videoId, stepKey)")
   })
 
   it("зовёт его вместе с каскадом кадров плана — оба сброса в одном месте", () => {
-    const body = rerunVideoStepBody()
+    const body = resetCascadeBody()
     const planCascade = body.indexOf("resetEditPlanShots(")
     const composedCascade = body.indexOf("resetComposedShots(")
     expect(planCascade).toBeGreaterThan(-1)
