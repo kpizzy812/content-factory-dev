@@ -40,7 +40,11 @@
 import { billedSeconds, pickBackgroundSource } from "./background-source"
 import { DEFAULT_EDIT_PROFILE } from "./profile"
 import type { ShotBackground } from "./types"
-import { planShotVariationSlices, shotBackgroundIdentity } from "../video-tools/shot-variation"
+import {
+  GROUP_CONTIGUITY_TOLERANCE_SEC,
+  planShotVariationSlices,
+  shotBackgroundIdentity,
+} from "../video-tools/shot-variation"
 
 /** Кадр плана монтажа — то, что реально лежит в `VideoShot` на момент исполнения. */
 export interface PlannedShotRow {
@@ -161,15 +165,12 @@ function toAction(
  * (`shotTimeline`) уже приходит отсортированным по `order`, ровно тем
  * порядком, которого требует эта функция.
  *
- * Генеративное видео исключено из группировки ЯВНО, ДО вызова общей функции:
- * у неё identity `video:idea` сгруппировала бы кадры видео точно так же, как
- * картинку, а заказ видео обязан остаться ПЕРСОНАЛЬНЫМ для каждого кадра —
- * длина заказа (`billedSec`) реально зависит от длины ИМЕННО этого кадра
- * (§7), слить пять кадров в один платный клип значило бы либо соврать про
- * длину, либо пересчитать заказ на всю группу — отдельная задача, не
- * заказанная этой правкой. Подмена ключа на `null` перед вызовом — тот же
- * приём, что `shotBackgroundIdentity` уже применяет для «фона нет»/«идея
- * пуста»: `null` не группируется ни с кем, кадр остаётся сам себе лидером.
+ * Генеративное видео эта функция считает наравне с картинкой — по той же
+ * identity `video:idea`. Она отвечает на вопрос «какой кадр производит файл»,
+ * и для деградировавшего до картинки видео-кадра ответ ровно тот же, что для
+ * обычной картинки. Кадры, которые останутся видео, перекрываются
+ * {@link computeVideoGroups}: у них группа дополнительно ограничена потолком
+ * длины модели, потому что заказ там оплачивается секундами.
  */
 function computeReuseFromByOrder(
   shots: readonly {
@@ -186,7 +187,7 @@ function computeReuseFromByOrder(
     order: s.order,
     startSec: s.startSec,
     endSec: s.endSec,
-    backgroundKey: s.background === "video" ? null : shotBackgroundIdentity(s),
+    backgroundKey: shotBackgroundIdentity(s),
   })))
 
   // Лидер группы — кадр с МЕНЬШИМ order среди её членов: `shots` приходит по
@@ -205,6 +206,99 @@ function computeReuseFromByOrder(
     reuseFromByOrder.set(order, leaderOrder === order ? null : leaderOrder)
   }
   return reuseFromByOrder
+}
+
+/** Допуск на шум плавающей точки — та же величина, что `FLOAT_GUARD` в `background-source.ts`. */
+const GROUP_FLOAT_GUARD = 1e-9
+
+interface VideoGroupPlan {
+  /** order лидера для последователя; `null` — кадр сам лидер. Только для кадров из {@link VideoGroupPlan.groupedOrders}. */
+  leaderByOrder: Map<number, number | null>
+  /** Суммарная длительность группы по её лидеру — столько секунд заказывает лидер. */
+  groupDurationByLeader: Map<number, number>
+  /** Кадры, чья группировка решается ЭТОЙ функцией, а не общей картиночной. */
+  groupedOrders: Set<number>
+}
+
+/**
+ * Группы генеративного видео: подряд идущие кадры с одной идеей, которым
+ * заказывается ОДИН клип на всю группу вместо клипа на каждый кадр.
+ *
+ * Зачем. Пять подряд идущих кадров с одной `idea` давали пять независимых
+ * клипов Kling — на экране это тот же «фон меняется каждые 1.8 с», который
+ * для картинок вылечила группировка 26.08.2026, только здесь он ещё и
+ * оплачивался пятью вызовами провайдера.
+ *
+ * Два ограничения, которых нет у картинок, — оба денежные:
+ *
+ * 1. **В группу входит только кадр, который получил бы видео и в одиночку**
+ *    (длина в границах `[min, max]` §7). Слить три кадра по 1.8 с в один
+ *    девятисекундный заказ значило бы ОТКРЫТЬ видео там, где порог §7 его
+ *    закрывает, — рост расхода под видом экономии. Такие кадры идут прежним
+ *    путём и деградируют до картинки поштучно.
+ * 2. **Сумма группы не больше `maxGenerativeVideoSec`** — длиннее одного
+ *    клипа не заказать (`pickBackgroundSource` отбивает такую длину), поэтому
+ *    группа рвётся о потолок модели и следующий кадр начинает свою.
+ *
+ * Тариф провайдера линеен по секундам, поэтому слияние денежно НЕЙТРАЛЬНО:
+ * два заказа по 5 с и один на 10 с стоят одинаково. Выигрыш — непрерывная
+ * картинка и один платный вызов вместо N (меньше латентности и меньше точек
+ * отказа), а не меньшая сумма.
+ */
+function computeVideoGroups(
+  shots: readonly PlannedShotRow[],
+  minGenerativeVideoSec: number,
+  maxGenerativeVideoSec: number,
+): VideoGroupPlan {
+  const leaderByOrder = new Map<number, number | null>()
+  const groupDurationByLeader = new Map<number, number>()
+  const groupedOrders = new Set<number>()
+
+  const boundsUsable = Number.isFinite(minGenerativeVideoSec) && Number.isFinite(maxGenerativeVideoSec)
+    && minGenerativeVideoSec > 0 && maxGenerativeVideoSec >= minGenerativeVideoSec
+
+  let leaderOrder: number | null = null
+  let leaderKey: string | null = null
+  let accumulatedSec = 0
+  let previousEndSec = Number.NaN
+
+  for (const shot of shots) {
+    const durationSec = shot.endSec - shot.startSec
+    const key = shot.background === "video" ? shotBackgroundIdentity(shot) : null
+    const eligible = boundsUsable && key !== null && Number.isFinite(durationSec)
+      && durationSec >= minGenerativeVideoSec - GROUP_FLOAT_GUARD
+      && durationSec <= maxGenerativeVideoSec + GROUP_FLOAT_GUARD
+
+    if (!eligible) {
+      leaderOrder = null
+      leaderKey = null
+      accumulatedSec = 0
+      previousEndSec = shot.endSec
+      continue
+    }
+
+    groupedOrders.add(shot.order)
+    const continues = leaderOrder !== null
+      && key === leaderKey
+      && Math.abs(shot.startSec - previousEndSec) <= GROUP_CONTIGUITY_TOLERANCE_SEC
+      && accumulatedSec + durationSec <= maxGenerativeVideoSec + GROUP_FLOAT_GUARD
+
+    if (continues) {
+      leaderByOrder.set(shot.order, leaderOrder)
+      accumulatedSec += durationSec
+      groupDurationByLeader.set(leaderOrder!, accumulatedSec)
+    }
+    else {
+      leaderOrder = shot.order
+      leaderKey = key
+      accumulatedSec = durationSec
+      leaderByOrder.set(shot.order, null)
+      groupDurationByLeader.set(shot.order, durationSec)
+    }
+    previousEndSec = shot.endSec
+  }
+
+  return { leaderByOrder, groupDurationByLeader, groupedOrders }
 }
 
 /**
@@ -230,10 +324,42 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
 
   let spentUsd = 0
   const items: ShotBackgroundItem[] = []
+  const itemByOrder = new Map<number, ShotBackgroundItem>()
   const degradeCounts = new Map<string, number>()
   const reuseFromByOrder = computeReuseFromByOrder(input.shots)
+  const videoGroups = computeVideoGroups(input.shots, input.minGenerativeVideoSec, input.maxGenerativeVideoSec)
 
   for (const shot of input.shots) {
+    const videoLeaderOrder = videoGroups.groupedOrders.has(shot.order)
+      ? videoGroups.leaderByOrder.get(shot.order) ?? null
+      : null
+
+    // Последователь видео-группы не решает ничего сам: он получит ФАЙЛ лидера,
+    // и его собственное решение может только разойтись с тем, что реально
+    // произведено. Деньги на нём нулевые — заплатил лидер, один раз за клип.
+    if (videoLeaderOrder !== null) {
+      const leaderItem = itemByOrder.get(videoLeaderOrder)
+      if (leaderItem) {
+        if (leaderItem.degradeReason) {
+          degradeCounts.set(leaderItem.degradeReason, (degradeCounts.get(leaderItem.degradeReason) ?? 0) + 1)
+        }
+        const follower: ShotBackgroundItem = {
+          order: shot.order,
+          action: leaderItem.action,
+          costUsd: 0,
+          countsAgainstBudgetUsd: 0,
+          degradeReason: leaderItem.degradeReason,
+          reuseFrom: videoLeaderOrder,
+        }
+        items.push(follower)
+        itemByOrder.set(shot.order, follower)
+        continue
+      }
+      // Лидера нет в обработанных — порядок обхода нарушен вызывающим
+      // (`shots` не отсортирован по order). Не молчим и не гадаем: кадр
+      // считается сам по себе, как до группировки.
+    }
+
     const durationSec = shot.endSec - shot.startSec
     const hasLibraryCandidate = shot.background === "library"
       && shot.backgroundClipId !== null
@@ -242,8 +368,13 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
       && shot.appReferenceId !== null
       && input.knownAppScreenIds.has(shot.appReferenceId)
 
+    // Лидер видео-группы заказывает клип на ВСЮ группу, поэтому и решение о
+    // нём (порог §7, квантование, потолок бюджета) считается от длины группы,
+    // а не от длины собственного кадра.
+    const billableDurationSec = videoGroups.groupDurationByLeader.get(shot.order) ?? durationSec
+
     const pick = pickBackgroundSource({
-      durationSec,
+      durationSec: billableDurationSec,
       profile,
       requested: shot.background as ShotBackground,
       spentUsd,
@@ -264,9 +395,9 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
       degradeCounts.set(pick.degradeReason, (degradeCounts.get(pick.degradeReason) ?? 0) + 1)
     }
 
-    items.push({
+    const item: ShotBackgroundItem = {
       order: shot.order,
-      action: toAction(pick.background, shot, durationSec, input.minGenerativeVideoSec, input.maxGenerativeVideoSec),
+      action: toAction(pick.background, shot, billableDurationSec, input.minGenerativeVideoSec, input.maxGenerativeVideoSec),
       costUsd: pick.costUsd,
       countsAgainstBudgetUsd: pick.countsAgainstBudgetUsd,
       degradeReason: pick.degradeReason,

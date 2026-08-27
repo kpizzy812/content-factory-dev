@@ -205,17 +205,104 @@ describe("планирование производства фонов кадр�
       expect(plan.items[1]!.reuseFrom).toBeNull()
     })
 
-    it("генеративное видео НИКОГДА не группируется — даже подряд, с одной idea", () => {
-      // Требование 1 брифа перечисляет только image/library/app_screen;
-      // видео исключено явно (docstring reuseFrom): длина заказа Kling
-      // реально зависит от длины КАЖДОГО кадра.
+    /**
+     * Прежний тест «генеративное видео НИКОГДА не группируется» снят: он
+     * фиксировал ГРАНИЦУ МАНДАТА правки 26.08.2026 («видео в этот заход не
+     * берём»), а не инвариант. Пять подряд идущих кадров с одной идеей давали
+     * пять независимых клипов Kling — тот же дефект «фон меняется каждые
+     * 1.8 с», ради которого группировка и заводилась, только для видео он ещё
+     * и оплачивался пятью вызовами. Ниже — тесты нового поведения, включая
+     * денежный инвариант, которого у снятого теста не было вовсе.
+     */
+    it("два подряд идущих кадра видео с одной idea — один заказ на всю группу", () => {
       const shots = [
         shot({ order: 0, startSec: 0, endSec: 5, idea: "полёт дрона", background: "video" }),
         shot({ order: 1, startSec: 5, endSec: 10, idea: "полёт дрона", background: "video" }),
       ]
       const plan = planShotBackgroundExecution({ ...LIMITS, shots })
+
       expect(plan.items[0]!.reuseFrom).toBeNull()
-      expect(plan.items[1]!.reuseFrom).toBeNull()
+      expect(plan.items[1]!.reuseFrom).toBe(0)
+      // Лидер заказывает длину ГРУППЫ (10 с), а не своего кадра (5 с).
+      expect(plan.items[0]!.action).toEqual({ kind: "video", billedSec: 10 })
+      // Промпт — один на группу, как и у картинок.
+      expect(plan.promptOrders).toEqual([0])
+    })
+
+    it("группировка видео не удорожает ролик: сумма против той же сметы без группировки", () => {
+      // Тариф Kling линеен по секундам, поэтому слияние обязано быть
+      // денежно НЕЙТРАЛЬНЫМ: два заказа по 5 с и один на 10 с стоят
+      // одинаково. Тест держит именно это — группировка не имеет права
+      // стать способом потратить больше.
+      const shots = [
+        shot({ order: 0, startSec: 0, endSec: 5, idea: "полёт дрона", background: "video" }),
+        shot({ order: 1, startSec: 5, endSec: 10, idea: "полёт дрона", background: "video" }),
+      ]
+      const plan = planShotBackgroundExecution({ ...LIMITS, shots })
+
+      const spent = plan.items.reduce((sum, i) => sum + i.countsAgainstBudgetUsd, 0)
+      expect(spent).toBeCloseTo(0.5, 6)
+      // Последователь не платит и не ест потолок второй раз за тот же клип.
+      expect(plan.items[1]!.costUsd).toBe(0)
+      expect(plan.items[1]!.countsAgainstBudgetUsd).toBe(0)
+    })
+
+    it("группа рвётся о потолок длины модели — третий кадр заказывает свой клип", () => {
+      const shots = [
+        shot({ order: 0, startSec: 0, endSec: 5, idea: "полёт дрона", background: "video" }),
+        shot({ order: 1, startSec: 5, endSec: 10, idea: "полёт дрона", background: "video" }),
+        shot({ order: 2, startSec: 10, endSec: 15, idea: "полёт дрона", background: "video" }),
+      ]
+      const plan = planShotBackgroundExecution({ ...LIMITS, generativeVideoBudgetUsd: 5, shots })
+
+      expect(plan.items.map(i => i.reuseFrom)).toEqual([null, 0, null])
+      expect(plan.items[2]!.action).toEqual({ kind: "video", billedSec: 5 })
+    })
+
+    it("короткий кадр в группу не попадает — слияние не открывает видео там, где §7 его запрещает", () => {
+      // Кадр 1.8 с сам по себе деградирует до картинки (генеративное видео
+      // только от 5 с). Группировка НЕ имеет права его «дотянуть» до порога
+      // за счёт соседей: это был бы рост расхода, а не экономия.
+      const shots = [
+        shot({ order: 0, startSec: 0, endSec: 1.8, idea: "полёт дрона", background: "video" }),
+        shot({ order: 1, startSec: 1.8, endSec: 3.6, idea: "полёт дрона", background: "video" }),
+        shot({ order: 2, startSec: 3.6, endSec: 5.4, idea: "полёт дрона", background: "video" }),
+      ]
+      const plan = planShotBackgroundExecution({ ...LIMITS, shots })
+
+      for (const item of plan.items) {
+        expect(item.action).toEqual({ kind: "image" })
+        expect(item.degradeReason).toBeTruthy()
+      }
+    })
+
+    it("разная idea рвёт группу видео так же, как у картинок", () => {
+      const shots = [
+        shot({ order: 0, startSec: 0, endSec: 5, idea: "полёт дрона", background: "video" }),
+        shot({ order: 1, startSec: 5, endSec: 10, idea: "город сверху", background: "video" }),
+      ]
+      const plan = planShotBackgroundExecution({ ...LIMITS, generativeVideoBudgetUsd: 5, shots })
+
+      expect(plan.items.map(i => i.reuseFrom)).toEqual([null, null])
+      expect(plan.promptOrders).toEqual([0, 1])
+    })
+
+    it("исчерпанный потолок деградирует ГРУППУ целиком, а не только лидера", () => {
+      // Потолка хватает на первый клип (10 с = $0.50) и не хватает на второй:
+      // последователи второй группы обязаны получить то же решение, что их
+      // лидер, иначе план обещает видео там, где исполнение отдаст картинку.
+      const shots = [
+        shot({ order: 0, startSec: 0, endSec: 5, idea: "первая", background: "video" }),
+        shot({ order: 1, startSec: 5, endSec: 10, idea: "первая", background: "video" }),
+        shot({ order: 2, startSec: 10, endSec: 15, idea: "вторая", background: "video" }),
+        shot({ order: 3, startSec: 15, endSec: 20, idea: "вторая", background: "video" }),
+      ]
+      const plan = planShotBackgroundExecution({ ...LIMITS, generativeVideoBudgetUsd: 0.5, shots })
+
+      expect(plan.items[0]!.action).toEqual({ kind: "video", billedSec: 10 })
+      expect(plan.items[2]!.action).toEqual({ kind: "image" })
+      expect(plan.items[3]!.action).toEqual({ kind: "image" })
+      expect(plan.items[3]!.degradeReason).toBe(plan.items[2]!.degradeReason)
     })
 
     it("библиотека и скрин приложения группируются по id, а не по idea", () => {

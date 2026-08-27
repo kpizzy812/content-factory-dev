@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { pickNearestBackground, planShotComposition, type ShotSources } from "~~/server/utils/video-tools/shot-compose"
+import { pickNearestBackground, planSharedBackgroundOffsets, planShotComposition, type ShotSources } from "~~/server/utils/video-tools/shot-compose"
 import type { LipSyncedClipPath } from "~~/server/utils/video-tools/pip-compose"
 
 // В тестах бренд создаётся кастом ОСОЗНАННО: продакшн-код так делать не имеет
@@ -227,5 +227,124 @@ describe("ближайший доступный фон", () => {
 
   it("фонов нет вовсе — null, решение принимает вызывающий", () => {
     expect(pickNearestBackground(4, new Map())).toBeNull()
+  })
+})
+
+/**
+ * Группа кадров с ОДНИМ клипом фона (правка 27.08.2026, вторая половина
+ * группировки генеративного видео).
+ *
+ * Заказ Kling теперь один на группу подряд идущих кадров с одной идеей, значит
+ * файл фона у этих кадров ОБЩИЙ. Без собственного смещения каждый кадр группы
+ * показал бы одно и то же начало клипа — три кадра подряд с одинаковой
+ * картинкой вместо непрерывного движения, ровно тот дефект, ради которого
+ * группировка и делалась.
+ *
+ * Картинки этой правки не касаются: их движение задаёт `variation`
+ * (`renderStillClip`), а не позиция внутри файла.
+ */
+describe("смещение внутри общего клипа фона", () => {
+  it("полноэкранный фон несёт своё смещение в файле", () => {
+    const plan = planShotComposition({
+      shot: shot({ foreground: "none", startSec: 5, endSec: 10 }),
+      sources: sources({
+        presenterPath: null,
+        backgroundPath: "/a/shot_0_bg.mp4",
+        backgroundIsStill: false,
+        backgroundOffsetSec: 5,
+      }),
+      profile: PROFILE,
+      ...CANVAS,
+    })
+
+    expect(plan).toMatchObject({ kind: "background_full", backgroundOffsetSec: 5 })
+  })
+
+  it("PiP несёт то же смещение — фон под ведущим тоже обязан ехать дальше", () => {
+    const plan = planShotComposition({
+      shot: shot({ startSec: 5.8, endSec: 7.6 }),
+      sources: sources({ backgroundPath: "/a/shot_0_bg.mp4", backgroundIsStill: false, backgroundOffsetSec: 1.8 }),
+      profile: PROFILE,
+      ...CANVAS,
+    })
+
+    expect(plan).toMatchObject({ kind: "pip", backgroundOffsetSec: 1.8 })
+  })
+
+  it("смещение не задано — ноль, поведение одиночного кадра прежнее до бита", () => {
+    const plan = planShotComposition({
+      shot: shot({ foreground: "none" }),
+      sources: sources({ presenterPath: null, backgroundPath: "/a/shot_3_bg.mp4", backgroundIsStill: false }),
+      profile: PROFILE,
+      ...CANVAS,
+    })
+
+    expect(plan).toMatchObject({ kind: "background_full", backgroundOffsetSec: 0 })
+  })
+
+  it("отрицательное и нечисловое смещение зажимаются в ноль, а не уезжают в -ss минус", () => {
+    for (const bad of [-3, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const plan = planShotComposition({
+        shot: shot({ foreground: "none" }),
+        sources: sources({ presenterPath: null, backgroundPath: "/a/bg.mp4", backgroundIsStill: false, backgroundOffsetSec: bad }),
+        profile: PROFILE,
+        ...CANVAS,
+      })
+      expect(plan).toMatchObject({ backgroundOffsetSec: 0 })
+    }
+  })
+})
+
+describe("расчёт смещений внутри общего файла фона", () => {
+  const clip = (order: number, startSec: number, endSec: number, path: string | null, isStill = false) =>
+    ({ order, startSec, endSec, backgroundPath: path, backgroundIsStill: isStill })
+
+  it("подряд идущие кадры с одним клипом получают нарастающее смещение", () => {
+    const offsets = planSharedBackgroundOffsets([
+      clip(0, 0, 5, "/a/shot_0_bg.mp4"),
+      clip(1, 5, 10, "/a/shot_0_bg.mp4"),
+    ])
+
+    expect(offsets.get(0)).toBe(0)
+    expect(offsets.get(1)).toBeCloseTo(5, 6)
+  })
+
+  it("смена файла обнуляет смещение — новый клип начинается сначала", () => {
+    const offsets = planSharedBackgroundOffsets([
+      clip(0, 0, 5, "/a/shot_0_bg.mp4"),
+      clip(1, 5, 10, "/a/shot_0_bg.mp4"),
+      clip(2, 10, 15, "/a/shot_2_bg.mp4"),
+    ])
+
+    expect(offsets.get(2)).toBe(0)
+  })
+
+  it("картинка смещения не получает — её движение задаёт траектория, а не позиция в файле", () => {
+    const offsets = planSharedBackgroundOffsets([
+      clip(0, 0, 1.8, "/a/shot_0_bg.png", true),
+      clip(1, 1.8, 3.6, "/a/shot_0_bg.png", true),
+    ])
+
+    expect(offsets.get(1)).toBe(0)
+  })
+
+  it("разрыв во времени рвёт серию — кадр после дыры берёт клип сначала", () => {
+    const offsets = planSharedBackgroundOffsets([
+      clip(0, 0, 5, "/a/shot_0_bg.mp4"),
+      clip(1, 9, 14, "/a/shot_0_bg.mp4"),
+    ])
+
+    expect(offsets.get(1)).toBe(0)
+  })
+
+  it("кадр без фона серию рвёт, а сам смещения не имеет", () => {
+    const offsets = planSharedBackgroundOffsets([
+      clip(0, 0, 5, "/a/shot_0_bg.mp4"),
+      clip(1, 5, 7, null),
+      clip(2, 7, 12, "/a/shot_0_bg.mp4"),
+    ])
+
+    expect(offsets.get(1)).toBe(0)
+    expect(offsets.get(2)).toBe(0)
   })
 })

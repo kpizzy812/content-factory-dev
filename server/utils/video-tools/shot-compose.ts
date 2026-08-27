@@ -23,7 +23,7 @@
 import type { ResolvedEditProfile } from "../edit-plan/profile"
 import { buildPipOverlayFilter, type LipSyncedClipPath } from "./pip-compose"
 import { snapSecToFrame } from "../voiceover/segment-cut"
-import type { ShotVariationSlice } from "./shot-variation"
+import { GROUP_CONTIGUITY_TOLERANCE_SEC, type ShotVariationSlice } from "./shot-variation"
 
 export interface ShotSources {
   /** Клип сцены, УЖЕ приведённый к длине сцены в треке. null — ведущего нет. */
@@ -34,6 +34,16 @@ export interface ShotSources {
   backgroundPath: string | null
   /** Фон — неподвижная картинка (нужен still-клип), а не видео. */
   backgroundIsStill: boolean
+  /**
+   * Смещение кадра ВНУТРИ файла фона — для группы кадров, которым заказан
+   * ОДИН клип генеративного видео (правка 27.08.2026). Без него все кадры
+   * группы показали бы одно и то же начало клипа. Не задано или негодно
+   * (отрицательное, NaN, Infinity) — ноль, то есть поведение одиночного кадра.
+   *
+   * К неподвижной картинке отношения не имеет: её движение задаёт `variation`,
+   * а не позиция внутри файла.
+   */
+  backgroundOffsetSec?: number | null
   /**
    * Сколько секунд клипа ведущего — ЖИВЫЕ, считая от `sceneStartSec`.
    *
@@ -79,13 +89,72 @@ export function pickNearestBackground<T>(order: number, available: ReadonlyMap<n
   return best
 }
 
+/**
+ * Смещение каждого кадра ВНУТРИ его файла фона (правка 27.08.2026).
+ *
+ * Генеративное видео заказывается одним клипом на группу подряд идущих кадров
+ * с одной идеей (`computeVideoGroups`), поэтому у нескольких кадров подряд
+ * один и тот же файл. Каждому нужен СВОЙ кусок: без этого группа показала бы
+ * начало клипа три раза подряд.
+ *
+ * Считается по ФАКТУ — совпадению пути файла у соседних кадров, а не по плану:
+ * группа заказа (потолок длины модели) и группа траектории
+ * (`planShotVariationSlices`, потолка не знает) не обязаны совпадать, и
+ * доверять здесь плану значило бы иногда просить `-ss` за концом файла.
+ *
+ * Неподвижная картинка смещения не получает никогда: её движение задаёт
+ * траектория (`variation`), а кусок файла у картинки смысла не имеет.
+ */
+export function planSharedBackgroundOffsets(
+  shots: readonly {
+    order: number
+    startSec: number
+    endSec: number
+    backgroundPath: string | null
+    backgroundIsStill: boolean
+  }[],
+): Map<number, number> {
+  const offsets = new Map<number, number>()
+
+  let seriesPath: string | null = null
+  let seriesStartSec = 0
+  let previousEndSec = Number.NaN
+
+  for (const shot of shots) {
+    const path = shot.backgroundIsStill ? null : shot.backgroundPath
+    const continues = path !== null
+      && path === seriesPath
+      && Math.abs(shot.startSec - previousEndSec) <= GROUP_CONTIGUITY_TOLERANCE_SEC
+
+    if (continues) {
+      offsets.set(shot.order, Math.max(0, shot.startSec - seriesStartSec))
+    }
+    else {
+      seriesPath = path
+      seriesStartSec = shot.startSec
+      offsets.set(shot.order, 0)
+    }
+    previousEndSec = shot.endSec
+  }
+
+  return offsets
+}
+
 export type ShotComposition =
   | { kind: "presenter_full", presenterPath: LipSyncedClipPath, offsetSec: number, durationSec: number }
-  | { kind: "background_full", backgroundPath: string, backgroundIsStill: boolean, durationSec: number, variation: ShotVariationSlice }
+  | {
+    kind: "background_full"
+    backgroundPath: string
+    backgroundIsStill: boolean
+    backgroundOffsetSec: number
+    durationSec: number
+    variation: ShotVariationSlice
+  }
   | {
     kind: "pip"
     backgroundPath: string
     backgroundIsStill: boolean
+    backgroundOffsetSec: number
     presenterPath: LipSyncedClipPath
     presenterOffsetSec: number
     durationSec: number
@@ -150,6 +219,14 @@ export function planShotComposition(input: {
   // когда группировать нечего.
   const variation = input.variation ?? { index: shot.order, offsetSec: 0, spanSec: durationSec }
 
+  // Негодное смещение (не задано, отрицательное, NaN, Infinity) — ноль:
+  // `-ss` в минус или в бесконечность отдал бы ffmpeg аргумент, на котором
+  // кадр не собрался бы вовсе.
+  const rawOffset = sources.backgroundOffsetSec
+  const backgroundOffsetSec = typeof rawOffset === "number" && Number.isFinite(rawOffset) && rawOffset > 0
+    ? snapSecToFrame(rawOffset, fps)
+    : 0
+
   const pipRequested = hasPresenter && hasBackground && shot.pipEnabled && profile.pipEnabled
 
   if (pipRequested) {
@@ -167,6 +244,7 @@ export function planShotComposition(input: {
       kind: "pip",
       backgroundPath: sources.backgroundPath!,
       backgroundIsStill: sources.backgroundIsStill,
+      backgroundOffsetSec,
       presenterPath: sources.presenterPath!,
       presenterOffsetSec: offsetSec,
       durationSec,
@@ -190,6 +268,7 @@ export function planShotComposition(input: {
     kind: "background_full",
     backgroundPath: sources.backgroundPath!,
     backgroundIsStill: sources.backgroundIsStill,
+    backgroundOffsetSec,
     durationSec,
     variation,
   }

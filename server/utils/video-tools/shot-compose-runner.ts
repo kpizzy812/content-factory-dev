@@ -90,6 +90,12 @@ async function holdShortFileToDuration(path: string, targetSec: number): Promise
 async function renderBackgroundFull(input: {
   backgroundPath: string
   backgroundIsStill: boolean
+  /**
+   * С какой секунды ФАЙЛА берётся кусок — не ноль у кадров, делящих один клип
+   * генеративного видео на группу (правка 27.08.2026). У картинки смысла не
+   * имеет: её движение задаёт `variation`.
+   */
+  backgroundOffsetSec: number
   durationSec: number
   variation: ShotVariationSlice
   outputPath: string
@@ -111,7 +117,16 @@ async function renderBackgroundFull(input: {
   }
 
   const actualSec = await probeMediaDuration(input.backgroundPath)
-  if (actualSec !== null && actualSec < input.durationSec - MIN_FRAME_GAP_SEC) {
+  // Смещение кадра внутри общего клипа группы. Если файл до этой секунды не
+  // дотягивает вовсе (клип провайдера вышел короче заказа, план разошёлся с
+  // фактом), берём его с начала: показать начало чужой секунды лучше, чем
+  // пустой `-ss` за концом файла, который отдал бы нулевой выход.
+  const offsetSec = actualSec !== null && input.backgroundOffsetSec >= actualSec - MIN_FRAME_GAP_SEC
+    ? 0
+    : input.backgroundOffsetSec
+  const availableSec = actualSec === null ? null : Math.max(0, actualSec - offsetSec)
+
+  if (availableSec !== null && availableSec < input.durationSec - MIN_FRAME_GAP_SEC) {
     // Источник короче кадра: сначала забираем всё, что есть, затем добиваем
     // нехватку удержанием последнего кадра — тот же приём, что подгон длины
     // клипа под трек (`render.ts`), только звук уже немой (`anullsrc`
@@ -119,9 +134,9 @@ async function renderBackgroundFull(input: {
     const trimmedPath = `${input.outputPath}.trim.mp4`
     try {
       await renderShotSubClip({
-        sourcePath: input.backgroundPath, startSec: 0, durationSec: actualSec, outputPath: trimmedPath,
+        sourcePath: input.backgroundPath, startSec: offsetSec, durationSec: availableSec, outputPath: trimmedPath,
       })
-      await holdLastFrameFittedClip(trimmedPath, input.outputPath, input.durationSec - actualSec)
+      await holdLastFrameFittedClip(trimmedPath, input.outputPath, input.durationSec - availableSec)
     } finally {
       await unlink(trimmedPath).catch(() => {})
     }
@@ -131,7 +146,7 @@ async function renderBackgroundFull(input: {
   // Источник не короче кадра (или неизмерим — тогда просто просим нужную
   // длину, `renderShotSubClip` сам обрежет по `-t`).
   await renderShotSubClip({
-    sourcePath: input.backgroundPath, startSec: 0, durationSec: input.durationSec, outputPath: input.outputPath,
+    sourcePath: input.backgroundPath, startSec: offsetSec, durationSec: input.durationSec, outputPath: input.outputPath,
   })
 }
 
@@ -203,6 +218,7 @@ async function renderPip(
     await renderBackgroundFull({
       backgroundPath: composition.backgroundPath,
       backgroundIsStill: composition.backgroundIsStill,
+      backgroundOffsetSec: composition.backgroundOffsetSec,
       durationSec: composition.durationSec,
       variation: composition.variation,
       outputPath: bgTemp,
@@ -262,6 +278,7 @@ export async function renderShotComposition(request: ShotComposeRequest): Promis
       await renderBackgroundFull({
         backgroundPath: composition.backgroundPath,
         backgroundIsStill: composition.backgroundIsStill,
+        backgroundOffsetSec: composition.backgroundOffsetSec,
         durationSec: composition.durationSec,
         variation: composition.variation,
         outputPath: request.outputPath,

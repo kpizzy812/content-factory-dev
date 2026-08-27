@@ -206,7 +206,7 @@ export function shotBackgroundIdentity(shot: {
  * кадров, а не настоящий разрыв: 50 мс заведомо больше кадра на любом
  * рабочем fps и заведомо меньше самого короткого кадра монтажа.
  */
-const GROUP_CONTIGUITY_TOLERANCE_SEC = 0.05
+export const GROUP_CONTIGUITY_TOLERANCE_SEC = 0.05
 
 /**
  * Режет список кадров на группы подряд идущих кадров с ОДНИМ фоном и выдаёт

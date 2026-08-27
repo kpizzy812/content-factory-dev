@@ -4336,6 +4336,20 @@ export async function composeVideoShots(
     backgroundKey: shotBackgroundIdentity(shot),
   })))
 
+  // Смещения внутри ОБЩЕГО файла фона — считаются по факту совпадения путей у
+  // соседних кадров, а не по плану: группа заказа видео ограничена потолком
+  // длины модели, а группа траектории выше — нет, и они не обязаны совпадать.
+  const sharedBackgroundOffsets = planSharedBackgroundOffsets(effectiveShots.map((shot) => {
+    const asset = backgroundByShotOrder.get(shot.order) ?? null
+    return {
+      order: shot.order,
+      startSec: shot.startSec,
+      endSec: shot.endSec,
+      backgroundPath: asset?.filePath ?? null,
+      backgroundIsStill: asset ? shotBackgroundIsStill(asset) : true,
+    }
+  }))
+
   const canvas = format === "landscape" ? { w: 1920, h: 1080 } : { w: 1080, h: 1920 }
   const assetsDir = getAssetsDir(videoId)
   let composedCount = 0
@@ -4394,6 +4408,10 @@ export async function composeVideoShots(
       sceneStartSec: presenterClip?.startSec ?? alignedScene?.startSec ?? shot.startSec,
       backgroundPath: effectiveBg?.filePath ?? null,
       backgroundIsStill: effectiveBg ? shotBackgroundIsStill(effectiveBg) : true,
+      // Кадры группы генеративного видео делят ОДИН клип: каждому нужен свой
+      // кусок, иначе группа показала бы начало клипа столько раз, сколько в
+      // ней кадров (правка 27.08.2026, вторая половина группировки видео).
+      backgroundOffsetSec: sharedBackgroundOffsets.get(shot.order) ?? 0,
     }
 
     const composition = planShotComposition({
