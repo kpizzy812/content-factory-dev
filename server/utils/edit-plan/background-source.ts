@@ -94,6 +94,14 @@ export interface BackgroundPickInput {
   requested: ShotBackground
   /** Сколько уже потрачено на генеративные фоны этого ролика. */
   spentUsd: number
+  /**
+   * Сколько уже потрачено на КАРТИНКИ фона этого ролика — отдельный
+   * накопитель под отдельный потолок (`profile.imageBudgetUsd`, решение
+   * владельца 27.08.2026). Не задан — считается нулём: старые вызывающие
+   * (и тесты, писавшиеся до потолка) продолжают работать, потолок при этом
+   * остаётся в силе, просто расход начинается с нуля.
+   */
+  imageSpentUsd?: number
   hasLibraryCandidate: boolean
   hasAppScreen: boolean
   /** $/сек генеративного видео — брать из `replicateVideoBilling()`, не хардкодить. */
@@ -213,6 +221,32 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
           : "Картинка недоступна — задний план кадра остаётся пустым",
       }
     }
+    // Потолок расхода на картинки (решение владельца 27.08.2026) — та же
+    // логика, что у потолка §7 для видео, и та же деградация, что у
+    // запрещённой генерации: задний план пуст, кадр отдаётся ведущему.
+    // Нефинитный/отрицательный потолок или расход ЗАКРЫВАЕТ трату: мусор в
+    // денежном ограничителе не имеет права открывать её без счёта (тот же
+    // разбор, что у ставки видео, М-2).
+    const imageBudgetUsd = input.profile.imageBudgetUsd
+    const imageSpentUsd = input.imageSpentUsd ?? 0
+    const budgetUnusable = !Number.isFinite(imageBudgetUsd) || imageBudgetUsd < 0
+      || !Number.isFinite(imageSpentUsd) || imageSpentUsd < 0
+      || !Number.isFinite(input.imageUsd) || input.imageUsd < 0
+    const overBudget = !budgetUnusable && imageSpentUsd + input.imageUsd > imageBudgetUsd + FLOAT_GUARD
+    if (budgetUnusable || overBudget) {
+      const limitReason = budgetUnusable
+        ? "Потолок расхода на картинки задан неверно (NaN/Infinity/отрицательный) — картинка не генерируется"
+        : `Потолок расхода на картинки $${imageBudgetUsd.toFixed(2)} исчерпан `
+          + `(потрачено $${imageSpentUsd.toFixed(3)}, картинка стоила бы $${input.imageUsd.toFixed(3)})`
+      return {
+        background: "none",
+        costUsd: 0,
+        countsAgainstBudgetUsd: 0,
+        degradeReason: reason
+          ? `${reason} — ${limitReason[0]!.toLowerCase()}${limitReason.slice(1)}, задний план кадра остаётся пустым`
+          : `${limitReason} — задний план кадра остаётся пустым`,
+      }
+    }
     return { background: "image", costUsd: input.imageUsd, countsAgainstBudgetUsd: 0, degradeReason: reason }
   }
 
@@ -232,15 +266,11 @@ export function pickBackgroundSource(input: BackgroundPickInput): BackgroundPick
   if (input.requested === "image") {
     // М-10: даже ПРЯМОЙ запрос модели на картинку не может быть выполнен,
     // если генерация картинки недоступна — единственный оставшийся выход тот
-    // же, что и у любой другой деградации.
-    return input.imageGenerationAllowed
-      ? { background: "image", costUsd: input.imageUsd, countsAgainstBudgetUsd: 0, degradeReason: null }
-      : {
-          background: "none",
-          costUsd: 0,
-          countsAgainstBudgetUsd: 0,
-          degradeReason: "Картинка недоступна — задний план кадра остаётся пустым",
-        }
+    // же, что и у любой другой деградации. Через тот же хелпер, что и все
+    // деградации (правка 27.08.2026): иначе потолок расхода на картинки
+    // обходился бы прямым запросом `background: "image"`, то есть самым
+    // частым решением модели.
+    return image(null)
   }
 
   if (input.requested !== "video") {

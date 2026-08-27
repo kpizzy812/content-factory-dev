@@ -345,3 +345,79 @@ describe("М-10 (ре-ревью): §10 «фонов нет, генерация 
     expect(pick.degradeReason).not.toMatch(/ведущ/i)
   })
 })
+
+/**
+ * Потолок расхода на КАРТИНКИ (решение владельца от 27.08.2026).
+ *
+ * До этой правки единственным рычагом против неограниченного расхода на
+ * картинки фона был выключатель `imageGenerationEnabled` — «всё или ничего».
+ * У генеративного видео потолок в долларах был с самого начала (§7), у
+ * картинок его не было вовсе: план из полусотни кадров с уникальными идеями
+ * тратил столько, сколько попросит модель.
+ *
+ * Деградация та же, что у запрещённой картинки (§10): задний план кадра
+ * остаётся пустым, кадр отдаётся ведущему.
+ */
+describe("потолок расхода на картинки", () => {
+  const withImageBudget = (budget: number, extra: Record<string, unknown> = {}) => input({
+    requested: "image",
+    profile: { ...DEFAULT_EDIT_PROFILE, imageBudgetUsd: budget },
+    ...extra,
+  })
+
+  it("картинка в пределах потолка выдаётся и стоит свой тариф", () => {
+    const pick = pickBackgroundSource(withImageBudget(0.5, { imageSpentUsd: 0.1 }))
+
+    expect(pick).toMatchObject({ background: "image", degradeReason: null })
+    expect(pick.costUsd).toBeCloseTo(0.025, 6)
+  })
+
+  it("исчерпанный потолок картинок оставляет задний план пустым, а не тратит дальше", () => {
+    const pick = pickBackgroundSource(withImageBudget(0.5, { imageSpentUsd: 0.49 }))
+
+    expect(pick.background).toBe("none")
+    expect(pick.costUsd).toBe(0)
+    expect(pick.degradeReason).toMatch(/потолок/i)
+  })
+
+  it("ровно на границе картинка ещё выдаётся — потолок это «не больше», а не «строго меньше»", () => {
+    // Потрачено 0.475, картинка стоит 0.025, потолок 0.5 — сумма ровно равна.
+    const pick = pickBackgroundSource(withImageBudget(0.5, { imageSpentUsd: 0.475 }))
+
+    expect(pick.background).toBe("image")
+  })
+
+  it("потолок картинок ловит и ДЕГРАДАЦИЮ видео в картинку, а не только прямой запрос", () => {
+    // Кадр просил видео, видео недоступно — деградация обязана считаться тем
+    // же потолком, иначе его можно обойти, попросив у модели видео.
+    const pick = pickBackgroundSource(input({
+      requested: "video",
+      durationSec: 2,
+      profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoEnabled: true, imageBudgetUsd: 0.5 },
+      imageSpentUsd: 0.5,
+    }))
+
+    expect(pick.background).toBe("none")
+    expect(pick.degradeReason).toMatch(/потолок/i)
+  })
+
+  it("негодный потолок (NaN/Infinity/отрицательный) закрывает генерацию картинок, а не открывает её без счёта", () => {
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      const pick = pickBackgroundSource(withImageBudget(bad, { imageSpentUsd: 0 }))
+      expect(pick.background).toBe("none")
+    }
+  })
+
+  it("потраченное на картинки считается ОТДЕЛЬНО от потолка генеративного видео", () => {
+    // Видео потрачено под завязку, но картиночный потолок свободен — картинка
+    // обязана выдаться: два потолка независимы (ruling B4-1 в обратную сторону).
+    const pick = pickBackgroundSource(input({
+      requested: "image",
+      profile: { ...DEFAULT_EDIT_PROFILE, generativeVideoBudgetUsd: 0.5, imageBudgetUsd: 0.5 },
+      spentUsd: 0.5,
+      imageSpentUsd: 0,
+    }))
+
+    expect(pick.background).toBe("image")
+  })
+})

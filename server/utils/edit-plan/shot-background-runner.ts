@@ -109,6 +109,12 @@ export interface PlanShotBackgroundExecutionInput {
   shots: readonly PlannedShotRow[]
   imageUsd: number
   imageGenerationAllowed: boolean
+  /**
+   * Потолок расхода на картинки фона в пределах ролика (решение владельца
+   * 27.08.2026). Не задан — берётся дефолт профиля: потолок существует
+   * всегда, вопрос только в его величине.
+   */
+  imageBudgetUsd?: number
   generativeVideoEnabled: boolean
   generativeVideoBudgetUsd: number
   generativeVideoUsdPerSec: number
@@ -320,9 +326,14 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
     ...DEFAULT_EDIT_PROFILE,
     generativeVideoEnabled: input.generativeVideoEnabled,
     generativeVideoBudgetUsd: input.generativeVideoBudgetUsd,
+    ...(input.imageBudgetUsd === undefined ? {} : { imageBudgetUsd: input.imageBudgetUsd }),
   }
 
   let spentUsd = 0
+  // Второй накопитель — под потолок картинок (решение владельца 27.08.2026).
+  // Отдельный от `spentUsd` по той же причине, по которой картинки не идут в
+  // потолок видео (ruling B4-1): это разные статьи расхода с разными ставками.
+  let imageSpentUsd = 0
   const items: ShotBackgroundItem[] = []
   const itemByOrder = new Map<number, ShotBackgroundItem>()
   const degradeCounts = new Map<string, number>()
@@ -376,6 +387,9 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
     const pick = pickBackgroundSource({
       durationSec: billableDurationSec,
       profile,
+      // Кадр, переиспользующий картинку соседа, потолок не тратит и упереться
+      // в него не может: файл уже оплачен лидером группы.
+      imageSpentUsd: (reuseFromByOrder.get(shot.order) ?? null) === null ? imageSpentUsd : 0,
       requested: shot.background as ShotBackground,
       spentUsd,
       hasLibraryCandidate,
@@ -401,8 +415,19 @@ export function planShotBackgroundExecution(input: PlanShotBackgroundExecutionIn
       costUsd: pick.costUsd,
       countsAgainstBudgetUsd: pick.countsAgainstBudgetUsd,
       degradeReason: pick.degradeReason,
-      reuseFrom: reuseFromByOrder.get(shot.order) ?? null,
-    })
+      // Кадр, чью группу считает `computeVideoGroups`, картиночной
+      // группировке не подчиняется: её группа не знает потолка длины модели и
+      // склеила бы кадры, которым заказаны РАЗНЫЕ клипы.
+      reuseFrom: videoGroups.groupedOrders.has(shot.order)
+        ? null
+        : reuseFromByOrder.get(shot.order) ?? null,
+    }
+    items.push(item)
+    itemByOrder.set(shot.order, item)
+    // В накопитель картинок идёт только тот кадр, который картинку РЕАЛЬНО
+    // закажет: последователь группы переиспользует файл лидера и не платит,
+    // а значит и потолок расходовать не имеет права.
+    if (item.action.kind === "image" && item.reuseFrom === null) imageSpentUsd += pick.costUsd
   }
 
   // Одинаковые причины деградации на плане из десятков кадров — не десятки

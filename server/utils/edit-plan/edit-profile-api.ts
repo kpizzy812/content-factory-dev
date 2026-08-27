@@ -49,6 +49,7 @@ export interface EditProfileWriteFields {
   pipPosition?: PipPosition
   pipSize?: number
   imageGenerationEnabled?: boolean
+  imageBudgetUsd?: number
   generativeVideoEnabled?: boolean
   generativeVideoBudgetUsd?: number
   generativeVideoResolution?: string
@@ -144,6 +145,13 @@ export function parseEditProfileWrite(
   }
 
   if (has(body, "imageGenerationEnabled")) out.imageGenerationEnabled = readBoolean(body, "imageGenerationEnabled")
+
+  if (has(body, "imageBudgetUsd")) {
+    const value = readFiniteNumber(body, "imageBudgetUsd")
+    if (value < 0) badRequest("Поле \"imageBudgetUsd\" должно быть неотрицательным")
+    out.imageBudgetUsd = value
+  }
+
   if (has(body, "generativeVideoEnabled")) out.generativeVideoEnabled = readBoolean(body, "generativeVideoEnabled")
 
   if (has(body, "generativeVideoBudgetUsd")) {
@@ -236,6 +244,7 @@ interface EditProfileRow {
   pipPosition: string
   pipSize: number
   imageGenerationEnabled: boolean
+  imageBudgetUsd: number
   generativeVideoEnabled: boolean
   generativeVideoBudgetUsd: number
   generativeVideoResolution: string

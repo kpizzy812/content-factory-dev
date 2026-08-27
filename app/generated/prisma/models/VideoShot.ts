@@ -1519,7 +1519,7 @@ export type $VideoShotPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      */
     background: string
     /**
-     * library | image | video | none — ФАКТ: что реально произвёл шаг
+     * library | image | video | app_screen | none — ФАКТ: что реально произвёл шаг
      * shot_background после потолка §7 и отказов исполнения. null — шаг ещё
      * не исполнялся для этого кадра (только план). Отдельное поле от
      * background (ruling ре-ревью Task 4, сомнение Б): без него факт

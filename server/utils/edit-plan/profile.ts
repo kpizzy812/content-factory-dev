@@ -42,6 +42,23 @@ export interface ResolvedEditProfile {
    * генерацию, а не новое ограничение по умолчанию.
    */
   imageGenerationEnabled: boolean
+  /**
+   * Потолок расхода на КАРТИНКИ фона в долларах на один ролик (решение
+   * владельца 27.08.2026). Раньше единственным рычагом был выключатель
+   * {@link ResolvedEditProfile.imageGenerationEnabled} — «всё или ничего»: у
+   * генеративного видео потолок в долларах был с самого начала (§7), а план
+   * из полусотни кадров с уникальными идеями тратил на картинки столько,
+   * сколько попросит модель.
+   *
+   * Дефолт $1.50 — это СТРАХОВКА от выброса, а не рабочее ограничение:
+   * шестьдесят картинок по тарифу flux-dev ($0.025) заведомо больше, чем
+   * тратит реальный план (на ролике 30 — 9 уникальных идей, $0.225 после
+   * группировки 26.08.2026), и с запасом перекрывает худший измеренный
+   * случай «50 кадров, у каждого своя идея» ($1.25). Исчерпание деградирует
+   * кадр по §10 — задний план остаётся пустым, кадр отдаётся ведущему, а не
+   * рисуется в долг.
+   */
+  imageBudgetUsd: number
 }
 
 /**
@@ -97,6 +114,7 @@ export const DEFAULT_EDIT_PROFILE: Readonly<ResolvedEditProfile> = Object.freeze
   stepwiseApproval: false,
   llmModelId: null,
   imageGenerationEnabled: true,
+  imageBudgetUsd: 1.5,
 })
 
 function num(value: unknown): number | null {
@@ -177,6 +195,13 @@ export function resolveEditProfile(
   const budgetIsSet = budgetOverrideRaw !== undefined || budgetProfileRaw !== undefined
   const budgetValid = firstValid(nonNegativeNum, budgetOverrideRaw, budgetProfileRaw)
 
+  // Потолок картинок — ровно та же арифметика, что у потолка видео выше:
+  // мусор на входе закрывает трату, а не открывает её.
+  const imageBudgetOverrideRaw = patch.imageBudgetUsd
+  const imageBudgetProfileRaw = profile?.imageBudgetUsd
+  const imageBudgetIsSet = imageBudgetOverrideRaw !== undefined || imageBudgetProfileRaw !== undefined
+  const imageBudgetValid = firstValid(nonNegativeNum, imageBudgetOverrideRaw, imageBudgetProfileRaw)
+
   return {
     editPrompt: firstValid(text, patch.editPrompt, profile?.editPrompt) ?? DEFAULT_EDIT_PROFILE.editPrompt,
     brollRatio: brollRatioRaw === null ? DEFAULT_EDIT_PROFILE.brollRatio : clamp(brollRatioRaw, 0, 1),
@@ -197,5 +222,10 @@ export function resolveEditProfile(
     llmModelId: firstValid(text, patch.llmModelId, profile?.llmModelId) ?? DEFAULT_EDIT_PROFILE.llmModelId,
     imageGenerationEnabled: firstValid(bool, patch.imageGenerationEnabled, profile?.imageGenerationEnabled)
       ?? DEFAULT_EDIT_PROFILE.imageGenerationEnabled,
+    imageBudgetUsd: imageBudgetValid !== null
+      ? imageBudgetValid
+      : imageBudgetIsSet
+        ? 0
+        : DEFAULT_EDIT_PROFILE.imageBudgetUsd,
   }
 }

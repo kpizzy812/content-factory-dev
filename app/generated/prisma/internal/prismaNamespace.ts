@@ -8614,6 +8614,7 @@ export const EditProfileScalarFieldEnum = {
   pipPosition: 'pipPosition',
   pipSize: 'pipSize',
   imageGenerationEnabled: 'imageGenerationEnabled',
+  imageBudgetUsd: 'imageBudgetUsd',
   generativeVideoEnabled: 'generativeVideoEnabled',
   generativeVideoBudgetUsd: 'generativeVideoBudgetUsd',
   generativeVideoResolution: 'generativeVideoResolution',

@@ -3366,6 +3366,7 @@ export async function runShotBackgrounds(
     shots: rows,
     imageUsd,
     imageGenerationAllowed,
+    imageBudgetUsd: input.profile.imageBudgetUsd,
     generativeVideoEnabled: input.profile.generativeVideoEnabled,
     generativeVideoBudgetUsd: input.profile.generativeVideoBudgetUsd,
     generativeVideoUsdPerSec: videoBilling.usdPerSecond,

@@ -37,6 +37,10 @@ function generate(seed: number) {
     shots,
     imageUsd: 0.025,
     imageGenerationAllowed: rnd() < 0.85,
+    // Потолок картинок (правка 27.08.2026) — от «почти нулевого» до заведомо
+    // избыточного: домен обязан порождать и упирающиеся в него сценарии, и
+    // свободные, иначе свойство 8b проверялось бы на пустоте.
+    imageBudgetUsd: Math.round(rnd() * 250) / 100,
     generativeVideoEnabled: rnd() < 0.5,
     generativeVideoBudgetUsd: Math.round(rnd() * 200) / 100,
     generativeVideoUsdPerSec: 0.05,
@@ -190,7 +194,10 @@ describe("свойства планирования фонов кадров", ()
       const input = INPUTS[i]!
       let spentSoFar = 0
       PLANS[i]!.items.forEach((item, index) => {
-        const isBudgetDegrade = (item.degradeReason ?? "").toLowerCase().includes("потолок")
+        // Именно потолок ВИДЕО: с 27.08.2026 у картинок есть свой потолок со
+        // своим сообщением, и общее слово «потолок» смешало бы два разных
+        // денежных ограничителя в одно свойство.
+        const isBudgetDegrade = (item.degradeReason ?? "").toLowerCase().includes("потолок генеративного видео")
         if (isBudgetDegrade) {
           const shot = input.shots[index]!
           const duration = shot.endSec - shot.startSec
@@ -206,6 +213,48 @@ describe("свойства планирования фонов кадров", ()
         spentSoFar += item.countsAgainstBudgetUsd
       })
     }
+    expect(violations).toEqual([])
+  })
+
+  /**
+   * Свойство 8b (правка 27.08.2026): та же обратная сторона, но для потолка
+   * КАРТИНОК. Накопитель у него свой, и его легко испортить в обе стороны:
+   * считать в него последователей группы (тогда потолок исчерпается впятеро
+   * быстрее реального расхода) или не считать вовсе (тогда потолок не
+   * сработает никогда).
+   */
+  it("Свойство 8b: отказ по потолку картинок обоснован — одобренные картинки плюс цена этой превышают потолок", () => {
+    const violations: string[] = []
+    for (let i = 0; i < SEEDS; i += 1) {
+      const input = INPUTS[i]!
+      let imageSpent = 0
+      for (const item of PLANS[i]!.items) {
+        const reason = (item.degradeReason ?? "").toLowerCase()
+        if (reason.includes("потолок расхода на картинки")) {
+          if (!(imageSpent + input.imageUsd > input.imageBudgetUsd + 1e-9)) {
+            violations.push(
+              `seed=${i + 1}, order=${item.order}: отказ по потолку картинок, но `
+              + `${imageSpent} + ${input.imageUsd} не превышает ${input.imageBudgetUsd}`,
+            )
+          }
+        }
+        // Платит только тот, кто картинку реально закажет.
+        if (item.action.kind === "image" && item.reuseFrom === null) imageSpent += input.imageUsd
+      }
+    }
+    expect(violations).toEqual([])
+  })
+
+  it("Свойство 8c: сумма расхода на картинки не превышает потолок ни на одном сиде", () => {
+    const violations = collectViolations(SEEDS, (i) => {
+      const input = INPUTS[i]!
+      const spent = PLANS[i]!.items
+        .filter(item => item.action.kind === "image" && item.reuseFrom === null)
+        .length * input.imageUsd
+      return spent <= input.imageBudgetUsd + 1e-9
+        ? null
+        : `seed=${i + 1}: потрачено на картинки ${spent} при потолке ${input.imageBudgetUsd}`
+    })
     expect(violations).toEqual([])
   })
 
