@@ -96,6 +96,18 @@ export interface Video {
   isLocked: boolean
   startedAt: string | null
   finishedAt: string | null
+  // Монтаж от звука: профиль, его переопределения и пошаговый режим (§9 спеки).
+  // Prisma отдаёт эти поля в `GET /api/videos/:id` вместе с остальными
+  // скалярами — типа у них до сих пор не было.
+  editProfileId?: number | null
+  editOverrides?: unknown
+  /** Правки сценария, положенные на ролик заменой фразы. */
+  scriptOverrides?: unknown
+  /** Переопределение пошагового режима на ролике. `null` — наследовать профиль. */
+  stepwiseApproval?: boolean | null
+  /** Шаг, решения по которому ждёт ролик в статусе `awaiting_operator`. */
+  awaitingStepKey?: VideoStepKey | string | null
+  approvedStepKey?: VideoStepKey | string | null
   // Cost tracking
   totalCostEstimate: number | null
   totalCostActual: number | null

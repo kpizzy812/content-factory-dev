@@ -27,6 +27,10 @@ const isActive = computed(() => !!video.value && ACTIVE_STATUSES.includes(video.
 const isCompleted = computed(() => video.value?.status === 'completed')
 const isFailed = computed(() => video.value?.status === 'failed')
 
+// Пошаговый режим: шаг доведён до конца, прогона за роликом нет, ждут человека.
+// Намеренно не входит в ACTIVE_STATUSES — опрашивать нечего.
+const isAwaitingOperator = computed(() => video.value?.status === 'awaiting_operator')
+
 // ─── Живое обновление ────────────────────────────────────────────────────────
 // Прогресс опрашивается отдельным endpoint'ом: он отдаёт шаги и ассеты без
 // сценария и настроек, поэтому опрос раз в 4 секунды не тянет всю карточку.
@@ -255,7 +259,7 @@ const showPlayer = computed(() =>
 const downloadUrl = computed(() => video.value?.fileUrl ? `/api/files/${video.value.fileUrl}` : null)
 
 // ─── Вкладки ─────────────────────────────────────────────────────────────────
-const tab = ref<'overview' | 'scenario' | 'subtitles' | 'frames' | 'publish'>('overview')
+const tab = ref<'overview' | 'scenario' | 'subtitles' | 'frames' | 'edit' | 'publish'>('overview')
 
 const frameCount = computed(() => assets.value.filter(a => a.type === 'image' && a.fileUrl).length)
 
@@ -264,10 +268,34 @@ const tabs = computed(() => [
   { key: 'scenario' as const, label: 'Сценарий' },
   { key: 'subtitles' as const, label: 'Субтитры', disabled: !isCompleted.value },
   { key: 'frames' as const, label: 'Кадры', count: frameCount.value },
+  { key: 'edit' as const, label: 'Монтаж' },
   { key: 'publish' as const, label: 'Публикация', disabled: !isCompleted.value },
 ])
 
 const variant = computed(() => video.value?.scenario?.variants?.[0] ?? null)
+
+// ─── Монтажная консоль ───────────────────────────────────────────────────────
+// Кадры берутся из снапшота шага «План монтажа» — отдельной ручки списка кадров
+// сервер не отдаёт. Профиль достаётся цепочкой через сценарий: ручки «профиль
+// по id» тоже нет. Загрузка ленивая: до открытия вкладки лишних запросов нет.
+const { profile: editProfile, load: loadEditProfile } = useVideoEditProfile()
+const editProfileRequested = ref(false)
+
+/**
+ * Действующий сценарий ролика.
+ *
+ * `Video.scriptOverrides` — это список правок, а не копия плана, и накладывает
+ * их сам endpoint: `GET /api/videos/:id` отдаёт `variant.storyPlan` уже глазами
+ * этого ролика. Поэтому читаем вариант, а не сырые переопределения.
+ */
+const effectiveStoryPlan = computed(() =>
+  (variant.value as unknown as { storyPlan?: unknown } | null)?.storyPlan ?? null)
+
+watch([tab, () => video.value?.id], async () => {
+  if (tab.value !== 'edit' || editProfileRequested.value || !video.value) return
+  editProfileRequested.value = true
+  await loadEditProfile(video.value.scenarioId, video.value.editProfileId ?? null)
+})
 
 const showUpload = ref(false)
 
@@ -360,6 +388,14 @@ function copyId() {
       <div class="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_392px]">
         <!-- ЛЕВАЯ КОЛОНКА · содержимое -->
         <div class="flex min-w-0 flex-col gap-3">
+          <VideoAwaitingOperator
+            v-if="isAwaitingOperator"
+            :video-id="video.id"
+            :awaiting-step-key="video.awaitingStepKey"
+            :steps="steps"
+            @changed="afterStepAction"
+          />
+
           <div
             v-if="storageProbed && storageStatus && storageStatus.recoveryHint !== 'all_present'"
             role="alert"
@@ -489,6 +525,24 @@ function copyId() {
               <!-- Кадры -->
               <VideoFramesTab v-else-if="tab === 'frames'" :assets="assets" />
 
+              <!-- Монтаж -->
+              <div v-else-if="tab === 'edit'" class="flex flex-col gap-3">
+                <VideoShotsTable
+                  :video-id="video.id"
+                  :steps="steps"
+                  :profile="editProfile"
+                  :active="isActive"
+                  @changed="afterStepAction"
+                />
+                <VideoVoiceoverPanel
+                  :video-id="video.id"
+                  :story-plan="effectiveStoryPlan"
+                  :status="video.status"
+                  :is-locked="video.isLocked"
+                  @changed="afterStepAction"
+                />
+              </div>
+
               <!-- Публикация -->
               <VideoCaptionsSection v-else-if="tab === 'publish'" :video-id="video.id" />
             </div>
@@ -528,6 +582,14 @@ function copyId() {
             :steps="steps"
             :active="isActive"
             @changed="afterStepAction"
+          />
+
+          <VideoStepwisePanel
+            :video-id="video.id"
+            :override="video.stepwiseApproval"
+            :profile-default="editProfile?.stepwiseApproval ?? null"
+            :awaiting-step-key="isAwaitingOperator ? video.awaitingStepKey : null"
+            @changed="refresh"
           />
 
           <div v-if="costItems.length" class="rounded-lg border border-border bg-panel p-3">

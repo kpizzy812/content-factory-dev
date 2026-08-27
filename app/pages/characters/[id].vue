@@ -342,6 +342,24 @@ async function goSibling(delta: -1 | 1) {
           </div>
           <CharacterPresenterSourceClips :character-id="character.id" />
         </section>
+
+        <!-- Голос -->
+        <section class="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3.5 lg:col-span-2">
+          <div>
+            <h2 class="text-micro tracking-[.06em] text-subtle uppercase">Голос персонажа</h2>
+            <p class="mt-1 text-sm text-muted">
+              Клон голоса из образца записи. Единственное платное действие на этой странице —
+              прогон стоит фиксированную сумму и требует подтверждения.
+            </p>
+          </div>
+          <CharacterVoiceClone
+            :character-id="character.id"
+            :voice-id="character.voiceId"
+            :voice-model-id="character.voiceModelId"
+            :voice-sample-sha1="character.voiceSampleSha1"
+            @changed="refresh"
+          />
+        </section>
       </div>
 
       <SharedGenerateAgainModal

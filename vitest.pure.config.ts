@@ -55,6 +55,8 @@ export default defineConfig({
       "tests/unit/presenter/**/*.spec.ts",
       "tests/unit/edit-plan/**/*.spec.ts",
       "tests/unit/shots/**/*.spec.ts",
+      // Монтажная консоль: чистая логика экранов и защита дорогих действий.
+      "tests/unit/edit-console/**/*.spec.ts",
     ],
     exclude: ["node_modules/**", ".nuxt/**", ".output/**"],
   },

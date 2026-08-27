@@ -97,6 +97,14 @@ export interface Character {
   updatedAt: string
   referenceImages?: CharacterReferenceImage[]
   sourceClips?: PresenterSourceClip[]
+  /**
+   * Клон голоса. Голос обучается ПОД конкретную модель: тот же `voiceId` в
+   * другой TTS-модели не существует, поэтому модель хранится рядом.
+   */
+  voiceId?: string | null
+  voiceModelId?: string | null
+  /** Отпечаток образца — по нему повторный клон того же файла не платит второй раз. */
+  voiceSampleSha1?: string | null
 }
 
 /** Payload для POST /api/characters */
