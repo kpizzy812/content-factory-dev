@@ -24,6 +24,19 @@
  *
  * Permission: canRunAgent + moduleSlug='script-generator' + appId scope —
  * как у остальных ручек, которые тратят деньги на персонажа.
+ *
+ * ПОРЯДОК ПРОВЕРОК ЗДЕСЬ — ЧАСТЬ КОНТРАКТА, А НЕ ВКУСОВЩИНА. Сначала
+ * аутентификация с правом и модулем, потом чтение персонажа, и только потом
+ * проверка приложения. Иначе по КОДУ ОТВЕТА посторонний отличал бы
+ * существующий `Character.id` от несуществующего (404 против 401/403) — тот же
+ * класс утечки, который для приложений закрыт в
+ * `tests/api/edit-plan-endpoints.spec.ts` (§«Оракул существования приложения»).
+ *
+ * `appId` до чтения персонажа неоткуда взять, поэтому scope проверяется вторым
+ * заходом — и его отказ отвечает ТЕМ ЖЕ 404, что и «персонажа нет». Для
+ * оператора это честно: персонажа, до которого ему нет доступа, для него и не
+ * существует. Разные коды здесь означали бы «такой id есть, просто не твой», а
+ * это и есть ответ на вопрос, который посторонний задавать не должен.
  */
 import {
   cloneCharacterVoice,
@@ -47,6 +60,15 @@ export default defineEventHandler(async (event) => {
   const characterId = getRouterParam(event, "id")
   if (!characterId) throw createError({ statusCode: 400, message: "id обязателен" })
 
+  // Шаг 1: кто пришёл и вправе ли он вообще тратить деньги на персонажей.
+  // Без `appId` — его ещё неоткуда взять, и именно поэтому этот заход отдельный.
+  // Отказы этого шага (401/403) от id персонажа не зависят вовсе, то есть
+  // существования не выдают.
+  const user = await requireScopedAccess(event, {
+    permissions: ["canRunAgent"],
+    moduleSlug: "script-generator",
+  })
+
   const character = await prisma.character.findUnique({
     where: { id: characterId },
     select: {
@@ -57,13 +79,16 @@ export default defineEventHandler(async (event) => {
       voiceSampleSha1: true,
     },
   })
-  if (!character) throw createError({ statusCode: 404, message: "Персонаж не найден" })
 
-  const user = await requireScopedAccess(event, {
-    permissions: ["canRunAgent"],
-    moduleSlug: "script-generator",
-    appId: character.appId,
-  })
+  // Шаг 2: приложение персонажа. `hasAppAccess` вместо второго
+  // `requireScopedAccess` намеренно: тот бросает 403, а 403 на существующем
+  // против 404 на несуществующем — это и есть оракул. Обе ветки обязаны быть
+  // ОДНИМ ответом, поэтому проверка сведена в одно условие с «не найден».
+  // Контекст пользователя внутри уже закэширован в `event.context`, лишнего
+  // запроса в БД это не стоит.
+  if (!character || !(await hasAppAccess(event, character.appId))) {
+    throw createError({ statusCode: 404, message: "Персонаж не найден" })
+  }
 
   const parts = await readMultipartFormData(event)
   const filePart = parts?.find(part => part.filename && part.data?.length)

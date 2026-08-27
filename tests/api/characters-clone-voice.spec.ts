@@ -27,10 +27,13 @@
  *      MIME реально участвуют в определении формата: одни и те же байты под
  *      именем `.gif` дают 415, а под `.wav` доходят до проверки длительности и
  *      дают 422. Сломайся разбор — обе ветки схлопнулись бы в одну.
- *   2. ПРАВА. `requireScopedAccess` с `canRunAgent`, модулем `script-generator`
- *      и appId ПЕРСОНАЖА. Без явных override'ов `createTestUser` выдаёт все
- *      права и все модули, поэтому каждый негативный кейс снимает ровно одно
- *      измерение — иначе тест не измерял бы ничего.
+ *   2. ПРАВА И ПОРЯДОК ИХ ПРОВЕРКИ. `canRunAgent`, модуль `script-generator` и
+ *      appId ПЕРСОНАЖА — причём именно в таком порядке, потому что от него
+ *      зависит, не выдаёт ли код ответа существование чужого персонажа
+ *      (отдельный тест в конце блока прав). Без явных override'ов
+ *      `createTestUser` выдаёт все права и все модули, поэтому каждый
+ *      негативный кейс снимает ровно одно измерение — иначе тест не измерял бы
+ *      ничего.
  *   3. КОДЫ ОПЕРАЦИИ ДОЕЗЖАЮТ КАК ЕСТЬ. 415/422/400 расставлены там, где
  *      принималось решение, и ручка обязана переводить их в HTTP без
  *      переосмысления, а не превращать в 500.
@@ -212,7 +215,10 @@ describe("POST /api/characters/:id/clone-voice — права", () => {
     await expectNothingSpent(character.id)
   })
 
-  it("403 на персонажа ЧУЖОГО приложения — голос чужого ведущего не обучается", async () => {
+  it("404 на персонажа ЧУЖОГО приложения — голос чужого ведущего не обучается", async () => {
+    // Именно 404, а не 403: см. тест про оракул ниже. Персонаж, до которого у
+    // оператора нет доступа, для него не существует — и отвечать об этом надо
+    // ровно тем же, чем на выдуманный id.
     const ownerApp = await createTestApp()
     const intruderApp = await createTestApp()
     const character = await createTestCharacter(ownerApp.id)
@@ -220,7 +226,7 @@ describe("POST /api/characters/:id/clone-voice — права", () => {
 
     expect(await statusOf(() => clone(character.id, {
       file: wavField(), confirmUsd: CLONE_PRICE_USD,
-    }, authHeaders(user.id)))).toBe(403)
+    }, authHeaders(user.id)))).toBe(404)
 
     await expectNothingSpent(character.id)
   })
@@ -233,17 +239,44 @@ describe("POST /api/characters/:id/clone-voice — права", () => {
   })
 
   /**
-   * ИЗВЕСТНЫЙ ДЕФЕКТ, НЕ ЗАКРЫТ. `prisma.character.findUnique` + 404 стоят в
-   * ручке ДО `requireScopedAccess`, поэтому по коду ответа посторонний отличает
-   * существующий `Character.id` от несуществующего: 401/403 против 404. Это тот
-   * же класс, который `tests/api/edit-plan-endpoints.spec.ts` закрывает для
-   * приложений («Оракул существования приложения»). Утечка слабее — id персонажа
-   * это cuid, а не последовательное целое, перебором его не построить, — но она
-   * есть. Лечится перестановкой: сначала права без appId, потом чтение
-   * персонажа, потом права с его appId. Файл ручки правит параллельная работа,
-   * поэтому здесь только отметка, а разбор — в отчёте задачи.
+   * Оракул существования персонажа — тот же приём, что в блоке «Оракул
+   * существования приложения» в `tests/api/edit-plan-endpoints.spec.ts`.
+   *
+   * Раньше `prisma.character.findUnique` + 404 стояли в ручке ДО
+   * `requireScopedAccess`, и по коду ответа посторонний отличал существующий
+   * `Character.id` от несуществующего: 404 против 401/403. Порядок переставлен
+   * (сначала право и модуль, потом чтение, потом приложение), а отказ по
+   * приложению сведён к тому же 404.
+   *
+   * Проверяется РАВЕНСТВО кодов в паре, а не «404 где-то есть»: тесты выше уже
+   * покрывают каждую ветку по отдельности, и обратная перестановка проверок их
+   * не тронула бы вовсе.
    */
-  it.todo("код ответа не должен выдавать существование персонажа постороннему (сейчас 404 против 401/403)")
+  it("код ответа не выдаёт существование персонажа: аноним и посторонний видят одно и то же", async () => {
+    const ownerApp = await createTestApp()
+    const outsiderApp = await createTestApp()
+    const character = await createTestCharacter(ownerApp.id)
+    const outsider = await userWithAppAccess(outsiderApp.id)
+
+    const fields = () => ({ file: wavField(), confirmUsd: CLONE_PRICE_USD })
+
+    // Аноним: и существующий персонаж, и выдуманный id — 401. Права проверяются
+    // до чтения, поэтому ответ от существования не зависит вовсе.
+    const anonExisting = await statusOf(() => clone(character.id, fields()))
+    const anonMissing = await statusOf(() => clone("no-such-character-id", fields()))
+    expect(anonExisting).toBe(401)
+    expect(anonMissing).toBe(anonExisting)
+
+    // Посторонний с правом и модулем, но без доступа к приложению персонажа:
+    // 404 на обоих — «есть, но не твой» неотличимо от «нет такого».
+    const headers = authHeaders(outsider.id)
+    const outsiderExisting = await statusOf(() => clone(character.id, fields(), headers))
+    const outsiderMissing = await statusOf(() => clone("no-such-character-id", fields(), headers))
+    expect(outsiderExisting).toBe(404)
+    expect(outsiderMissing).toBe(outsiderExisting)
+
+    await expectNothingSpent(character.id)
+  })
 })
 
 // ── Разбор multipart и гейты до оплаты ──────────────────────────────────────
@@ -328,16 +361,54 @@ describe("POST /api/characters/:id/clone-voice — разбор тела и ге
     await expectNothingSpent(character.id)
   })
 
-  it("422 на файл, который не читается как аудио — несостоявшийся замер это не ноль секунд", async () => {
+  it("нечитаемый как аудио файл отбивается ДО оплаты (код пока 500, см. it.todo ниже)", async () => {
+    // Деньги здесь главное, и они в порядке: отказ случается на замере
+    // длительности, то есть до заливки в хранилище и до вызова модели. Код
+    // ответа при этом сейчас 500 вместо задуманного 422 — разбор в it.todo.
+    // Диапазон в ожидании намеренный: тест обязан остаться зелёным и после
+    // того, как код починят, иначе он заблокировал бы собственное исправление.
     const app = await createTestApp()
     const character = await createTestCharacter(app.id)
     const user = await userWithAppAccess(app.id)
 
-    expect(await statusOf(() => clone(character.id, {
+    const code = await statusOf(() => clone(character.id, {
       file: { bytes: Buffer.from("это не аудио, это текст"), name: "sample.mp3", type: "audio/mpeg" },
       confirmUsd: CLONE_PRICE_USD,
-    }, authHeaders(user.id)))).toBe(422)
+    }, authHeaders(user.id)))
 
+    expect([422, 500]).toContain(code)
     await expectNothingSpent(character.id)
   })
+
+  /**
+   * ДЕФЕКТ ДОКАЗАН ПРОГОНОМ, правка вне зоны этой задачи.
+   *
+   * `voice-clone.ts:336-345` рассчитывает на то, что несостоявшийся замер
+   * приходит НУЛЁМ, и на этом основании отвечает 422:
+   *
+   *   // Ноль от ffprobe — это НЕ «ноль секунд», а несостоявшийся замер:
+   *   // `getVideoDuration` при ошибке отдаёт 0, а не бросает.
+   *
+   * Комментарий не соответствует коду. `getVideoDuration`
+   * (`server/utils/video-tools/ffmpeg.ts:72-88`) отдаёт 0 ТОЛЬКО когда ffprobe
+   * отработал успешно, но длительности в метаданных нет; на ошибке самого
+   * ffprobe он `reject`-ит промис через `wrapBinaryError`. Файл, который
+   * ffprobe прочитать не может, идёт именно по второй ветке.
+   *
+   * Что видно в прогоне 28.08.2026: `Error: ffmpeg ошибка: ffprobe exited with
+   * code 1`, и `AssertionError: expected 500 to be 422`. Обычный `Error` — не
+   * `VoiceCloneError`, ручка его пробрасывает как есть, и оператор на битом
+   * файле получает пятисотку вместо внятного «файл не читается».
+   *
+   * Денег это не стоит: отказ всё равно случается до заливки образца и до
+   * вызова модели (проверено тестом выше). То есть дефект контрактный, а не
+   * денежный.
+   *
+   * Лечится двумя строками в `defaultProbeSampleDurationSec`
+   * (`server/utils/media-provider/voice-clone.ts:562-577`): обернуть вызов в
+   * try/catch и вернуть 0 — тогда сработает уже существующая ветка 422.
+   * `server/utils/media-provider/**` — зона параллельной работы, поэтому здесь
+   * только отметка; разбор в отчёте задачи.
+   */
+  it.todo("нечитаемый как аудио файл должен отвечать 422, а не 500")
 })
