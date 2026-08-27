@@ -13,7 +13,11 @@
  * и ролик оплатил бы синтез текста, который оператор уже переписал.
  */
 
-import { applyScriptOverrides } from "./script-overrides"
+import {
+  applyScriptOverrides,
+  planVideoSubtitleOverride,
+  type SubtitleScenePatch,
+} from "./script-overrides"
 
 export interface VideoScriptSource {
   /** Общий сценарий варианта — без правок ролика. */
@@ -55,4 +59,52 @@ export async function loadVideoStoryPlan(videoId: number): Promise<unknown> {
   const source = await loadVideoScriptSource(videoId)
   if (!source) return null
   return applyScriptOverrides(source.storyPlan, source.overrides)
+}
+
+export interface SaveSubtitleOverridesResult {
+  /** Что-то реально записано в ролик. `false` — писать было нечего. */
+  changed: boolean
+  /** Сколько сцен поправлено. */
+  patched: number
+  /** Почему не записано, когда `changed: false` по причине отказа. */
+  reason?: string
+}
+
+/**
+ * Правка ПОДПИСЕЙ конкретного ролика.
+ *
+ * Одна точка записи на всех: ручку `edit-subtitles` и тесты. Заведись у ручки
+ * свой `prisma.video.update`, рано или поздно он разошёлся бы с наложением —
+ * ровно та дыра, из-за которой правка субтитров и уезжала в общий вариант.
+ *
+ * Ролик без варианта (legacy или отвязанный) — не ошибка прогона: писать
+ * подписи некуда, но и падать не за что. Возвращаем причину, вызывающий решает
+ * сам.
+ */
+export async function saveVideoSubtitleOverrides(
+  videoId: number,
+  scenes: readonly SubtitleScenePatch[],
+): Promise<SaveSubtitleOverridesResult> {
+  if (scenes.length === 0) return { changed: false, patched: 0 }
+
+  const source = await loadVideoScriptSource(videoId)
+  if (!source) {
+    return { changed: false, patched: 0, reason: "у ролика нет сценария: вариант не привязан или удалён" }
+  }
+
+  const plan = planVideoSubtitleOverride({
+    storyPlan: source.storyPlan,
+    overrides: source.overrides,
+    scenes,
+  })
+  if (!plan.ok) return { changed: false, patched: 0, reason: plan.reason }
+  // Ничего не изменилось — не трогаем ролик вовсе: лишний UPDATE тянет за собой
+  // лишнюю пересборку mp4 на каждый клик «сохранить».
+  if (!plan.changed) return { changed: false, patched: 0 }
+
+  await prisma.video.update({
+    where: { id: videoId },
+    data: { scriptOverrides: plan.overrides as never },
+  })
+  return { changed: true, patched: plan.patched }
 }

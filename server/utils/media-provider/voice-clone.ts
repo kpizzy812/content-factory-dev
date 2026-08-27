@@ -142,7 +142,14 @@ export interface VoiceCloneCostEntry {
 export interface VoiceCloneDeps {
   spec?: VoiceCloningModelSpec
   storage?: VoiceCloneStorage
-  /** Длительность образца в секундах. 0 — замер НЕ состоялся (см. ниже). */
+  /**
+   * Длительность образца в секундах.
+   *
+   * Несостоявшийся замер разрешено сообщать обоими способами — нулём (ffprobe
+   * отработал, длительности нет) или броском (ffprobe не прочитал файл). Оба
+   * дают отказ 422 ДО оплаты, см. `cloneCharacterVoice`; бросок при этом не
+   * обязан быть `VoiceCloneError`.
+   */
   probeSampleDurationSec?: (bytes: Buffer, extension: string) => Promise<number>
   runTask?: (
     request: MediaTaskRequest<"voice_cloning">,
@@ -332,10 +339,44 @@ export async function cloneCharacterVoice(
   }
 
   const probe = deps.probeSampleDurationSec ?? defaultProbeSampleDurationSec
-  const durationSec = await probe(bytes, extension)
-  // Ноль от ffprobe — это НЕ «ноль секунд», а несостоявшийся замер:
-  // `getVideoDuration` при ошибке отдаёт 0, а не бросает. Пропустить такой
-  // образец значит заплатить $3 за файл, который модель отвергнет.
+  /**
+   * Замер НЕ СОСТОЯЛСЯ — две разные ветки, и обе обязаны кончаться отказом 422
+   * ДО заливки образца и ДО модели.
+   *
+   *  1. Замер вернул 0. `getVideoDuration` (`../video-tools/ffmpeg.ts`) отдаёт
+   *     ноль ровно тогда, когда ffprobe отработал успешно, но длительности в
+   *     метаданных нет.
+   *  2. Замер БРОСИЛ. На ошибке самого ffprobe тот же `getVideoDuration`
+   *     `reject`-ит промис через `wrapBinaryError`, и битый файл (текст с
+   *     расширением .mp3, оборванный контейнер) идёт именно сюда. Раньше
+   *     обычный `Error` летел мимо `VoiceCloneError`, ручка мапит в HTTP только
+   *     его — и оператор на нечитаемом файле получал 500 вместо внятного
+   *     «файл не читается как аудио». Ветка 422 при этом была недостижима.
+   *
+   * ЛОВИМ ЗДЕСЬ, А НЕ В `defaultProbeSampleDurationSec` И ТЕМ БОЛЕЕ НЕ В
+   * `getVideoDuration`. Контракт «без замера не платим» принадлежит этой
+   * функции, а не одной конкретной реализации замера: почини мы это внутри
+   * дефолтной, любой другой замер (тест, будущий драйвер) снова уронил бы
+   * пятисотку. А `getVideoDuration` трогать нельзя тем более — его ноль и его
+   * бросок различают все остальные вызывающие (`extractFramesFfmpeg` на нуле
+   * падает своим сообщением), и превращение броска в ноль проглотило бы ошибку
+   * там, где она значима.
+   *
+   * ПРИЧИНА НЕ ГЛОТАЕТСЯ: текст ffprobe уходит в сообщение отказа. Пустые
+   * метаданные лечатся перекодированием образца, а упавший ffprobe — это битый
+   * файл или отсутствующий бинарь; один текст на две причины стёр бы разницу.
+   */
+  let durationSec: number
+  try {
+    durationSec = await probe(bytes, extension)
+  } catch (error) {
+    throw new VoiceCloneError(
+      `Не удалось прочитать образец как аудио (${describeError(error)}) — `
+      + "без замера длительности прогон не запускаем: модель отвергла бы такой файл "
+      + "уже ПОСЛЕ создания задачи, то есть за наши деньги",
+      422,
+    )
+  }
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
     throw new VoiceCloneError(
       "Не удалось измерить длительность образца (ffprobe вернул 0) — "
@@ -558,6 +599,10 @@ async function defaultSaveCharacterVoice(
  * Длительность образца. Тот же ffprobe, каким меряются исходные клипы ведущего
  * (`server/api/characters/[id]/source-clips/index.post.ts`): образец приходит
  * буфером, поэтому кладём его во временный файл — ffprobe читает файл.
+ *
+ * Ошибку ffprobe НЕ гасим здесь: она несёт причину («ffprobe exited with code
+ * 1», «бинарь не найден»), а превратить её в отказ 422 с сохранением причины —
+ * дело `cloneCharacterVoice`, где живёт правило «без замера не платим».
  */
 async function defaultProbeSampleDurationSec(bytes: Buffer, extension: string): Promise<number> {
   const { mkdtemp, rm, writeFile } = await import("node:fs/promises")

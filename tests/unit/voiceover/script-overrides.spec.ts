@@ -17,7 +17,9 @@ import { describe, expect, it } from "vitest"
 import {
   applyScriptOverrides,
   planVideoScriptOverride,
+  planVideoSubtitleOverride,
   readScriptOverrides,
+  readSubtitleOverrides,
 } from "~~/server/utils/voiceover/script-overrides"
 
 /** Общий сценарий варианта: сцена 2 — реплика ведущего, сцена 3 — закадровая. */
@@ -242,6 +244,233 @@ describe("planVideoScriptOverride — запись правки в ролик", 
     })
 
     expect(patch.ok).toBe(false)
+  })
+})
+
+/**
+ * СУБТИТРЫ — вторая правка, которая жила в общем варианте.
+ *
+ * `POST /api/videos/[id]/edit-subtitles` правил `subtitleCopy` и
+ * `subtitlePlacement` прямо в `ScenarioVariant.storyPlan.scenes[]` — то есть
+ * ровно тем же способом, которым правилась фраза до коммита `f6df7d0`. Правка
+ * субтитров одного ролика переписывала субтитры всем соседям по варианту, и
+ * сосед узнавал об этом на первой же пересборке.
+ *
+ * Хранится всё в ТОЙ ЖЕ колонке `Video.scriptOverrides`, отдельным списком
+ * `subtitles`. Второй колонки не заводится намеренно: у неё был бы второй
+ * читатель и вторая точка наложения, а забытая точка наложения — это ровно тот
+ * класс дефекта, который здесь и чинится.
+ */
+function subtitleOf(plan: unknown, order: number): string | null {
+  const scenes = ((plan as Record<string, unknown>).scenes ?? []) as Array<{ order: number, subtitleCopy?: string }>
+  return scenes.find(scene => scene.order === order)?.subtitleCopy ?? null
+}
+
+function placementOf(plan: unknown, order: number): Record<string, unknown> | null {
+  const scenes = ((plan as Record<string, unknown>).scenes ?? []) as Array<{
+    order: number
+    subtitlePlacement?: Record<string, unknown>
+  }>
+  return scenes.find(scene => scene.order === order)?.subtitlePlacement ?? null
+}
+
+describe("правка субтитров живёт на ролике, а не в общем варианте", () => {
+  it("правка субтитра накладывается на сцену и не трогает исходный сценарий", () => {
+    const plan = basePlan()
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan,
+      overrides: null,
+      scenes: [{ order: 2, subtitleCopy: "НОВЫЙ СУБТИТР" }],
+      at: "2026-08-28T00:00:00.000Z",
+    })
+
+    expect(patch.ok && patch.changed).toBe(true)
+    if (!patch.ok) return
+    expect(subtitleOf(applyScriptOverrides(plan, patch.overrides), 2)).toBe("НОВЫЙ СУБТИТР")
+    // Общий вариант обязан остаться нетронутым: его читают соседи.
+    expect(subtitleOf(plan, 2)).toBe("вторая")
+  })
+
+  it("правка субтитра не трогает произносимую реплику", () => {
+    // Субтитр и реплика — разные тексты сцены (`subtitleCopy` это пересказ
+    // сценариста). Задень правка субтитра `spokenLine`, ролик оплатил бы
+    // пересинтез трека и lip-sync ради подписи под кадром.
+    const plan = basePlan()
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan, overrides: null, scenes: [{ order: 2, subtitleCopy: "ПОДПИСЬ" }],
+    })
+    if (!patch.ok) throw new Error(patch.reason)
+
+    const effective = applyScriptOverrides(plan, patch.overrides)
+    expect(spokenOf(effective, 2)).toBe("вторая")
+    expect(narrationOf(effective, 3)).toBe("третья")
+  })
+
+  it("позиция субтитра правится отдельно от текста и валидируется", () => {
+    const plan = basePlan()
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan,
+      overrides: null,
+      scenes: [{ order: 1, subtitlePlacement: { position: "top", alignment: "left" } }],
+    })
+    if (!patch.ok) throw new Error(patch.reason)
+
+    const effective = applyScriptOverrides(plan, patch.overrides)
+    expect(placementOf(effective, 1)).toEqual({ position: "top", alignment: "left", avoidZones: [] })
+    // Текст сцены при этом не тронут.
+    expect(subtitleOf(effective, 1)).toBe("первая")
+  })
+
+  it("мусор в позиции не пишется в сценарий — берётся то, что стояло у сцены", () => {
+    // Валидация обязана жить ЗДЕСЬ, а не в ручке: тот же патч приходит из
+    // раннера и из тестов, и второй копии правила быть не должно.
+    const plan = basePlan()
+    ;(plan.scenes as Array<Record<string, unknown>>)[0]!.subtitlePlacement = {
+      position: "center", alignment: "right", avoidZones: ["logo"],
+    }
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan,
+      overrides: null,
+      scenes: [{ order: 1, subtitlePlacement: { position: "диагональ" as never, alignment: "боком" as never } }],
+    })
+    if (!patch.ok) throw new Error(patch.reason)
+
+    // Мусор целиком свёлся к тому, что уже стоит у сцены, — значит писать
+    // НЕЧЕГО. Запиши мы «правку», в колонке ролика осела бы позиция, которой
+    // рендер не знает, а ролик получил бы лишнюю пересборку mp4 из ниоткуда.
+    expect(patch.changed).toBe(false)
+    expect(patch.overrides.subtitles).toHaveLength(0)
+    expect(placementOf(applyScriptOverrides(plan, patch.overrides), 1))
+      .toEqual({ position: "center", alignment: "right", avoidZones: ["logo"] })
+  })
+
+  it("мусор в позиции не оседает в колонке и там, где у сцены позиции не было", () => {
+    // Вторая половина того же правила: сцена без `subtitlePlacement` вообще.
+    // Мусор обязан свестись к общему дефолту (низ по центру), а не уехать в
+    // колонку как есть.
+    const plan = basePlan()
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan,
+      overrides: null,
+      scenes: [{ order: 2, subtitlePlacement: { position: "вверх ногами" as never, alignment: "центр" as never } }],
+    })
+    if (!patch.ok) throw new Error(patch.reason)
+
+    for (const entry of patch.overrides.subtitles) {
+      expect(["top", "center", "bottom"]).toContain(entry.placement?.position)
+      expect(["left", "center", "right"]).toContain(entry.placement?.alignment)
+    }
+    expect(placementOf(applyScriptOverrides(plan, patch.overrides), 2))
+      .toEqual({ position: "bottom", alignment: "center", avoidZones: [] })
+  })
+
+  it("повторная правка той же сцены замещает прежнюю, а не копится", () => {
+    const plan = basePlan()
+    const first = planVideoSubtitleOverride({
+      storyPlan: plan, overrides: null, scenes: [{ order: 2, subtitleCopy: "первая правка" }],
+    })
+    if (!first.ok) throw new Error(first.reason)
+    const second = planVideoSubtitleOverride({
+      storyPlan: plan, overrides: first.overrides, scenes: [{ order: 2, subtitleCopy: "вторая правка" }],
+    })
+    if (!second.ok) throw new Error(second.reason)
+
+    expect(second.overrides.subtitles).toHaveLength(1)
+    expect(subtitleOf(applyScriptOverrides(plan, second.overrides), 2)).toBe("вторая правка")
+  })
+
+  it("тот же текст второй раз ничего не пишет", () => {
+    // Пустая запись — это лишний UPDATE ролика и лишняя пересборка mp4 на
+    // каждый клик «сохранить».
+    const plan = basePlan()
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan, overrides: null, scenes: [{ order: 2, subtitleCopy: "вторая" }],
+    })
+
+    expect(patch.ok && patch.changed).toBe(false)
+  })
+
+  it("правка сцены, которой нет в сценарии, роняет только себя", () => {
+    const plan = basePlan()
+    const patch = planVideoSubtitleOverride({
+      storyPlan: plan,
+      overrides: null,
+      scenes: [{ order: 99, subtitleCopy: "мимо" }, { order: 2, subtitleCopy: "в цель" }],
+    })
+    if (!patch.ok) throw new Error(patch.reason)
+
+    expect(patch.overrides.subtitles).toHaveLength(1)
+    expect(subtitleOf(applyScriptOverrides(plan, patch.overrides), 2)).toBe("в цель")
+  })
+
+  it("правка реплики НЕ стирает правку субтитров и наоборот", () => {
+    // Оба списка живут в одной колонке, и запись одного обязана сохранять
+    // другой. Затри правка фразы список субтитров — оператор потерял бы
+    // подписи, за пересборку которых уже платил временем монтажа.
+    const plan = basePlan()
+    const withSubtitle = planVideoSubtitleOverride({
+      storyPlan: plan, overrides: null, scenes: [{ order: 2, subtitleCopy: "ПОДПИСЬ" }],
+    })
+    if (!withSubtitle.ok) throw new Error(withSubtitle.reason)
+
+    const withLine = planVideoScriptOverride({
+      storyPlan: plan, overrides: withSubtitle.overrides, sceneOrder: 2, newText: "новая фраза",
+    })
+    if (!withLine.ok) throw new Error(withLine.reason)
+
+    expect(withLine.overrides.subtitles).toHaveLength(1)
+    expect(withLine.overrides.lines).toHaveLength(1)
+
+    const effective = applyScriptOverrides(plan, withLine.overrides)
+    expect(spokenOf(effective, 2)).toBe("новая фраза")
+    expect(subtitleOf(effective, 2)).toBe("ПОДПИСЬ")
+
+    // И в обратную сторону: правка субтитра поверх правки фразы.
+    const back = planVideoSubtitleOverride({
+      storyPlan: plan, overrides: withLine.overrides, scenes: [{ order: 1, subtitleCopy: "ЕЩЁ ОДНА" }],
+    })
+    if (!back.ok) throw new Error(back.reason)
+    expect(back.overrides.lines).toHaveLength(1)
+    expect(spokenOf(applyScriptOverrides(plan, back.overrides), 2)).toBe("новая фраза")
+  })
+
+  it("ролик без правок субтитров читает ТОТ ЖЕ объект сценария", () => {
+    const plan = basePlan()
+
+    expect(applyScriptOverrides(plan, { v: 1, lines: [], subtitles: [] })).toBe(plan)
+  })
+
+  it("мусор в списке субтитров читается как пустой список, а не роняет чтение", () => {
+    expect(readSubtitleOverrides(null)).toEqual([])
+    expect(readSubtitleOverrides({ v: 1, lines: [] })).toEqual([])
+    expect(readSubtitleOverrides({ subtitles: "нет" })).toEqual([])
+    expect(readSubtitleOverrides({ subtitles: [{ sceneOrder: "два", copy: "x" }] })).toEqual([])
+    // Запись без единого поля правки бесполезна — накладывать нечего.
+    expect(readSubtitleOverrides({ subtitles: [{ sceneOrder: 2 }] })).toEqual([])
+  })
+
+  it("ручка субтитров пишет на РОЛИК, а не в общий вариант", async () => {
+    // Контрактная проверка исходника: у ручки есть побочный эффект
+    // (`rerunVideoStep`), и прогонять её ради одной строки записи пришлось бы
+    // поднятым Nuxt. Вернись сюда `scenarioVariant.update` — правка субтитров
+    // снова уезжала бы соседям по варианту.
+    const { readFile } = await import("node:fs/promises")
+    const source = await readFile("server/api/videos/[id]/edit-subtitles.post.ts", "utf-8")
+
+    expect(source).toMatch(/saveVideoSubtitleOverrides/)
+    expect(source).not.toMatch(/scenarioVariant\.update/)
+  })
+
+  it("редактор получает сценарий ГЛАЗАМИ ролика, а не сырой вариант", async () => {
+    // `app/components/video/VideoSubtitleEditor.vue` читает подписи из
+    // `variant.storyPlan`, который приезжает из `GET /api/videos/[id]`. Отдай
+    // ручка сырой вариант — редактор показывал бы общий текст сразу после того,
+    // как оператор сохранил свой, а следующее сохранение затёрло бы правку
+    // обратно общим текстом.
+    const { readFile } = await import("node:fs/promises")
+    const source = await readFile("server/api/videos/[id].get.ts", "utf-8")
+
+    expect(source).toMatch(/applyScriptOverrides\(variant\.storyPlan, video\.scriptOverrides\)/)
   })
 })
 

@@ -8,15 +8,27 @@
  * StoryPlan.subtitleStyle остаётся snapshot'ом «рекомендации сценария» — нужен
  * чтобы editor показывал badge «из сценария / изменено вручную» и кнопку reset.
  *
- * Per-scene текст и позиция (subtitleCopy / subtitlePlacement) хранятся в
- * ScenarioVariant.storyPlan.scenes[i] — это локальные данные сцены, а не
- * глобальный стиль; их обновляем там же.
+ * Per-scene текст и позиция (subtitleCopy / subtitlePlacement) — это локальные
+ * данные сцены, и живут они В ПРАВКАХ РОЛИКА (`Video.scriptOverrides`), а не в
+ * общем `ScenarioVariant.storyPlan`.
+ *
+ * ПОЧЕМУ НЕ В ВАРИАНТЕ. Вариант ОБЩИЙ: `Video.variantId` уникальности не даёт,
+ * один вариант кормит сколько угодно роликов, а конвейер и вовсе выбирает
+ * вариант через `Scenario.selectedVariantId` — на ролик не смотрит вообще.
+ * Правка подписи на одном ролике переписывала её всем соседям, и сосед узнавал
+ * об этом на первой же пересборке — которую, кстати, запускает и эта же ручка.
+ * Ровно та дыра, которую для реплик закрыл коммит `f6df7d0`; здесь она жила
+ * дальше. Механизм тот же и намеренно тот же самый модуль
+ * (`server/utils/voiceover/script-overrides.ts`): патч на ролике, наложение при
+ * чтении, копии большого плана не заводится.
  *
  * После сохранения запускается rerunVideoStep('assembly') — клипы на диске
  * переиспользуются, ffmpeg перестраивает финальный mp4 (5-10 сек, бесплатно).
+ * Свежие подписи он увидит сам: `runVideoPipeline` строит план прогона из
+ * `applyScriptOverrides(variant.storyPlan, video.scriptOverrides)`.
  */
 
-import type { StoryPlan, SubtitleStyleProfile, SubtitlePlacement } from '~~/shared/types/story'
+import type { StoryPlan, SubtitleStyleProfile } from '~~/shared/types/story'
 import {
   SUBTITLE_WORDS_PER_LINE_MIN,
   SUBTITLE_WORDS_PER_LINE_MAX,
@@ -24,23 +36,16 @@ import {
 import { mergeSubtitleStyle } from '~~/server/utils/subtitle-style'
 import { rerunVideoStep } from '~~/server/utils/video-pipeline'
 import { isKnownPresetKey, listAllKnownKeys } from '~~/server/utils/subtitles/preset-registry'
-
-interface SceneSubtitlePatch {
-  order: number
-  subtitleCopy?: string
-  subtitlePlacement?: Partial<SubtitlePlacement>
-}
+import { saveVideoSubtitleOverrides } from '~~/server/utils/voiceover/script-source'
+import type { SubtitleScenePatch } from '~~/server/utils/voiceover/script-overrides'
 
 interface EditSubtitlesBody {
   subtitlePreset?: string
   subtitleStyle?: Partial<SubtitleStyleProfile>
-  scenes?: SceneSubtitlePatch[]
+  scenes?: SubtitleScenePatch[]
   /** Не пересобирать сразу — оператор хочет сохранить и отдельно нажать «Применить и пересобрать». */
   skipRerun?: boolean
 }
-
-const VALID_POSITIONS = ['top', 'center', 'bottom']
-const VALID_ALIGNMENTS = ['left', 'center', 'right']
 
 export default defineEventHandler(async (event) => {
   await requireScopedAccess(event, { permissions: ['canRunAgent'], moduleSlug: 'video-generator' })
@@ -111,43 +116,14 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 3. Patch per-scene текст / позиция в ScenarioVariant.storyPlan.scenes —
-  // это локальные данные сцен, остаются в storyPlan (там же они и созданы scene-planner'ом).
-  if (body.scenes?.length && video.variantId) {
-    const variant = await prisma.scenarioVariant.findUnique({ where: { id: video.variantId } })
-    if (variant?.storyPlan) {
-      const storyPlan = variant.storyPlan as unknown as StoryPlan
-      if (Array.isArray(storyPlan.scenes)) {
-        const patchMap = new Map<number, SceneSubtitlePatch>()
-        for (const p of body.scenes) patchMap.set(p.order, p)
-
-        const patchedScenes = storyPlan.scenes.map((scene) => {
-          const p = patchMap.get(scene.order)
-          if (!p) return scene
-          const next = { ...scene }
-          if (typeof p.subtitleCopy === 'string') {
-            next.subtitleCopy = p.subtitleCopy
-          }
-          if (p.subtitlePlacement) {
-            const pos = p.subtitlePlacement.position
-            const align = p.subtitlePlacement.alignment
-            next.subtitlePlacement = {
-              position: pos && VALID_POSITIONS.includes(pos) ? pos : scene.subtitlePlacement?.position ?? 'bottom',
-              alignment: align && VALID_ALIGNMENTS.includes(align) ? align : scene.subtitlePlacement?.alignment ?? 'center',
-              avoidZones: p.subtitlePlacement.avoidZones ?? scene.subtitlePlacement?.avoidZones ?? [],
-            }
-          }
-          return next
-        })
-
-        await prisma.scenarioVariant.update({
-          where: { id: variant.id },
-          data: {
-            storyPlan: { ...storyPlan, scenes: patchedScenes } as never,
-          },
-        })
-      }
-    }
+  // 3. Patch per-scene текст / позиция — В ПРАВКИ ЭТОГО РОЛИКА, а не в общий
+  // вариант. Валидация положения (position/alignment) и «сцены нет в сценарии»
+  // живут внутри `saveVideoSubtitleOverrides`: там же, где наложение, и потому
+  // разъехаться им негде.
+  let scenesPatched = 0
+  if (body.scenes?.length) {
+    const saved = await saveVideoSubtitleOverrides(id, body.scenes)
+    scenesPatched = saved.patched
   }
 
   // 4. Пересобираем mp4 через rerunVideoStep('assembly') — клипы на диске
@@ -164,7 +140,10 @@ export default defineEventHandler(async (event) => {
       updated: {
         subtitlePreset: body.subtitlePreset ?? null,
         hasStyleUpdate: !!body.subtitleStyle,
-        scenesPatched: body.scenes?.length ?? 0,
+        // Сколько сцен РЕАЛЬНО поправлено, а не сколько прислали: сцена вне
+        // сценария и повторная правка тем же текстом не пишут ничего, и
+        // рапортовать о них как о правках значило бы врать оператору.
+        scenesPatched,
       },
       status: body.skipRerun ? video.status : 'pending',
     },

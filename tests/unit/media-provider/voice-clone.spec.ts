@@ -33,6 +33,7 @@ import {
   extractClonedVoiceId,
   resolveVoiceSampleExtension,
   resolveVoiceSamplePublicUrl,
+  VoiceCloneError,
   type VoiceCloneCharacter,
   type VoiceCloneDeps,
   type VoiceCloneStorage,
@@ -210,13 +211,79 @@ describe("клон голоса: проверки образца ДО оплат
   })
 
   it("ffprobe вернул 0 — это НЕ ноль секунд, а несостоявшийся замер: отказ", async () => {
-    // `getVideoDuration` при ошибке отдаёт 0, а не бросает (известный дефект,
-    // см. план preflight Task 2). Молча пропустить такой образец — заплатить $3
-    // за файл, который модель отвергнет.
+    // Ноль приходит из ОДНОЙ ветки `getVideoDuration`: ffprobe отработал, но
+    // длительности в метаданных нет. Молча пропустить такой образец — заплатить
+    // $3 за файл, который модель отвергнет.
     const h = harness({ durationSec: 0 })
 
-    await expect(cloneCharacterVoice(request(), h.deps)).rejects.toThrow(/измер/i)
+    const error = await cloneCharacterVoice(request(), h.deps).catch((e: unknown) => e)
+    expect((error as VoiceCloneError).statusCode).toBe(422)
+    expect((error as Error).message).toMatch(/измер/i)
     expect(h.runTask).not.toHaveBeenCalled()
+  })
+
+  /**
+   * ВТОРАЯ ветка несостоявшегося замера — и до этой задачи она была дырой.
+   *
+   * `getVideoDuration` (`server/utils/video-tools/ffmpeg.ts:72-88`) отдаёт 0
+   * ТОЛЬКО когда ffprobe отработал успешно и не дал длительности; на ошибке
+   * самого ffprobe он `reject`-ит промис через `wrapBinaryError`. Файл, который
+   * ffprobe прочитать не может (текст с расширением .mp3, битый контейнер),
+   * идёт именно по второй ветке — наружу летел обычный `Error`, ручка мапит в
+   * HTTP только `VoiceCloneError`, и оператор получал 500 вместо внятного
+   * «файл не читается» (доказано прогоном 28.08.2026,
+   * `tests/api/characters-clone-voice.spec.ts`).
+   *
+   * Проверяется на ВНЕДРЁННОМ замере, а не на настоящем ffprobe: контракт
+   * принадлежит `cloneCharacterVoice`, а не одной конкретной реализации замера.
+   * Почини мы это внутри `defaultProbeSampleDurationSec`, любой другой замер
+   * (тест, будущий драйвер) снова уронил бы пятисотку.
+   */
+  it("замер УПАЛ (ffprobe не прочитал файл) — тот же отказ 422, а не пятисотка", async () => {
+    const h = harness({
+      probeSampleDurationSec: async () => {
+        throw new Error("ffmpeg ошибка: ffprobe exited with code 1")
+      },
+    })
+
+    const error = await cloneCharacterVoice(request(), h.deps).catch((e: unknown) => e)
+    expect(error, "отказ обязан быть VoiceCloneError — иначе ручка отдаёт 500")
+      .toBeInstanceOf(VoiceCloneError)
+    expect((error as VoiceCloneError).statusCode).toBe(422)
+
+    // Деньги: отказ случается ДО заливки образца в хранилище и ДО модели.
+    expect(h.runTask).not.toHaveBeenCalled()
+    expect(h.objects.size, "в хранилище не должно появиться ни одного объекта").toBe(0)
+  })
+
+  it("причина падения замера доезжает до оператора, а не глотается", async () => {
+    // Глотать ошибку целиком (try/catch → 0) нельзя: 422 без причины отправляет
+    // оператора гадать, что именно не так с файлом. Текст ffprobe — это и есть
+    // ответ.
+    const h = harness({
+      probeSampleDurationSec: async () => {
+        throw new Error("ffmpeg ошибка: ffprobe exited with code 1")
+      },
+    })
+
+    const error = await cloneCharacterVoice(request(), h.deps).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(VoiceCloneError)
+    expect((error as Error).message).toMatch(/ffprobe exited with code 1/)
+  })
+
+  it("«ноль секунд» и «замер упал» остаются РАЗЛИЧИМЫ по тексту отказа", async () => {
+    // Оба ведут к 422 и оба стоят ноль денег, но чинятся по-разному: пустые
+    // метаданные — это перекодировать образец, упавший ffprobe — это битый файл
+    // или отсутствующий бинарь. Один текст на две причины стёр бы разницу.
+    const zero = await cloneCharacterVoice(request(), harness({ durationSec: 0 }).deps)
+      .catch((e: unknown) => e as Error)
+    const failed = await cloneCharacterVoice(request(), harness({
+      probeSampleDurationSec: async () => { throw new Error("ffprobe exited with code 1") },
+    }).deps).catch((e: unknown) => e as Error)
+
+    expect(zero.message).not.toBe(failed.message)
+    expect(zero.message).toMatch(/0|нол/i)
+    expect(failed.message).toMatch(/ffprobe exited with code 1/)
   })
 })
 
