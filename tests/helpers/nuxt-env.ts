@@ -1,6 +1,17 @@
 /**
  * Общий env-блок для @nuxt/test-utils setup() во всех integration/api spec-файлах.
  *
+ * ПОЧЕМУ ЭТИ СЬЮТЫ ПАДАЮТ С `ECONNREFUSED` И ПОЧЕМУ ЭТО НЕ ПРО КОД.
+ * `setup({ dev: true, server: true })` делает ДВА полных билда Nuxt: сначала
+ * `buildFixture()` собирает проект прямо в процессе vitest (без него не
+ * создаётся `ctx.nuxt`, и `startServer` падает), потом поднимается отдельный
+ * `nuxi _dev`. На второй у харнесса зашит бюджет ~31 секунда —
+ * `waitForPort(retries: 32)` по 500 мс плюс цикл `for (i < 150)` по 100 мс — и
+ * по его исчерпании он убивает сервер и бросает НАКОПЛЕННУЮ ошибку последнего
+ * `$fetch`, то есть `ECONNREFUSED` порта, который ещё не открылся. Ручки для
+ * увеличения бюджета в `@nuxt/test-utils@3` нет. Разбор и рецепт —
+ * `docs/operations/running-db-tests.md`, раздел про `tests/api`.
+ *
  * Что важно:
  *  - dev: true — иначе @nuxt/test-utils выставляет NODE_ENV=production,
  *    и наш TEST_AUTH_BYPASS-гейт перестаёт работать (сделано специально).

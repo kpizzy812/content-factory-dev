@@ -90,6 +90,33 @@ Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.Comm
 bunx vitest run tests/api/<файл>.spec.ts > run.log 2>&1
 ```
 
+**`ECONNREFUSED` на порту Nuxt — это таймаут харнесса, а не дефект сервера.** Разобрано 27.08.2026 по коду `@nuxt/test-utils@3` (`dist/shared/test-utils.BsmyE2FA.mjs`, `startServer`, ветка `dev: true`):
+
+```js
+await waitForPort(port, { retries: 32, host }).catch(() => {})   // 32 × 500 мс = 16 с, отказ ПРОГЛАТЫВАЕТСЯ
+let lastError
+for (let i = 0; i < 150; i++) {                                  // 150 × 100 мс = ещё 15 с
+  await new Promise(r => setTimeout(r, 100))
+  try { const res = await $fetch(baseURL, { responseType: "text" }); if (!res.includes("__NUXT_LOADING__")) return }
+  catch (e) { lastError = e }
+}
+ctx.serverProcess.kill()
+throw lastError || new Error("Timeout waiting for dev server!")
+```
+
+То есть у `nuxi _dev` есть **ровно ~31 секунда**, чтобы начать отвечать. Не успел — харнесс убивает его и бросает НАКОПЛЕННУЮ ошибку последнего `$fetch`, а это `ECONNREFUSED` (порт ещё не открыт). Никакого «Nuxt отдаёт ECONNREFUSED на своём же порту» не происходит: сервер в этот момент ещё собирается. Числа зашиты в библиотеку, ручки для их увеличения нет.
+
+Отсюда следствия. Один файл `tests/api` делает ДВА полных билда Nuxt: `setup()` сначала собирает проект в процессе vitest (`buildFixture` → `buildNuxt`, обязателен — без него `ctx.nuxt` не создаётся и `startServer` падает), и только потом поднимает `nuxi _dev`. Второй билд укладывается в 31 секунду лишь потому, что первый прогрел `.nuxt`. Любая нехватка ресурсов — соседний билд другого проекта, вторая сьюта, осиротевший `nuxi _dev` — выбивает из бюджета, и весь файл падает целиком, ещё до первого теста.
+
+**Проверяйте свободную память перед прогоном.** На 27.08.2026 при 2,45 ГБ свободных из 16 прогон одного файла закончился `Segmentation fault` (`EXIT=139`) прямо в процессе vitest, без единого теста и без итоговой сводки. Это не дефект сьюты — это машина.
+
+```powershell
+Get-CimInstance Win32_OperatingSystem |
+  Select-Object @{n='FreeGB';e={[math]::Round($_.FreePhysicalMemory/1MB,2)}}
+```
+
+**Предупреждения esbuild про `Big integer literals ... ("es2019")` к падениям отношения не имеют.** Проверено прямо: в собранном `.nuxt/dev/index.mjs` литерал `0n` из `server/utils/presenter/perceptual-hash.ts` превращён в `BigInt("0")` — семантически то же самое, на Node ничего не ломается. Прогон `tests/api/captions.spec.ts` с этими предупреждениями прошёл 27/27 зелёными. Не тратьте на них время.
+
 ## Чистая сьюта: гонять ДВАЖДЫ
 
 `bunx vitest run --config vitest.pure.config.ts` обязана гоняться и обычно, и с заданными `FFMPEG_PATH`/`FFPROBE_PATH`:

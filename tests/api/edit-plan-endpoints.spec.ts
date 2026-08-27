@@ -1175,10 +1175,31 @@ describe("POST /api/videos/[id]/shots/[order]/rerender", () => {
     }
   }
 
+  /** Заведомо свободный id: tests/setup.ts делает TRUNCATE ... RESTART IDENTITY. */
+  const MISSING_VIDEO_ID = 999_999_999
+
+  /**
+   * Признак того, что прогон стартовал: `runVideoPipeline` заводит строки шагов,
+   * а у фикстурного ролика их нет вовсе. Ноль после отказа — доказательство, что
+   * fire-and-forget не дёрнулся и денег не потратил.
+   */
+  async function stepCount(videoId: number): Promise<number> {
+    return prisma.videoGenerationStep.count({ where: { videoId } })
+  }
+
   async function videoWithShot(status: string, extra: Record<string, unknown> = {}) {
     const scenario = await prisma.scenario.create({ data: { status: "draft" } })
     const video = await prisma.video.create({
-      data: { scenarioId: scenario.id, editPipeline: true, status, ...extra },
+      data: {
+        scenarioId: scenario.id,
+        editPipeline: true,
+        status,
+        // Собранный ролик: ручка на успехе обнуляет filePath/fileUrl, поэтому
+        // их сохранность — второй признак того, что отказ ничего не сделал.
+        filePath: "videos/rerender-fixture.mp4",
+        fileUrl: "videos/rerender-fixture.mp4",
+        ...extra,
+      },
     })
     await prisma.videoShot.create({
       data: {
@@ -1196,6 +1217,63 @@ describe("POST /api/videos/[id]/shots/[order]/rerender", () => {
 
     const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
     expect(shot!.status).toBe("completed")
+    const untouched = await prisma.video.findUniqueOrThrow({ where: { id: video.id } })
+    expect(untouched.filePath).toBe("videos/rerender-fixture.mp4")
+    expect(await stepCount(video.id)).toBe(0)
+  })
+
+  it("код ответа не выдаёт существование ролика: аноним видит одно и то же на существующем и несуществующем id", async () => {
+    // Тот же приём, что в блоке «Оракул существования приложения» выше, и по той
+    // же причине: `Video.id` — последовательные целые, и разные коды на
+    // существующем и несуществующем id превращают перебор в карту чужих роликов.
+    // Здесь это держится тем, что `requireScopedAccess` стоит ПЕРВОЙ строкой
+    // ручки — до разбора номера кадра и до чтения ролика.
+    const video = await videoWithShot("completed")
+
+    const existing = await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, { method: "POST" }))
+    const missing = await statusOf(() => $fetch(`/api/videos/${MISSING_VIDEO_ID}/shots/0/rerender`, { method: "POST" }))
+
+    expect(existing).toBe(401)
+    expect(missing).toBe(existing)
+  })
+
+  it("403 без права canRunAgent — кадр остаётся собранным, прогон не запущен", async () => {
+    // `createTestUser` по умолчанию выдаёт ВСЕ права: без явного override
+    // измерение «право» ничем не проверялось бы. Проверка прав в
+    // `requireScopedAccess` идёт до admin-шортката, поэтому отбивает и админа.
+    const user = await createTestUser({ canRunAgent: false })
+    const video = await videoWithShot("completed")
+
+    expect(await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))).toBe(403)
+
+    const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
+    expect(shot!.status).toBe("completed")
+    expect(await stepCount(video.id)).toBe(0)
+  })
+
+  it("403 без доступа к модулю video-generator (право на месте)", async () => {
+    const app = await createTestApp()
+    const user = await userMissingModule(app.id)
+    const video = await videoWithShot("completed")
+
+    expect(await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))).toBe(403)
+
+    const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
+    expect(shot!.status).toBe("completed")
+    expect(await stepCount(video.id)).toBe(0)
+  })
+
+  it("404 на несуществующий ролик", async () => {
+    const app = await createTestApp()
+    const user = await userWithAppAccess(app.id)
+
+    expect(await statusOf(() => $fetch(`/api/videos/${MISSING_VIDEO_ID}/shots/0/rerender`, {
+      method: "POST", headers: authHeaders(user.id),
+    }))).toBe(404)
   })
 
   it("404 на несуществующий кадр — номер кадра не выдумывается", async () => {
@@ -1234,17 +1312,28 @@ describe("POST /api/videos/[id]/shots/[order]/rerender", () => {
     expect(code).toBe(409)
     const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
     expect(shot!.status).toBe("completed")
+    expect(await stepCount(video.id)).toBe(0)
   })
 
   it("400 в рабочем статусе — перегенерация не вклинивается в идущий прогон", async () => {
+    // `assembling`, а не выдуманное «processing»: `VideoStatus` — enum Postgres,
+    // и на значении вне enum падает сама фикстура, то есть тест проверял бы
+    // Prisma вместо ручки (так и было до 27.08.2026 — сьюта не поднималась и
+    // этого не показала).
     const app = await createTestApp()
     const user = await userWithAppAccess(app.id)
-    const video = await videoWithShot("processing")
+    const video = await videoWithShot("assembling")
 
     const code = await statusOf(() => $fetch(`/api/videos/${video.id}/shots/0/rerender`, {
       method: "POST", headers: authHeaders(user.id),
     }))
 
     expect(code).toBe(400)
+    const shot = await prisma.videoShot.findFirst({ where: { videoId: video.id, order: 0 } })
+    expect(shot!.status).toBe("completed")
+    const untouched = await prisma.video.findUniqueOrThrow({ where: { id: video.id } })
+    expect(String(untouched.status)).toBe("assembling")
+    expect(untouched.filePath).toBe("videos/rerender-fixture.mp4")
+    expect(await stepCount(video.id)).toBe(0)
   })
 })
