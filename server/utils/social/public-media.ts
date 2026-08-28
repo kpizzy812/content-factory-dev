@@ -1,8 +1,45 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
+import { extname } from "node:path"
 
 import { getStorageDriver } from "../storage"
 import { assertSafeKey } from "../storage/prefix-guard"
 import type { StorageDriver } from "../storage/types"
+
+/**
+ * Расширение файла -> тип содержимого для ПУБЛИЧНОЙ отдачи медиа.
+ *
+ * Живёт здесь, а не в маршруте `/api/public/media/:token`, потому что тип нужен
+ * в двух местах сразу и они обязаны совпадать: маршрут ставит заголовок
+ * `Content-Type` при отдаче через своё приложение, а `resolvePublicMediaUrl`
+ * передаёт тот же тип в подписанную ссылку gcs (`responseContentType`).
+ * Пока карта жила только в маршруте и знала одни видео, картинка библиотеки
+ * фонов уезжала `application/octet-stream` и в `<img>` не показывалась.
+ *
+ * Список форматов — надмножество `ALLOWED_BACKGROUND_MIME`
+ * (`server/utils/edit-plan/background-store.ts`); совпадение прибито тестом.
+ */
+export const PUBLIC_MEDIA_MIME_TYPES: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".m4v": "video/x-m4v",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+}
+
+/**
+ * Тип содержимого по расширению пути или ключа хранилища.
+ *
+ * `null`, а не `application/octet-stream`: у вызывающего должна остаться
+ * возможность отличить «формат известен» от «мы не знаем» — маршрут отдачи в
+ * этом случае честно ставит octet-stream, а подписанная ссылка не навязывает
+ * провайдеру выдуманный тип.
+ */
+export function publicMediaContentType(pathOrKey: string): string | null {
+  return PUBLIC_MEDIA_MIME_TYPES[extname(pathOrKey).toLowerCase()] ?? null
+}
 
 export interface PublicMediaTokenPayload {
   source: "storage" | "legacy"
@@ -141,6 +178,14 @@ export async function resolvePublicMediaUrl(
     secret?: string
     now?: number
     ttlSeconds?: number
+    /**
+     * Тип содержимого для подписанной ссылки провайдера. По умолчанию
+     * `video/mp4` — ровно то, что механизм отдавал всегда (единственный
+     * прежний потребитель — публикация ролика в Instagram). Библиотека фонов
+     * держит ещё и картинки, и им нужен свой тип, иначе png уезжает объявленным
+     * как видео и в `<img>` не показывается.
+     */
+    responseContentType?: string
   } = {},
 ): Promise<string> {
   const driver = options.driver ?? getStorageDriver()
@@ -154,7 +199,7 @@ export async function resolvePublicMediaUrl(
     if (driver.providerName === "gcs") {
       return driver.getSignedDownloadUrl(storageKey, {
         expiresInSec: ttlSeconds,
-        responseContentType: "video/mp4",
+        responseContentType: options.responseContentType ?? "video/mp4",
       })
     }
     const token = createPublicMediaToken({

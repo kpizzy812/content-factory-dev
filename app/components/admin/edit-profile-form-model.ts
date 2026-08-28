@@ -19,6 +19,7 @@
  */
 import type { EditProfile, PipPosition } from '~~/shared/types/edit-console'
 import { GENERATIVE_VIDEO_RESOLUTIONS, PIP_POSITION_LABELS } from '~~/shared/types/edit-console'
+import { formatMoney } from '~~/shared/utils/money'
 
 /** Границы входа API. Числа обязаны совпадать с серверными литералами. */
 export const EDIT_PROFILE_LIMITS = {
@@ -292,3 +293,38 @@ export const PIP_POSITION_OPTIONS = (Object.keys(PIP_POSITION_LABELS) as PipPosi
 
 export const GENERATIVE_VIDEO_RESOLUTION_OPTIONS = GENERATIVE_VIDEO_RESOLUTIONS
   .map(value => ({ value, label: value.replace('x', '×') }))
+
+/**
+ * Что случится, если удалить этот профиль. Показывается ДО подтверждения:
+ * удаление меняет правила монтажа сразу всех роликов приложения, и одного
+ * «Вы уверены?» тут мало.
+ *
+ * Числа встроенных значений собраны из `EDIT_PROFILE_DEFAULTS`, а не переписаны
+ * строкой — иначе смена дефолта разъедет обещание с поведением конвейера.
+ *
+ * Про ролики предупреждаем всегда: сервер откажет с 409, если на профиль
+ * ссылается хотя бы один ролик (обнулённая ссылка подменила бы историю уже
+ * смонтированного ролика — снимка правил на ролике нет).
+ */
+export function describeProfileDeletion(
+  profile: { name: string, isDefault: boolean },
+  siblingCount: number,
+): string {
+  const tail = ' Ролики, уже собранные по этому профилю, удалить его не дадут: '
+    + 'сервер откажет и назовёт их число.'
+
+  if (siblingCount === 0) {
+    return `«${profile.name}» — последний монтажный профиль приложения. После удаления ролики `
+      + 'будут собираться по встроенным значениям: доля перебивок '
+      + `${String(EDIT_PROFILE_DEFAULTS.brollRatio).replace('.', ',')}, потолок расхода на картинки `
+      + `${formatMoney(EDIT_PROFILE_DEFAULTS.imageBudgetUsd)}, генеративное видео выключено.${tail}`
+  }
+
+  if (profile.isDefault) {
+    return `«${profile.name}» — профиль по умолчанию. Профилем по умолчанию станет самый свежий из `
+      + 'оставшихся: без этого у приложения остался бы список профилей, из которых не действует '
+      + `ни один.${tail}`
+  }
+
+  return `«${profile.name}» удалится, профиль приложения по умолчанию не изменится.${tail}`
+}

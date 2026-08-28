@@ -7,7 +7,7 @@
  * ПРИЛОЖЕНИЮ, и правка потолков здесь меняет правила для всех его роликов
  * сразу. На ролике остаётся только переопределение (`Video.editOverrides`).
  */
-import type { EditProfile } from '~~/shared/types/edit-console'
+import type { EditProfile, EditProfileDeletionResult } from '~~/shared/types/edit-console'
 import { formatMoney } from '~~/shared/utils/money'
 import { EDIT_PROFILE_DEFAULTS } from './edit-profile-form-model'
 
@@ -53,16 +53,22 @@ const formVisible = computed(() => creating.value || selected.value !== null)
 
 function startCreate() {
   creating.value = true
+  deletionNote.value = ''
 }
 
 function select(profile: EditProfile) {
   creating.value = false
   selectedId.value = profile.id
+  // Итог прошлого удаления гасится на первом же следующем действии: висящая
+  // строка «профилем по умолчанию стал такой-то» через десять минут читалась бы
+  // как рассказ про текущий выбор.
+  deletionNote.value = ''
 }
 
 async function onSaved(profile: EditProfile) {
   creating.value = false
   selectedId.value = profile.id
+  deletionNote.value = ''
   await refresh()
 }
 
@@ -70,6 +76,24 @@ function onCancel() {
   creating.value = false
   formNonce.value += 1
 }
+
+/**
+ * Что стало с профилем по умолчанию после удаления. Берётся ИЗ ОТВЕТА сервера:
+ * преемника выбирает он, в одной транзакции с удалением, и вторая догадка на
+ * клиенте была бы вторым источником правды.
+ */
+const deletionNote = ref('')
+
+async function onDeleted(result: EditProfileDeletionResult) {
+  // Выбор сбрасывается: удалённый профиль остался бы «выбранным», и форма
+  // открылась бы на строке, которой уже нет.
+  selectedId.value = null
+  deletionNote.value = result.note
+  await refresh()
+}
+
+/** Сколько других профилей у приложения — форме нужно для текста подтверждения. */
+const siblingCount = computed(() => Math.max(profiles.value.length - 1, 0))
 </script>
 
 <template>
@@ -84,6 +108,16 @@ function onCancel() {
     />
 
     <template v-else>
+      <!-- Итог удаления: кому уехал дефолт или что приложение осталось без профиля. -->
+      <div
+        v-if="deletionNote"
+        role="status"
+        class="flex items-start gap-2 rounded-md border border-info-border bg-info-bg px-2.5 py-2 text-sm text-info"
+      >
+        <Icon name="mingcute:information-line" class="mt-0.5 shrink-0" />
+        <span>{{ deletionNote }}</span>
+      </div>
+
       <div v-if="profiles.length" class="flex flex-wrap items-center gap-2">
         <button
           v-for="profile in profiles"
@@ -122,7 +156,9 @@ function onCancel() {
         :key="`${creating ? 'new' : (selected?.id ?? 'new')}-${formNonce}`"
         :app-id="props.appId"
         :profile="creating ? null : selected"
+        :sibling-count="siblingCount"
         @saved="onSaved"
+        @deleted="onDeleted"
         @cancel="onCancel"
       />
     </template>

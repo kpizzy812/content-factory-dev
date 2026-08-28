@@ -51,6 +51,21 @@ export interface EditProfile {
   llmModelId: string | null
 }
 
+/**
+ * Ответ `DELETE /api/edit-profiles/:id`.
+ *
+ * `note` приходит с сервера, а не собирается на клиенте: преемника профиля по
+ * умолчанию выбирает сервер в одной транзакции с удалением, и вторая догадка на
+ * клиенте была бы вторым источником правды.
+ */
+export interface EditProfileDeletionResult {
+  id: number
+  /** Кому передан `isDefault`. `null` — дефолт не двигался. */
+  promotedDefaultId: number | null
+  promotedDefaultName: string | null
+  note: string
+}
+
 // ─── Библиотека фонов ────────────────────────────────────────────────────────
 
 export type BackgroundClipKind = 'screen_recording' | 'footage' | 'image'
@@ -66,6 +81,15 @@ export interface BackgroundClip {
   appId: number
   name: string | null
   storageKey: string
+  /**
+   * Временная ссылка на сам файл фона — её собирает сервер
+   * (`server/utils/edit-plan/background-preview.ts`) поверх общего механизма
+   * публичной отдачи медиа. `null` — собрать не удалось (не настроен публичный
+   * адрес, ключ не прошёл проверку); карточка обязана сказать это словами, а не
+   * показать пустую рамку. Необязательное — ответ, отданный до появления поля,
+   * читается по-прежнему.
+   */
+  previewUrl?: string | null
   sha1: string
   mimeType: string | null
   /** Prisma отдаёт BigInt строкой — приводить к числу только для отображения. */

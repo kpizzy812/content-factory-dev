@@ -73,6 +73,45 @@ export function clipTitle(clip: Pick<BackgroundClip, 'name' | 'id'>): string {
 }
 
 /**
+ * Что показать в окне карточки фона.
+ *
+ * Состояний три, и они разные для оператора: файл видно, ссылки на файл нет
+ * вовсе, ссылка есть но браузер её не открыл. Третье ловится только событием
+ * `error` на самом элементе, поэтому здесь его нет — здесь решается лишь ЧЕМ
+ * рисовать и что сказать, если рисовать нечем.
+ */
+export type ClipPreview =
+  | { kind: 'video', url: string }
+  | { kind: 'image', url: string }
+  | { kind: 'none', reason: string }
+
+/** Ссылки нет: сервер её не собрал. Причина не про фон, а про настройку сервера. */
+export const PREVIEW_MISSING_TEXT
+  = 'Превью недоступно: сервер не смог собрать ссылку на файл. Сам фон в библиотеке есть и в монтаже используется.'
+
+/** Ссылка была, но файл не открылся: истёк срок ссылки или файл пропал из хранилища. */
+export const PREVIEW_FAILED_TEXT
+  = 'Превью не загрузилось: ссылка истекла или файла нет в хранилище. Обновите страницу; если не помогло — залейте фон заново.'
+
+/**
+ * Картинка или видео. `mimeType` главнее `kind`: тип файла записан при загрузке
+ * из самого файла, а `kind` оператор может выставить руками (запись экрана
+ * бывает и картинкой, и роликом).
+ */
+export function describeClipPreview(
+  clip: Pick<BackgroundClip, 'previewUrl' | 'mimeType' | 'kind'>,
+): ClipPreview {
+  const url = (clip.previewUrl || '').trim()
+  if (!url) return { kind: 'none', reason: PREVIEW_MISSING_TEXT }
+
+  const mime = (clip.mimeType || '').toLowerCase()
+  if (mime.startsWith('image/')) return { kind: 'image', url }
+  if (mime.startsWith('video/')) return { kind: 'video', url }
+
+  return clip.kind === 'image' ? { kind: 'image', url } : { kind: 'video', url }
+}
+
+/**
  * Читает ответ загрузки и превращает его в то, что оператор увидит.
  *
  * `knownClipIds` — id фонов, которые были в списке ДО загрузки. Без них дубль

@@ -21,7 +21,13 @@
  *     `characters/[id]/source-clips/[clipId].delete.ts` (`appId: clip.character.appId`).
  *     `appId` из URL уже прошёл авторизацию на шаге 1, но окончательное
  *     решение "этот клип наш" принимается по полю самой строки.
+ *
+ * В ответ уходит обновлённый список — той же формы, что у GET, вместе с
+ * `previewUrl` у каждого клипа: иначе после удаления карточки соседей потеряли
+ * бы превью до следующей перезагрузки страницы.
  */
+import { withBackgroundPreviewUrls } from "~~/server/utils/edit-plan/background-preview"
+
 export default defineEventHandler(async (event) => {
   const appId = Number(getRouterParam(event, "id"))
   const clipId = getRouterParam(event, "clipId")
@@ -47,5 +53,5 @@ export default defineEventHandler(async (event) => {
     orderBy: [{ usageCount: "asc" }, { createdAt: "desc" }],
   })
 
-  return { data: clips }
+  return { data: await withBackgroundPreviewUrls(clips) }
 })

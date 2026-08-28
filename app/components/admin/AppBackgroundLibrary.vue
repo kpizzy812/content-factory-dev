@@ -17,10 +17,12 @@ import {
   BACKGROUND_ACCEPT_ATTR,
   BACKGROUND_KIND_OPTIONS,
   BACKGROUND_MAX_BYTES,
+  PREVIEW_FAILED_TEXT,
   clipBytes,
   clipKindLabel,
   clipTitle,
   describeBackgroundUpload,
+  describeClipPreview,
   formatClipDuration,
   summarizeLibrary,
 } from './background-library-model'
@@ -149,6 +151,28 @@ const KIND_ICON: Record<string, string> = {
   footage: 'mingcute:video-line',
   image: 'mingcute:pic-line',
 }
+
+/**
+ * Фоны, у которых ссылка была, но браузер файл не открыл (истекла, файла нет).
+ * Отдельно от «ссылки не было»: причины разные, и совет оператору разный.
+ * Сбрасывается на каждое обновление списка — новая ссылка заслуживает новой
+ * попытки.
+ */
+const previewFailed = ref<Record<string, boolean>>({})
+watch(clips, () => { previewFailed.value = {} })
+
+function onPreviewError(clipId: string) {
+  previewFailed.value = { ...previewFailed.value, [clipId]: true }
+}
+
+/**
+ * Клип вместе с разобранным превью. Разбор делается один раз на карточку, а не
+ * пять раз прямо в разметке: в шаблоне Vue негде завести локальную переменную.
+ */
+const cards = computed(() => clips.value.map(clip => ({
+  clip,
+  preview: describeClipPreview(clip),
+})))
 </script>
 
 <template>
@@ -256,16 +280,45 @@ const KIND_ICON: Record<string, string> = {
 
     <div v-else-if="clips.length" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
       <article
-        v-for="clip in clips"
+        v-for="{ clip, preview } in cards"
         :key="clip.id"
         class="overflow-hidden rounded-md border border-border bg-card"
       >
         <!--
-          Превью нет по-честному: ручка отдаёт `storageKey`, а не ссылку на файл,
-          и рисовать пустую рамку под видео было бы обещанием, которого нет.
+          Превью. Три состояния, и ни одно не выглядит пустой рамкой: файл видно;
+          ссылки нет (сервер её не собрал); ссылка была, но файл не открылся.
+          Последнее ловится `@error` — без него карточка молча осталась бы
+          пустым прямоугольником, и оператор снова выбирал бы фон вслепую.
         -->
         <div class="flex aspect-video items-center justify-center bg-surface text-subtle">
-          <Icon :name="KIND_ICON[clip.kind] ?? 'mingcute:pic-line'" class="text-2xl" />
+          <video
+            v-if="preview.kind === 'video' && !previewFailed[clip.id]"
+            :src="preview.url"
+            class="size-full object-cover"
+            preload="metadata"
+            muted
+            playsinline
+            :aria-label="`Превью фона «${clipTitle(clip)}»`"
+            @error="onPreviewError(clip.id)"
+          />
+
+          <img
+            v-else-if="preview.kind === 'image' && !previewFailed[clip.id]"
+            :src="preview.url"
+            :alt="`Превью фона «${clipTitle(clip)}»`"
+            class="size-full object-cover"
+            loading="lazy"
+            @error="onPreviewError(clip.id)"
+          >
+
+          <div v-else class="flex flex-col items-center gap-1 px-2 py-1.5 text-center">
+            <Icon :name="KIND_ICON[clip.kind] ?? 'mingcute:pic-line'" class="text-2xl" />
+            <span class="text-micro text-subtle">
+              {{ previewFailed[clip.id]
+                ? PREVIEW_FAILED_TEXT
+                : (preview.kind === 'none' ? preview.reason : '') }}
+            </span>
+          </div>
         </div>
         <div class="flex flex-col gap-1.5 p-2">
           <div class="flex items-start justify-between gap-2">

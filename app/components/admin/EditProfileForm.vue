@@ -15,7 +15,7 @@
  * `edit-profile-client.ts`: невалидное денежное значение обязано отклоняться
  * ДО сети, и это проверяется тестом.
  */
-import type { EditProfile } from '~~/shared/types/edit-console'
+import type { EditProfile, EditProfileDeletionResult } from '~~/shared/types/edit-console'
 import {
   EDIT_PROFILE_DEFAULTS,
   EDIT_PROFILE_LIMITS,
@@ -27,10 +27,16 @@ import {
   VIDEO_BUDGET_EXHAUSTED_NOTE,
   describeGenerativeVideoBudget,
   describeImageBudget,
+  describeProfileDeletion,
   editProfileFormFrom,
 } from './edit-profile-form-model'
 import type { EditProfileFormErrors } from './edit-profile-form-model'
-import { EditProfileValidationError, adminErrorText, saveEditProfile } from './edit-profile-client'
+import {
+  EditProfileValidationError,
+  adminErrorText,
+  deleteEditProfile,
+  saveEditProfile,
+} from './edit-profile-client'
 import { formatMoney } from '~~/shared/utils/money'
 
 /** Дефолт называется деньгами и берётся из констант, а не переписывается руками. */
@@ -41,10 +47,17 @@ const props = defineProps<{
   appId: number
   /** `null` — создание нового профиля. */
   profile: EditProfile | null
+  /**
+   * Сколько ДРУГИХ профилей у приложения. Нужен только тексту подтверждения
+   * удаления: «последний профиль» и «есть куда передать дефолт» — разные
+   * последствия, и оператор должен видеть своё до клика.
+   */
+  siblingCount?: number
 }>()
 
 const emit = defineEmits<{
   saved: [profile: EditProfile]
+  deleted: [result: EditProfileDeletionResult]
   cancel: []
 }>()
 
@@ -53,11 +66,23 @@ const errors = ref<EditProfileFormErrors>({})
 const saving = ref(false)
 const serverError = ref('')
 
+const confirmingDelete = ref(false)
+const deleting = ref(false)
+
 watch(() => props.profile?.id, () => {
   form.value = editProfileFormFrom(props.profile)
   errors.value = {}
   serverError.value = ''
+  confirmingDelete.value = false
 })
+
+/**
+ * Последствие удаления словами. Считается на переключённый профиль, а не один
+ * раз при монтировании: форма переиспользуется при выборе другого профиля.
+ */
+const deletionNote = computed(() => (props.profile
+  ? describeProfileDeletion(props.profile, props.siblingCount ?? 0)
+  : ''))
 
 const isEdit = computed(() => props.profile !== null)
 const imageBudgetHint = computed(() => describeImageBudget(form.value.imageBudgetUsd))
@@ -86,6 +111,25 @@ async function submit() {
   }
   finally {
     saving.value = false
+  }
+}
+
+async function confirmDelete() {
+  if (!props.profile) return
+  deleting.value = true
+  serverError.value = ''
+  try {
+    const result = await deleteEditProfile($fetch, props.profile.id)
+    confirmingDelete.value = false
+    emit('deleted', result.data)
+  }
+  catch (error) {
+    // 409 «на профиль ссылаются N роликов» приходит текстом сервера — там
+    // названо число и что с этим делать. Пересказывать своими словами нечего.
+    serverError.value = adminErrorText(error, 'Не удалось удалить профиль')
+  }
+  finally {
+    deleting.value = false
   }
 }
 </script>
@@ -275,7 +319,39 @@ async function submit() {
       <span>{{ serverError }}</span>
     </div>
 
-    <div class="flex justify-end gap-2 border-t border-border bg-card px-3 py-2.5">
+    <!--
+      Подтверждение удаления: последствие названо ДО клика. Удаление профиля
+      меняет правила монтажа сразу всех роликов приложения, и одного «Вы
+      уверены?» тут мало.
+    -->
+    <div
+      v-if="confirmingDelete"
+      role="alert"
+      class="mx-3 mb-3 flex flex-col gap-2 rounded-md border border-danger-border bg-danger-bg px-2.5 py-2 text-sm text-danger"
+    >
+      <div class="flex items-start gap-2">
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span>{{ deletionNote }}</span>
+      </div>
+      <div class="flex justify-end gap-2">
+        <UiButton variant="ghost" @click="confirmingDelete = false">Оставить</UiButton>
+        <UiButton variant="danger" :loading="deleting" @click="confirmDelete">
+          Удалить насовсем
+        </UiButton>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-3 py-2.5">
+      <UiButton
+        v-if="isEdit"
+        variant="ghost"
+        class="mr-auto text-danger"
+        :disabled="confirmingDelete"
+        @click="confirmingDelete = true"
+      >
+        <Icon name="mingcute:delete-2-line" />
+        Удалить профиль
+      </UiButton>
       <UiButton variant="ghost" @click="emit('cancel')">Отмена</UiButton>
       <UiButton variant="primary" :loading="saving" @click="submit">
         {{ isEdit ? 'Сохранить профиль' : 'Создать профиль' }}

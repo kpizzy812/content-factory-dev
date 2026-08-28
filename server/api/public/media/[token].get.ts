@@ -2,17 +2,10 @@ import { createReadStream } from "node:fs"
 import { stat } from "node:fs/promises"
 import { extname, isAbsolute, resolve, sep } from "node:path"
 
-import { verifyPublicMediaToken } from "../../../utils/social/public-media"
+import { PUBLIC_MEDIA_MIME_TYPES, verifyPublicMediaToken } from "../../../utils/social/public-media"
 import { getStorageDriver } from "../../../utils/storage"
 import { StorageError } from "../../../utils/storage/types"
 import { getUploadsBase } from "../../../utils/storage-paths"
-
-const MIME_TYPES: Record<string, string> = {
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-  ".webm": "video/webm",
-  ".m4v": "video/x-m4v",
-}
 
 function signingSecret(): string {
   const secret = process.env.PUBLIC_MEDIA_SIGNING_SECRET
@@ -104,7 +97,7 @@ export default defineEventHandler(async (event) => {
     const range = parseRange(getHeader(event, "range"), buffer.length)
     applyHeaders(event, {
       size: buffer.length,
-      contentType: MIME_TYPES[extname(token.path).toLowerCase()] || "application/octet-stream",
+      contentType: PUBLIC_MEDIA_MIME_TYPES[extname(token.path).toLowerCase()] || "application/octet-stream",
       range,
     })
     if (event.method === "HEAD") return null
@@ -126,7 +119,7 @@ export default defineEventHandler(async (event) => {
   const range = parseRange(getHeader(event, "range"), fileStat.size)
   applyHeaders(event, {
     size: fileStat.size,
-    contentType: MIME_TYPES[extname(filePath).toLowerCase()] || "application/octet-stream",
+    contentType: PUBLIC_MEDIA_MIME_TYPES[extname(filePath).toLowerCase()] || "application/octet-stream",
     range,
   })
   if (event.method === "HEAD") return null

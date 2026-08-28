@@ -4,7 +4,13 @@
  * Список активных фонов библиотеки монтажа приложения (§9 «Библиотека фонов»).
  * Погашенные (`isActive: false`) не возвращаются — на них могут ссылаться
  * кадры уже собранных роликов, но заново предлагать оператору их не нужно.
+ *
+ * Каждый клип отдаётся вместе с `previewUrl` — временной ссылкой на сам файл
+ * (`server/utils/edit-plan/background-preview.ts`). Одного `storageKey` мало:
+ * по ключу браузер файл не получит, и оператор выбирает фон вслепую.
  */
+import { withBackgroundPreviewUrls } from "~~/server/utils/edit-plan/background-preview"
+
 export default defineEventHandler(async (event) => {
   const appId = Number(getRouterParam(event, "id"))
   if (!Number.isInteger(appId) || appId <= 0) {
@@ -29,5 +35,5 @@ export default defineEventHandler(async (event) => {
     orderBy: [{ usageCount: "asc" }, { createdAt: "desc" }],
   })
 
-  return { data: clips }
+  return { data: await withBackgroundPreviewUrls(clips) }
 })

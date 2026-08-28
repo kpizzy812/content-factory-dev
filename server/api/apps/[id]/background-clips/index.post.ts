@@ -6,6 +6,7 @@
  * `server/utils/edit-plan/background-store.ts`: этот файл только принимает
  * multipart-запрос и делегирует (AGENTS.md — без inline-pipeline в server/api).
  */
+import { withBackgroundPreviewUrls } from "~~/server/utils/edit-plan/background-preview"
 import { saveBackgroundClip } from "~~/server/utils/edit-plan/background-store"
 
 function readTextField(parts: Awaited<ReturnType<typeof readMultipartFormData>>, name: string): string | null {
@@ -55,9 +56,14 @@ export default defineEventHandler(async (event) => {
     uploadedById: user.id,
   })
 
+  // Клип возвращается той же формы, что в списке — со ссылкой на файл: карточка
+  // только что загруженного фона обязана показать сам фон, а не ждать
+  // перечитывания списка.
+  const [clip] = await withBackgroundPreviewUrls([result.clip])
+
   return {
     data: {
-      clip: result.clip,
+      clip,
       deduped: result.deduped,
       similarClipIds: result.similarClipIds,
     },

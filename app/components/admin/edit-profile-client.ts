@@ -6,7 +6,7 @@
  * можно доказать тестом, что невалидное ДЕНЕЖНОЕ значение не уходит в сеть —
  * промис отклоняется до формирования запроса, а не после серверного 400.
  */
-import type { EditProfile } from '~~/shared/types/edit-console'
+import type { EditProfile, EditProfileDeletionResult } from '~~/shared/types/edit-console'
 import type { EditProfileFormErrors, EditProfileFormState } from './edit-profile-form-model'
 import { readEditProfileForm } from './edit-profile-form-model'
 
@@ -55,6 +55,30 @@ export function saveEditProfile(
   return fetcher<{ data: EditProfile }>(`/api/edit-profiles/${input.profileId}`, {
     method: 'PUT',
     body,
+  })
+}
+
+/**
+ * Удаляет профиль.
+ *
+ * Мусорный `id` до сети не доходит: `/api/edit-profiles/NaN` сервер разобрал бы
+ * как 400 «некорректный id», но оператор увидел бы это как отказ сервера, хотя
+ * запрос был испорчен на клиенте.
+ *
+ * Никакого подтверждения здесь нет намеренно — оно живёт в форме, где рядом
+ * показано последствие (`describeProfileDeletion`). Отказ сервера с 409
+ * («на профиль ссылаются ролики») отдаётся как есть: причина нужна оператору
+ * дословно.
+ */
+export function deleteEditProfile(
+  fetcher: AdminFetcher,
+  profileId: number,
+): Promise<{ data: EditProfileDeletionResult }> {
+  if (!Number.isInteger(profileId) || profileId <= 0) {
+    return Promise.reject(new Error('Профиль не удалён: некорректный идентификатор'))
+  }
+  return fetcher<{ data: EditProfileDeletionResult }>(`/api/edit-profiles/${profileId}`, {
+    method: 'DELETE',
   })
 }
 
