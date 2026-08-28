@@ -133,6 +133,29 @@ bunx vitest run --config vitest.pure.config.ts
 
 `bunx vitest` однажды дал внутреннюю ошибку «failed to find the current suite» на нетронутом файле, а `node ./node_modules/vitest/vitest.mjs run <файл>` на том же коде отработал. Это свойство способа запуска, а не дефект кода — не начинайте чинить тест, пока не проверили вторым способом.
 
+**Но для `tests/api` способ запуска решает.** `bunx` кладёт `node_modules/.bin` в `PATH`, а прямой вызов `node ./node_modules/vitest/vitest.mjs` — нет. `@nuxt/test-utils` поднимает сервер командой `nuxi`, и без `.bin` в `PATH` она не находится вовсе: в логе появляется строка `'nuxi' is not recognized as an internal or external command`, сервер не стартует, а тест падает с `ECONNREFUSED` на порт, который харнесс сам же выбрал. Симптом указывает на сеть, причина — `PATH`.
+
+Отсюда правило: `tests/api` гоняйте `bunx vitest run <файл>`, либо добавляйте `.bin` в `PATH` вручную:
+
+```powershell
+$env:PATH = "$PWD\node_modules\.bin;$env:PATH"
+node ./node_modules/vitest/vitest.mjs run tests/api/<файл>.spec.ts > run.log 2>&1
+```
+
+Замерено 28.08.2026: с исправленным `PATH` файл на 24 кейса идёт 138 с, без него — падает за 60-70 с, не выполнив ни одного теста (`24 skipped`).
+
+## Осиротевший `nuxi _dev` после снятого прогона
+
+Если прогон `tests/api` прерван по таймауту (своему или чужому), поднятый им `nuxi _dev` **переживает** снятие vitest и продолжает жечь CPU — замерено 500 секунд процессорного времени у одного такого сироты. Следующие прогоны на такой машине не укладываются в зашитый бюджет подъёма (`@nuxt/test-utils` даёт серверу ~31 с) и падают с тем же `ECONNREFUSED`, создавая впечатление, что «сьюта сломана».
+
+Перед прогоном `tests/api` проверяйте и подчищайте:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+  Where-Object { $_.CommandLine -match 'nuxi' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+```
+
 ## Сравнение с базовой точкой
 
 ```bash
