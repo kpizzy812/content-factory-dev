@@ -28,6 +28,16 @@ export default defineEventHandler(async (event) => {
       targetPlatform: true,
       totalCostEstimate: true,
       totalCostActual: true,
+      // Пошаговый режим (§9) обязан приезжать в ОПРОС, а не только в
+      // `GET /api/videos/:id`. Опрос — единственное, что страница делает,
+      // пока ролик в работе: без этих двух полей после решения оператора ей
+      // приходилось перечитывать ролик целиком (сценарий, ассеты, варианты),
+      // чтобы узнать одно — исчез ли `awaitingStepKey`.
+      //
+      // `stepwiseApproval` здесь nullable намеренно: `null` — «наследовать
+      // профиль», и это третье состояние, а не отсутствие поля.
+      stepwiseApproval: true,
+      awaitingStepKey: true,
       assets: {
         select: {
           id: true,

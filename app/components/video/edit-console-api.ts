@@ -1,9 +1,11 @@
 import { VOICE_CLONE_USD } from '~~/shared/types/edit-console'
 import type {
+  EditProfile,
+  ShotFact,
   StepwiseApprovalAction,
   TrackRegenerationPreview,
 } from '~~/shared/types/edit-console'
-import { readTrackRegenerationPreview } from './edit-console-model'
+import { readShotFacts, readTrackRegenerationPreview } from './edit-console-model'
 
 /**
  * Обращения монтажной консоли к серверу.
@@ -140,6 +142,38 @@ export function cloneVoice(
   if (input.volumeNormalization) form.append('volumeNormalization', 'true')
 
   return fetcher(`/api/characters/${characterId}/clone-voice`, { method: 'POST', body: form })
+}
+
+// ─── Чтение ──────────────────────────────────────────────────────────────────
+
+/**
+ * Факт исполнения кадров.
+ *
+ * Метод не указывается сознательно: это чтение, и `method: 'POST'` здесь
+ * когда-нибудь попал бы в ту же ручку, что перегенерация кадра. URL собирается
+ * тут же, а не в компоненте, по той же причине, что и всё остальное в этом
+ * файле: адреса ручек живут в одном месте, где их видно тестом.
+ */
+export async function fetchShotFacts(
+  fetcher: ConsoleFetcher,
+  videoId: number,
+): Promise<ShotFact[]> {
+  const payload = await fetcher(`/api/videos/${videoId}/shots`)
+  return readShotFacts(payload)
+}
+
+/**
+ * Монтажный профиль по его id.
+ *
+ * Профиля может не быть (удалён, нет доступа) — это `null`, а не исключение:
+ * консоль без потолков работает, а без кадров нет.
+ */
+export async function fetchEditProfile(
+  fetcher: ConsoleFetcher,
+  profileId: number,
+): Promise<EditProfile | null> {
+  const payload = await fetcher<{ data?: EditProfile }>(`/api/edit-profiles/${profileId}`)
+  return payload?.data ?? null
 }
 
 // ─── Бесплатно: кадры и пошаговый режим ──────────────────────────────────────

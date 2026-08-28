@@ -1,13 +1,18 @@
 import type { EditProfile } from '~~/shared/types/edit-console'
+import { fetchEditProfile } from '~/components/video/edit-console-api'
 
 /**
  * Монтажный профиль ролика.
  *
- * Ручки «отдай профиль по id» на сервере нет: профили читаются списком по
- * приложению (`GET /api/edit-profiles?appId=N`), а `appId` у ролика напрямую
- * не лежит — он живёт на сценарии. Поэтому цепочка из двух запросов, и оба
- * необязательные: у оператора может не быть доступа к модулю сценариев, и
- * тогда консоль просто не покажет потолки, а не свалится.
+ * Короткий путь — `GET /api/edit-profiles/:id`, одна ручка своего же модуля.
+ * Он работает, когда профиль на ролике проставлен явно (`Video.editProfileId`).
+ *
+ * Длинный путь остаётся запасным и нужен ровно для роликов БЕЗ явного профиля:
+ * такой ролик собирается по дефолтному профилю приложения, а `appId` у ролика
+ * напрямую не лежит — он живёт на сценарии. Цена длинного пути в том, что он
+ * идёт через ЧУЖОЙ модуль (`script-generator`): у оператора без доступа к
+ * сценариям он не сработает, и консоль просто не покажет потолки, а не
+ * свалится.
  */
 export function useVideoEditProfile() {
   const profile = ref<EditProfile | null>(null)
@@ -16,6 +21,22 @@ export function useVideoEditProfile() {
   const unavailable = ref(false)
 
   async function load(scenarioId: number | null, editProfileId: number | null | undefined) {
+    if (editProfileId) {
+      pending.value = true
+      unavailable.value = false
+      try {
+        profile.value = await fetchEditProfile($fetch, editProfileId)
+        if (profile.value) return
+      }
+      catch {
+        // Профиль удалён или недоступен — пробуем дефолтный профиль приложения
+        // ниже, вместо того чтобы объявить консоль сломанной.
+      }
+      finally {
+        pending.value = false
+      }
+    }
+
     if (!scenarioId) {
       unavailable.value = true
       return

@@ -12,7 +12,28 @@ import {
   stepwiseOverrideValue,
   voiceSampleRejection,
 } from "../../../app/components/video/edit-console-model"
-import type { PlannedShot } from "../../../shared/types/edit-console"
+import type { PlannedShot, ShotFact } from "../../../shared/types/edit-console"
+
+/**
+ * Факт исполнения кадра. С появлением `GET /api/videos/:id/shots` контракт
+ * `ShotFact` расширился полями исполнения (границы, сцена, перцептивный хеш),
+ * поэтому фикстура собирается хелпером, а не литералом в каждом тесте.
+ */
+function fact(over: Partial<ShotFact> = {}): ShotFact {
+  return {
+    order: 1,
+    startSec: 0,
+    endSec: 2.4,
+    sceneOrder: 1,
+    backgroundActual: null,
+    status: "planned",
+    costUsd: 0,
+    degradeReason: null,
+    assetPath: null,
+    perceptualHash: null,
+    ...over,
+  }
+}
 
 function shot(over: Partial<PlannedShot> = {}): PlannedShot {
   return {
@@ -79,7 +100,7 @@ describe("строки таблицы кадров", () => {
   it("расхождение плана и факта — тоже деградация, даже без причины", () => {
     const [row] = buildShotRows(
       [shot({ background: "video" })],
-      [{ order: 1, backgroundActual: "image", status: "completed", costUsd: 0.04, degradeReason: null, assetPath: null }],
+      [fact({ order: 1, backgroundActual: "image", status: "completed", costUsd: 0.04 })],
     )
 
     expect(row!.degraded).toBe(true)
@@ -90,7 +111,7 @@ describe("строки таблицы кадров", () => {
   it("факт перебивает план по деньгам и статусу", () => {
     const [row] = buildShotRows(
       [shot({ background: "video", costUsd: 0.35 })],
-      [{ order: 1, backgroundActual: "video", status: "completed", costUsd: 0.42, degradeReason: null, assetPath: "a.mp4" }],
+      [fact({ order: 1, backgroundActual: "video", status: "completed", costUsd: 0.42, assetPath: "a.mp4" })],
     )
 
     expect(row!.costUsd).toBe(0.42)
@@ -103,7 +124,7 @@ describe("строки таблицы кадров", () => {
     // повторная сборка снова пойдёт в платную модель.
     const [paid] = buildShotRows(
       [shot({ background: "video" })],
-      [{ order: 1, backgroundActual: "none", status: "degraded", costUsd: 0, degradeReason: "нет фона", assetPath: null }],
+      [fact({ order: 1, backgroundActual: "none", status: "degraded", degradeReason: "нет фона" })],
     )
     expect(paid!.rerenderPaid).toBe(true)
 

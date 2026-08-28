@@ -117,18 +117,33 @@ export interface PlannedShot {
 }
 
 /**
- * Факт исполнения кадра — строка `VideoShot` из БД.
+ * Факт исполнения кадра — строка `VideoShot` так, как её отдаёт
+ * `GET /api/videos/:id/shots`.
  *
- * Отдельной GET-ручки для неё пока нет (см. отчёт задачи), поэтому поле
- * необязательное: таблица честно показывает план и подписывает, что факта нет.
+ * Поле `background` (ПЛАН) сюда не входит намеренно: план таблица берёт из
+ * снапшота шага `edit_plan`, и дублировать его вторым источником значило бы
+ * завести два расходящихся плана на один кадр. Здесь только исполнение.
+ *
+ * `backgroundActual: null` — шаг `shot_background` до этого кадра ещё не дошёл.
+ * Это план БЕЗ факта, а не ошибка и не деградация: строка `VideoShot`
+ * появляется сразу на шаге плана (`saveShots`), со `status: 'planned'` и уже
+ * посчитанной плановой стоимостью.
  */
 export interface ShotFact {
   order: number
+  startSec: number
+  endSec: number
+  /** Сцена сценария, которой принадлежит кадр. `null` — перебивка. */
+  sceneOrder: number | null
   backgroundActual: ShotBackground | string | null
+  /** planned | rendering | completed | degraded | failed */
   status: string
+  /** Плановая стоимость до исполнения, фактическая — после. */
   costUsd: number
   degradeReason: string | null
   assetPath: string | null
+  /** Отпечаток собранного кадра. `null` — кадр не собран или хеш не снялся. */
+  perceptualHash: string | null
 }
 
 /** Строка таблицы кадров: план плюс факт, если он доступен. */

@@ -35,9 +35,10 @@ export interface EditPlanSnapshotRead {
 /**
  * План монтажа из снапшота шага `edit_plan`.
  *
- * Отдельной ручки `GET /api/videos/:id/shots` в сервере нет, а снапшот шага
- * уже приезжает в прогресс — и в нём лежат ровно те кадры, что записаны в
- * `VideoShot`, вместе с `degradeReason` и плановой стоимостью.
+ * План берётся именно отсюда, а не из `GET /api/videos/:id/shots`: снапшот шага
+ * уже приезжает в прогресс, и в нём лежат ровно те кадры, что записаны в
+ * `VideoShot`. Ручка кадров отдаёт ФАКТ исполнения и плана сознательно не
+ * дублирует — иначе на один кадр было бы два расходящихся плана.
  */
 export function readEditPlanShots(steps: readonly StepLike[] | null | undefined): EditPlanSnapshotRead {
   const step = steps?.find(s => s.stepKey === 'edit_plan')
@@ -54,10 +55,57 @@ export function readEditPlanShots(steps: readonly StepLike[] | null | undefined)
 }
 
 /**
+ * Факт исполнения кадров из `GET /api/videos/:id/shots`.
+ *
+ * Разбор терпимый к мусору и НЕ достраивающий: строка без числового `order`
+ * выбрасывается (склеить её с планом нечем), а `null` в полях исполнения
+ * остаётся `null`. Соблазн подставить сюда `'none'` вместо пустого
+ * `backgroundActual` надо гасить: «фона нет» и «фон ещё не снимали» — разные
+ * вещи, и первая красит строку деградацией, а вторая нет.
+ */
+export function readShotFacts(payload: unknown): ShotFact[] {
+  const rows = (payload as { data?: unknown } | null | undefined)?.data
+  if (!Array.isArray(rows)) return []
+
+  return (rows as Array<Partial<ShotFact>>)
+    .filter(row => row != null && typeof row.order === "number" && Number.isFinite(row.order))
+    .map(row => ({
+      order: row.order as number,
+      startSec: finite(row.startSec),
+      endSec: finite(row.endSec),
+      sceneOrder: typeof row.sceneOrder === "number" ? row.sceneOrder : null,
+      backgroundActual: typeof row.backgroundActual === "string" ? row.backgroundActual : null,
+      status: typeof row.status === "string" ? row.status : "planned",
+      costUsd: finite(row.costUsd),
+      degradeReason: typeof row.degradeReason === "string" ? row.degradeReason : null,
+      assetPath: typeof row.assetPath === "string" ? row.assetPath : null,
+      perceptualHash: typeof row.perceptualHash === "string" ? row.perceptualHash : null,
+    }))
+    .sort((a, b) => a.order - b.order)
+}
+
+function finite(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0
+}
+
+/**
+ * Кадры записаны планом, но шаг фонов до них ещё не дошёл ни разу.
+ *
+ * Отдельное состояние, а не ошибка и не пустота: строки `VideoShot` создаются
+ * сразу на шаге плана (`saveShots`), поэтому «факт приехал» и «факт есть» —
+ * разные вещи. Без этой подписи таблица с колонкой сплошных прочерков читалась
+ * бы как поломка ручки.
+ */
+export function shotsAwaitingExecution(facts: readonly ShotFact[]): boolean {
+  return facts.length > 0 && facts.every(fact => fact.backgroundActual == null)
+}
+
+/**
  * Склейка плана и факта.
  *
- * Пока факта нет (нет ручки списка кадров), строка живёт планом: `backgroundActual`
- * остаётся `null`, и таблица это подписывает, а не притворяется, что фон исполнен.
+ * Факта может не быть вовсе (ручка не ответила, прав нет) — тогда строка живёт
+ * планом: `backgroundActual` остаётся `null`, и таблица это подписывает, а не
+ * притворяется, что фон исполнен.
  */
 export function buildShotRows(
   plan: readonly PlannedShot[],

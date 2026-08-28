@@ -151,6 +151,10 @@ export interface VideoProgress {
   targetPlatform: string | null
   totalCostEstimate: number | null
   totalCostActual: number | null
+  /** Переопределение пошагового режима на ролике. `null` — наследовать профиль. */
+  stepwiseApproval: boolean | null
+  /** Шаг, решения по которому ждёт ролик в статусе `awaiting_operator`. */
+  awaitingStepKey: VideoStepKey | string | null
   assets: Pick<VideoAsset, "id" | "type" | "prompt" | "fileUrl" | "order">[]
   steps: VideoGenerationStep[]
 }

@@ -8,18 +8,22 @@ import {
   shotBackgroundLabel,
   shotStatusLabel,
   shotStatusTone,
+  shotsAwaitingExecution,
   spentOnBackground,
 } from './edit-console-model'
-import { consoleErrorText, rerenderShot } from './edit-console-api'
+import { consoleErrorText, fetchShotFacts, rerenderShot } from './edit-console-api'
 
 /**
  * Таблица кадров: что план просил, что получилось, во что обошлось.
  *
- * Источник кадров — снапшот шага «План монтажа»: отдельной ручки списка кадров
- * сервер не отдаёт, а в снапшоте лежат ровно те строки, что записаны в
- * `VideoShot`, вместе с причиной деградации. Факт исполнения (`backgroundActual`,
- * итоговый статус) в снапшот не попадает, поэтому колонка «факт» показывает
- * прочерк и подписывает это, а не выдаёт план за факт.
+ * ПЛАН берётся из снапшота шага «План монтажа» — там лежат ровно те строки, что
+ * записаны в `VideoShot`, вместе с идеей кадра и плановой стоимостью.
+ * ФАКТ исполнения приезжает своей ручкой `GET /api/videos/:id/shots`
+ * (`backgroundActual`, итоговый статус, причина деградации, путь к файлу).
+ *
+ * Два источника, а не один, потому что и вопроса два: «что заказали» и «что
+ * получилось». Расхождение между ними — не сбой чтения, а ровно та информация,
+ * ради которой таблица существует.
  *
  * Макет: design-preview/catalog/09-edit-console.dc.html (секция «Консоль»).
  */
@@ -27,7 +31,7 @@ const props = defineProps<{
   videoId: number
   steps: VideoGenerationStep[]
   profile?: EditProfile | null
-  /** Факт исполнения кадров, если он когда-нибудь начнёт приезжать с сервера. */
+  /** Готовый факт от родителя. Не передан — таблица берёт его сама. */
   facts?: ShotFact[]
   /** Пока прогон идёт, пересобирать кадры нечего. */
   active?: boolean
@@ -36,9 +40,50 @@ const props = defineProps<{
 const emit = defineEmits<{ changed: [] }>()
 
 const plan = computed(() => readEditPlanShots(props.steps))
-const rows = computed(() => buildShotRows(plan.value.shots, props.facts ?? []))
 
-const factAvailable = computed(() => (props.facts?.length ?? 0) > 0)
+// ─── Факт исполнения ─────────────────────────────────────────────────────────
+const loadedFacts = ref<ShotFact[]>([])
+const factsError = ref('')
+
+const facts = computed(() => props.facts ?? loadedFacts.value)
+
+/**
+ * Отпечаток состояния исполнения. Перечитывать факт имеет смысл ровно тогда,
+ * когда сдвинулся один из двух шагов, которые пишут в `VideoShot`: план создаёт
+ * строки, фоны заполняют исполнение. Опрос прогресса тикает каждые 4 секунды, и
+ * дёргать ручку кадров на каждый тик незачем.
+ */
+const executionSignature = computed(() => (props.steps ?? [])
+  .filter(s => s.stepKey === 'edit_plan' || s.stepKey === 'shot_background')
+  .map(s => `${s.stepKey}:${s.status}`)
+  .join('|'))
+
+async function loadFacts() {
+  try {
+    loadedFacts.value = await fetchShotFacts($fetch, props.videoId)
+    factsError.value = ''
+  }
+  catch (e) {
+    // Факт не приехал — таблица остаётся на плане и говорит об этом словами
+    // сервера. Молча показать прочерки нельзя: их не отличить от «ещё не
+    // исполнялось».
+    factsError.value = consoleErrorText(e, 'Не удалось загрузить кадры')
+  }
+}
+
+function reloadFacts() {
+  // Факта от родителя достаточно; плана нет — и кадров в БД ещё нет.
+  if (props.facts || !plan.value.available) return
+  void loadFacts()
+}
+
+onMounted(reloadFacts)
+watch([() => props.videoId, () => plan.value.available, executionSignature], reloadFacts)
+
+const rows = computed(() => buildShotRows(plan.value.shots, facts.value))
+
+/** Строки кадров есть, но фоны по ним ещё не снимались — это не ошибка. */
+const awaitingExecution = computed(() => shotsAwaitingExecution(facts.value))
 const degradedCount = computed(() => rows.value.filter(r => r.degraded).length)
 const totalCost = computed(() => rows.value.reduce((sum, r) => sum + (r.costUsd || 0), 0))
 
@@ -92,6 +137,9 @@ async function runRerender(order: number) {
   try {
     await rerenderShot($fetch, props.videoId, order)
     toast.success(`Кадр ${order} отправлен на пересборку`)
+    // Кадр сброшен в план прямо сейчас — факт в таблице устарел раньше, чем
+    // приедет следующий тик опроса прогресса.
+    reloadFacts()
     emit('changed')
   }
   catch (e) {
@@ -134,13 +182,22 @@ async function runRerender(order: number) {
 
     <template v-else>
       <div
-        v-if="!factAvailable"
+        v-if="factsError"
+        role="alert"
+        class="flex items-start gap-2 border-b border-divider bg-danger-bg px-3 py-2 text-micro text-danger"
+      >
+        <Icon name="mingcute:alert-line" class="mt-0.5 shrink-0" />
+        <span>Не удалось загрузить кадры: {{ factsError }}. Показан план монтажа без факта исполнения.</span>
+      </div>
+
+      <div
+        v-else-if="awaitingExecution"
         class="flex items-start gap-2 border-b border-divider bg-card px-3 py-2 text-micro text-subtle"
       >
         <Icon name="mingcute:information-line" class="mt-0.5 shrink-0" />
         <span>
-          Показан план монтажа и причины деградации из снапшота шага. Факт исполнения фона
-          отдельной ручкой сервер пока не отдаёт — колонка «факт» пуста намеренно.
+          Кадры запланированы, но фоны по ним ещё не снимались — колонка «факт» заполнится
+          после шага «Фоны кадров». Прочерк здесь означает «ещё не дошли», а не «не получилось».
         </span>
       </div>
 
