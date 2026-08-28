@@ -11,6 +11,13 @@
  *   3. и только если запрещено и это — резать по ближайшему межсловному
  *      интервалу с записью WARN в лог шага.
  *
+ * Ступень 3-бис (боевой дефект ролика 34, 28.08.2026): если пауз нет вовсе —
+ * резать по СТЫКУ слов. Стык не разрезает ни одного слова, у него просто
+ * нулевая ширина, поэтому он законная точка реза — но худшая, чем пауза, и
+ * потому перебирается последним из «хороших». Модель транскрипции
+ * `incredibly-fast-whisper` отдаёт слова встык всегда, и без этой ступени
+ * КАЖДАЯ итерация падала в ветку 4 — рез по потолку модели посреди слова.
+ *
  * Функция чистая: границы приходят из выравнивания, потолок — из спеки модели.
  *
  * Фикс-раунд 1 (task-4-review.md, поправка 2 задания): черновой алгоритм из брифа
@@ -69,6 +76,7 @@
  */
 
 import { floorToFrame, snapSecToFrame } from "../voiceover/segment-cut"
+import { collectWordCutCandidates } from "./word-cuts"
 import type { AlignedScene } from "../transcription/align"
 
 export interface SplitLineInput {
@@ -96,16 +104,31 @@ interface Pause {
   durationSec: number
 }
 
-/** Паузы между соседними словами реплики. */
-function collectPauses(scene: AlignedScene): Pause[] {
-  const words = [...scene.words].sort((a, b) => a.startSec - b.startSec)
-  const pauses: Pause[] = []
-  for (let index = 0; index + 1 < words.length; index += 1) {
-    const startSec = words[index]!.endSec
-    const endSec = words[index + 1]!.startSec
-    if (endSec > startSec) pauses.push({ startSec, endSec, durationSec: endSec - startSec })
-  }
-  return pauses
+interface CutCandidates {
+  /** Настоящие паузы реплики — ступени 1-3 порядка §5.3. */
+  pauses: Pause[]
+  /** Стыки слов (нулевой ширины) — ступень 3-бис, см. {@link resolveIteration}. */
+  junctions: Pause[]
+}
+
+/**
+ * Кандидаты на рез внутри реплики: паузы и стыки слов, раздельно.
+ *
+ * Раньше функция возвращала один список и брала только интервалы
+ * положительной ширины. На слитной транскрипции (`incredibly-fast-whisper`,
+ * ролик 34) список выходил пустым, и КАЖДАЯ итерация дробления падала в
+ * ветку 4 — рез ровно по потолку модели, то есть заведомо посреди слова.
+ * Стыки собираются отдельным тиром, чтобы приоритет пауз §5.3 остался
+ * буквальным, а не «кто ближе».
+ */
+function collectCutCandidates(scene: AlignedScene): CutCandidates {
+  const { pauses, junctions } = collectWordCutCandidates(scene.words)
+  const withDuration = (gap: { startSec: number, endSec: number }): Pause => ({
+    startSec: gap.startSec,
+    endSec: gap.endSec,
+    durationSec: gap.endSec - gap.startSec,
+  })
+  return { pauses: pauses.map(withDuration), junctions: junctions.map(withDuration) }
 }
 
 /** Пауза достаточной длины, чтобы смена плана в ней выглядела намеренной. */
@@ -172,12 +195,15 @@ interface IterationResult {
 function resolveIteration(
   cursor: number,
   limit: number,
-  pauses: readonly Pause[],
+  candidates: CutCandidates,
   brollAllowed: boolean,
   fps: number,
   sceneOrder: number,
 ): IterationResult {
-  const inRange = pauses.filter(pause => pause.startSec > cursor && pause.endSec <= limit)
+  const inRangeOf = (list: readonly Pause[]): Pause[] =>
+    list.filter(pause => pause.startSec > cursor && pause.endSec <= limit)
+  const inRange = inRangeOf(candidates.pauses)
+  const inRangeJunctions = inRangeOf(candidates.junctions)
   // И-4: ни один рез, ограниченный потолком, не имеет права уйти ЗА него —
   // `snapSecToFrame` округляет к ближайшему кадру и на некратном fps может
   // дать точку выше `limit`; `floorToFrame` — граница НЕ ПОЗЖЕ `limit`.
@@ -261,9 +287,32 @@ function resolveIteration(
     }
   }
 
+  // 3-бис. Стык слов (боевой дефект ролика 34, 28.08.2026). Ни одна ПАУЗА не
+  //    подошла — но конец одного слова, совпавший с началом следующего, тоже
+  //    законная точка реза: она не разрезает ни одного слова, у неё просто
+  //    нулевая ширина. Ступень стоит ПОСЛЕ всех паузных, потому что рез на
+  //    стыке резче реза в паузе (§5.3 п.1), и ПЕРЕД веткой 4, потому что
+  //    ветка 4 режет по потолку модели, то есть где придётся — в том числе
+  //    посреди слова. На слитной транскрипции (`incredibly-fast-whisper`
+  //    отдаёт слова встык) ветка 4 срабатывала на КАЖДОЙ итерации, и каждый
+  //    рез приходился на живое слово.
+  const junctionsByProximityToLimit = inRangeJunctions.slice().sort((a, b) => b.startSec - a.startSec)
+  for (const junction of junctionsByProximityToLimit) {
+    const cut = Math.min(snapSecToFrame(junction.startSec, fps), capSec)
+    if (ensuresAdvance(cursor, cut, fps) && isMeaningfulPart(cursor, cut)) {
+      return {
+        part: { startSec: cursor, endSec: cut },
+        interlude: null,
+        nextCursor: cut,
+        warn: `WARN реплику сцены ${sceneOrder} пришлось резать по стыку слов в ${cut.toFixed(2)}с: `
+          + `в транскрипции нет ни одной подходящей паузы, но стык хотя бы не разрезает слово`,
+      }
+    }
+  }
+
   // 4. Вырожденный случай: ни один кандидат из 1-3 не дал одновременно
-  //    гарантированное продвижение И монтажно осмысленную часть (либо пауз в
-  //    диапазоне вообще нет — слова идут встык). Резать по потолку модели —
+  //    гарантированное продвижение И монтажно осмысленную часть (либо ни пауз,
+  //    ни стыков в диапазоне вообще нет). Резать по потолку модели —
   //    единственный оставшийся способ гарантировать продвижение; монтажный
   //    минимум здесь НЕ проверяется (см. докстринг модуля, И-1/И-3): это
   //    последний рубеж перед зависанием, а не выбор среди альтернатив.
@@ -320,7 +369,7 @@ export function splitLongPresenterLine(input: SplitLineInput): SplitLineResult {
     }
   }
 
-  const pauses = collectPauses(scene)
+  const candidates = collectCutCandidates(scene)
   const parts: Array<{ startSec: number, endSec: number }> = []
   const interludes: Array<{ startSec: number, endSec: number }> = []
   const warnings: string[] = []
@@ -328,7 +377,7 @@ export function splitLongPresenterLine(input: SplitLineInput): SplitLineResult {
   let cursor = startSec
   while (endSec - cursor > maxDurationSec) {
     const limit = cursor + maxDurationSec
-    const result = resolveIteration(cursor, limit, pauses, input.brollAllowed, fps, scene.order)
+    const result = resolveIteration(cursor, limit, candidates, input.brollAllowed, fps, scene.order)
 
     parts.push(result.part)
     if (result.interlude) interludes.push(result.interlude)

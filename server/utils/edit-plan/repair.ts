@@ -88,15 +88,11 @@ import {
   validateShotPlan,
   wordEdgeToleranceSec,
 } from "./validate"
+import { collectWordCutCandidates } from "./word-cuts"
 import type { PlannedShot, ShotPlan } from "./types"
 import type { ResolvedEditProfile } from "./profile"
 import type { ShotPlanContext, ShotPlanViolation } from "./validate"
-
-/** Межсловные интервалы: пары (конец слова, начало следующего) плюс тишина по краям. */
-interface WordGap {
-  startSec: number
-  endSec: number
-}
+import type { WordCutCandidates, WordGap } from "./word-cuts"
 
 /** Отрезок таймлайна на промежуточном шаге ремонта — до материализации в `PlannedShot`. */
 interface Segment {
@@ -189,32 +185,36 @@ export function absoluteMinShotSec(fps: number): number {
   return Number.isFinite(fps) && fps > 0 ? ABSOLUTE_MIN_FRAMES / fps : 0
 }
 
-function collectGaps(context: ShotPlanContext, timelineEnd: number): WordGap[] {
+/**
+ * Куда ремонт имеет право двигать границу: щели (тир 1) и стыки слов (тир 2).
+ *
+ * Тир 2 — боевой дефект ролика 34 (28.08.2026, см. `word-cuts.ts`): на слитной
+ * транскрипции щелей нет НИ ОДНОЙ (кроме краевой тишины), список выходил
+ * пустым, `resolveBoundary` не находила куда двигать границу и честно
+ * оставляла её посреди слова. Ремонт не мог починить `word_split`, раннер шёл
+ * на второй платный запрос к модели, а тот геометрию изменить не мог в
+ * принципе (`materializeShots` берёт границы только из сетки) — и шаг падал.
+ */
+function collectGaps(context: ShotPlanContext, timelineEnd: number): WordCutCandidates {
   const words = context.alignedScenes
     .flatMap(scene => scene.words)
     .slice()
     .sort((a, b) => a.startSec - b.startSec)
 
-  if (words.length === 0) return []
+  if (words.length === 0) return { pauses: [], junctions: [] }
 
-  const gaps: WordGap[] = []
+  const { pauses, junctions } = collectWordCutCandidates(words)
 
   // Тишина до первого слова и после последнего — тоже щель (Important 4
   // ревью): это самые естественные точки реза, а прежняя реализация видела
   // только пары СОСЕДНИХ слов и на разреженном материале теряла две самые
   // широкие щели трека.
-  if (words[0]!.startSec > 0) gaps.push({ startSec: 0, endSec: words[0]!.startSec })
-
-  for (let index = 0; index + 1 < words.length; index += 1) {
-    const end = words[index]!.endSec
-    const next = words[index + 1]!.startSec
-    if (next > end) gaps.push({ startSec: end, endSec: next })
-  }
+  if (words[0]!.startSec > 0) pauses.unshift({ startSec: 0, endSec: words[0]!.startSec })
 
   const lastWordEnd = words[words.length - 1]!.endSec
-  if (lastWordEnd < timelineEnd) gaps.push({ startSec: lastWordEnd, endSec: timelineEnd })
+  if (lastWordEnd < timelineEnd) pauses.push({ startSec: lastWordEnd, endSec: timelineEnd })
 
-  return gaps
+  return { pauses, junctions }
 }
 
 /**
@@ -239,6 +239,39 @@ function nearestPointInGap(gap: WordGap, desiredSec: number, margin: number): nu
   const hi = gap.endSec - margin
   if (lo > hi) return (gap.startSec + gap.endSec) / 2
   return Math.min(Math.max(desiredSec, lo), hi)
+}
+
+/**
+ * Ближайшая к `desiredSec` безопасная точка среди `gaps` в пределах `windowSec`.
+ * `accept` — дополнительное условие вызывающего (например «точка обязана
+ * соблюдать потолок»), null — подходящей точки нет.
+ *
+ * Вынесено из {@link resolveBoundary}, чтобы перебор кандидатов шёл ТИРАМИ
+ * (сначала щели, потом стыки слов) одним и тем же кодом в обоих местах поиска,
+ * а не двумя разошедшимися копиями.
+ */
+function bestPointAmong(
+  words: readonly { startSec: number, endSec: number }[],
+  gaps: readonly WordGap[],
+  desiredSec: number,
+  fps: number,
+  windowSec: number,
+  margin: number,
+  accept?: (point: number) => boolean,
+): number | null {
+  let best: number | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const gap of gaps) {
+    const point = nearestPointInGap(gap, desiredSec, margin)
+    if (splitsWord(words, point, fps)) continue
+    if (accept && !accept(point)) continue
+    const distance = Math.abs(point - desiredSec)
+    if (distance <= windowSec && distance < bestDistance) {
+      bestDistance = distance
+      best = point
+    }
+  }
+  return best
 }
 
 /**
@@ -282,7 +315,7 @@ function nearestPointInGap(gap: WordGap, desiredSec: number, margin: number): nu
  */
 function resolveBoundary(
   words: readonly { startSec: number, endSec: number }[],
-  gaps: readonly WordGap[],
+  gaps: WordCutCandidates,
   desiredSec: number,
   fps: number,
   windowSec: number,
@@ -299,17 +332,15 @@ function resolveBoundary(
   // `halfFrameSec(fps) * 2`, никак не связанный с `wordEdgeToleranceSec`.
   const margin = wordEdgeToleranceSec(fps)
 
-  let best: number | null = null
-  let bestDistance = Number.POSITIVE_INFINITY
-  for (const gap of gaps) {
-    const point = nearestPointInGap(gap, desiredSec, margin)
-    if (splitsWord(words, point, fps)) continue
-    const distance = Math.abs(point - desiredSec)
-    if (distance <= windowSec && distance < bestDistance) {
-      bestDistance = distance
-      best = point
-    }
-  }
+  // Тиры, а не одно расстояние (боевой дефект ролика 34): щель шириной больше
+  // нуля побеждает стык слов, даже если стык ближе к желаемой точке — рез в
+  // паузе выглядит намеренным, рез на стыке резче (§5.3 п.1). Стык
+  // рассматривается, только когда ни одна щель в окно не попала: он не рвёт
+  // слово, а значит всё равно лучше, чем оставить границу посреди слова.
+  // Побочное следствие приоритета: на транскрипции С паузами ремонт ведёт себя
+  // ровно как раньше — до второго тира перебор не доходит.
+  const best = bestPointAmong(words, gaps.pauses, desiredSec, fps, windowSec, margin)
+    ?? bestPointAmong(words, gaps.junctions, desiredSec, fps, windowSec, margin)
   // Math.min с timelineEnd — защита по построению: щель приходит из
   // collectGaps и не должна вылезать за конец таймлайна, но граница обязана
   // держать инвариант «не позже конца трека» без исключений (Critical 2/Н-2).
@@ -656,7 +687,7 @@ function mergeShortSegments(
  */
 function findCapRespectingPoint(
   words: readonly { startSec: number, endSec: number }[],
-  gaps: readonly WordGap[],
+  gaps: WordCutCandidates,
   desiredSec: number,
   side: "end" | "start",
   fps: number,
@@ -664,19 +695,10 @@ function findCapRespectingPoint(
   timelineEnd: number,
   margin: number,
 ): number | null {
-  let best: number | null = null
-  let bestDistance = Number.POSITIVE_INFINITY
-  for (const gap of gaps) {
-    const point = nearestPointInGap(gap, desiredSec, margin)
-    if (splitsWord(words, point, fps)) continue
-    const respectsCap = side === "end" ? point <= desiredSec : point >= desiredSec
-    if (!respectsCap) continue
-    const distance = Math.abs(point - desiredSec)
-    if (distance <= windowSec && distance < bestDistance) {
-      bestDistance = distance
-      best = point
-    }
-  }
+  const respectsCap = (point: number): boolean => side === "end" ? point <= desiredSec : point >= desiredSec
+  // Тиры — та же причина и тот же порядок, что в {@link resolveBoundary}.
+  const best = bestPointAmong(words, gaps.pauses, desiredSec, fps, windowSec, margin, respectsCap)
+    ?? bestPointAmong(words, gaps.junctions, desiredSec, fps, windowSec, margin, respectsCap)
   if (best === null) return null
   return snapSecToFrame(Math.min(best, timelineEnd), fps)
 }
@@ -708,7 +730,7 @@ function relieveOversizedPresenters(
   segments: Segment[],
   context: { lipSyncMaxDurationSec: number, fps: number },
   words: readonly { startSec: number, endSec: number }[],
-  gaps: readonly WordGap[],
+  gaps: WordCutCandidates,
   windowSec: number,
   timelineEnd: number,
   eps: number,

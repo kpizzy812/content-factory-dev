@@ -9,6 +9,11 @@
  * перебивки между частями одной реплики (sceneOrder: null — они не привязаны
  * ни к какой реплике).
  *
+ * Кандидаты на рез приходят из `word-cuts.ts` двумя тирами — паузы и стыки
+ * слов (боевой дефект ролика 34, 28.08.2026: на слитной транскрипции пауз нет
+ * ни одной, и сетка резала наивно по `cursor + shotChangeSec`, то есть по
+ * живому слову). Приоритет паузы над стыком см. в {@link nearestCut}.
+ *
  * Сетка не обязана быть идеальной: `repairShotPlan` (Task 3) — гарантированный
  * второй проход, который приводит границы к консистентному виду (не рвёт
  * слово, без дыр и нахлёстов) независимо от того, что вернула модель. Здесь
@@ -18,7 +23,9 @@
  */
 
 import { splitLongPresenterLine } from "./split-line"
+import { collectWordCutCandidates } from "./word-cuts"
 import { snapSecToFrame } from "../voiceover/segment-cut"
+import type { WordCutCandidates, WordGap } from "./word-cuts"
 import type { AlignedScene, AlignedWord } from "../transcription/align"
 
 export interface ShotGridCell {
@@ -48,29 +55,8 @@ export interface ShotGridResult {
   warnings: string[]
 }
 
-interface WordGap {
-  startSec: number
-  endSec: number
-}
-
-/** Межсловные интервалы отрезка: пары (конец слова, начало следующего). */
-function wordGaps(words: readonly AlignedWord[]): WordGap[] {
-  const sorted = [...words].sort((a, b) => a.startSec - b.startSec)
-  const gaps: WordGap[] = []
-  for (let index = 0; index + 1 < sorted.length; index += 1) {
-    const end = sorted[index]!.endSec
-    const next = sorted[index + 1]!.startSec
-    if (next > end) gaps.push({ startSec: end, endSec: next })
-  }
-  return gaps
-}
-
-/**
- * Точка реза около `desired`, ограниченная интервалом `(lo, hi)`: ближайший
- * межсловный интервал, иначе — наивная точка, притянутая к кадру (может
- * прийтись на середину слова — на этот случай и существует `repairShotPlan`).
- */
-function nearestCut(desired: number, gaps: readonly WordGap[], lo: number, hi: number, fps: number): number {
+/** Ближайшая к `desired` точка внутри одного из `gaps`, зажатая интервалом `(lo, hi)`. */
+function nearestPointAmong(desired: number, gaps: readonly WordGap[], lo: number, hi: number): number | null {
   let best: number | null = null
   let bestDistance = Number.POSITIVE_INFINITY
   for (const gap of gaps) {
@@ -82,7 +68,27 @@ function nearestCut(desired: number, gaps: readonly WordGap[], lo: number, hi: n
       best = point
     }
   }
-  const raw = best ?? desired
+  return best
+}
+
+/**
+ * Точка реза около `desired`, ограниченная интервалом `(lo, hi)`.
+ *
+ * Порядок — тиры {@link WordCutCandidates}, а не одно расстояние (боевой дефект
+ * ролика 34, 28.08.2026): сначала настоящие паузы, и только если ни одна не
+ * попала в допустимый интервал — стыки слов. Приоритет именно такой, а не «кто
+ * ближе»: смена плана в паузе выглядит намеренной, на стыке слов она резче,
+ * поэтому близкий стык не имеет права перебивать паузу, до которой дальше.
+ * Побочное следствие приоритета — на транскрипции С паузами поведение сетки не
+ * меняется вовсе: стыки до перебора просто не доходят.
+ *
+ * Не нашлось ни того, ни другого — наивная точка, притянутая к кадру (может
+ * прийтись на середину слова, на этот случай и существует `repairShotPlan`).
+ */
+function nearestCut(desired: number, candidates: WordCutCandidates, lo: number, hi: number, fps: number): number {
+  const raw = nearestPointAmong(desired, candidates.pauses, lo, hi)
+    ?? nearestPointAmong(desired, candidates.junctions, lo, hi)
+    ?? desired
   return snapSecToFrame(Math.min(Math.max(raw, lo), hi), fps)
 }
 
@@ -101,7 +107,7 @@ function sliceRange(
     return [{ startSec, endSec }]
   }
 
-  const gaps = wordGaps(words)
+  const candidates = collectWordCutCandidates(words)
   const minAdvance = Math.max(targetSec * 0.5, Number.isFinite(fps) && fps > 0 ? 1 / fps : 1 / 60)
   const cuts: number[] = []
   let cursor = startSec
@@ -112,7 +118,7 @@ function sliceRange(
   while (endSec - cursor > targetSec * 1.5 && guard < MAX_CUTS_PER_RANGE) {
     guard += 1
     const desired = cursor + targetSec
-    const cut = nearestCut(desired, gaps, cursor + minAdvance, endSec - minAdvance, fps)
+    const cut = nearestCut(desired, candidates, cursor + minAdvance, endSec - minAdvance, fps)
     if (!(cut > cursor + 1e-9)) break // некуда продвигаться — отдаём остаток одним отрезком
     cuts.push(cut)
     cursor = cut
